@@ -1,3 +1,4 @@
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
@@ -23,13 +24,71 @@ class CarePathRepository {
     required PracticeRepository practiceRepository,
     GardenGrowthRepository? gardenGrowthRepository,
     CarePathReactionRecordedHook? onReactionRecorded,
+    OnboardingCareTurnContinuationPort? onboardingContinuationPort,
   }) : _practiceRepository = practiceRepository,
        _gardenGrowthRepository = gardenGrowthRepository,
-       _onReactionRecorded = onReactionRecorded;
+       _onReactionRecorded = onReactionRecorded,
+       _onboardingContinuationPort = onboardingContinuationPort;
 
   final PracticeRepository _practiceRepository;
   final GardenGrowthRepository? _gardenGrowthRepository;
   final CarePathReactionRecordedHook? _onReactionRecorded;
+  final OnboardingCareTurnContinuationPort? _onboardingContinuationPort;
+
+  Future<CareTurnSnapshot> startContinuation(
+    OnboardingCareTurnHandoff handoff,
+  ) async {
+    try {
+      final port = _onboardingContinuationPort;
+      if (port == null) {
+        throw StateError('onboarding continuation port 未配置。');
+      }
+      final verified = await port.verify(handoff);
+      final catalog = await _practiceRepository.getActivityCatalog();
+      final summary = catalog.findActivity(
+        spaceId: verified.spaceId,
+        activityId: verified.activityId,
+      );
+      final activity = await _practiceRepository.getActivitySnapshot(
+        spaceId: verified.spaceId,
+        activityId: verified.activityId,
+      );
+      if (activity.spaceId != verified.spaceId ||
+          activity.activityId != verified.activityId) {
+        throw const FormatException('onboarding continuation scope 不匹配。');
+      }
+      return CareTurnSnapshot(
+        moment: _buildMoment(
+          activity: activity,
+          summary: summary,
+          nodeState: CarePathNodeState.current,
+        ).copyWith(title: verified.entryTitle),
+        currentUtterance: CareUtterance(
+          phraseId: verified.utteranceId,
+          english: verified.english,
+          chinese: verified.chinese,
+          pronunciation: '',
+          audioAsset: null,
+          whenToSay: '接着刚才，轻轻说这一句。',
+          isFallback: verified.source == OnboardingCareTurnSource.localFallback,
+          sourceIdentity: verified.source.wireValue,
+        ),
+        selectedReaction: null,
+        nextSupportUtterance: null,
+        phase: CareTurnPhase.utteranceReady,
+        traceEventKey: null,
+        latestGardenImpact: null,
+        message: null,
+        onboardingContinuation: verified,
+      );
+    } catch (_) {
+      return _unavailableSnapshot(
+        spaceId: handoff.spaceId,
+        activityId: handoff.activityId,
+        message: '刚才的下一句暂时无法核验，请返回今天重试。',
+      );
+    }
+  }
 
   Future<CareTurnSnapshot> loadCurrentTurn({
     String? starterSpaceId,
@@ -175,6 +234,15 @@ class CarePathRepository {
         failureKind: CareTurnFailureKind.reactionRejected,
       );
     }
+    final continuation = turn.onboardingContinuation;
+    if (continuation != null) {
+      return _recordContinuationReaction(
+        turn: turn,
+        handoff: continuation,
+        reactionType: reactionType,
+        clientTimestamp: clientTimestamp,
+      );
+    }
     final isGenerated =
         turn.moment.contentSource == PracticeContentSource.generated;
     final generatedAudio = utterance.audioSource;
@@ -250,6 +318,53 @@ class CarePathRepository {
         selectedReaction: reactionType,
         message: '刚才的回应可能已经保存，正在确认。请再试一次。',
         failureKind: CareTurnFailureKind.reactionUnknownOutcome,
+      );
+    } catch (_) {
+      return turn.copyWith(
+        phase: CareTurnPhase.error,
+        selectedReaction: reactionType,
+        message: '暂时无法完成这次回应，请再试一次。',
+        failureKind: CareTurnFailureKind.reactionUnknownOutcome,
+      );
+    }
+  }
+
+  Future<CareTurnSnapshot> _recordContinuationReaction({
+    required CareTurnSnapshot turn,
+    required OnboardingCareTurnHandoff handoff,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+  }) async {
+    final port = _onboardingContinuationPort;
+    if (port == null) {
+      return turn.copyWith(
+        phase: CareTurnPhase.error,
+        selectedReaction: reactionType,
+        message: '暂时无法完成这次回应，请再试一次。',
+        failureKind: CareTurnFailureKind.localStateUnavailable,
+      );
+    }
+    try {
+      final record = await port.recordReaction(
+        handoff: handoff,
+        reaction: reactionType.wireValue,
+        occurredAt: (clientTimestamp ?? DateTime.now()).toUtc(),
+      );
+      final nextTurn = await startMoment(
+        spaceId: handoff.spaceId,
+        activityId: handoff.activityId,
+      );
+      final nextSupport = nextTurn.currentUtterance;
+      return turn.copyWith(
+        selectedReaction: reactionType,
+        nextSupportUtterance: nextSupport,
+        phase: nextSupport == null
+            ? CareTurnPhase.heldWithFallback
+            : CareTurnPhase.nextSupportReady,
+        traceEventKey: record.eventId,
+        latestGardenImpact: await _loadLatestGardenImpact(),
+        message: nextSupport == null ? '刚才这句话已经记下了。下一句暂时没有准备好，先这样就好。' : null,
+        failureKind: null,
       );
     } catch (_) {
       return turn.copyWith(

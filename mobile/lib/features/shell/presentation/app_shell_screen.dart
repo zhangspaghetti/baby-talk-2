@@ -30,18 +30,28 @@ class AppShellScreen extends ConsumerStatefulWidget {
     super.key,
     this.onboardingSnapshot,
     this.customSceneEnabled = customSceneFeatureEnabledByDefault,
+    this.initialDestination = AppShellDestination.today,
   });
 
   final OnboardingSnapshot? onboardingSnapshot;
   final bool customSceneEnabled;
+  final AppShellDestination initialDestination;
 
   @override
   ConsumerState<AppShellScreen> createState() => _AppShellScreenState();
 }
 
 class _AppShellScreenState extends ConsumerState<AppShellScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
   GrowthTab _gardenInitialTab = GrowthTab.garden;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialDestination == AppShellDestination.garden
+        ? 2
+        : 0;
+  }
 
   void _openGardenTab(GrowthTab tab) {
     final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);

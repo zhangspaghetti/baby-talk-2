@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 
@@ -468,17 +469,17 @@ final class OnboardingConversationController extends ChangeNotifier {
     return _resolveNextSupport(null, reactionEpoch: reactionEpoch);
   }
 
-  Future<void> complete() async {
-    if (_state.phase == OnboardingConversationPhase.completed ||
-        _state.phase == OnboardingConversationPhase.completing) {
-      return;
-    }
+  Future<bool> complete() async {
+    if (_state.phase == OnboardingConversationPhase.completed) return true;
+    if (_state.phase == OnboardingConversationPhase.completing) return false;
     final checkpoint = _requireCheckpoint();
     if (checkpoint.phraseSaidEventId == null) {
       throw StateError('PhraseSaid 尚未持久化，不能完成 Care Turn。');
     }
     _reactionEpoch += 1;
     _reactionTimeout?.cancel();
+    _nextSupportTimeout?.cancel();
+    _activeNextSupportRace?.complete();
     _publish(_stateFor(checkpoint, OnboardingConversationPhase.completing));
     try {
       final persisted = await _repository.complete(
@@ -486,10 +487,11 @@ final class OnboardingConversationController extends ChangeNotifier {
         completionId: _idGenerator(),
         completedAt: _clock().toUtc(),
       );
-      if (_disposed) return;
+      if (_disposed) return false;
       _applyCheckpoint(persisted);
+      return true;
     } on Object {
-      if (_disposed) return;
+      if (_disposed) return false;
       _publish(
         _stateFor(
           checkpoint,
@@ -497,7 +499,31 @@ final class OnboardingConversationController extends ChangeNotifier {
           errorMessage: '这一刻还没保存好，请再试一次。',
         ),
       );
+      return false;
     }
+  }
+
+  Future<OnboardingCareTurnHandoff?> continueToCareTurn() async {
+    final checkpoint = _requireCheckpoint();
+    final support = _supportFromCheckpoint(checkpoint);
+    final source = checkpoint.nextSupportSource;
+    final entry = _state.activeEntry;
+    if (support == null || source == null || entry == null) return null;
+    if (!await complete()) return null;
+    final completionId = _requireCheckpoint().completionId;
+    if (completionId == null) return null;
+    return OnboardingCareTurnHandoff(
+      completionId: completionId,
+      spaceId: entry.seed.fallback.spaceId,
+      activityId: entry.seed.fallback.activityId,
+      entryTitle: entry.title,
+      utteranceId: support.id.value,
+      english: support.english,
+      chinese: support.chinese,
+      source: source == OnboardingUtteranceSource.remoteGenerated
+          ? OnboardingCareTurnSource.remoteGenerated
+          : OnboardingCareTurnSource.localFallback,
+    );
   }
 
   Future<bool> defer() async {

@@ -28,3 +28,5 @@ class AppRouteNames {
     '/onboarding/garden-welcome',
   };
 }
+
+enum AppShellDestination { today, garden }

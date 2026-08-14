@@ -21,6 +21,8 @@ createLocalSensitiveDataClearanceOrchestrator({
   customSceneDraftContinuationCoordinator,
   required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
   required GeneratedAudioMemoryCache generatedAudioMemoryCache,
+  required LocalSensitiveDataClearanceCallback
+  onboardingCareTurnContinuationClearance,
 }) {
   return RegistryLocalSensitiveDataClearanceOrchestrator(
     steps: createLocalSensitiveDataClearanceSteps(
@@ -34,6 +36,8 @@ createLocalSensitiveDataClearanceOrchestrator({
           customSceneDraftContinuationCoordinator,
       generatedPracticeContentRegistry: generatedPracticeContentRegistry,
       generatedAudioMemoryCache: generatedAudioMemoryCache,
+      onboardingCareTurnContinuationClearance:
+          onboardingCareTurnContinuationClearance,
     ),
   );
 }
@@ -49,6 +53,8 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
   customSceneDraftContinuationCoordinator,
   required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
   required GeneratedAudioMemoryCache generatedAudioMemoryCache,
+  required LocalSensitiveDataClearanceCallback
+  onboardingCareTurnContinuationClearance,
 }) {
   return <LocalSensitiveDataClearanceStep>[
     LocalSensitiveDataClearanceStep(
@@ -81,6 +87,12 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       target: LocalSensitiveDataTarget.onboardingSnapshot,
       primitiveName: 'OnboardingRepository.clearAllLocalState',
       clear: onboardingRepository.clearAllLocalState,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.onboardingCareTurnContinuation,
+      primitiveName:
+          'FileOnboardingCareTurnContinuationStore.clearForLifecycle',
+      clear: onboardingCareTurnContinuationClearance,
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.householdSnapshot,

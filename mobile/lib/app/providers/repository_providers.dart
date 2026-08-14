@@ -19,6 +19,8 @@ import 'package:mobile/features/account/data/local/auth_continuation_store.dart'
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/care_entry/data/file_onboarding_care_turn_continuation_store.dart';
+import 'package:mobile/features/care_entry/presentation/care_entry_providers.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_api.dart';
@@ -552,6 +554,9 @@ final localSensitiveDataClearanceOrchestratorProvider =
       final generatedAudioMemoryCache = ref.watch(
         generatedAudioMemoryCacheProvider,
       );
+      final onboardingCareTurnContinuationStore = ref.watch(
+        onboardingCareTurnContinuationStoreProvider,
+      );
 
       return createLocalSensitiveDataClearanceOrchestrator(
         accountRepository: accountRepository,
@@ -564,6 +569,8 @@ final localSensitiveDataClearanceOrchestratorProvider =
             customSceneDraftContinuationCoordinator,
         generatedPracticeContentRegistry: generatedPracticeContentRegistry,
         generatedAudioMemoryCache: generatedAudioMemoryCache,
+        onboardingCareTurnContinuationClearance:
+            onboardingCareTurnContinuationStore.clearForLifecycle,
       );
     });
 
@@ -617,17 +624,46 @@ final gardenGrowthNotifierProvider =
 // Care path facade repository & notifier
 // ---------------------------------------------------------------------------
 
-final carePathRepositoryProvider = Provider<CarePathRepository>((ref) {
-  final practiceRepository = ref.watch(practiceRepositoryProvider).requireValue;
-  final responseLossHarness = M1OnboardingResponseLossHarness.fromDartDefines(
-    practiceRepository: practiceRepository,
-  );
-  return CarePathRepository(
-    practiceRepository: practiceRepository,
-    gardenGrowthRepository: ref.watch(gardenGrowthRepositoryProvider),
-    onReactionRecorded: responseLossHarness?.afterReactionRecorded,
-  );
-}, dependencies: [practiceRepositoryProvider, gardenGrowthRepositoryProvider]);
+final onboardingCareTurnContinuationStoreProvider =
+    Provider<FileOnboardingCareTurnContinuationStore>(
+      (ref) {
+        final appDirectory = ref.watch(appDirectoryProvider).requireValue;
+        return FileOnboardingCareTurnContinuationStore(
+          conversationRepository: ref.watch(
+            onboardingConversationRepositoryProvider,
+          ),
+          directoryResolver: () async => appDirectory,
+        );
+      },
+      dependencies: [
+        onboardingConversationRepositoryProvider,
+        appDirectoryProvider,
+      ],
+    );
+
+final carePathRepositoryProvider = Provider<CarePathRepository>(
+  (ref) {
+    final practiceRepository = ref
+        .watch(practiceRepositoryProvider)
+        .requireValue;
+    final responseLossHarness = M1OnboardingResponseLossHarness.fromDartDefines(
+      practiceRepository: practiceRepository,
+    );
+    return CarePathRepository(
+      practiceRepository: practiceRepository,
+      gardenGrowthRepository: ref.watch(gardenGrowthRepositoryProvider),
+      onReactionRecorded: responseLossHarness?.afterReactionRecorded,
+      onboardingContinuationPort: ref.watch(
+        onboardingCareTurnContinuationStoreProvider,
+      ),
+    );
+  },
+  dependencies: [
+    practiceRepositoryProvider,
+    gardenGrowthRepositoryProvider,
+    onboardingCareTurnContinuationStoreProvider,
+  ],
+);
 
 final carePathNotifierProvider = ChangeNotifierProvider<CarePathNotifier>((
   ref,

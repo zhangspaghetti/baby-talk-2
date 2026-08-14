@@ -13,6 +13,7 @@ import 'package:mobile/app/onboarding_v4_migration.dart';
 import 'package:mobile/app/router/account_route_builder.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/router/root_navigator_key.dart';
+import 'package:mobile/app/router/onboarding_care_turn_handoff.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -399,7 +400,12 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
                 : launchState.completedSnapshot;
             return _BootRouteMarker(
               routeKey: const Key('boot-route-shell'),
-              child: AppShellScreen(onboardingSnapshot: routedSnapshot),
+              child: AppShellScreen(
+                onboardingSnapshot: routedSnapshot,
+                initialDestination: state.extra is AppShellDestination
+                    ? state.extra! as AppShellDestination
+                    : AppShellDestination.today,
+              ),
             );
           },
         ),
@@ -410,6 +416,30 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             child: CareEntryOnboardingScreen(
               onDeferred: () {
                 if (context.mounted) context.go(AppRouteNames.shell);
+              },
+              onContinueCareTurn: (handoff) {
+                if (context.mounted) {
+                  context.go(
+                    AppRouteNames.practice,
+                    extra: onboardingCareTurnRouteArgs(handoff),
+                  );
+                }
+              },
+              onToday: () {
+                if (context.mounted) {
+                  context.go(
+                    AppRouteNames.shell,
+                    extra: AppShellDestination.today,
+                  );
+                }
+              },
+              onGarden: () {
+                if (context.mounted) {
+                  context.go(
+                    AppRouteNames.shell,
+                    extra: AppShellDestination.garden,
+                  );
+                }
               },
             ),
           ),
@@ -578,6 +608,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       destination: resolveOnboardingLaunchDestination(
         completedSnapshot: authState.completedSnapshot,
         conversationSnapshot: conversationSnapshot,
+        hasExistingCareActivity: featureGates.hasExistingCareActivity,
       ),
       starterArgs: featureGates.starterArgs,
       defaultPracticeArgs: featureGates.defaultPracticeArgs,

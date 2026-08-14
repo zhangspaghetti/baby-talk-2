@@ -16,6 +16,7 @@ enum LocalSensitiveDataTarget {
   generatedCareMoments,
   generatedAudioMemory,
   onboardingSnapshot,
+  onboardingCareTurnContinuation,
   householdSnapshot,
   practiceInteractionEvents,
   mentorFactEvents,

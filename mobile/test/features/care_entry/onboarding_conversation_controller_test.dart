@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 import 'package:mobile/features/care_entry/presentation/onboarding_conversation_controller.dart';
@@ -901,6 +902,87 @@ void main() {
         repository.snapshot?.gardenTrace?.careEntryId.value,
         'care.bedtime_soothing',
       );
+    },
+  );
+
+  test(
+    'continue handoff keeps exact next support identity and source',
+    () async {
+      final scheduler = _ManualScheduler();
+      final repository = _MemoryConversationRepository();
+      final ids = <String>['phrase-for-handoff', 'completion-for-handoff'];
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: scheduler,
+        clock: () => DateTime.utc(2026, 8, 14, 20),
+        idGenerator: () => ids.removeAt(0),
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      await controller.startSelected();
+      await controller.markPhraseSaid();
+      final next = controller.continueWithoutReaction();
+      await next;
+
+      final support = controller.state.nextSupport!;
+      final handoff = await controller.continueToCareTurn();
+
+      expect(handoff, isNotNull);
+      expect(handoff!.utteranceId, support.id.value);
+      expect(handoff.english, support.english);
+      expect(handoff.chinese, support.chinese);
+      expect(handoff.source, OnboardingCareTurnSource.localFallback);
+      expect(handoff.spaceId, 'family_rhythm');
+      expect(handoff.activityId, 'bedtime');
+      expect(repository.completionWrites, 1);
+      expect(controller.state.phase, OnboardingConversationPhase.completed);
+    },
+  );
+
+  test(
+    'today finish succeeds while remote next support is unavailable',
+    () async {
+      final scheduler = _ManualScheduler();
+      final gateway = _HeldConversationGateway();
+      final repository = _MemoryConversationRepository();
+      final ids = <String>[
+        'request-before-finish',
+        'phrase-before-finish',
+        'completion-before-next',
+      ];
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: scheduler,
+        clock: () => DateTime.utc(2026, 8, 14, 20),
+        idGenerator: () => ids.removeAt(0),
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-finish-before-next',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      final starting = controller.startSelected();
+      await Future<void>.delayed(Duration.zero);
+      gateway.complete(_remoteConversation('Remote first before finish.'));
+      await starting;
+      await controller.markPhraseSaid();
+      final selecting = controller.selectReaction(CareReaction.hesitant);
+      scheduler.elapse(const Duration(milliseconds: 500));
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.resolvingNextSupport,
+      );
+
+      expect(await controller.complete(), isTrue);
+      await selecting;
+
+      expect(controller.state.phase, OnboardingConversationPhase.completed);
+      expect(controller.state.gardenTraceId, 'phrase-before-finish');
+      expect(repository.completionWrites, 1);
     },
   );
 

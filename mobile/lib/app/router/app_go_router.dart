@@ -5,6 +5,7 @@ import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/account_route_builder.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/router/root_navigator_key.dart';
+import 'package:mobile/app/router/onboarding_care_turn_handoff.dart';
 
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
@@ -26,6 +27,24 @@ GoRouter createAppRouter({
         onDeferred: () {
           if (context.mounted) context.go(AppRouteNames.shell);
         },
+        onContinueCareTurn: (handoff) {
+          if (context.mounted) {
+            context.go(
+              AppRouteNames.practice,
+              extra: onboardingCareTurnRouteArgs(handoff),
+            );
+          }
+        },
+        onToday: () {
+          if (context.mounted) {
+            context.go(AppRouteNames.shell, extra: AppShellDestination.today);
+          }
+        },
+        onGarden: () {
+          if (context.mounted) {
+            context.go(AppRouteNames.shell, extra: AppShellDestination.garden);
+          }
+        },
       );
 
   return GoRouter(
@@ -35,7 +54,12 @@ GoRouter createAppRouter({
       GoRoute(
         path: AppRouteNames.shell,
         builder: (context, state) =>
-            shellBuilder?.call(context) ?? const AppShellScreen(),
+            shellBuilder?.call(context) ??
+            AppShellScreen(
+              initialDestination: state.extra is AppShellDestination
+                  ? state.extra! as AppShellDestination
+                  : AppShellDestination.today,
+            ),
       ),
       GoRoute(
         path: AppRouteNames.onboarding,

@@ -142,8 +142,10 @@ final class OnboardingV4Migration {
 AppLaunchDestination resolveOnboardingLaunchDestination({
   required OnboardingSnapshot? completedSnapshot,
   required OnboardingConversationSnapshot? conversationSnapshot,
+  bool hasExistingCareActivity = false,
 }) {
-  if (completedSnapshot != null ||
+  if (hasExistingCareActivity ||
+      completedSnapshot != null ||
       conversationSnapshot?.status == OnboardingConversationStatus.deferred ||
       conversationSnapshot?.status == OnboardingConversationStatus.completed) {
     return AppLaunchDestination.shell;

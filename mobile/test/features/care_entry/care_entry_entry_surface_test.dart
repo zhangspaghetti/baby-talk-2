@@ -13,7 +13,11 @@ void main() {
     (tester) async {
       final repository = _MemoryConversationRepository();
       final scheduler = _ManualScheduler();
-      final ids = <String>['event.phrase_said.widget', 'completion.widget'];
+      final ids = <String>[
+        'event.phrase_said.widget',
+        'completion.widget',
+        'completion.widget.retry',
+      ];
       final controller = OnboardingConversationController(
         registry: _MemoryRegistry(_resolution()),
         repository: repository,
@@ -22,6 +26,8 @@ void main() {
         idGenerator: () => ids.removeAt(0),
       );
       final audioPlayer = _RecordingAudioPlayer();
+      var todayExits = 0;
+      var gardenExits = 0;
       addTearDown(controller.dispose);
       await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
 
@@ -30,6 +36,8 @@ void main() {
           home: CareEntryEntrySurface(
             controller: controller,
             audioControllerFactory: () => audioPlayer,
+            onToday: () => todayExits += 1,
+            onGarden: () => gardenExits += 1,
           ),
         ),
       );
@@ -108,13 +116,29 @@ void main() {
 
       expect(find.byKey(const Key('care-entry-next-support')), findsOneWidget);
       expect(find.text('Support hesitant.'), findsOneWidget);
+      expect(find.text('继续说下去'), findsOneWidget);
+      expect(find.text('今天先到这里'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('care-entry-complete-action')));
+      repository.failNextCompletion = true;
+      await tester.tap(find.byKey(const Key('care-entry-finish-today-action')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('care-entry-garden-trace')), findsNothing);
+      expect(todayExits, 0);
+      expect(gardenExits, 0);
+
+      await tester.tap(find.byKey(const Key('care-entry-finish-today-action')));
       await tester.pumpAndSettle();
 
       expect(repository.completionWrites, 1);
       expect(find.byKey(const Key('care-entry-garden-trace')), findsOneWidget);
       expect(find.text('第一句已经留在你的小花园里。'), findsOneWidget);
+      expect(find.textContaining('宝宝'), findsOneWidget);
+      expect(find.text('开始今天的小时间'), findsOneWidget);
+      expect(find.text('看看花园'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('care-entry-open-today-action')));
+      await tester.tap(find.byKey(const Key('care-entry-open-garden-action')));
+      expect(todayExits, 1);
+      expect(gardenExits, 1);
     },
   );
 
@@ -239,6 +263,7 @@ final class _MemoryConversationRepository
   int phraseSaidWrites = 0;
   int completionWrites = 0;
   bool failNextDefer = false;
+  bool failNextCompletion = false;
 
   @override
   Future<OnboardingConversationSnapshot?> read() async => snapshot;
@@ -289,6 +314,10 @@ final class _MemoryConversationRepository
     required String completionId,
     required DateTime completedAt,
   }) async {
+    if (failNextCompletion) {
+      failNextCompletion = false;
+      throw StateError('simulated completion failure');
+    }
     final existing = snapshot;
     if (existing?.completionId != null) return existing!;
     completionWrites += 1;

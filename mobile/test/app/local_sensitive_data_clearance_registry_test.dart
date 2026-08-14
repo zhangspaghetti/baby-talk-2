@@ -76,6 +76,8 @@ void main() {
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          onboardingCareTurnContinuationClearance:
+              harness.clearOnboardingCareTurnContinuation,
         );
 
         expect(
@@ -104,6 +106,8 @@ void main() {
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          onboardingCareTurnContinuationClearance:
+              harness.clearOnboardingCareTurnContinuation,
         );
 
         final report = await orchestrator.clear(
@@ -182,6 +186,8 @@ void main() {
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          onboardingCareTurnContinuationClearance:
+              harness.clearOnboardingCareTurnContinuation,
         );
 
         final report = await orchestrator.clear(
@@ -209,6 +215,7 @@ void main() {
             LocalSensitiveDataTargetStatus.attemptedAndSucceeded,
           },
         );
+        expect(harness.onboardingCareTurnContinuationClearCount, 1);
         expect(await harness.accountSnapshotIsStored(), isFalse);
         expect(await harness.onboardingSnapshotStore.read(), isNull);
         expect(await harness.onboardingFlowStore.read(), isNull);
@@ -265,6 +272,8 @@ void main() {
         generatedPracticeContentRegistry:
             harness.generatedPracticeContentRegistry,
         generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+        onboardingCareTurnContinuationClearance:
+            harness.clearOnboardingCareTurnContinuation,
       );
 
       final report = await orchestrator.clear(
@@ -373,6 +382,11 @@ class _LifecycleHarness {
   final AccountRepository accountRepository;
   final HouseholdRepository householdRepository;
   final MentorRepository mentorRepository;
+  int onboardingCareTurnContinuationClearCount = 0;
+
+  Future<void> clearOnboardingCareTurnContinuation() async {
+    onboardingCareTurnContinuationClearCount += 1;
+  }
 
   static Future<_LifecycleHarness> create() async {
     final tempDir = await Directory.systemTemp.createTemp(

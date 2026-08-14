@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
@@ -108,17 +111,13 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
   }
 
   String _routeScopeKey(PracticeRouteEntry routeEntry) {
-    final generatedContentId = routeEntry.generatedArgs?.generatedContentId;
-    if (generatedContentId != null) {
-      return 'generated:$generatedContentId';
-    }
-    final normalized = routeEntry.args!.normalized();
-    return '${normalized.normalizedSpaceId}/${normalized.normalizedActivityId}';
+    return routeEntry.scopeLabel;
   }
 
   void _scheduleStartMoment() {
     final generatedContentId =
         widget.routeEntry.generatedArgs?.generatedContentId;
+    final onboardingArgs = widget.routeEntry.onboardingArgs;
     final normalized = widget.routeEntry.args?.normalized();
     final scopeKey = _routeScopeKey(widget.routeEntry);
     if (_requestedMomentKey == scopeKey && _completedMomentKey == scopeKey) {
@@ -135,7 +134,20 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
       }
       final notifier = ref.read(carePathNotifierProvider);
       final Future<void> future;
-      if (generatedContentId != null) {
+      if (onboardingArgs != null) {
+        future = notifier.startContinuation(
+          OnboardingCareTurnHandoff(
+            completionId: onboardingArgs.completionId,
+            spaceId: onboardingArgs.spaceId,
+            activityId: onboardingArgs.activityId,
+            entryTitle: onboardingArgs.entryTitle,
+            utteranceId: onboardingArgs.utteranceId,
+            english: onboardingArgs.english,
+            chinese: onboardingArgs.chinese,
+            source: onboardingArgs.source,
+          ),
+        );
+      } else if (generatedContentId != null) {
         future = notifier.startGeneratedMoment(
           generatedContentId: generatedContentId,
         );
@@ -168,10 +180,21 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     final snapshot = notifier.snapshot;
     final generatedContentId =
         widget.routeEntry.generatedArgs?.generatedContentId;
+    final onboardingArgs = widget.routeEntry.onboardingArgs;
     final normalizedArgs = widget.routeEntry.args?.normalized();
     final scopeKey = _routeScopeKey(widget.routeEntry);
     final bool hasMatchingSnapshot;
-    if (generatedContentId != null) {
+    if (onboardingArgs != null) {
+      final hasExactSupport =
+          snapshot?.currentUtterance?.phraseId == onboardingArgs.utteranceId &&
+          snapshot?.currentUtterance?.sourceIdentity ==
+              onboardingArgs.source.wireValue;
+      final hasScopedFailure =
+          notifier.phase == CareTurnPhase.error &&
+          snapshot?.moment.spaceId == onboardingArgs.spaceId &&
+          snapshot?.moment.activityId == onboardingArgs.activityId;
+      hasMatchingSnapshot = hasExactSupport || hasScopedFailure;
+    } else if (generatedContentId != null) {
       hasMatchingSnapshot =
           snapshot?.moment.generatedContentId == generatedContentId;
     } else if (normalizedArgs != null) {
@@ -204,7 +227,9 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
               ),
             )
           : null,
-      onQuietExit: () => Navigator.of(context).maybePop(),
+      onQuietExit: onboardingArgs == null
+          ? () => Navigator.of(context).maybePop()
+          : () => context.go(AppRouteNames.shell),
     );
   }
 

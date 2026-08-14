@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
@@ -129,6 +130,50 @@ void main() {
       },
     );
 
+    test('verifies continuation and durably records its reaction', () async {
+      final continuationPort = _MemoryContinuationPort();
+      final continuationNotifier = CarePathNotifier(
+        repository: CarePathRepository(
+          practiceRepository: harness.repository,
+          onboardingContinuationPort: continuationPort,
+        ),
+      );
+      addTearDown(continuationNotifier.dispose);
+      const handoff = OnboardingCareTurnHandoff(
+        completionId: 'completion-1',
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        entryTitle: '洗澡中',
+        utteranceId: 'support.bath.hesitant',
+        english: 'Try when ready.',
+        chinese: '准备好再试。',
+        source: OnboardingCareTurnSource.localFallback,
+      );
+
+      await continuationNotifier.startContinuation(handoff);
+
+      expect(continuationNotifier.phase, CareTurnPhase.utteranceReady);
+      expect(
+        continuationNotifier.snapshot?.currentUtterance?.phraseId,
+        'support.bath.hesitant',
+      );
+      expect(
+        continuationNotifier.snapshot?.currentUtterance?.sourceIdentity,
+        'local_fallback',
+      );
+      continuationNotifier.markSaid();
+      await continuationNotifier.selectReaction(BabyReactionType.hesitant);
+
+      expect(continuationPort.records, hasLength(1));
+      expect(continuationPort.records.single.utteranceId, handoff.utteranceId);
+      expect(continuationPort.records.single.reaction, 'hesitant');
+      expect(
+        continuationNotifier.phase,
+        anyOf(CareTurnPhase.nextSupportReady, CareTurnPhase.heldWithFallback),
+      );
+      expect(continuationNotifier.snapshot?.traceEventKey, isNotNull);
+    });
+
     test('selectReaction before markSaid does not write', () async {
       await notifier.startMoment(
         spaceId: 'daily_care',
@@ -218,4 +263,31 @@ void main() {
       expect(notifier.message, isNull);
     });
   });
+}
+
+final class _MemoryContinuationPort
+    implements OnboardingCareTurnContinuationPort {
+  final List<OnboardingContinuationReactionRecord> records = [];
+
+  @override
+  Future<OnboardingCareTurnHandoff> verify(
+    OnboardingCareTurnHandoff handoff,
+  ) async => handoff;
+
+  @override
+  Future<OnboardingContinuationReactionRecord> recordReaction({
+    required OnboardingCareTurnHandoff handoff,
+    required String reaction,
+    required DateTime occurredAt,
+  }) async {
+    final record = OnboardingContinuationReactionRecord(
+      eventId: 'event-${handoff.completionId}',
+      completionId: handoff.completionId,
+      utteranceId: handoff.utteranceId,
+      reaction: reaction,
+      occurredAt: occurredAt,
+    );
+    records.add(record);
+    return record;
+  }
 }

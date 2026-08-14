@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_path_view_model.dart';
@@ -67,6 +68,14 @@ class CarePathNotifier extends ChangeNotifier {
       loader: () => _repository.startGeneratedMoment(
         generatedContentId: generatedContentId,
       ),
+    );
+  }
+
+  Future<void> startContinuation(OnboardingCareTurnHandoff handoff) {
+    return _runSnapshotOperation(
+      busyPhase: CareTurnPhase.loading,
+      replaceRunning: true,
+      loader: () => _repository.startContinuation(handoff),
     );
   }
 

@@ -10,6 +10,7 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -77,6 +78,25 @@ void main() {
         expect(unknownRoute?.settings.name, AppRouteNames.shell);
       },
     );
+
+    test('onboarding Care Turn route preserves exact support identity', () {
+      const args = OnboardingCareTurnRouteArgs(
+        completionId: 'completion-1',
+        spaceId: 'family_rhythm',
+        activityId: 'bedtime',
+        entryTitle: '哄睡中',
+        utteranceId: 'support.bedtime.hesitant',
+        english: 'Try when ready.',
+        chinese: '准备好再试。',
+        source: OnboardingCareTurnSource.localFallback,
+      );
+
+      final entry = PracticeRouteEntry.fromObject(args);
+
+      expect(entry.onboardingArgs, same(args));
+      expect(entry.scopeLabel, contains('support.bedtime.hesitant'));
+      expect(entry.hasValidArgs, isTrue);
+    });
 
     testWidgets(
       'legacy onboarding paths redirect to the canonical onboarding flow',

@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
+import 'package:mobile/features/care_entry/data/file_onboarding_care_turn_continuation_store.dart';
 import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
@@ -207,4 +209,90 @@ void main() {
     );
     expect(repository.read(), throwsFormatException);
   });
+
+  test(
+    'continuation reaction verifies completion and is durable/idempotent',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'onboarding_continuation_store_test_',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final repository = FileOnboardingConversationRepository(
+        directoryResolver: () async => directory,
+      );
+      final said = await repository.recordPhraseSaid(
+        checkpoint: const OnboardingConversationSnapshot(
+          registryRevision: 'test.3',
+          phase: OnboardingCheckpointPhase.firstUtterance,
+          selectedEntryId: CareEntryId('care.bedtime_soothing'),
+          activeEntryId: CareEntryId('care.bedtime_soothing'),
+        ),
+        eventId: 'phrase-said-continuation-1',
+        occurredAt: DateTime.utc(2026, 8, 14, 20),
+      );
+      final supportReady = await repository.save(
+        said.copyWith(
+          phase: OnboardingCheckpointPhase.nextSupportReady,
+          nextSupportId: const CareSupportId('support.bedtime.hesitant'),
+          nextSupportEnglish: 'Try when ready.',
+          nextSupportChinese: '准备好再试。',
+          nextSupportSource: OnboardingUtteranceSource.localFallback,
+        ),
+      );
+      await repository.complete(
+        checkpoint: supportReady,
+        completionId: 'completion-continuation-1',
+        completedAt: DateTime.utc(2026, 8, 14, 20, 1),
+      );
+      final store = FileOnboardingCareTurnContinuationStore(
+        conversationRepository: repository,
+        directoryResolver: () async => directory,
+      );
+      const handoff = OnboardingCareTurnHandoff(
+        completionId: 'completion-continuation-1',
+        spaceId: 'family_rhythm',
+        activityId: 'bedtime',
+        entryTitle: '哄睡中',
+        utteranceId: 'support.bedtime.hesitant',
+        english: 'Try when ready.',
+        chinese: '准备好再试。',
+        source: OnboardingCareTurnSource.localFallback,
+      );
+
+      final first = await store.recordReaction(
+        handoff: handoff,
+        reaction: 'hesitant',
+        occurredAt: DateTime.utc(2026, 8, 14, 20, 2),
+      );
+      final duplicate = await store.recordReaction(
+        handoff: handoff,
+        reaction: 'hesitant',
+        occurredAt: DateTime.utc(2026, 8, 14, 20, 3),
+      );
+
+      expect(duplicate.eventId, first.eventId);
+      expect(duplicate.occurredAt, first.occurredAt);
+      expect(
+        File(
+          '${directory.path}${Platform.pathSeparator}onboarding_care_turn_continuation_v1.json',
+        ).exists(),
+        completion(isTrue),
+      );
+      expect(
+        store.recordReaction(
+          handoff: handoff,
+          reaction: 'cooperating',
+          occurredAt: DateTime.utc(2026, 8, 14, 20, 4),
+        ),
+        throwsFormatException,
+      );
+      await store.clearForLifecycle();
+      expect(
+        File(
+          '${directory.path}${Platform.pathSeparator}onboarding_care_turn_continuation_v1.json',
+        ).exists(),
+        completion(isFalse),
+      );
+    },
+  );
 }

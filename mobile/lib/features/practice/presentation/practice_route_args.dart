@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 
 enum PracticeRouteEntrySource { inApp, shareReentry, inviteReentry }
@@ -128,21 +129,74 @@ class GeneratedCareTurnRouteArgs implements PracticeRouteTarget {
   }
 }
 
+class OnboardingCareTurnRouteArgs implements PracticeRouteTarget {
+  const OnboardingCareTurnRouteArgs({
+    required this.completionId,
+    required this.spaceId,
+    required this.activityId,
+    required this.entryTitle,
+    required this.utteranceId,
+    required this.english,
+    required this.chinese,
+    required this.source,
+  });
+
+  final String completionId;
+  final String spaceId;
+  final String activityId;
+  final String entryTitle;
+  final String utteranceId;
+  final String english;
+  final String chinese;
+  final OnboardingCareTurnSource source;
+
+  @override
+  String get scopeLabel =>
+      'onboarding:${spaceId.trim()}/${activityId.trim()}/${utteranceId.trim()}';
+
+  bool get isValid => <String>[
+    completionId,
+    spaceId,
+    activityId,
+    entryTitle,
+    utteranceId,
+    english,
+    chinese,
+  ].every((value) => value.trim().isNotEmpty);
+
+  static OnboardingCareTurnRouteArgs? maybeFromObject(Object? raw) =>
+      raw is OnboardingCareTurnRouteArgs && raw.isValid ? raw : null;
+
+  @override
+  Future<T?> push<T>(BuildContext context) {
+    return GoRouter.of(context).push<T>(AppRouteNames.practice, extra: this);
+  }
+}
+
 class PracticeRouteEntry {
   const PracticeRouteEntry._({
     this.args,
     this.generatedArgs,
+    this.onboardingArgs,
     this.errorMessage,
   });
 
   final PracticeRouteArgs? args;
   final GeneratedCareTurnRouteArgs? generatedArgs;
+  final OnboardingCareTurnRouteArgs? onboardingArgs;
   final String? errorMessage;
 
   bool get hasValidArgs =>
-      (args != null || generatedArgs != null) && errorMessage == null;
+      (args != null || generatedArgs != null || onboardingArgs != null) &&
+      errorMessage == null;
 
   bool get isGeneratedCareTurn => generatedArgs != null;
+
+  String get scopeLabel =>
+      args?.scopeLabel ??
+      generatedArgs?.scopeLabel ??
+      onboardingArgs?.scopeLabel ??
+      '';
 
   static PracticeRouteEntry fromObject(Object? raw) {
     final resolvedArgs = PracticeRouteArgs.maybeFromObject(raw);
@@ -153,6 +207,11 @@ class PracticeRouteEntry {
     final generatedArgs = GeneratedCareTurnRouteArgs.maybeFromObject(raw);
     if (generatedArgs != null) {
       return PracticeRouteEntry._(generatedArgs: generatedArgs);
+    }
+
+    final onboardingArgs = OnboardingCareTurnRouteArgs.maybeFromObject(raw);
+    if (onboardingArgs != null) {
+      return PracticeRouteEntry._(onboardingArgs: onboardingArgs);
     }
 
     return const PracticeRouteEntry._(

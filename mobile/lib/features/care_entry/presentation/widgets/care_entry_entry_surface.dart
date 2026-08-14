@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 import 'package:mobile/features/care_entry/presentation/onboarding_conversation_controller.dart';
@@ -73,12 +74,18 @@ class CareEntryEntrySurface extends StatefulWidget {
     this.audioControllerFactory,
     this.onRetry,
     this.onDefer,
+    this.onContinueCareTurn,
+    this.onToday,
+    this.onGarden,
   });
 
   final OnboardingConversationController controller;
   final CareEntryAudioPlayer Function()? audioControllerFactory;
   final VoidCallback? onRetry;
   final Future<void> Function()? onDefer;
+  final ValueChanged<OnboardingCareTurnHandoff>? onContinueCareTurn;
+  final VoidCallback? onToday;
+  final VoidCallback? onGarden;
 
   @override
   State<CareEntryEntrySurface> createState() => _CareEntryEntrySurfaceState();
@@ -92,6 +99,7 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
       TextEditingController();
   bool _isOtherReactionSelected = false;
   bool _isDeferring = false;
+  bool _isCompleting = false;
 
   @override
   void dispose() {
@@ -148,7 +156,10 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
                   OnboardingConversationPhase.resolvingFirstUtterance =>
                     const Center(child: CircularProgressIndicator()),
                   OnboardingConversationPhase.resolvingNextSupport =>
-                    const Center(child: CircularProgressIndicator()),
+                    _ResolvingNextSupportView(
+                      isCompleting: _isCompleting,
+                      onFinishToday: _finishForTrace,
+                    ),
                   OnboardingConversationPhase.savingReaction => const Center(
                     child: CircularProgressIndicator(),
                   ),
@@ -191,11 +202,16 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
                   OnboardingConversationPhase.completing => _NextSupportView(
                     support: state.nextSupport!,
                     isCompleting:
+                        _isCompleting ||
                         state.phase == OnboardingConversationPhase.completing,
-                    onComplete: () => unawaited(widget.controller.complete()),
+                    errorMessage: state.errorMessage,
+                    onContinue: _continueCareTurn,
+                    onFinishToday: _finishForTrace,
                   ),
-                  OnboardingConversationPhase.completed =>
-                    const _GardenTraceView(),
+                  OnboardingConversationPhase.completed => _GardenTraceView(
+                    onToday: widget.onToday,
+                    onGarden: widget.onGarden,
+                  ),
                 },
               ),
             ),
@@ -250,6 +266,27 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
       await onDefer();
     } finally {
       if (mounted) setState(() => _isDeferring = false);
+    }
+  }
+
+  Future<void> _finishForTrace() async {
+    if (_isCompleting) return;
+    setState(() => _isCompleting = true);
+    try {
+      await widget.controller.complete();
+    } finally {
+      if (mounted) setState(() => _isCompleting = false);
+    }
+  }
+
+  Future<void> _continueCareTurn() async {
+    if (_isCompleting) return;
+    setState(() => _isCompleting = true);
+    try {
+      final handoff = await widget.controller.continueToCareTurn();
+      if (handoff != null) widget.onContinueCareTurn?.call(handoff);
+    } finally {
+      if (mounted) setState(() => _isCompleting = false);
     }
   }
 }
@@ -525,12 +562,16 @@ class _NextSupportView extends StatelessWidget {
   const _NextSupportView({
     required this.support,
     required this.isCompleting,
-    required this.onComplete,
+    required this.errorMessage,
+    required this.onContinue,
+    required this.onFinishToday,
   });
 
   final CareNextSupportUtterance support;
   final bool isCompleting;
-  final VoidCallback onComplete;
+  final String? errorMessage;
+  final VoidCallback onContinue;
+  final VoidCallback onFinishToday;
 
   @override
   Widget build(BuildContext context) {
@@ -551,18 +592,61 @@ class _NextSupportView extends StatelessWidget {
         SizedBox(
           height: 52,
           child: FilledButton(
-            key: const Key('care-entry-complete-action'),
-            onPressed: isCompleting ? null : onComplete,
-            child: Text(isCompleting ? '正在保存' : '今天先到这里'),
+            key: const Key('care-entry-continue-action'),
+            onPressed: isCompleting ? null : onContinue,
+            child: Text(isCompleting ? '正在保存' : '继续说下去'),
           ),
         ),
+        const SizedBox(height: 8),
+        TextButton(
+          key: const Key('care-entry-finish-today-action'),
+          onPressed: isCompleting ? null : onFinishToday,
+          child: const Text('今天先到这里'),
+        ),
+        if (errorMessage != null) Text(errorMessage!),
       ],
     );
   }
 }
 
+class _ResolvingNextSupportView extends StatelessWidget {
+  const _ResolvingNextSupportView({
+    required this.isCompleting,
+    required this.onFinishToday,
+  });
+
+  final bool isCompleting;
+  final VoidCallback onFinishToday;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            const Text('正在把下一句换好。'),
+            const SizedBox(height: 20),
+            TextButton(
+              key: const Key('care-entry-loading-finish-today-action'),
+              onPressed: isCompleting ? null : onFinishToday,
+              child: Text(isCompleting ? '正在保存' : '今天先到这里'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _GardenTraceView extends StatelessWidget {
-  const _GardenTraceView();
+  const _GardenTraceView({required this.onToday, required this.onGarden});
+
+  final VoidCallback? onToday;
+  final VoidCallback? onGarden;
 
   @override
   Widget build(BuildContext context) {
@@ -570,10 +654,28 @@ class _GardenTraceView extends StatelessWidget {
       key: const Key('care-entry-garden-trace'),
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(
-          '第一句已经留在你的小花园里。',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              '第一句已经留在你的小花园里。',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 12),
+            const Text('宝宝和你，已经开始了今天这一刻。'),
+            const SizedBox(height: 28),
+            FilledButton(
+              key: const Key('care-entry-open-today-action'),
+              onPressed: onToday,
+              child: const Text('开始今天的小时间'),
+            ),
+            TextButton(
+              key: const Key('care-entry-open-garden-action'),
+              onPressed: onGarden,
+              child: const Text('看看花园'),
+            ),
+          ],
         ),
       ),
     );
