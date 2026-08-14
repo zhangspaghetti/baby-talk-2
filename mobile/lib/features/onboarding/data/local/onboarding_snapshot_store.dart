@@ -24,6 +24,13 @@ class OnboardingSnapshotStore {
   final OnboardingDirectoryResolver _directoryResolver;
   final String fileName;
 
+  static const _obsoleteArtifactNames = <String>[
+    'onboarding_flow_snapshot.json',
+    'onboarding_flow_snapshot.json.tmp',
+    'onboarding_flow_snapshot.m1_quarantine.json',
+    'onboarding_snapshot.m1_quarantine.json',
+  ];
+
   Future<OnboardingSnapshot?> read() async {
     try {
       final file = await _resolveFile();
@@ -71,6 +78,24 @@ class OnboardingSnapshotStore {
     } catch (error) {
       throw OnboardingSnapshotPersistenceException(
         '清理 onboarding snapshot 失败：$error',
+      );
+    }
+  }
+
+  Future<void> deleteAllArtifacts() async {
+    try {
+      final snapshot = await _resolveFile();
+      final files = <File>[
+        snapshot,
+        for (final name in _obsoleteArtifactNames)
+          File('${snapshot.parent.path}${Platform.pathSeparator}$name'),
+      ];
+      for (final file in files) {
+        if (await file.exists()) await file.delete();
+      }
+    } catch (error) {
+      throw OnboardingSnapshotPersistenceException(
+        '清理 onboarding 本地状态失败：$error',
       );
     }
   }

@@ -34,13 +34,6 @@ void main() {
         AppRouteNames.meSettings,
         AppRouteNames.meGrowth,
       });
-      expect(AppRouteNames.legacyOnboardingPaths, <String>{
-        '/onboarding/name',
-        '/onboarding/scene',
-        '/onboarding/practice',
-        '/onboarding/complete',
-        '/onboarding/garden-welcome',
-      });
     });
 
     test(
@@ -97,35 +90,6 @@ void main() {
       expect(entry.scopeLabel, contains('support.bedtime.hesitant'));
       expect(entry.hasValidArgs, isTrue);
     });
-
-    testWidgets(
-      'legacy onboarding paths redirect to the canonical onboarding flow',
-      (tester) async {
-        final legacyPaths = AppRouteNames.legacyOnboardingPaths.toList();
-        final router = createAppRouter(
-          initialLocation: legacyPaths.first,
-          onboardingBuilder: (_) =>
-              const SizedBox(key: Key('onboarding-flow-route')),
-        );
-        addTearDown(router.dispose);
-
-        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-        await tester.pumpAndSettle();
-
-        for (final path in legacyPaths) {
-          router.go(path);
-          await tester.pumpAndSettle();
-          expect(
-            router.routeInformationProvider.value.uri.path,
-            AppRouteNames.onboarding,
-          );
-          expect(
-            find.byKey(const Key('onboarding-flow-route')),
-            findsOneWidget,
-          );
-        }
-      },
-    );
 
     testWidgets(
       '/account uses improved auth screen, not legacy account entry',

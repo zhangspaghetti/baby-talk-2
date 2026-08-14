@@ -65,11 +65,6 @@ GoRouter createAppRouter({
         path: AppRouteNames.onboarding,
         builder: (context, state) => resolvedOnboardingBuilder(context),
       ),
-      for (final path in AppRouteNames.legacyOnboardingPaths)
-        GoRoute(
-          path: path,
-          redirect: (context, state) => AppRouteNames.onboarding,
-        ),
       GoRoute(
         path: AppRouteNames.practice,
         builder: (context, state) {

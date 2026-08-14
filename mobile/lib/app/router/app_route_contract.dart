@@ -19,14 +19,6 @@ class AppRouteNames {
     meSettings,
     meGrowth,
   };
-
-  static const legacyOnboardingPaths = <String>{
-    '/onboarding/name',
-    '/onboarding/scene',
-    '/onboarding/practice',
-    '/onboarding/complete',
-    '/onboarding/garden-welcome',
-  };
 }
 
 enum AppShellDestination { today, garden }

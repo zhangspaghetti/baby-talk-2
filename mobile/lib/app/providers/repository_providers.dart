@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -10,7 +9,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
 import 'package:mobile/app/custom_scene_recovery_coordinator.dart';
 import 'package:mobile/app/router/custom_scene_care_turn_handoff.dart';
-import 'package:mobile/app/uat/m1_onboarding_response_loss_harness.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_backup_protection.dart';
@@ -48,7 +46,6 @@ import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart'
 import 'package:mobile/features/mentor/data/services/mentor_api_service.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:mobile/features/onboarding/presentation/onboarding_flow_notifier.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
@@ -646,13 +643,9 @@ final carePathRepositoryProvider = Provider<CarePathRepository>(
     final practiceRepository = ref
         .watch(practiceRepositoryProvider)
         .requireValue;
-    final responseLossHarness = M1OnboardingResponseLossHarness.fromDartDefines(
-      practiceRepository: practiceRepository,
-    );
     return CarePathRepository(
       practiceRepository: practiceRepository,
       gardenGrowthRepository: ref.watch(gardenGrowthRepositoryProvider),
-      onReactionRecorded: responseLossHarness?.afterReactionRecorded,
       onboardingContinuationPort: ref.watch(
         onboardingCareTurnContinuationStoreProvider,
       ),
@@ -671,35 +664,6 @@ final carePathNotifierProvider = ChangeNotifierProvider<CarePathNotifier>((
   return CarePathNotifier(repository: ref.watch(carePathRepositoryProvider))
     ..initialize();
 }, dependencies: [carePathRepositoryProvider]);
-
-/// Keeps the resumable first care turn alive across onboarding route changes.
-final onboardingFlowNotifierProvider =
-    ChangeNotifierProvider<OnboardingFlowNotifier>(
-      (ref) {
-        final notifier = OnboardingFlowNotifier(
-          onboardingRepository: ref
-              .watch(onboardingRepositoryProvider)
-              .requireValue,
-          practiceRepository: ref
-              .watch(practiceRepositoryProvider)
-              .requireValue,
-          carePathNotifier: ref.read(carePathNotifierProvider),
-          accountNotifier: ref.read(accountNotifierProvider),
-          authContinuationCoordinator: ref.watch(
-            authContinuationCoordinatorProvider,
-          ),
-        );
-        unawaited(notifier.initialize());
-        return notifier;
-      },
-      dependencies: [
-        onboardingRepositoryProvider,
-        practiceRepositoryProvider,
-        carePathNotifierProvider,
-        accountNotifierProvider,
-        authContinuationCoordinatorProvider,
-      ],
-    );
 
 /// Garden V2 fertilizer API service (remote data source for fertilizer state).
 final gardenFertilizerApiServiceProvider = Provider<GardenFertilizerApiService>(

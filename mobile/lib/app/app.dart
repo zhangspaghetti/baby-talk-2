@@ -29,7 +29,6 @@ import 'package:mobile/features/custom_scene/presentation/custom_scene_route_arg
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
-import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -297,10 +296,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             continuitySeed: launchState.continuitySeed,
           ),
           child: MaterialApp.router(
-            routerConfig: _resolveRouter(
-              launchState: launchState,
-              onboardingRepository: onboardingRepository,
-            ),
+            routerConfig: _resolveRouter(launchState: launchState),
             builder: (context, child) =>
                 AccountReadinessBootstrap(child: _ReentryOverlay(child: child)),
             debugShowCheckedModeBanner: false,
@@ -384,10 +380,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     }
   }
 
-  GoRouter _resolveRouter({
-    required _AppLaunchState launchState,
-    required OnboardingRepository onboardingRepository,
-  }) {
+  GoRouter _resolveRouter({required _AppLaunchState launchState}) {
     _currentRouter = GoRouter(
       navigatorKey: appRootNavigatorKey,
       initialLocation: launchState.initialRoute,
@@ -444,11 +437,6 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             ),
           ),
         ),
-        for (final path in AppRouteNames.legacyOnboardingPaths)
-          GoRoute(
-            path: path,
-            redirect: (context, state) => AppRouteNames.onboarding,
-          ),
         GoRoute(
           path: AppRouteNames.practice,
           builder: (context, state) {
@@ -561,12 +549,8 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     final onboardingStore = OnboardingSnapshotStore(
       directoryResolver: () async => directory,
     );
-    final onboardingFlowStore = OnboardingFlowStore(
-      directoryResolver: () async => directory,
-    );
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingStore,
-      flowStore: onboardingFlowStore,
     );
     final onboardingConversationRepository =
         FileOnboardingConversationRepository(

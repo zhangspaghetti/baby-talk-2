@@ -23,7 +23,6 @@ import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
-import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
@@ -36,23 +35,17 @@ class E2eTestHarness {
     required this.backendUri,
     required this.tempDir,
     required this.bootState,
-    required this.childDisplayName,
-    required this.ageBucket,
     required this.practiceDbName,
   });
 
   final Uri backendUri;
   final Directory tempDir;
   final AppBootState bootState;
-  final String childDisplayName;
-  final OnboardingAgeBucket ageBucket;
   final String practiceDbName;
 
   PracticeRepository? _activeRepository;
 
   static Future<E2eTestHarness> create({
-    String childDisplayName = '小明',
-    OnboardingAgeBucket ageBucket = OnboardingAgeBucket.oneToTwo,
     String practiceDbName = 'e2e_smoke',
     String backendUrl = defaultAccountApiBaseUrl,
   }) async {
@@ -71,8 +64,6 @@ class E2eTestHarness {
       backendUri: backendUri,
       tempDir: tempDir,
       bootState: bootState,
-      childDisplayName: childDisplayName,
-      ageBucket: ageBucket,
       practiceDbName: practiceDbName,
     );
   }
@@ -129,146 +120,86 @@ class E2eTestHarness {
   Future<void> completeOnboarding(WidgetTester tester) async {
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('onboarding-start-button')),
-      reason: 'onboarding start button',
+      find.byKey(const Key('care-entry-grid')),
+      reason: 'V4 care-entry grid',
     );
-    await scrollTo(tester, find.byKey(const Key('onboarding-start-button')));
-    await tester.tap(find.byKey(const Key('onboarding-start-button')));
-    await tester.pumpAndSettle();
-
+    await tester.tap(find.byKey(const Key('care-entry-primary-action')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('onboarding-name-input')),
-      reason: 'onboarding name input',
+      find.byKey(const Key('care-entry-first-utterance-english')),
+      reason: 'V4 first utterance',
     );
-    await scrollTo(tester, find.byKey(const Key('onboarding-name-input')));
-    await tester.enterText(
-      find.byKey(const Key('onboarding-name-input')),
-      childDisplayName,
-    );
-    await tester.pumpAndSettle();
-    await scrollTo(tester, find.byKey(const Key('onboarding-name-continue')));
-    await tester.tap(find.byKey(const Key('onboarding-name-continue')));
-    await tester.pumpAndSettle();
-
+    await tester.tap(find.byKey(const Key('care-entry-said-action')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('onboarding-age-grid')),
-      reason: 'onboarding age grid',
+      find.byKey(const Key('care-entry-reaction-prompt')),
+      reason: 'V4 reaction prompt',
     );
-    final ageCard = find.byKey(
-      Key('onboarding-age-card-${ageBucket.wireValue}'),
-    );
-    await scrollTo(tester, ageCard);
-    await tester.tap(ageCard);
-    await tester.pumpAndSettle();
-    await scrollTo(tester, find.byKey(const Key('onboarding-age-continue')));
-    await tester.tap(find.byKey(const Key('onboarding-age-continue')));
-    await tester.pumpAndSettle();
-
+    await tester.tap(find.byKey(const Key('care-entry-reaction-hesitant')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('onboarding-stage-match-card')),
-      // Real backend stage-match API call — allow more time.
-      timeout: const Duration(seconds: 45),
-      reason: 'onboarding stage match card',
+      find.byKey(const Key('care-entry-next-support')),
+      timeout: const Duration(seconds: 20),
+      reason: 'V4 next support',
     );
-
     await scrollTo(
       tester,
-      find.byKey(const Key('onboarding-first-phrase-said')),
+      find.byKey(const Key('care-entry-finish-today-action')),
     );
-    await tester.tap(find.byKey(const Key('onboarding-first-phrase-said')));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('care-entry-finish-today-action')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('onboarding-first-seed-recorded')),
+      find.byKey(const Key('care-entry-garden-trace')),
       timeout: const Duration(seconds: 20),
-      reason: 'first phrase recorded banner',
+      reason: 'V4 garden trace',
     );
-
-    await scrollTo(tester, find.byKey(const Key('onboarding-submit-button')));
-    await tester.tap(find.byKey(const Key('onboarding-submit-button')));
-    await tester.pumpAndSettle();
-
+    await tester.tap(find.byKey(const Key('care-entry-open-today-action')));
     await pumpUntilFound(
       tester,
       find.byKey(const Key('shell-ready')),
       timeout: const Duration(seconds: 60),
-      reason: 'shell ready after onboarding',
+      reason: 'shell ready after V4 onboarding',
     );
   }
 
   Future<void> completeStarterPractice(WidgetTester tester) async {
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('home-starter-seed')),
+      find.byKey(const Key('home-today-primary-cta')),
       timeout: const Duration(seconds: 45),
       step: const Duration(milliseconds: 300),
-      reason: 'home starter seed',
+      reason: 'Today Care Path entry',
     );
-    await _scrollHomeTo(tester, find.byKey(const Key('home-start-practice')));
-    await tester.tap(find.byKey(const Key('home-start-practice')));
-    await tester.pumpAndSettle();
-
+    await _scrollHomeTo(
+      tester,
+      find.byKey(const Key('home-today-primary-cta')),
+    );
+    await tester.tap(find.byKey(const Key('home-today-primary-cta')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('phrase-card-bath_time_warm_water')),
-      reason: 'first starter phrase',
+      find.byKey(const Key('care-turn-current-utterance')),
+      reason: 'current Care Turn utterance',
     );
-    final firstReaction = find.byKey(
-      const Key('reaction-bath_time_warm_water-cooperating'),
-    );
-    await scrollTo(tester, firstReaction);
-    await tester.tap(firstReaction);
-
+    await tester.tap(find.byKey(const Key('care-turn-said-button')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('phrase-card-bath_time_splash_splash')),
-      reason: 'second starter phrase',
+      find.byKey(const Key('care-reaction-cooperating')),
+      reason: 'Care Turn reaction prompt',
     );
-    final secondReaction = find.byKey(
-      const Key('reaction-bath_time_splash_splash-no_response'),
-    );
-    await pumpUntilFound(tester, secondReaction, reason: 'second reaction');
-    await tester.ensureVisible(secondReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(secondReaction);
-
+    await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('phrase-card-bath_time_all_clean')),
-      reason: 'third starter phrase',
+      find.byKey(const Key('care-turn-next-support')),
+      timeout: const Duration(seconds: 60),
+      reason: 'Care Turn next support',
     );
-    final thirdReaction = find.byKey(
-      const Key('reaction-bath_time_all_clean-cooperating'),
-    );
-    await pumpUntilFound(tester, thirdReaction, reason: 'third reaction');
-    await tester.ensureVisible(thirdReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(thirdReaction);
-
-    // Give real time for recordReaction()'s Isar write + _reloadDerivedState
-    // to complete, then for navigator.pop() to fire and the home screen to
-    // settle. Isar on the Android emulator can be slow (multi-second writes),
-    // so we use pumpAndSettle with a generous timeout here.
-    // After this call, navigator.pop() has been called and didPopNext has fired,
-    // which also starts the continuity refresh.
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 60),
-    );
-
-    // HomeRecentResultCard is item ~3 in the ListView — no scroll needed.
-    // Use a 2 s step to reduce Dart-isolate contention while waiting for the
-    // continuity refresh to complete and the widget to be rebuilt.
+    await scrollTo(tester, find.byKey(const Key('care-turn-quiet-exit')));
+    await tester.tap(find.byKey(const Key('care-turn-quiet-exit')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('recent-result-summary')),
-      timeout: const Duration(seconds: 180),
-      step: const Duration(seconds: 2),
-      reason: 'recent result summary',
+      find.byKey(const Key('home-today-care-node-card')),
+      timeout: const Duration(seconds: 60),
+      reason: 'Today Care Path after Care Turn',
     );
   }
 
@@ -283,14 +214,7 @@ class E2eTestHarness {
       timeout: const Duration(seconds: 8),
       reason: 'shell mentor fab',
     );
-    final fabWidget = tester.widget<FloatingActionButton>(mentorFab);
-    final onPressed = fabWidget.onPressed;
-    if (onPressed == null) {
-      fail(
-        'Shell mentor FAB is disabled — make sure to completeStarterPractice first.',
-      );
-    }
-    onPressed();
+    await tester.tap(mentorFab);
     await tester.pump();
 
     await pumpUntilFound(

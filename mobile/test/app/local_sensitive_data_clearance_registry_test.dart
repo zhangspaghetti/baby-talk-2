@@ -25,9 +25,7 @@ import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart'
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
-import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
@@ -128,7 +126,7 @@ void main() {
         );
         expect(await harness.accountSnapshotIsStored(), isTrue);
         expect(await harness.onboardingSnapshotStore.read(), isNotNull);
-        expect(await harness.onboardingFlowStore.read(), isNotNull);
+        expect(await harness.legacyOnboardingFlowFile.exists(), isTrue);
         expect(
           File(
             '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
@@ -218,7 +216,7 @@ void main() {
         expect(harness.onboardingCareTurnContinuationClearCount, 1);
         expect(await harness.accountSnapshotIsStored(), isFalse);
         expect(await harness.onboardingSnapshotStore.read(), isNull);
-        expect(await harness.onboardingFlowStore.read(), isNull);
+        expect(await harness.legacyOnboardingFlowFile.exists(), isFalse);
         expect(
           File('${harness.tempDir.path}/auth_continuation.json').existsSync(),
           isFalse,
@@ -345,7 +343,7 @@ class _LifecycleHarness {
     required this.secureStorage,
     required this.accountLocalStore,
     required this.onboardingSnapshotStore,
-    required this.onboardingFlowStore,
+    required this.legacyOnboardingFlowFile,
     required this.authContinuationCoordinator,
     required this.customSceneDraftStore,
     required this.customSceneDraftContinuationCoordinator,
@@ -367,7 +365,7 @@ class _LifecycleHarness {
   final _InMemorySecureStorage secureStorage;
   final AccountLocalStore accountLocalStore;
   final OnboardingSnapshotStore onboardingSnapshotStore;
-  final OnboardingFlowStore onboardingFlowStore;
+  final File legacyOnboardingFlowFile;
   final AuthContinuationCoordinator authContinuationCoordinator;
   final CustomSceneDraftStore customSceneDraftStore;
   final CustomSceneDraftContinuationCoordinator
@@ -409,8 +407,8 @@ class _LifecycleHarness {
     final onboardingSnapshotStore = OnboardingSnapshotStore(
       directoryResolver: () async => tempDir,
     );
-    final onboardingFlowStore = OnboardingFlowStore(
-      directoryResolver: () async => tempDir,
+    final legacyOnboardingFlowFile = File(
+      '${tempDir.path}${Platform.pathSeparator}onboarding_flow_snapshot.json',
     );
     final authContinuationStore = AuthContinuationStore(
       directoryResolver: () async => tempDir,
@@ -444,7 +442,6 @@ class _LifecycleHarness {
     final generatedAudioMemoryCache = GeneratedAudioMemoryCache();
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
-      flowStore: onboardingFlowStore,
     );
     final secureStorage = _InMemorySecureStorage();
     final accountLocalStore = AccountLocalStore(
@@ -480,7 +477,7 @@ class _LifecycleHarness {
       secureStorage: secureStorage,
       accountLocalStore: accountLocalStore,
       onboardingSnapshotStore: onboardingSnapshotStore,
-      onboardingFlowStore: onboardingFlowStore,
+      legacyOnboardingFlowFile: legacyOnboardingFlowFile,
       authContinuationCoordinator: authContinuationCoordinator,
       customSceneDraftStore: customSceneDraftStore,
       customSceneDraftContinuationCoordinator:
@@ -501,8 +498,9 @@ class _LifecycleHarness {
   Future<void> seedSensitiveData() async {
     await accountLocalStore.write(AccountLocalSnapshot.localOnly);
     await onboardingSnapshotStore.write(_completedSnapshot());
-    await onboardingFlowStore.write(
-      OnboardingFlowSnapshot.initial(DateTime.utc(2026, 5, 20, 10)),
+    await legacyOnboardingFlowFile.writeAsString(
+      '{"schemaVersion":1,"step":"age"}',
+      flush: true,
     );
     await authContinuationCoordinator.beginSaveOnboardingMemory();
     await customSceneDraftStore.write(

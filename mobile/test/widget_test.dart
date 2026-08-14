@@ -11,7 +11,6 @@ import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
-import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -77,9 +76,6 @@ void main() {
           onboardingRepositoryProvider.overrideWith((ref) {
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
-                directoryResolver: () async => harness.tempDir,
-              ),
-              flowStore: OnboardingFlowStore(
                 directoryResolver: () async => harness.tempDir,
               ),
             );

@@ -31,7 +31,6 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
-import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -52,6 +51,7 @@ import 'package:mobile/features/practice/presentation/garden_growth_notifier.dar
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import '../support/isar_test_library.dart';
+import '../support/onboarding_test_fixtures.dart';
 import '../support/generated_care_moment_fixture.dart';
 
 void main() {
@@ -367,11 +367,9 @@ void main() {
         snapshotStore: OnboardingSnapshotStore(
           directoryResolver: () async => created.tempDir,
         ),
-        flowStore: OnboardingFlowStore(
-          directoryResolver: () async => created.tempDir,
-        ),
       );
-      completedSnapshot = await onboardingRepository.completeOnboarding(
+      completedSnapshot = await saveCompletedOnboardingSnapshot(
+        onboardingRepository,
         childDisplayName: '米米',
         ageBucket: OnboardingAgeBucket.zeroToSix,
         selectedSceneIds: const ['bedtime'],
@@ -422,9 +420,6 @@ void main() {
           onboardingRepositoryProvider.overrideWith((ref) {
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
-                directoryResolver: () async => harness.tempDir,
-              ),
-              flowStore: OnboardingFlowStore(
                 directoryResolver: () async => harness.tempDir,
               ),
             );
@@ -501,18 +496,18 @@ void main() {
       late OnboardingSnapshot completedSnapshot;
       final harness = (await tester.runAsync<_AppBootHarness>(() async {
         final created = await _createHarness();
-        completedSnapshot = await _onboardingRepositoryFor(created)
-            .completeOnboarding(
-              childDisplayName: '米米',
-              ageBucket: OnboardingAgeBucket.zeroToSix,
-              selectedSceneIds: const ['bedtime'],
-              supportGoal: OnboardingSupportGoal.firstWords,
-              starterSpaceId: 'family_rhythm',
-              starterActivityId: 'bedtime',
-              starterPhraseId: 'bedtime_dim_the_lights',
-              firstTraceEventKey: 'install_handoff_test:evt_onboarding_first',
-              completedAt: DateTime.utc(2026, 8, 2, 8),
-            );
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          _onboardingRepositoryFor(created),
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bedtime'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'family_rhythm',
+          starterActivityId: 'bedtime',
+          starterPhraseId: 'bedtime_dim_the_lights',
+          firstTraceEventKey: 'install_handoff_test:evt_onboarding_first',
+          completedAt: DateTime.utc(2026, 8, 2, 8),
+        );
         return created;
       }))!;
       addTearDown(harness.close);
@@ -589,11 +584,9 @@ void main() {
           snapshotStore: OnboardingSnapshotStore(
             directoryResolver: () async => created.tempDir,
           ),
-          flowStore: OnboardingFlowStore(
-            directoryResolver: () async => created.tempDir,
-          ),
         );
-        completedSnapshot = await onboardingRepository.completeOnboarding(
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          onboardingRepository,
           childDisplayName: '米米',
           ageBucket: OnboardingAgeBucket.zeroToSix,
           selectedSceneIds: const ['bath_time'],
@@ -646,9 +639,6 @@ void main() {
             onboardingRepositoryProvider.overrideWith((ref) {
               return OnboardingRepository(
                 snapshotStore: OnboardingSnapshotStore(
-                  directoryResolver: () async => harness.tempDir,
-                ),
-                flowStore: OnboardingFlowStore(
                   directoryResolver: () async => harness.tempDir,
                 ),
               );
@@ -734,18 +724,18 @@ void main() {
       final created = generatedHarness.harness;
       generatedRepository = created.repository;
       accountStorage = generatedHarness.accountStorage;
-      completedSnapshot = await _onboardingRepositoryFor(created)
-          .completeOnboarding(
-            childDisplayName: '米米',
-            ageBucket: OnboardingAgeBucket.zeroToSix,
-            selectedSceneIds: const ['bath_time'],
-            supportGoal: OnboardingSupportGoal.firstWords,
-            starterSpaceId: 'daily_care',
-            starterActivityId: 'bath_time',
-            starterPhraseId: 'bath_time_warm_water',
-            firstTraceEventKey: 'install_projection_boot:evt_onboarding_first',
-            completedAt: DateTime.utc(2026, 8, 9, 8),
-          );
+      completedSnapshot = await saveCompletedOnboardingSnapshot(
+        _onboardingRepositoryFor(created),
+        childDisplayName: '米米',
+        ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bath_time'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+        starterPhraseId: 'bath_time_warm_water',
+        firstTraceEventKey: 'install_projection_boot:evt_onboarding_first',
+        completedAt: DateTime.utc(2026, 8, 9, 8),
+      );
 
       return created;
     }))!;
@@ -921,18 +911,18 @@ void main() {
     );
     final harness = (await tester.runAsync<_AppBootHarness>(() async {
       final created = await _createHarness();
-      completedSnapshot = await _onboardingRepositoryFor(created)
-          .completeOnboarding(
-            childDisplayName: '米米',
-            ageBucket: OnboardingAgeBucket.zeroToSix,
-            selectedSceneIds: const ['bath_time'],
-            supportGoal: OnboardingSupportGoal.firstWords,
-            starterSpaceId: 'daily_care',
-            starterActivityId: 'bath_time',
-            starterPhraseId: 'bath_time_warm_water',
-            firstTraceEventKey: 'install_signed_out:evt_onboarding_first',
-            completedAt: DateTime.utc(2026, 8, 11, 8),
-          );
+      completedSnapshot = await saveCompletedOnboardingSnapshot(
+        _onboardingRepositoryFor(created),
+        childDisplayName: '米米',
+        ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bath_time'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+        starterPhraseId: 'bath_time_warm_water',
+        firstTraceEventKey: 'install_signed_out:evt_onboarding_first',
+        completedAt: DateTime.utc(2026, 8, 11, 8),
+      );
       signedOutRepository = PracticeRepository(
         assetPhraseService: created.bootState.assetPhraseService!,
         localDataSource: created.localDataSource,
@@ -1045,11 +1035,9 @@ void main() {
         snapshotStore: OnboardingSnapshotStore(
           directoryResolver: () async => created.tempDir,
         ),
-        flowStore: OnboardingFlowStore(
-          directoryResolver: () async => created.tempDir,
-        ),
       );
-      completedSnapshot = await onboardingRepository.completeOnboarding(
+      completedSnapshot = await saveCompletedOnboardingSnapshot(
+        onboardingRepository,
         childDisplayName: '米米',
         ageBucket: OnboardingAgeBucket.zeroToSix,
         selectedSceneIds: const ['bath_time'],
@@ -1110,9 +1098,6 @@ void main() {
           onboardingRepositoryProvider.overrideWith((ref) {
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
-                directoryResolver: () async => harness.tempDir,
-              ),
-              flowStore: OnboardingFlowStore(
                 directoryResolver: () async => harness.tempDir,
               ),
             );
@@ -1278,9 +1263,6 @@ class _FertilizerNotifierStub extends GardenFertilizerNotifier {
 OnboardingRepository _onboardingRepositoryFor(_AppBootHarness harness) {
   return OnboardingRepository(
     snapshotStore: OnboardingSnapshotStore(
-      directoryResolver: () async => harness.tempDir,
-    ),
-    flowStore: OnboardingFlowStore(
       directoryResolver: () async => harness.tempDir,
     ),
   );

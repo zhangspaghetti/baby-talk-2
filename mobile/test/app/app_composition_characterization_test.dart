@@ -26,7 +26,6 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
-import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -36,6 +35,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import '../support/isar_test_library.dart';
+import '../support/onboarding_test_fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -79,11 +79,9 @@ void main() {
           snapshotStore: OnboardingSnapshotStore(
             directoryResolver: () async => created.tempDir,
           ),
-          flowStore: OnboardingFlowStore(
-            directoryResolver: () async => created.tempDir,
-          ),
         );
-        completedSnapshot = await onboardingRepository.completeOnboarding(
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          onboardingRepository,
           childDisplayName: '米米',
           ageBucket: OnboardingAgeBucket.zeroToSix,
           selectedSceneIds: const ['bath_time'],
@@ -134,9 +132,6 @@ void main() {
             onboardingRepositoryProvider.overrideWith((ref) {
               return OnboardingRepository(
                 snapshotStore: OnboardingSnapshotStore(
-                  directoryResolver: () async => harness.tempDir,
-                ),
-                flowStore: OnboardingFlowStore(
                   directoryResolver: () async => harness.tempDir,
                 ),
               );
