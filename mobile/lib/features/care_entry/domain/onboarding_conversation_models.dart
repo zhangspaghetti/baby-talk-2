@@ -25,7 +25,7 @@ final class OnboardingUtterance {
     required this.pronunciation,
     required this.source,
     this.localAudioAsset,
-    this.remoteAudioRef,
+    this.remoteAudioAvailable = false,
   });
 
   factory OnboardingUtterance.local({
@@ -46,7 +46,18 @@ final class OnboardingUtterance {
   final String pronunciation;
   final OnboardingUtteranceSource source;
   final String? localAudioAsset;
-  final String? remoteAudioRef;
+  final bool remoteAudioAvailable;
+}
+
+abstract interface class GuestOnboardingAudioPlayer {
+  Future<void> play({
+    required String conversationId,
+    required String utteranceId,
+  });
+
+  Future<void> stop();
+
+  Future<void> dispose();
 }
 
 @immutable

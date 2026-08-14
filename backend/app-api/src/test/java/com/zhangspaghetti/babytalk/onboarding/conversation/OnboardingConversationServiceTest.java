@@ -18,11 +18,14 @@ class OnboardingConversationServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-14T10:00:00Z"), ZoneOffset.UTC);
     private final FakeStore store = new FakeStore();
     private final FakeGenerator generator = new FakeGenerator();
+    private final PracticeGeneratedContentKeyFactory keyFactory =
+            new PracticeGeneratedContentKeyFactory(new PracticeGeneratedContentOwnerProperties(
+                    "v1", "0123456789abcdef0123456789abcdef"));
     private final OnboardingConversationService service = new OnboardingConversationService(
             store,
             generator,
-            new PracticeGeneratedContentKeyFactory(new PracticeGeneratedContentOwnerProperties(
-                    "v1", "0123456789abcdef0123456789abcdef")),
+            keyFactory,
+            new OnboardingAudioCapabilityService(keyFactory, CLOCK),
             CLOCK);
 
     @Test
@@ -31,6 +34,7 @@ class OnboardingConversationServiceTest {
 
         assertThat(result.expiresAt()).isEqualTo("2026-08-15T10:00Z");
         assertThat(result.utterance().source()).isEqualTo("remote_generated");
+        assertThat(result.utterance().audioRef()).startsWith("oac1.");
         assertThat(store.only().installationRefHash()).startsWith("installation_");
         assertThat(store.only().installationRefHash()).doesNotContain("install-test-1234");
         assertThat(store.only().requestFingerprint()).startsWith("ocf_");
@@ -52,8 +56,9 @@ class OnboardingConversationServiceTest {
         var later = new OnboardingConversationService(
                 store,
                 generator,
-                new PracticeGeneratedContentKeyFactory(new PracticeGeneratedContentOwnerProperties(
-                        "v1", "0123456789abcdef0123456789abcdef")),
+                keyFactory,
+                new OnboardingAudioCapabilityService(keyFactory,
+                        Clock.fixed(Instant.parse("2026-08-14T11:00:00Z"), ZoneOffset.UTC)),
                 Clock.fixed(Instant.parse("2026-08-14T11:00:00Z"), ZoneOffset.UTC));
 
         var replay = later.create(request("event-1", "bedtime"));
@@ -124,6 +129,13 @@ class OnboardingConversationServiceTest {
         @Override
         public StoredConversation find(String installationRefHash, String localEventId) {
             return rows.get(installationRefHash + "|" + localEventId);
+        }
+
+        @Override
+        public StoredConversation findByConversationId(String conversationId) {
+            return rows.values().stream()
+                    .filter(row -> row.conversationId().equals(conversationId))
+                    .findFirst().orElse(null);
         }
 
         @Override

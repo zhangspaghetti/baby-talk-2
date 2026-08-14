@@ -13,6 +13,9 @@ class CareEntryOnboardingScreen extends ConsumerWidget {
     final controller = ref.watch(onboardingConversationControllerProvider);
     return CareEntryEntrySurface(
       controller: controller,
+      audioControllerFactory: () => AudioplayersCareEntryAudioPlayer(
+        guestAudioPlayer: ref.read(guestOnboardingAudioPlayerFactoryProvider)(),
+      ),
       onRetry: () =>
           unawaited(controller.initialize(localTime: DateTime.now())),
     );

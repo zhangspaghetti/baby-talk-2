@@ -41,10 +41,23 @@ public class GeneratedUtteranceAudioService {
         if (utterance == null) {
             throw audioNotFound();
         }
+        return synthesizeApproved(contentId, approvedUtteranceId, utterance.englishText());
+    }
+
+    public GeneratedUtteranceAudio synthesizeApproved(
+            String generatedContentId,
+            String utteranceId,
+            String approvedEnglishText
+    ) {
+        var contentId = requireSafeId(generatedContentId);
+        var approvedUtteranceId = requireSafeId(utteranceId);
+        if (approvedEnglishText == null || approvedEnglishText.isBlank()) {
+            throw audioNotFound();
+        }
         try {
             var response = validateResponse(speechSynthesisPort.synthesize(
                     new GeneratedSpeechSynthesisPort.GeneratedSpeechRequest(
-                            contentId, approvedUtteranceId, utterance.englishText())));
+                            contentId, approvedUtteranceId, approvedEnglishText)));
             return new GeneratedUtteranceAudio(
                     response.bytes(), response.mimeType(), response.voiceVersion(), properties.configurationIdentity());
         } catch (ContractException exception) {

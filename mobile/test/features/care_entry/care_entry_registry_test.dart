@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +32,7 @@ void main() {
         hasLength(1),
       );
 
+      final reviewedAudioPayloads = <String>{};
       for (final entry in result.entries) {
         expect(entry.seed.firstUtterance.english, isNotEmpty);
         expect(entry.seed.firstUtterance.chinese, isNotEmpty);
@@ -39,7 +41,20 @@ void main() {
           entry.seed.firstUtterance.audioAsset,
           startsWith('assets/audio/phrases/'),
         );
+        expect(entry.seed.firstUtterance.audioAsset, endsWith('.wav'));
         expect(entry.seed.firstUtterance.audioReview, AudioReview.reviewed);
+        final audio = await rootBundle.load(
+          entry.seed.firstUtterance.audioAsset,
+        );
+        final bytes = audio.buffer.asUint8List(
+          audio.offsetInBytes,
+          audio.lengthInBytes,
+        );
+        final decoded = _decodePcmWav(bytes);
+        expect(decoded.sampleRate, greaterThanOrEqualTo(16000));
+        expect(decoded.channels, inInclusiveRange(1, 2));
+        expect(decoded.duration, inInclusiveRange(0.25, 5.0));
+        reviewedAudioPayloads.add(base64Encode(bytes));
         expect(
           entry.seed.nextSupports.byReaction.keys,
           containsAll(CareReaction.values),
@@ -71,6 +86,7 @@ void main() {
           isNot(entry.seed.fallback.id.value),
         );
       }
+      expect(reviewedAudioPayloads, hasLength(result.entries.length));
       expect(
         result.entries
             .map(
@@ -205,6 +221,66 @@ void main() {
       throwsFormatException,
     );
   });
+}
+
+_DecodedPcmWav _decodePcmWav(Uint8List bytes) {
+  final data = ByteData.sublistView(bytes);
+  String asciiAt(int offset, int length) =>
+      ascii.decode(bytes.sublist(offset, offset + length));
+  if (bytes.length < 44 || asciiAt(0, 4) != 'RIFF' || asciiAt(8, 4) != 'WAVE') {
+    throw const FormatException('not a RIFF/WAVE file');
+  }
+  var offset = 12;
+  int? channels;
+  int? sampleRate;
+  int? bitsPerSample;
+  int? audioBytes;
+  while (offset + 8 <= bytes.length) {
+    final chunkId = asciiAt(offset, 4);
+    final chunkSize = data.getUint32(offset + 4, Endian.little);
+    final payload = offset + 8;
+    if (payload + chunkSize > bytes.length) {
+      throw const FormatException('truncated WAVE chunk');
+    }
+    if (chunkId == 'fmt ') {
+      if (chunkSize < 16 || data.getUint16(payload, Endian.little) != 1) {
+        throw const FormatException('WAVE is not PCM');
+      }
+      channels = data.getUint16(payload + 2, Endian.little);
+      sampleRate = data.getUint32(payload + 4, Endian.little);
+      bitsPerSample = data.getUint16(payload + 14, Endian.little);
+    } else if (chunkId == 'data') {
+      audioBytes = chunkSize;
+    }
+    offset = payload + chunkSize + (chunkSize.isOdd ? 1 : 0);
+  }
+  if (channels == null ||
+      sampleRate == null ||
+      bitsPerSample == null ||
+      audioBytes == null ||
+      channels <= 0 ||
+      sampleRate <= 0 ||
+      bitsPerSample <= 0 ||
+      audioBytes <= 0) {
+    throw const FormatException('incomplete PCM WAVE');
+  }
+  return _DecodedPcmWav(
+    channels: channels,
+    sampleRate: sampleRate,
+    duration: audioBytes / (sampleRate * channels * bitsPerSample / 8),
+  );
+}
+
+final class _DecodedPcmWav {
+  const _DecodedPcmWav({
+    required this.channels,
+    required this.sampleRate,
+    required this.duration,
+  });
+
+  final int channels;
+  final int sampleRate;
+  final double duration;
 }
 
 final class _ManifestOverrideBundle extends CachingAssetBundle {

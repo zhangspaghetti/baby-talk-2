@@ -27,6 +27,18 @@ public interface MyBatisOnboardingConversationStore extends OnboardingConversati
             @Param("localEventId") String localEventId);
 
     @Override
+    @Select("""
+            select conversation_id, installation_ref_hash, local_event_id, request_fingerprint,
+                   registry_revision, care_entry_id, generation_namespace, generation_key,
+                   generation_version, generation_facets_json::text as generation_facets_json, locale, time_band,
+                   generated_content_id, utterance_id, english_text, chinese_text,
+                   pronunciation_hint, audio_ref, status, expires_at, created_at, updated_at
+              from guest_onboarding_conversations
+             where conversation_id = #{conversationId}
+            """)
+    StoredConversation findByConversationId(@Param("conversationId") String conversationId);
+
+    @Override
     @Insert("""
             insert into guest_onboarding_conversations (
                 conversation_id, installation_ref_hash, local_event_id, request_fingerprint,

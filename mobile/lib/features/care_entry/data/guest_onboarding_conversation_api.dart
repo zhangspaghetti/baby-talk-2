@@ -2,12 +2,9 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/features/care_entry/data/guest_onboarding_audio_api.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 
-const String defaultGuestOnboardingApiVersion = String.fromEnvironment(
-  'BABY_TALK_API_VERSION',
-  defaultValue: '1.2.0',
-);
 const String defaultGuestOnboardingApiBaseUrl = String.fromEnvironment(
   'BABY_TALK_API_BASE_URL',
   defaultValue: 'http://127.0.0.1:8080',
@@ -25,14 +22,17 @@ final class GuestOnboardingConversationApiException implements Exception {
 final class GuestOnboardingConversationApi
     implements GuestOnboardingConversationGateway {
   GuestOnboardingConversationApi({
+    required GuestAudioCapabilityVault audioCapabilities,
     Dio? dio,
     String? baseUrl,
     this.appVersion = defaultGuestOnboardingApiVersion,
-  }) : _dio =
+  }) : _audioCapabilities = audioCapabilities,
+       _dio =
            dio ??
            AppDio.create(baseUrl: baseUrl ?? defaultGuestOnboardingApiBaseUrl);
 
   final Dio _dio;
+  final GuestAudioCapabilityVault _audioCapabilities;
   final String appVersion;
 
   @override
@@ -99,16 +99,25 @@ final class GuestOnboardingConversationApi
       if (!expiresAt.isUtc) {
         throw const FormatException('expiresAt must be UTC');
       }
+      final conversationId = _requiredId(root, 'conversationId');
+      final utteranceId = _requiredId(utterance, 'utteranceId');
+      final capability = _requiredString(utterance, 'audioRef');
+      _audioCapabilities.register(
+        conversationId: conversationId,
+        utteranceId: utteranceId,
+        capability: capability,
+        expiresAt: expiresAt,
+      );
       return GuestOnboardingConversation(
-        conversationId: _requiredString(root, 'conversationId'),
+        conversationId: conversationId,
         expiresAt: expiresAt,
         utterance: OnboardingUtterance(
-          utteranceId: _requiredString(utterance, 'utteranceId'),
+          utteranceId: utteranceId,
           english: _requiredString(utterance, 'englishText'),
           chinese: _requiredString(utterance, 'chineseText'),
           pronunciation: _requiredString(utterance, 'pronunciationHint'),
           source: OnboardingUtteranceSource.remoteGenerated,
-          remoteAudioRef: _optionalString(utterance, 'audioRef'),
+          remoteAudioAvailable: true,
         ),
       );
     } on FormatException {
@@ -145,9 +154,12 @@ String _requiredString(Map<String, dynamic> json, String field) {
   return value;
 }
 
-String? _optionalString(Map<String, dynamic> json, String field) {
-  final value = json[field];
-  return value == null ? null : _requiredString(json, field);
+String _requiredId(Map<String, dynamic> json, String field) {
+  final value = _requiredString(json, field);
+  if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]{5,127}$').hasMatch(value)) {
+    throw FormatException('$field must be safe id');
+  }
+  return value;
 }
 
 void _requireExactKeys(Map<String, dynamic> json, Set<String> expected) {

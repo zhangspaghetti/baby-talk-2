@@ -37,26 +37,30 @@ public class OnboardingConversationService {
     private final OnboardingConversationStore store;
     private final OnboardingConversationGenerator generator;
     private final PracticeGeneratedContentKeyFactory keyFactory;
+    private final OnboardingAudioCapabilityService audioCapabilities;
     private final Clock clock;
 
     @Autowired
     public OnboardingConversationService(
             OnboardingConversationStore store,
             OnboardingConversationGenerator generator,
-            PracticeGeneratedContentKeyFactory keyFactory
+            PracticeGeneratedContentKeyFactory keyFactory,
+            OnboardingAudioCapabilityService audioCapabilities
     ) {
-        this(store, generator, keyFactory, Clock.systemUTC());
+        this(store, generator, keyFactory, audioCapabilities, Clock.systemUTC());
     }
 
     OnboardingConversationService(
             OnboardingConversationStore store,
             OnboardingConversationGenerator generator,
             PracticeGeneratedContentKeyFactory keyFactory,
+            OnboardingAudioCapabilityService audioCapabilities,
             Clock clock
     ) {
         this.store = store;
         this.generator = generator;
         this.keyFactory = keyFactory;
+        this.audioCapabilities = audioCapabilities;
         this.clock = clock;
     }
 
@@ -236,10 +240,12 @@ public class OnboardingConversationService {
     }
 
     private Conversation response(StoredConversation stored, OffsetDateTime expiresAt) {
+        var audioCapability = audioCapabilities.issue(
+                stored.conversationId(), stored.utteranceId(), expiresAt);
         return new Conversation(
                 stored.conversationId(), expiresAt,
                 new Utterance(stored.utteranceId(), stored.englishText(), stored.chineseText(),
-                        stored.pronunciationHint(), stored.audioRef(), "remote_generated"));
+                        stored.pronunciationHint(), audioCapability, "remote_generated"));
     }
 
     public record CreateRequest(

@@ -2,15 +2,19 @@ package com.zhangspaghetti.babytalk.onboarding.conversation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentKeyFactory;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedAudioResponse;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedSpeechSynthesisPort;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -182,6 +186,66 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
         assertThat(secondResult.utterance().utteranceId()).isEqualTo(firstResult.utterance().utteranceId());
     }
 
+    @Test
+    void guestAudioCapabilityIsHeaderOnlyAndScopedToExactConversationUtterance() throws Exception {
+        var created = mockMvc.perform(post("/api/v1/onboarding/conversations")
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(validBody()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var root = objectMapper.readTree(created);
+        var conversationId = root.get("conversationId").asText();
+        var utteranceId = root.get("utterance").get("utteranceId").asText();
+        var capability = root.get("utterance").get("audioRef").asText();
+        var audioPath = "/api/v1/onboarding/conversations/" + conversationId
+                + "/utterances/" + utteranceId + "/audio";
+
+        mockMvc.perform(get(audioPath)
+                        .header("X-App-Version", "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer deliberately-ignored")
+                        .header("X-Onboarding-Audio-Capability", capability))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray())
+                        .containsExactly(1, 2, 3));
+
+        mockMvc.perform(get(audioPath.replace(conversationId, "onbc_wrong1234"))
+                        .header("X-App-Version", "1.2.0")
+                        .header("X-Onboarding-Audio-Capability", capability))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("onboarding_audio_not_found"));
+        mockMvc.perform(get(audioPath.replace(utteranceId, "utterance-wrong"))
+                        .header("X-App-Version", "1.2.0")
+                        .header("X-Onboarding-Audio-Capability", capability))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("onboarding_audio_not_found"));
+        mockMvc.perform(get(audioPath)
+                        .header("X-App-Version", "1.2.0")
+                        .header("X-Onboarding-Audio-Capability", "malformed"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("onboarding_audio_not_found"));
+        var expiredEpoch = OffsetDateTime.now().minusMinutes(1).toEpochSecond();
+        var expiredCapability = "oac1." + expiredEpoch + "."
+                + keyFactory.onboardingAudioCapabilitySignature(
+                        conversationId, utteranceId, expiredEpoch);
+        mockMvc.perform(get(audioPath)
+                        .header("X-App-Version", "1.2.0")
+                        .header("X-Onboarding-Audio-Capability", expiredCapability))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("onboarding_audio_not_found"));
+
+        mockMvc.perform(get("/api/v1/practice/generated-content/" + root.get("utterance")
+                                .path("generatedContentId").asText("generated-1")
+                                + "/utterances/" + utteranceId + "/audio")
+                        .header("X-App-Version", "1.2.0")
+                        .header("X-Onboarding-Audio-Capability", capability))
+                .andExpect(status().isUnauthorized());
+
+        assertThat(audioPath).doesNotContain(capability);
+        assertThat(jdbcTemplate.queryForObject(
+                "select audio_ref from guest_onboarding_conversations where conversation_id = ?",
+                String.class, conversationId)).isNull();
+    }
+
     private String validBody() {
         return """
                 {"installationId":"install-public-1234","localEventId":"event-1234",
@@ -207,6 +271,13 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
         @Primary
         StubGenerator onboardingConversationGenerator() {
             return new StubGenerator();
+        }
+
+        @Bean
+        @Primary
+        GeneratedSpeechSynthesisPort onboardingGeneratedSpeechSynthesisPort() {
+            return request -> new GeneratedAudioResponse(
+                    new byte[] {1, 2, 3}, "audio/mpeg", "generated-tts-v1");
         }
     }
 

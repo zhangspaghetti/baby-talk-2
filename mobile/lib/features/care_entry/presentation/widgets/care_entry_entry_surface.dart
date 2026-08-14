@@ -7,24 +7,63 @@ import 'package:mobile/features/care_entry/domain/onboarding_conversation_models
 import 'package:mobile/features/care_entry/presentation/onboarding_conversation_controller.dart';
 
 abstract interface class CareEntryAudioPlayer {
-  Future<void> playAsset(String assetPath);
+  Future<void> play({
+    required OnboardingUtterance utterance,
+    required String? conversationId,
+  });
+
+  Future<void> stop();
 
   Future<void> dispose();
 }
 
 final class AudioplayersCareEntryAudioPlayer implements CareEntryAudioPlayer {
-  AudioplayersCareEntryAudioPlayer({AudioPlayer? player})
-    : _player = player ?? AudioPlayer();
+  AudioplayersCareEntryAudioPlayer({
+    AudioPlayer? player,
+    GuestOnboardingAudioPlayer? guestAudioPlayer,
+  }) : _player = player ?? AudioPlayer(),
+       _guestAudioPlayer = guestAudioPlayer;
 
   final AudioPlayer _player;
+  final GuestOnboardingAudioPlayer? _guestAudioPlayer;
 
   @override
-  Future<void> playAsset(String assetPath) {
-    return _player.play(AssetSource(assetPath));
+  Future<void> play({
+    required OnboardingUtterance utterance,
+    required String? conversationId,
+  }) async {
+    final audioAsset = utterance.localAudioAsset;
+    if (audioAsset != null) {
+      final asset = audioAsset.startsWith('assets/')
+          ? audioAsset.substring(7)
+          : audioAsset;
+      await _player.play(AssetSource(asset));
+      return;
+    }
+    final guest = _guestAudioPlayer;
+    if (!utterance.remoteAudioAvailable ||
+        conversationId == null ||
+        guest == null) {
+      throw StateError('音频资源不可用。');
+    }
+    await guest.play(
+      conversationId: conversationId,
+      utteranceId: utterance.utteranceId,
+    );
   }
 
   @override
-  Future<void> dispose() => _player.dispose();
+  Future<void> stop() async {
+    final localStop = _player.stop();
+    final guestStop = _guestAudioPlayer?.stop();
+    await Future.wait(<Future<void>>[localStop, ?guestStop]);
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _guestAudioPlayer?.dispose();
+    await _player.dispose();
+  }
 }
 
 class CareEntryEntrySurface extends StatefulWidget {
@@ -100,8 +139,7 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
                           state.phase ==
                           OnboardingConversationPhase.savingPhraseSaid,
                       onPlayAudio: _playAudio,
-                      onSaid: () =>
-                          unawaited(widget.controller.markPhraseSaid()),
+                      onSaid: _markPhraseSaid,
                     ),
                   OnboardingConversationPhase.reactionPrompt =>
                     _ReactionPromptView(
@@ -154,12 +192,10 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
         widget.audioControllerFactory?.call() ??
         AudioplayersCareEntryAudioPlayer();
     try {
-      final audioAsset = utterance.localAudioAsset;
-      if (audioAsset == null) return;
-      final asset = audioAsset.startsWith('assets/')
-          ? audioAsset.substring(7)
-          : audioAsset;
-      await controller.playAsset(asset);
+      await controller.play(
+        utterance: utterance,
+        conversationId: widget.controller.state.conversationId,
+      );
     } on Object {
       if (mounted) {
         setState(() => _audioMessage = '今天先看着读也可以。');
@@ -169,6 +205,17 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
         setState(() => _isPlaying = false);
       }
     }
+  }
+
+  void _markPhraseSaid() {
+    final audioController = _audioController;
+    if (audioController != null) {
+      unawaited(audioController.stop().onError((_, _) {}));
+    }
+    if (mounted) {
+      setState(() => _isPlaying = false);
+    }
+    unawaited(widget.controller.markPhraseSaid());
   }
 }
 
@@ -340,7 +387,7 @@ class _FirstUtteranceView extends StatelessWidget {
           ).textTheme.bodyLarge?.copyWith(color: const Color(0xFF6F6258)),
         ),
         const SizedBox(height: 28),
-        if (utterance.localAudioAsset != null)
+        if (utterance.localAudioAsset != null || utterance.remoteAudioAvailable)
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(

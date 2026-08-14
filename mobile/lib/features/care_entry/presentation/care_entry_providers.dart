@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/care_entry/data/bundled_care_entry_registry.dart';
 import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
+import 'package:mobile/features/care_entry/data/guest_onboarding_audio_api.dart';
 import 'package:mobile/features/care_entry/data/guest_onboarding_conversation_api.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
@@ -21,7 +22,23 @@ final onboardingConversationRepositoryProvider =
 
 final guestOnboardingConversationGatewayProvider =
     Provider<GuestOnboardingConversationGateway>((ref) {
-      return GuestOnboardingConversationApi();
+      return GuestOnboardingConversationApi(
+        audioCapabilities: ref.watch(guestAudioCapabilityVaultProvider),
+      );
+    });
+
+final guestAudioCapabilityVaultProvider = Provider<GuestAudioCapabilityVault>(
+  (ref) {
+    final vault = GuestAudioCapabilityVault();
+    ref.onDispose(vault.clear);
+    return vault;
+  },
+);
+
+final guestOnboardingAudioPlayerFactoryProvider =
+    Provider<GuestOnboardingAudioPlayer Function()>((ref) {
+      final capabilities = ref.watch(guestAudioCapabilityVaultProvider);
+      return () => GuestOnboardingAudioApi(capabilities: capabilities);
     });
 
 final onboardingInstallationIdLoaderProvider =

@@ -69,6 +69,18 @@ public final class PracticeGeneratedContentKeyFactory {
                         + installationRefHash + "|" + canonicalRequest);
     }
 
+    public String onboardingAudioCapabilitySignature(
+            String conversationId,
+            String utteranceId,
+            long expiresAtEpochSecond
+    ) {
+        return hmacHex(
+                "onboarding-audio-capability:v1|" + keyVersion + "|"
+                        + conversationId.length() + ":" + conversationId + "|"
+                        + utteranceId.length() + ":" + utteranceId + "|"
+                        + expiresAtEpochSecond);
+    }
+
     public String stableDigest(String value) {
         try {
             var digest = MessageDigest.getInstance("SHA-256");

@@ -68,13 +68,13 @@ flutter:
     - assets/audio/phrases/bath_time_warm_water.mp3
     - assets/audio/phrases/bath_time_splash_splash.mp3
     - assets/audio/phrases/bath_time_all_clean.mp3
-    - assets/audio/phrases/diaper_change_clean_bottom.mp3
+    - assets/audio/phrases/diaper_change_clean_bottom.wav
     - assets/audio/phrases/diaper_change_all_dry.mp3
-    - assets/audio/phrases/feeding_time_open_wide.mp3
+    - assets/audio/phrases/feeding_time_open_wide.wav
     - assets/audio/phrases/feeding_time_yummy_bite.mp3
     - assets/audio/phrases/bedtime_dim_the_lights.mp3
-    - assets/audio/phrases/bedtime_time_to_sleep.mp3
-    - assets/audio/phrases/post_cry_im_right_here.mp3
+    - assets/audio/phrases/bedtime_time_to_sleep.wav
+    - assets/audio/phrases/post_cry_im_right_here.wav
     - assets/images/activities/
     - assets/images/baby_items/
     - assets/images/plants/

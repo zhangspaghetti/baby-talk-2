@@ -65,7 +65,9 @@ public class AppSecurityConfig {
             PathPatternRequestMatcher.pathPattern("/actuator/info"),
             PathPatternRequestMatcher.pathPattern("/error"),
             PathPatternRequestMatcher.pathPattern("/api/v1/share-links"),
-            PathPatternRequestMatcher.pathPattern("/api/v1/onboarding/conversations")
+            PathPatternRequestMatcher.pathPattern("/api/v1/onboarding/conversations"),
+            PathPatternRequestMatcher.pathPattern(
+                    "/api/v1/onboarding/conversations/*/utterances/*/audio")
     );
 
     @Bean("consumerAccessTokenJwtDecoder")
@@ -149,6 +151,7 @@ public class AppSecurityConfig {
                                 "/error",
                                 "/api/v1/share-links",
                                 "/api/v1/onboarding/conversations",
+                                "/api/v1/onboarding/conversations/*/utterances/*/audio",
                                 "/api/v1/practice/discovery",
                                 "/api/v1/mentor/chat")
                         .permitAll()

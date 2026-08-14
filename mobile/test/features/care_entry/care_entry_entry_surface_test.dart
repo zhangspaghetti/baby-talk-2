@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
@@ -115,6 +117,82 @@ void main() {
       expect(find.text('第一句已经留在你的小花园里。'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'remote playback failure degrades gently and keeps said enabled',
+    (tester) async {
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: _MemoryConversationRepository(),
+        scheduler: _ManualScheduler(),
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+        idGenerator: () => 'request.remote.audio',
+        conversationGateway: _ImmediateConversationGateway(),
+        installationIdLoader: () async => 'install-test-1234',
+      );
+      final audioPlayer = _FailingAudioPlayer();
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      await controller.startSelected();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CareEntryEntrySurface(
+            controller: controller,
+            audioControllerFactory: () => audioPlayer,
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byKey(const Key('care-entry-first-utterance-audio')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('今天先看着读也可以。'), findsOneWidget);
+      final said = tester.widget<FilledButton>(
+        find.byKey(const Key('care-entry-said-action')),
+      );
+      expect(said.onPressed, isNotNull);
+      expect(audioPlayer.conversationId, 'onbc_remote_1');
+      expect(audioPlayer.utteranceId, 'utterance-remote-1');
+    },
+  );
+
+  testWidgets('leaving first utterance stops in-flight audio', (tester) async {
+    final controller = OnboardingConversationController(
+      registry: _MemoryRegistry(_resolution()),
+      repository: _MemoryConversationRepository(),
+      scheduler: _ManualScheduler(),
+      clock: () => DateTime.utc(2026, 8, 14, 12),
+      idGenerator: () => 'event.audio.stop',
+    );
+    final audioPlayer = _BlockingAudioPlayer();
+    addTearDown(controller.dispose);
+    await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+    await controller.startSelected();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CareEntryEntrySurface(
+          controller: controller,
+          audioControllerFactory: () => audioPlayer,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('care-entry-first-utterance-audio')));
+    await tester.pump();
+    expect(audioPlayer.playStarted, isTrue);
+
+    await tester.tap(find.byKey(const Key('care-entry-said-action')));
+    await tester.pump();
+
+    expect(audioPlayer.stopCalls, 1);
+    expect(controller.state.phase, OnboardingConversationPhase.reactionPrompt);
+    audioPlayer.completePlay();
+    await tester.pump();
+  });
 }
 
 final class _MemoryConversationRepository
@@ -205,12 +283,84 @@ final class _RecordingAudioPlayer implements CareEntryAudioPlayer {
   final List<String> playedAssets = <String>[];
 
   @override
-  Future<void> playAsset(String assetPath) async {
-    playedAssets.add(assetPath);
+  Future<void> play({
+    required OnboardingUtterance utterance,
+    required String? conversationId,
+  }) async {
+    playedAssets.add(utterance.localAudioAsset!.replaceFirst('assets/', ''));
+  }
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> dispose() async {}
+}
+
+final class _FailingAudioPlayer implements CareEntryAudioPlayer {
+  String? conversationId;
+  String? utteranceId;
+
+  @override
+  Future<void> play({
+    required OnboardingUtterance utterance,
+    required String? conversationId,
+  }) async {
+    this.conversationId = conversationId;
+    utteranceId = utterance.utteranceId;
+    throw StateError('simulated audio failure');
+  }
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> dispose() async {}
+}
+
+final class _BlockingAudioPlayer implements CareEntryAudioPlayer {
+  final Completer<void> _play = Completer<void>();
+  bool playStarted = false;
+  int stopCalls = 0;
+
+  void completePlay() => _play.complete();
+
+  @override
+  Future<void> play({
+    required OnboardingUtterance utterance,
+    required String? conversationId,
+  }) {
+    playStarted = true;
+    return _play.future;
+  }
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    throw StateError('simulated stop failure');
   }
 
   @override
   Future<void> dispose() async {}
+}
+
+final class _ImmediateConversationGateway
+    implements GuestOnboardingConversationGateway {
+  @override
+  Future<GuestOnboardingConversation> create(
+    CreateGuestOnboardingConversation request,
+  ) async => GuestOnboardingConversation(
+    conversationId: 'onbc_remote_1',
+    expiresAt: DateTime.utc(2026, 8, 15),
+    utterance: const OnboardingUtterance(
+      utteranceId: 'utterance-remote-1',
+      english: 'Remote hello.',
+      chinese: '远端首句。',
+      pronunciation: 'remote',
+      source: OnboardingUtteranceSource.remoteGenerated,
+      remoteAudioAvailable: true,
+    ),
+  );
 }
 
 final class _MemoryRegistry implements CareEntryRegistry {

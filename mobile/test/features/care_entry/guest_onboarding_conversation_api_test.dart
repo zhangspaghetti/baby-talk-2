@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/care_entry/data/guest_onboarding_conversation_api.dart';
+import 'package:mobile/features/care_entry/data/guest_onboarding_audio_api.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 
@@ -33,11 +34,13 @@ void main() {
 
     final result = await GuestOnboardingConversationApi(
       dio: dio,
+      audioCapabilities: GuestAudioCapabilityVault(),
     ).create(_request());
 
     expect(result.conversationId, 'onbc_1');
     expect(result.utterance.english, 'Time to sleep.');
     expect(result.utterance.source, OnboardingUtteranceSource.remoteGenerated);
+    expect(result.utterance.remoteAudioAvailable, isTrue);
   });
 
   test(
@@ -45,6 +48,7 @@ void main() {
     () {
       final body = _response()..['prompt'] = 'private server details';
       final api = GuestOnboardingConversationApi(
+        audioCapabilities: GuestAudioCapabilityVault(),
         dio: _mockDio(
           (options) async => Response<dynamic>(
             requestOptions: options,
@@ -99,7 +103,7 @@ Map<String, Object?> _response() => <String, Object?>{
     'englishText': 'Time to sleep.',
     'chineseText': '该睡觉啦。',
     'pronunciationHint': 'taim tu sliip',
-    'audioRef': null,
+    'audioRef': 'secret-capability',
     'source': 'remote_generated',
   },
 };

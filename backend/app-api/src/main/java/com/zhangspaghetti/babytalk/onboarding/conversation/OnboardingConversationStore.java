@@ -6,6 +6,8 @@ public interface OnboardingConversationStore {
 
     StoredConversation find(String installationRefHash, String localEventId);
 
+    StoredConversation findByConversationId(String conversationId);
+
     int reserve(StoredConversation conversation);
 
     int activate(
