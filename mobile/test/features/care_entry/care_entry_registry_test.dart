@@ -40,6 +40,24 @@ void main() {
           startsWith('assets/audio/phrases/'),
         );
         expect(entry.seed.firstUtterance.audioReview, AudioReview.reviewed);
+        expect(
+          entry.seed.nextSupports.byReaction.keys,
+          containsAll(CareReaction.values),
+        );
+        final supportIds = <CareSupportId>{
+          entry.seed.nextSupports.whenAbsent.id,
+          ...entry.seed.nextSupports.byReaction.values.map(
+            (support) => support.id,
+          ),
+        };
+        expect(supportIds, hasLength(CareReaction.values.length + 1));
+        for (final support in <CareNextSupportUtterance>[
+          entry.seed.nextSupports.whenAbsent,
+          ...entry.seed.nextSupports.byReaction.values,
+        ]) {
+          expect(support.english, isNotEmpty);
+          expect(support.chinese, isNotEmpty);
+        }
 
         expect(entry.id.value, isNot(entry.seed.generationRef.id.value));
         expect(entry.id.value, isNot(entry.seed.fallback.id.value));
@@ -53,6 +71,16 @@ void main() {
           isNot(entry.seed.fallback.id.value),
         );
       }
+      expect(
+        result.entries
+            .map(
+              (entry) => entry.seed.nextSupports
+                  .resolve(CareReaction.hesitant)
+                  .english,
+            )
+            .toSet(),
+        hasLength(4),
+      );
     },
   );
 

@@ -10,7 +10,7 @@ class CareEntryOnboardingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(careEntrySelectionControllerProvider);
+    final controller = ref.watch(onboardingConversationControllerProvider);
     return CareEntryEntrySurface(
       controller: controller,
       onRetry: () =>

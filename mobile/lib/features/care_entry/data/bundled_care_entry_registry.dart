@@ -210,6 +210,7 @@ final class BundledCareEntryRegistry implements CareEntryRegistry {
       fallback,
       audioReview: AudioReview.reviewed,
     );
+    final nextSupports = _parseNextSupports(json, entryId: id);
 
     final hours = _optionalIntList(json, 'recommendationHours');
     if (hours.any((hour) => hour < 0 || hour > 23) ||
@@ -231,9 +232,51 @@ final class BundledCareEntryRegistry implements CareEntryRegistry {
           generationRef: generation,
           fallback: fallback,
           firstUtterance: firstUtterance,
+          nextSupports: nextSupports,
         ),
         isRecommended: false,
       ),
+    );
+  }
+
+  CareLocalNextSupportSet _parseNextSupports(
+    Map<String, dynamic> json, {
+    required CareEntryId entryId,
+  }) {
+    final supportJson = _requiredMap(json, 'nextSupport');
+    final absent = _parseSupport(
+      _requiredMap(supportJson, 'absent'),
+      entryId: entryId,
+    );
+    final reactionsJson = _requiredMap(supportJson, 'reactions');
+    final byReaction = <CareReaction, CareNextSupportUtterance>{};
+    for (final reaction in CareReaction.values) {
+      byReaction[reaction] = _parseSupport(
+        _requiredMap(reactionsJson, reaction.wireValue),
+        entryId: entryId,
+      );
+    }
+    final ids = <CareSupportId>{
+      absent.id,
+      ...byReaction.values.map((support) => support.id),
+    };
+    if (ids.length != CareReaction.values.length + 1) {
+      throw FormatException(
+        'Care Entry ${entryId.value} local next support identity 重复。',
+      );
+    }
+    return CareLocalNextSupportSet(whenAbsent: absent, byReaction: byReaction);
+  }
+
+  CareNextSupportUtterance _parseSupport(
+    Map<String, dynamic> json, {
+    required CareEntryId entryId,
+  }) {
+    final id = CareSupportId(_requiredNamespacedId(json, 'id', 'support.'));
+    return CareNextSupportUtterance(
+      id: id,
+      english: _requiredString(json, 'english'),
+      chinese: _requiredString(json, 'chinese'),
     );
   }
 }

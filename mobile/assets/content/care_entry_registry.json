@@ -41,6 +41,40 @@
         "activityId": "bedtime",
         "phraseId": "bedtime_time_to_sleep",
         "audioReview": "reviewed"
+      },
+      "nextSupport": {
+        "absent": {
+          "id": "support.bedtime.absent",
+          "english": "I'm here. It's sleep time.",
+          "chinese": "我在这里，该睡觉了。"
+        },
+        "reactions": {
+          "cooperating": {
+            "id": "support.bedtime.cooperating",
+            "english": "Let's close our eyes.",
+            "chinese": "我们闭上眼睛吧。"
+          },
+          "hesitant": {
+            "id": "support.bedtime.hesitant",
+            "english": "We can go slowly.",
+            "chinese": "我们可以慢慢来。"
+          },
+          "resisting": {
+            "id": "support.bedtime.resisting",
+            "english": "You don't want to sleep yet.",
+            "chinese": "你还不想睡。"
+          },
+          "no_response": {
+            "id": "support.bedtime.no_response",
+            "english": "Quiet now. I'm close.",
+            "chinese": "安静一下，我就在旁边。"
+          },
+          "other": {
+            "id": "support.bedtime.other",
+            "english": "Tell me what you need.",
+            "chinese": "告诉我你需要什么。"
+          }
+        }
       }
     },
     {
@@ -64,6 +98,40 @@
         "activityId": "feeding_time",
         "phraseId": "feeding_time_open_wide",
         "audioReview": "reviewed"
+      },
+      "nextSupport": {
+        "absent": {
+          "id": "support.feeding.absent",
+          "english": "One little bite.",
+          "chinese": "再吃一小口。"
+        },
+        "reactions": {
+          "cooperating": {
+            "id": "support.feeding.cooperating",
+            "english": "Here comes another bite.",
+            "chinese": "再来一口。"
+          },
+          "hesitant": {
+            "id": "support.feeding.hesitant",
+            "english": "You can taste it slowly.",
+            "chinese": "你可以慢慢尝。"
+          },
+          "resisting": {
+            "id": "support.feeding.resisting",
+            "english": "You don't want more right now.",
+            "chinese": "你现在不想再吃了。"
+          },
+          "no_response": {
+            "id": "support.feeding.no_response",
+            "english": "The spoon is right here.",
+            "chinese": "小勺就在这里。"
+          },
+          "other": {
+            "id": "support.feeding.other",
+            "english": "Show me what feels right.",
+            "chinese": "告诉我怎样更舒服。"
+          }
+        }
       }
     },
     {
@@ -87,6 +155,40 @@
         "activityId": "post_cry_soothing",
         "phraseId": "post_cry_im_right_here",
         "audioReview": "reviewed"
+      },
+      "nextSupport": {
+        "absent": {
+          "id": "support.post_cry.absent",
+          "english": "Let's take a slow breath.",
+          "chinese": "我们慢慢呼吸。"
+        },
+        "reactions": {
+          "cooperating": {
+            "id": "support.post_cry.cooperating",
+            "english": "You're settling down now.",
+            "chinese": "你正在慢慢平静下来。"
+          },
+          "hesitant": {
+            "id": "support.post_cry.hesitant",
+            "english": "I can hold you gently.",
+            "chinese": "我会轻轻抱着你。"
+          },
+          "resisting": {
+            "id": "support.post_cry.resisting",
+            "english": "That was hard for you.",
+            "chinese": "刚才对你来说很难受。"
+          },
+          "no_response": {
+            "id": "support.post_cry.no_response",
+            "english": "You can hear my voice.",
+            "chinese": "你可以听着我的声音。"
+          },
+          "other": {
+            "id": "support.post_cry.other",
+            "english": "I'm listening to you.",
+            "chinese": "我在听你。"
+          }
+        }
       }
     },
     {
@@ -110,6 +212,40 @@
         "activityId": "diaper_change",
         "phraseId": "diaper_change_clean_bottom",
         "audioReview": "reviewed"
+      },
+      "nextSupport": {
+        "absent": {
+          "id": "support.diaper.absent",
+          "english": "Almost all clean.",
+          "chinese": "马上就擦干净了。"
+        },
+        "reactions": {
+          "cooperating": {
+            "id": "support.diaper.cooperating",
+            "english": "Now we'll put on a clean diaper.",
+            "chinese": "现在换上干净尿布。"
+          },
+          "hesitant": {
+            "id": "support.diaper.hesitant",
+            "english": "I'll be quick and gentle.",
+            "chinese": "我会轻轻快一点。"
+          },
+          "resisting": {
+            "id": "support.diaper.resisting",
+            "english": "You don't like this part.",
+            "chinese": "你不喜欢这一会儿。"
+          },
+          "no_response": {
+            "id": "support.diaper.no_response",
+            "english": "Feet up, then all done.",
+            "chinese": "小脚抬起来，很快就好。"
+          },
+          "other": {
+            "id": "support.diaper.other",
+            "english": "Tell me what feels uncomfortable.",
+            "chinese": "告诉我哪里不舒服。"
+          }
+        }
       }
     }
   ]

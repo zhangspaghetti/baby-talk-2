@@ -16,6 +16,8 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
+import 'package:mobile/features/care_entry/presentation/care_entry_providers.dart';
 import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
@@ -315,6 +317,11 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   }) {
     return [
       onboardingRepositoryProvider.overrideWith((ref) => onboardingRepository),
+      onboardingConversationRepositoryProvider.overrideWith((ref) {
+        return FileOnboardingConversationRepository(
+          directoryResolver: () => ref.read(appDirectoryProvider.future),
+        );
+      }),
       defaultPracticeRouteArgsProvider.overrideWithValue(defaultPracticeArgs),
       practiceContinuityNotifierProvider.overrideWith((ref) {
         return PracticeContinuityNotifier(

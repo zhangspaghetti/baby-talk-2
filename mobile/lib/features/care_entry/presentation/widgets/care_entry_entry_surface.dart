@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
-import 'package:mobile/features/care_entry/presentation/care_entry_selection_controller.dart';
+import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
+import 'package:mobile/features/care_entry/presentation/onboarding_conversation_controller.dart';
 
 abstract interface class CareEntryAudioPlayer {
   Future<void> playAsset(String assetPath);
@@ -34,7 +35,7 @@ class CareEntryEntrySurface extends StatefulWidget {
     this.onRetry,
   });
 
-  final CareEntrySelectionController controller;
+  final OnboardingConversationController controller;
   final CareEntryAudioPlayer Function()? audioControllerFactory;
   final VoidCallback? onRetry;
 
@@ -46,6 +47,9 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
   CareEntryAudioPlayer? _audioController;
   String? _audioMessage;
   bool _isPlaying = false;
+  final TextEditingController _otherReactionController =
+      TextEditingController();
+  bool _isOtherReactionSelected = false;
 
   @override
   void dispose() {
@@ -53,6 +57,7 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
     if (audioController != null) {
       unawaited(audioController.dispose());
     }
+    _otherReactionController.dispose();
     super.dispose();
   }
 
@@ -69,24 +74,63 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 430),
                 child: switch (state.phase) {
-                  CareEntrySelectionPhase.loading => const Center(
+                  OnboardingConversationPhase.loading => const Center(
                     child: CircularProgressIndicator(),
                   ),
-                  CareEntrySelectionPhase.failure => _FailureView(
+                  OnboardingConversationPhase.failure => _FailureView(
                     message: state.errorMessage ?? '暂时无法准备入口。',
                     onRetry: widget.onRetry,
                   ),
-                  CareEntrySelectionPhase.selection => _SelectionView(
+                  OnboardingConversationPhase.selection => _SelectionView(
                     state: state,
-                    onSelected: widget.controller.select,
-                    onStarted: widget.controller.startSelected,
+                    onSelected: (id) => unawaited(widget.controller.select(id)),
+                    onStarted: () =>
+                        unawaited(widget.controller.startSelected()),
                   ),
-                  CareEntrySelectionPhase.firstUtterance => _FirstUtteranceView(
-                    entry: state.activeEntry!,
-                    audioMessage: _audioMessage,
-                    isPlaying: _isPlaying,
-                    onPlayAudio: _playAudio,
+                  OnboardingConversationPhase.firstUtterance ||
+                  OnboardingConversationPhase.savingPhraseSaid =>
+                    _FirstUtteranceView(
+                      entry: state.activeEntry!,
+                      audioMessage: _audioMessage,
+                      isPlaying: _isPlaying,
+                      isSaving:
+                          state.phase ==
+                          OnboardingConversationPhase.savingPhraseSaid,
+                      onPlayAudio: _playAudio,
+                      onSaid: () =>
+                          unawaited(widget.controller.markPhraseSaid()),
+                    ),
+                  OnboardingConversationPhase.reactionPrompt =>
+                    _ReactionPromptView(
+                      selectedReaction: state.selectedReaction,
+                      isOtherSelected: _isOtherReactionSelected,
+                      otherController: _otherReactionController,
+                      errorMessage: state.errorMessage,
+                      onSelected: (reaction, otherText) {
+                        setState(() => _isOtherReactionSelected = false);
+                        unawaited(
+                          widget.controller.selectReaction(
+                            reaction,
+                            otherText: otherText,
+                          ),
+                        );
+                      },
+                      onChooseOther: () {
+                        setState(() => _isOtherReactionSelected = true);
+                      },
+                      onContinue: () => unawaited(
+                        widget.controller.continueWithoutReaction(),
+                      ),
+                    ),
+                  OnboardingConversationPhase.nextSupportReady ||
+                  OnboardingConversationPhase.completing => _NextSupportView(
+                    support: state.nextSupport!,
+                    isCompleting:
+                        state.phase == OnboardingConversationPhase.completing,
+                    onComplete: () => unawaited(widget.controller.complete()),
                   ),
+                  OnboardingConversationPhase.completed =>
+                    const _GardenTraceView(),
                 },
               ),
             ),
@@ -130,7 +174,7 @@ class _SelectionView extends StatelessWidget {
     required this.onStarted,
   });
 
-  final CareEntrySelectionState state;
+  final OnboardingConversationState state;
   final ValueChanged<CareEntryId> onSelected;
   final VoidCallback onStarted;
 
@@ -247,13 +291,17 @@ class _FirstUtteranceView extends StatelessWidget {
     required this.entry,
     required this.audioMessage,
     required this.isPlaying,
+    required this.isSaving,
     required this.onPlayAudio,
+    required this.onSaid,
   });
 
   final ResolvedCareEntry entry;
   final String? audioMessage;
   final bool isPlaying;
+  final bool isSaving;
   final VoidCallback onPlayAudio;
+  final VoidCallback onSaid;
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +347,146 @@ class _FirstUtteranceView extends StatelessWidget {
           const SizedBox(height: 12),
           Text(audioMessage!, key: const Key('care-entry-audio-message')),
         ],
+        const SizedBox(height: 32),
+        SizedBox(
+          height: 52,
+          child: FilledButton(
+            key: const Key('care-entry-said-action'),
+            onPressed: isSaving ? null : onSaid,
+            child: Text(isSaving ? '正在记下' : '我说了'),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _ReactionPromptView extends StatelessWidget {
+  const _ReactionPromptView({
+    required this.selectedReaction,
+    required this.isOtherSelected,
+    required this.otherController,
+    required this.errorMessage,
+    required this.onSelected,
+    required this.onChooseOther,
+    required this.onContinue,
+  });
+
+  final CareReaction? selectedReaction;
+  final bool isOtherSelected;
+  final TextEditingController otherController;
+  final String? errorMessage;
+  final void Function(CareReaction reaction, String? otherText) onSelected;
+  final VoidCallback onChooseOther;
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      key: const Key('care-entry-reaction-prompt'),
+      padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
+      children: <Widget>[
+        Text(
+          '宝宝现在怎么了？',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: const Color(0xFF3F342C),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text('选一个最接近的，也可以直接看下一句。'),
+        const SizedBox(height: 20),
+        for (final reaction in CareReaction.values) ...<Widget>[
+          OutlinedButton(
+            key: Key('care-entry-reaction-${reaction.wireValue}'),
+            onPressed: reaction == CareReaction.other
+                ? onChooseOther
+                : () => onSelected(reaction, null),
+            child: Text(_reactionLabel(reaction)),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (isOtherSelected) ...<Widget>[
+          TextField(
+            key: const Key('care-entry-reaction-other-text'),
+            controller: otherController,
+            maxLength: 200,
+            decoration: const InputDecoration(labelText: '补充宝宝的反应（可不填）'),
+          ),
+          OutlinedButton(
+            key: const Key('care-entry-reaction-other-submit'),
+            onPressed: () =>
+                onSelected(CareReaction.other, otherController.text.trim()),
+            child: const Text('确认其他反应'),
+          ),
+        ],
+        if (errorMessage != null) Text(errorMessage!),
+        const SizedBox(height: 8),
+        TextButton(
+          key: const Key('care-entry-reaction-skip'),
+          onPressed: onContinue,
+          child: const Text('直接看下一句'),
+        ),
+      ],
+    );
+  }
+}
+
+class _NextSupportView extends StatelessWidget {
+  const _NextSupportView({
+    required this.support,
+    required this.isCompleting,
+    required this.onComplete,
+  });
+
+  final CareNextSupportUtterance support;
+  final bool isCompleting;
+  final VoidCallback onComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      key: const Key('care-entry-next-support'),
+      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      children: <Widget>[
+        Text(
+          support.english,
+          style: Theme.of(context).textTheme.displaySmall?.copyWith(
+            color: const Color(0xFF3F342C),
+            fontFamily: 'Fraunces',
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(support.chinese, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 36),
+        SizedBox(
+          height: 52,
+          child: FilledButton(
+            key: const Key('care-entry-complete-action'),
+            onPressed: isCompleting ? null : onComplete,
+            child: Text(isCompleting ? '正在保存' : '今天先到这里'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GardenTraceView extends StatelessWidget {
+  const _GardenTraceView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      key: const Key('care-entry-garden-trace'),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          '第一句已经留在你的小花园里。',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+      ),
     );
   }
 }
@@ -336,4 +523,12 @@ IconData _iconFor(String visualToken) => switch (visualToken) {
   'route.soothing' => Icons.water_drop_outlined,
   'route.diaper' => Icons.checkroom_outlined,
   _ => Icons.favorite_outline,
+};
+
+String _reactionLabel(CareReaction reaction) => switch (reaction) {
+  CareReaction.cooperating => '配合',
+  CareReaction.hesitant => '犹豫',
+  CareReaction.resisting => '不想',
+  CareReaction.noResponse => '没反应',
+  CareReaction.other => '其他',
 };
