@@ -812,6 +812,7 @@ void main() {
     final observedGarden = projectionContainer.read(
       gardenGrowthNotifierProvider,
     );
+    final observedCarePath = projectionContainer.read(carePathNotifierProvider);
     for (var index = 0; index < 120; index++) {
       await tester.pump();
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
@@ -860,7 +861,8 @@ void main() {
       if (continuity.lastRefreshReason == 'account_projection_ready' &&
           continuity.status == PracticeContinuityLoadStatus.ready &&
           !continuity.isRefreshing &&
-          !garden.isRefreshing) {
+          !garden.isRefreshing &&
+          !observedCarePath.isBusy) {
         break;
       }
     }
