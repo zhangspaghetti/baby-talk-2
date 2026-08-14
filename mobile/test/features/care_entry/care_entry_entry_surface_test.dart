@@ -298,9 +298,10 @@ ResolvedCareEntry _entry({
     seed: CareMomentSeed(
       generationRef: GenerationSceneRef(
         id: GenerationSceneId('generation.$order'),
-        schemaVersion: 1,
-        sceneType: 'scene_$order',
-        parentTonePreference: 'short_gentle',
+        namespace: 'babytalk.care',
+        key: 'scene_$order',
+        version: 1,
+        facets: const <String, String>{'parentTonePreference': 'short_gentle'},
       ),
       fallback: CatalogFallbackRef(
         id: CatalogFallbackId('fallback.$order'),

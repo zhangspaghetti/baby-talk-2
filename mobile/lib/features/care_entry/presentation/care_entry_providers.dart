@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/features/care_entry/data/bundled_care_entry_registry.dart';
 import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
+import 'package:mobile/features/care_entry/data/guest_onboarding_conversation_api.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 import 'package:mobile/features/care_entry/presentation/onboarding_conversation_controller.dart';
@@ -18,18 +19,39 @@ final onboardingConversationRepositoryProvider =
       return FileOnboardingConversationRepository();
     });
 
+final guestOnboardingConversationGatewayProvider =
+    Provider<GuestOnboardingConversationGateway>((ref) {
+      return GuestOnboardingConversationApi();
+    });
+
+final onboardingInstallationIdLoaderProvider =
+    Provider<OnboardingInstallationIdLoader?>((ref) => null);
+
 final onboardingConversationControllerProvider =
-    ChangeNotifierProvider.autoDispose<OnboardingConversationController>((ref) {
-      final controller = OnboardingConversationController(
-        registry: ref.watch(careEntryRegistryProvider),
-        repository: ref.watch(onboardingConversationRepositoryProvider),
-        scheduler: const TimerOnboardingDelayScheduler(),
-        clock: DateTime.now,
-        idGenerator: _newOnboardingId,
-      );
-      unawaited(controller.initialize(localTime: DateTime.now()));
-      return controller;
-    }, dependencies: [onboardingConversationRepositoryProvider]);
+    ChangeNotifierProvider.autoDispose<OnboardingConversationController>(
+      (ref) {
+        final controller = OnboardingConversationController(
+          registry: ref.watch(careEntryRegistryProvider),
+          repository: ref.watch(onboardingConversationRepositoryProvider),
+          scheduler: const TimerOnboardingDelayScheduler(),
+          clock: DateTime.now,
+          idGenerator: _newOnboardingId,
+          conversationGateway: ref.watch(
+            guestOnboardingConversationGatewayProvider,
+          ),
+          installationIdLoader: ref.watch(
+            onboardingInstallationIdLoaderProvider,
+          ),
+        );
+        unawaited(controller.initialize(localTime: DateTime.now()));
+        return controller;
+      },
+      dependencies: [
+        onboardingConversationRepositoryProvider,
+        guestOnboardingConversationGatewayProvider,
+        onboardingInstallationIdLoaderProvider,
+      ],
+    );
 
 String _newOnboardingId() {
   final random = Random.secure();

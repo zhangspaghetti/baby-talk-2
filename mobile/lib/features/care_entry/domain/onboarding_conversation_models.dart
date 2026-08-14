@@ -4,6 +4,7 @@ import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 enum OnboardingConversationPhase {
   loading,
   selection,
+  resolvingFirstUtterance,
   firstUtterance,
   savingPhraseSaid,
   reactionPrompt,
@@ -12,6 +13,83 @@ enum OnboardingConversationPhase {
   completed,
   failure,
 }
+
+enum OnboardingUtteranceSource { localFallback, remoteGenerated }
+
+@immutable
+final class OnboardingUtterance {
+  const OnboardingUtterance({
+    required this.utteranceId,
+    required this.english,
+    required this.chinese,
+    required this.pronunciation,
+    required this.source,
+    this.localAudioAsset,
+    this.remoteAudioRef,
+  });
+
+  factory OnboardingUtterance.local({
+    required String utteranceId,
+    required CareFirstUtterance utterance,
+  }) => OnboardingUtterance(
+    utteranceId: utteranceId,
+    english: utterance.english,
+    chinese: utterance.chinese,
+    pronunciation: utterance.pronunciation,
+    source: OnboardingUtteranceSource.localFallback,
+    localAudioAsset: utterance.audioAsset,
+  );
+
+  final String utteranceId;
+  final String english;
+  final String chinese;
+  final String pronunciation;
+  final OnboardingUtteranceSource source;
+  final String? localAudioAsset;
+  final String? remoteAudioRef;
+}
+
+@immutable
+final class GuestOnboardingConversation {
+  const GuestOnboardingConversation({
+    required this.conversationId,
+    required this.expiresAt,
+    required this.utterance,
+  });
+
+  final String conversationId;
+  final DateTime expiresAt;
+  final OnboardingUtterance utterance;
+}
+
+@immutable
+final class CreateGuestOnboardingConversation {
+  const CreateGuestOnboardingConversation({
+    required this.installationId,
+    required this.localEventId,
+    required this.careEntryId,
+    required this.registryRevision,
+    required this.generationScene,
+    required this.locale,
+    required this.timeBand,
+  });
+
+  final String installationId;
+  final String localEventId;
+  final CareEntryId careEntryId;
+  final String registryRevision;
+  final GenerationSceneRef generationScene;
+  final String locale;
+  final String timeBand;
+}
+
+abstract interface class GuestOnboardingConversationGateway {
+  Future<GuestOnboardingConversation> create(
+    CreateGuestOnboardingConversation request,
+  );
+}
+
+typedef OnboardingInstallationIdLoader = Future<String> Function();
 
 enum OnboardingCheckpointPhase {
   selection,
@@ -44,6 +122,7 @@ final class OnboardingConversationSnapshot {
     required this.phase,
     required this.selectedEntryId,
     this.activeEntryId,
+    this.conversationRequestEventId,
     this.phraseSaidEventId,
     this.phraseSaidAt,
     this.selectedReaction,
@@ -58,6 +137,7 @@ final class OnboardingConversationSnapshot {
   final OnboardingCheckpointPhase phase;
   final CareEntryId selectedEntryId;
   final CareEntryId? activeEntryId;
+  final String? conversationRequestEventId;
   final String? phraseSaidEventId;
   final DateTime? phraseSaidAt;
   final CareReaction? selectedReaction;
@@ -89,6 +169,7 @@ final class OnboardingConversationSnapshot {
     OnboardingCheckpointPhase? phase,
     CareEntryId? selectedEntryId,
     Object? activeEntryId = _unset,
+    Object? conversationRequestEventId = _unset,
     Object? phraseSaidEventId = _unset,
     Object? phraseSaidAt = _unset,
     Object? selectedReaction = _unset,
@@ -105,6 +186,9 @@ final class OnboardingConversationSnapshot {
       activeEntryId: identical(activeEntryId, _unset)
           ? this.activeEntryId
           : activeEntryId as CareEntryId?,
+      conversationRequestEventId: identical(conversationRequestEventId, _unset)
+          ? this.conversationRequestEventId
+          : conversationRequestEventId as String?,
       phraseSaidEventId: identical(phraseSaidEventId, _unset)
           ? this.phraseSaidEventId
           : phraseSaidEventId as String?,

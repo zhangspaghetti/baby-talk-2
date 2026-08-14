@@ -21,6 +21,7 @@ void main() {
         phase: OnboardingCheckpointPhase.firstUtterance,
         selectedEntryId: CareEntryId('care.bedtime_soothing'),
         activeEntryId: CareEntryId('care.bedtime_soothing'),
+        conversationRequestEventId: 'onboarding-request-1',
       );
 
       final saved = await repository.save(initial);
@@ -63,6 +64,10 @@ void main() {
       ).read();
       expect(restored?.schemaVersion, 2);
       expect(restored?.phase, OnboardingCheckpointPhase.completed);
+      expect(
+        restored?.conversationRequestEventId,
+        'onboarding-request-1',
+      );
       expect(restored?.selectedReaction, CareReaction.other);
       expect(restored?.phraseSaidEventId, 'event.phrase_said.1');
       expect(restored?.gardenTraceId, 'event.phrase_said.1');

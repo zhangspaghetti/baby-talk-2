@@ -177,21 +177,24 @@ final class BundledCareEntryRegistry implements CareEntryRegistry {
     }
 
     final generationJson = _requiredMap(json, 'generation');
+    _requireExactKeys(generationJson, const <String>{
+      'id',
+      'namespace',
+      'key',
+      'version',
+      'facets',
+    });
     final generation = GenerationSceneRef(
       id: GenerationSceneId(
         _requiredNamespacedId(generationJson, 'id', 'generation.'),
       ),
-      schemaVersion: _requiredInt(generationJson, 'schemaVersion'),
-      sceneType: _requiredString(generationJson, 'sceneType'),
-      parentTonePreference: _requiredString(
-        generationJson,
-        'parentTonePreference',
-      ),
+      namespace: _requiredString(generationJson, 'namespace'),
+      key: _requiredString(generationJson, 'key'),
+      version: _requiredInt(generationJson, 'version'),
+      facets: _requiredStringMap(generationJson, 'facets'),
     );
-    if (generation.schemaVersion != 1) {
-      throw FormatException(
-        'Care Entry ${id.value} generation schemaVersion 不受支持。',
-      );
+    if (generation.version != 1 || generation.namespace != 'babytalk.care') {
+      throw FormatException('Care Entry ${id.value} generation scene 不受支持。');
     }
 
     final fallbackJson = _requiredMap(json, 'fallback');
@@ -278,6 +281,29 @@ final class BundledCareEntryRegistry implements CareEntryRegistry {
       english: _requiredString(json, 'english'),
       chinese: _requiredString(json, 'chinese'),
     );
+  }
+}
+
+Map<String, String> _requiredStringMap(
+  Map<String, dynamic> json,
+  String field,
+) {
+  final raw = _requiredMap(json, field);
+  if (raw.length > 8) throw FormatException('$field 条目过多。');
+  return Map<String, String>.unmodifiable(
+    raw.map<String, String>((key, value) {
+      if (value is! String || value.isEmpty || value != value.trim()) {
+        throw FormatException('$field.$key 必须是规范化字符串。');
+      }
+      return MapEntry(key, value);
+    }),
+  );
+}
+
+void _requireExactKeys(Map<String, dynamic> json, Set<String> expected) {
+  if (json.keys.toSet().difference(expected).isNotEmpty ||
+      expected.difference(json.keys.toSet()).isNotEmpty) {
+    throw const FormatException('Care Entry generation 包含未知或缺失字段。');
   }
 }
 

@@ -6,6 +6,183 @@ import 'package:mobile/features/care_entry/domain/onboarding_conversation_models
 import 'package:mobile/features/care_entry/presentation/onboarding_conversation_controller.dart';
 
 void main() {
+  test('remote first utterance wins before the four-second deadline', () async {
+    final scheduler = _ManualScheduler();
+    final gateway = _HeldConversationGateway();
+    final repository = _MemoryConversationRepository();
+    final controller = OnboardingConversationController(
+      registry: _MemoryRegistry(_resolution()),
+      repository: repository,
+      scheduler: scheduler,
+      clock: () => DateTime(2026, 8, 14, 20),
+      idGenerator: () => 'request-1234',
+      conversationGateway: gateway,
+      installationIdLoader: () async => 'install-test-1234',
+      visibleSlots: 1,
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+
+    final pending = controller.startSelected();
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      controller.state.phase,
+      OnboardingConversationPhase.resolvingFirstUtterance,
+    );
+    gateway.complete(_remoteConversation('Remote hello.'));
+    await pending;
+
+    expect(controller.state.phase, OnboardingConversationPhase.firstUtterance);
+    expect(controller.state.activeUtterance?.english, 'Remote hello.');
+    expect(controller.state.conversationId, 'conversation-1');
+    expect(
+      controller.state.activeUtterance?.source,
+      OnboardingUtteranceSource.remoteGenerated,
+    );
+    expect(gateway.request?.localEventId, 'onboarding-request-1234');
+    expect(
+      repository.snapshot?.conversationRequestEventId,
+      'onboarding-request-1234',
+    );
+    expect(gateway.request?.generationScene.key, 'bedtime');
+  });
+
+  test(
+    'four-second local fallback is sticky against a late response',
+    () async {
+      final scheduler = _ManualScheduler();
+      final gateway = _HeldConversationGateway();
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: _MemoryConversationRepository(),
+        scheduler: scheduler,
+        clock: () => DateTime(2026, 8, 14, 20),
+        idGenerator: () => 'request-1234',
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-test-1234',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+
+      final pending = controller.startSelected();
+      await Future<void>.delayed(Duration.zero);
+      scheduler.elapse(const Duration(seconds: 4));
+      await pending;
+      expect(controller.state.activeUtterance?.english, 'Time to sleep.');
+      expect(
+        controller.state.activeUtterance?.source,
+        OnboardingUtteranceSource.localFallback,
+      );
+
+      gateway.complete(_remoteConversation('Too late.'));
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.state.activeUtterance?.english, 'Time to sleep.');
+    },
+  );
+
+  test(
+    'network waits for durable request identity and timeout remains local',
+    () async {
+      final scheduler = _ManualScheduler();
+      final gateway = _HeldConversationGateway();
+      final repository = _MemoryConversationRepository();
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: scheduler,
+        clock: () => DateTime(2026, 8, 14, 20),
+        idGenerator: () => 'request-1234',
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-test-1234',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+
+      final blockedSave = repository.holdNextSave();
+      final pending = controller.startSelected();
+      await Future<void>.delayed(Duration.zero);
+      expect(gateway.request, isNull);
+      blockedSave.release();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(gateway.request?.localEventId, 'onboarding-request-1234');
+      scheduler.elapse(const Duration(seconds: 4));
+      await pending;
+
+      expect(controller.state.activeUtterance?.english, 'Time to sleep.');
+      expect(
+        controller.state.activeUtterance?.source,
+        OnboardingUtteranceSource.localFallback,
+      );
+      gateway.complete(_remoteConversation('Too late after timeout.'));
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.state.activeUtterance?.english, 'Time to sleep.');
+    },
+  );
+
+  test('concurrent starts reuse one durable request and one future', () async {
+    final repository = _MemoryConversationRepository();
+    final gateway = _HeldConversationGateway();
+    var generatedIds = 0;
+    final controller = OnboardingConversationController(
+      registry: _MemoryRegistry(_resolution()),
+      repository: repository,
+      scheduler: _ManualScheduler(),
+      clock: () => DateTime(2026, 8, 14, 20),
+      idGenerator: () => 'request-${++generatedIds}',
+      conversationGateway: gateway,
+      installationIdLoader: () async => 'install-test-1234',
+      visibleSlots: 1,
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+
+    final blockedSave = repository.holdNextSave();
+    final first = controller.startSelected();
+    final second = controller.startSelected();
+
+    expect(identical(first, second), isTrue);
+    expect(
+      controller.state.phase,
+      OnboardingConversationPhase.resolvingFirstUtterance,
+    );
+    expect(generatedIds, 1);
+
+    blockedSave.release();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    gateway.complete(_remoteConversation('Only once.'));
+    await Future.wait(<Future<void>>[first, second]);
+
+    expect(gateway.calls, 1);
+    expect(gateway.request?.localEventId, 'onboarding-request-1');
+  });
+
+  test('dispose completes a pending first utterance race', () async {
+    final gateway = _HeldConversationGateway();
+    final controller = OnboardingConversationController(
+      registry: _MemoryRegistry(_resolution()),
+      repository: _MemoryConversationRepository(),
+      scheduler: _ManualScheduler(),
+      clock: () => DateTime(2026, 8, 14, 20),
+      idGenerator: () => 'request-1234',
+      conversationGateway: gateway,
+      installationIdLoader: () async => 'install-test-1234',
+      visibleSlots: 1,
+    );
+    await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+
+    final pending = controller.startSelected();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    controller.dispose();
+
+    await pending.timeout(const Duration(seconds: 1));
+    expect(gateway.calls, 1);
+  });
+
   test('selection transitions stay retryable when persistence fails', () async {
     final repository = _MemoryConversationRepository();
     final controller = OnboardingConversationController(
@@ -484,6 +661,37 @@ final class _MemoryRegistry implements CareEntryRegistry {
   }) async => resolution;
 }
 
+final class _HeldConversationGateway
+    implements GuestOnboardingConversationGateway {
+  final Completer<GuestOnboardingConversation> _response = Completer();
+  CreateGuestOnboardingConversation? request;
+  int calls = 0;
+
+  @override
+  Future<GuestOnboardingConversation> create(
+    CreateGuestOnboardingConversation request,
+  ) {
+    calls += 1;
+    this.request = request;
+    return _response.future;
+  }
+
+  void complete(GuestOnboardingConversation value) => _response.complete(value);
+}
+
+GuestOnboardingConversation _remoteConversation(String english) =>
+    GuestOnboardingConversation(
+      conversationId: 'conversation-1',
+      expiresAt: DateTime.utc(2026, 8, 15, 12),
+      utterance: OnboardingUtterance(
+        utteranceId: 'utterance-remote-1',
+        english: english,
+        chinese: '远端首句。',
+        pronunciation: 'remote',
+        source: OnboardingUtteranceSource.remoteGenerated,
+      ),
+    );
+
 final class _MemoryConversationRepository
     implements OnboardingConversationRepository {
   OnboardingConversationSnapshot? snapshot;
@@ -613,9 +821,10 @@ CareEntryResolution _resolution() {
     seed: CareMomentSeed(
       generationRef: const GenerationSceneRef(
         id: GenerationSceneId('generation.bedtime'),
-        schemaVersion: 1,
-        sceneType: 'bedtime',
-        parentTonePreference: 'short_gentle',
+        namespace: 'babytalk.care',
+        key: 'bedtime',
+        version: 1,
+        facets: <String, String>{'parentTonePreference': 'short_gentle'},
       ),
       fallback: const CatalogFallbackRef(
         id: CatalogFallbackId('fallback.bedtime.time_to_sleep'),

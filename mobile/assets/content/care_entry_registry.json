@@ -31,9 +31,10 @@
       "recommendationHours": [0, 1, 2, 3, 4, 17, 18, 19, 20, 21, 22, 23],
       "generation": {
         "id": "generation.bedtime",
-        "schemaVersion": 1,
-        "sceneType": "bedtime",
-        "parentTonePreference": "short_gentle"
+        "namespace": "babytalk.care",
+        "key": "bedtime",
+        "version": 1,
+        "facets": {"parentTonePreference": "short_gentle"}
       },
       "fallback": {
         "id": "fallback.bedtime.time_to_sleep",
@@ -88,9 +89,10 @@
       "recommendationHours": [5, 6, 7, 8, 9, 10],
       "generation": {
         "id": "generation.feeding",
-        "schemaVersion": 1,
-        "sceneType": "feeding",
-        "parentTonePreference": "short_gentle"
+        "namespace": "babytalk.care",
+        "key": "feeding",
+        "version": 1,
+        "facets": {"parentTonePreference": "short_gentle"}
       },
       "fallback": {
         "id": "fallback.feeding.open_wide",
@@ -145,9 +147,10 @@
       "recommendationHours": [],
       "generation": {
         "id": "generation.post_cry",
-        "schemaVersion": 1,
-        "sceneType": "post_cry",
-        "parentTonePreference": "short_gentle"
+        "namespace": "babytalk.care",
+        "key": "post_cry",
+        "version": 1,
+        "facets": {"parentTonePreference": "short_gentle"}
       },
       "fallback": {
         "id": "fallback.post_cry.right_here",
@@ -202,9 +205,10 @@
       "recommendationHours": [11, 12, 13, 14, 15, 16],
       "generation": {
         "id": "generation.diaper_change",
-        "schemaVersion": 1,
-        "sceneType": "diaper_change",
-        "parentTonePreference": "short_gentle"
+        "namespace": "babytalk.care",
+        "key": "diaper_change",
+        "version": 1,
+        "facets": {"parentTonePreference": "short_gentle"}
       },
       "fallback": {
         "id": "fallback.diaper.clean_bottom",

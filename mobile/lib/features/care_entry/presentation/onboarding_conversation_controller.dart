@@ -18,6 +18,9 @@ final class OnboardingConversationState {
     this.selectedReaction,
     this.phraseSaidEventId,
     this.gardenTraceId,
+    this.firstUtterance,
+    this.conversationId,
+    this.conversationExpiresAt,
     this.errorMessage,
   }) : entries = List<ResolvedCareEntry>.unmodifiable(entries);
 
@@ -32,9 +35,12 @@ final class OnboardingConversationState {
   final CareReaction? selectedReaction;
   final String? phraseSaidEventId;
   final String? gardenTraceId;
+  final OnboardingUtterance? firstUtterance;
+  final String? conversationId;
+  final DateTime? conversationExpiresAt;
   final String? errorMessage;
 
-  CareFirstUtterance? get activeUtterance => activeEntry?.seed.firstUtterance;
+  OnboardingUtterance? get activeUtterance => firstUtterance;
 }
 
 final class OnboardingConversationController extends ChangeNotifier {
@@ -44,19 +50,25 @@ final class OnboardingConversationController extends ChangeNotifier {
     required OnboardingDelayScheduler scheduler,
     required OnboardingConversationClock clock,
     required OnboardingConversationIdGenerator idGenerator,
+    GuestOnboardingConversationGateway? conversationGateway,
+    OnboardingInstallationIdLoader? installationIdLoader,
     this.placement = const CareEntryPlacementId('onboarding.primary'),
     this.visibleSlots = 4,
   }) : _registry = registry,
        _repository = repository,
        _scheduler = scheduler,
        _clock = clock,
-       _idGenerator = idGenerator;
+       _idGenerator = idGenerator,
+       _conversationGateway = conversationGateway,
+       _installationIdLoader = installationIdLoader;
 
   final CareEntryRegistry _registry;
   final OnboardingConversationRepository _repository;
   final OnboardingDelayScheduler _scheduler;
   final OnboardingConversationClock _clock;
   final OnboardingConversationIdGenerator _idGenerator;
+  final GuestOnboardingConversationGateway? _conversationGateway;
+  final OnboardingInstallationIdLoader? _installationIdLoader;
   final CareEntryPlacementId placement;
   final int visibleSlots;
 
@@ -64,6 +76,12 @@ final class OnboardingConversationController extends ChangeNotifier {
   OnboardingConversationSnapshot? _checkpoint;
   CareEntryResolution? _resolution;
   OnboardingScheduledTask? _reactionTimeout;
+  OnboardingScheduledTask? _firstUtteranceTimeout;
+  Future<void>? _startSelectedOperation;
+  _FirstUtteranceRace? _activeFirstUtteranceRace;
+  OnboardingUtterance? _firstUtterance;
+  String? _conversationId;
+  DateTime? _conversationExpiresAt;
   bool _disposed = false;
   int _operationEpoch = 0;
   int _reactionEpoch = 0;
@@ -138,18 +156,101 @@ final class OnboardingConversationController extends ChangeNotifier {
     }
   }
 
-  Future<void> startSelected() async {
-    if (_state.phase != OnboardingConversationPhase.selection) return;
+  Future<void> startSelected() {
+    final active = _startSelectedOperation;
+    if (active != null) return active;
+    if (_state.phase != OnboardingConversationPhase.selection) {
+      return Future<void>.value();
+    }
+    final operation = _runStartSelected();
+    _startSelectedOperation = operation;
+    operation.whenComplete(() {
+      if (identical(_startSelectedOperation, operation)) {
+        _startSelectedOperation = null;
+      }
+    }).ignore();
+    return operation;
+  }
+
+  Future<void> _runStartSelected() async {
     final selectedId = _state.selectedEntryId;
     if (selectedId == null) {
       throw StateError('没有可启动的 Care Entry。');
     }
     final previous = _requireCheckpoint();
-    final checkpoint = previous.copyWith(
+    var checkpoint = previous.copyWith(
       phase: OnboardingCheckpointPhase.firstUtterance,
       activeEntryId: selectedId,
     );
+    final activeEntry = _requireResolution().entries.firstWhere(
+      (entry) => entry.id == selectedId,
+    );
+    final local = OnboardingUtterance.local(
+      utteranceId: activeEntry.seed.fallback.phraseId,
+      utterance: activeEntry.seed.firstUtterance,
+    );
+    final gateway = _conversationGateway;
+    final installationIdLoader = _installationIdLoader;
+    if (gateway != null && installationIdLoader != null) {
+      checkpoint = checkpoint.copyWith(
+        conversationRequestEventId:
+            previous.conversationRequestEventId ??
+            'onboarding-${_idGenerator()}',
+      );
+      _publish(
+        _stateFor(
+          checkpoint,
+          OnboardingConversationPhase.resolvingFirstUtterance,
+          firstUtterance: null,
+        ),
+      );
+      try {
+        checkpoint = await _repository.save(checkpoint);
+      } on Object {
+        if (_disposed) return;
+        _publish(
+          _stateFor(
+            previous,
+            OnboardingConversationPhase.selection,
+            errorMessage: '这一刻还没保存好，请再试一次。',
+          ),
+        );
+        return;
+      }
+      if (_disposed) return;
+      _checkpoint = checkpoint;
+      final epoch = ++_operationEpoch;
+      final race = _FirstUtteranceRace();
+      _activeFirstUtteranceRace = race;
+      _firstUtteranceTimeout?.cancel();
+      _firstUtteranceTimeout = _scheduler.schedule(
+        const Duration(seconds: 4),
+        () => unawaited(
+          _selectFirstUtterance(checkpoint, local, epoch: epoch, race: race),
+        ),
+      );
+      unawaited(
+        _requestRemoteFirstUtterance(
+          gateway,
+          installationIdLoader,
+          activeEntry,
+          checkpoint,
+          local,
+          epoch: epoch,
+          race: race,
+        ),
+      );
+      try {
+        await race.done;
+      } finally {
+        if (identical(_activeFirstUtteranceRace, race)) {
+          _activeFirstUtteranceRace = null;
+        }
+      }
+      return;
+    }
     try {
+      _firstUtterance = local;
       final persisted = await _repository.save(checkpoint);
       if (_disposed) return;
       _applyCheckpoint(persisted);
@@ -163,6 +264,59 @@ final class OnboardingConversationController extends ChangeNotifier {
         ),
       );
     }
+  }
+
+  Future<void> _requestRemoteFirstUtterance(
+    GuestOnboardingConversationGateway gateway,
+    OnboardingInstallationIdLoader installationIdLoader,
+    ResolvedCareEntry activeEntry,
+    OnboardingConversationSnapshot checkpoint,
+    OnboardingUtterance local, {
+    required int epoch,
+    required _FirstUtteranceRace race,
+  }) async {
+    try {
+      final installationId = await installationIdLoader();
+      if (_disposed || epoch != _operationEpoch || race.isClaimed) return;
+      final remote = await gateway.create(
+        CreateGuestOnboardingConversation(
+          installationId: installationId,
+          localEventId: checkpoint.conversationRequestEventId!,
+          careEntryId: activeEntry.id,
+          registryRevision: _requireResolution().revision,
+          generationScene: activeEntry.seed.generationRef,
+          locale: 'zh-CN',
+          timeBand: _timeBand(_clock()),
+        ),
+      );
+      await _selectFirstUtterance(
+        checkpoint,
+        remote.utterance,
+        conversationId: remote.conversationId,
+        conversationExpiresAt: remote.expiresAt,
+        epoch: epoch,
+        race: race,
+      );
+    } on Object {
+      await _selectFirstUtterance(checkpoint, local, epoch: epoch, race: race);
+    }
+  }
+
+  Future<void> _selectFirstUtterance(
+    OnboardingConversationSnapshot checkpoint,
+    OnboardingUtterance utterance, {
+    required int epoch,
+    required _FirstUtteranceRace race,
+    String? conversationId,
+    DateTime? conversationExpiresAt,
+  }) async {
+    if (_disposed || epoch != _operationEpoch || !race.tryClaim()) return;
+    _firstUtteranceTimeout?.cancel();
+    _firstUtterance = utterance;
+    _conversationId = conversationId;
+    _conversationExpiresAt = conversationExpiresAt;
+    _applyCheckpoint(checkpoint);
+    race.complete();
   }
 
   Future<void> markPhraseSaid() async {
@@ -310,6 +464,11 @@ final class OnboardingConversationController extends ChangeNotifier {
 
   void _applyCheckpoint(OnboardingConversationSnapshot checkpoint) {
     _checkpoint = checkpoint;
+    if (checkpoint.phase == OnboardingCheckpointPhase.selection) {
+      _firstUtterance = null;
+      _conversationId = null;
+      _conversationExpiresAt = null;
+    }
     _publish(_stateFor(checkpoint, _viewPhase(checkpoint.phase)));
   }
 
@@ -317,6 +476,7 @@ final class OnboardingConversationController extends ChangeNotifier {
     OnboardingConversationSnapshot checkpoint,
     OnboardingConversationPhase phase, {
     String? errorMessage,
+    Object? firstUtterance = _unsetState,
   }) {
     final resolution = _requireResolution();
     final activeId = checkpoint.activeEntryId;
@@ -343,12 +503,18 @@ final class OnboardingConversationController extends ChangeNotifier {
       selectedReaction: checkpoint.selectedReaction,
       phraseSaidEventId: checkpoint.phraseSaidEventId,
       gardenTraceId: checkpoint.gardenTraceId,
+      firstUtterance: identical(firstUtterance, _unsetState)
+          ? _resolvedFirstUtterance(checkpoint, activeEntry)
+          : firstUtterance as OnboardingUtterance?,
+      conversationId: _conversationId,
+      conversationExpiresAt: _conversationExpiresAt,
       errorMessage: errorMessage,
     );
   }
 
   void _scheduleReactionTimeout() {
     _reactionTimeout?.cancel();
+    _firstUtteranceTimeout?.cancel();
     final reactionEpoch = ++_reactionEpoch;
     _reactionTimeout = _scheduler.schedule(
       const Duration(seconds: 4),
@@ -401,12 +567,30 @@ final class OnboardingConversationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  OnboardingUtterance? _resolvedFirstUtterance(
+    OnboardingConversationSnapshot checkpoint,
+    ResolvedCareEntry? entry,
+  ) {
+    if (checkpoint.phase == OnboardingCheckpointPhase.selection ||
+        entry == null) {
+      return null;
+    }
+    return _firstUtterance ??
+        OnboardingUtterance.local(
+          utteranceId: entry.seed.fallback.phraseId,
+          utterance: entry.seed.firstUtterance,
+        );
+  }
+
   @override
   void dispose() {
     _disposed = true;
     _operationEpoch += 1;
     _reactionEpoch += 1;
     _reactionTimeout?.cancel();
+    _firstUtteranceTimeout?.cancel();
+    _activeFirstUtteranceRace?.complete();
+    _activeFirstUtteranceRace = null;
     super.dispose();
   }
 }
@@ -439,4 +623,31 @@ final class _TimerScheduledTask implements OnboardingScheduledTask {
 
   @override
   void cancel() => _timer.cancel();
+}
+
+String _timeBand(DateTime localTime) => switch (localTime.hour) {
+  >= 5 && < 12 => 'morning',
+  >= 12 && < 18 => 'afternoon',
+  >= 18 && < 23 => 'evening',
+  _ => 'night',
+};
+
+const Object _unsetState = Object();
+
+final class _FirstUtteranceRace {
+  final Completer<void> _done = Completer<void>();
+  bool _claimed = false;
+
+  bool get isClaimed => _claimed;
+  Future<void> get done => _done.future;
+
+  bool tryClaim() {
+    if (_claimed) return false;
+    _claimed = true;
+    return true;
+  }
+
+  void complete() {
+    if (!_done.isCompleted) _done.complete();
+  }
 }

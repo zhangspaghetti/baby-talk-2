@@ -322,6 +322,9 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           directoryResolver: () => ref.read(appDirectoryProvider.future),
         );
       }),
+      onboardingInstallationIdLoaderProvider.overrideWithValue(
+        practiceRepository.ensureInstallationId,
+      ),
       defaultPracticeRouteArgsProvider.overrideWithValue(defaultPracticeArgs),
       practiceContinuityNotifierProvider.overrideWith((ref) {
         return PracticeContinuityNotifier(

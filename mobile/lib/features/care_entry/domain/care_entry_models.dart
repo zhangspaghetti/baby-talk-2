@@ -112,15 +112,17 @@ enum AudioReview { reviewed }
 final class GenerationSceneRef {
   const GenerationSceneRef({
     required this.id,
-    required this.schemaVersion,
-    required this.sceneType,
-    required this.parentTonePreference,
+    required this.namespace,
+    required this.key,
+    required this.version,
+    this.facets = const <String, String>{},
   });
 
   final GenerationSceneId id;
-  final int schemaVersion;
-  final String sceneType;
-  final String parentTonePreference;
+  final String namespace;
+  final String key;
+  final int version;
+  final Map<String, String> facets;
 }
 
 @immutable

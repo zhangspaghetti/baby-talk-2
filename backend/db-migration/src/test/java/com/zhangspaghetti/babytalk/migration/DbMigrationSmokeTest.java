@@ -89,10 +89,10 @@ class DbMigrationSmokeTest {
                 select count(*)
                 from flyway_schema_history
                 where success = true
-                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27', '28', '29', '30', '31')
+                  and version in ('3', '14', '15', '16', '17', '18', '19', '24', '25', '26', '27', '28', '29', '30', '31', '32')
                 """,
                 Integer.class);
-        assertThat(trackedVersions).isEqualTo(15);
+        assertThat(trackedVersions).isEqualTo(16);
 
         assertThat(tableExists("accounts")).isTrue();
         assertThat(tableExists("practice_generated_content_utterances")).isTrue();
@@ -122,6 +122,11 @@ class DbMigrationSmokeTest {
         assertThat(tableExists("practice_generated_content_evidence_bundles")).isTrue();
         assertThat(tableExists("practice_generated_content_evidence_items")).isTrue();
         assertThat(tableExists("practice_generated_content_judge_results")).isTrue();
+        assertThat(tableExists("guest_onboarding_conversations")).isTrue();
+        assertThat(indexExists("uq_guest_onboarding_conversations_install_event")).isTrue();
+        assertThat(indexIsUnique("uq_guest_onboarding_conversations_install_event")).isTrue();
+        assertThat(indexExists("idx_guest_onboarding_conversations_expires_at")).isTrue();
+        assertThat(constraintExists("chk_guest_onboarding_conversations_status_payload")).isTrue();
 
         List<String> expectedPermissionCodes = List.of(
                 "users:read",

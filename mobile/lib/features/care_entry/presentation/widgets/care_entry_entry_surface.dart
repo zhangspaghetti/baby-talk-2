@@ -87,10 +87,13 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
                     onStarted: () =>
                         unawaited(widget.controller.startSelected()),
                   ),
+                  OnboardingConversationPhase.resolvingFirstUtterance =>
+                    const Center(child: CircularProgressIndicator()),
                   OnboardingConversationPhase.firstUtterance ||
                   OnboardingConversationPhase.savingPhraseSaid =>
                     _FirstUtteranceView(
                       entry: state.activeEntry!,
+                      utterance: state.activeUtterance!,
                       audioMessage: _audioMessage,
                       isPlaying: _isPlaying,
                       isSaving:
@@ -151,9 +154,11 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
         widget.audioControllerFactory?.call() ??
         AudioplayersCareEntryAudioPlayer();
     try {
-      final asset = utterance.audioAsset.startsWith('assets/')
-          ? utterance.audioAsset.substring(7)
-          : utterance.audioAsset;
+      final audioAsset = utterance.localAudioAsset;
+      if (audioAsset == null) return;
+      final asset = audioAsset.startsWith('assets/')
+          ? audioAsset.substring(7)
+          : audioAsset;
       await controller.playAsset(asset);
     } on Object {
       if (mounted) {
@@ -289,6 +294,7 @@ class CareEntryTile extends StatelessWidget {
 class _FirstUtteranceView extends StatelessWidget {
   const _FirstUtteranceView({
     required this.entry,
+    required this.utterance,
     required this.audioMessage,
     required this.isPlaying,
     required this.isSaving,
@@ -297,6 +303,7 @@ class _FirstUtteranceView extends StatelessWidget {
   });
 
   final ResolvedCareEntry entry;
+  final OnboardingUtterance utterance;
   final String? audioMessage;
   final bool isPlaying;
   final bool isSaving;
@@ -305,7 +312,6 @@ class _FirstUtteranceView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final utterance = entry.seed.firstUtterance;
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
       children: <Widget>[
@@ -334,15 +340,16 @@ class _FirstUtteranceView extends StatelessWidget {
           ).textTheme.bodyLarge?.copyWith(color: const Color(0xFF6F6258)),
         ),
         const SizedBox(height: 28),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            key: const Key('care-entry-first-utterance-audio'),
-            onPressed: isPlaying ? null : onPlayAudio,
-            icon: const Icon(Icons.volume_up_outlined),
-            label: Text(isPlaying ? '正在播放' : '听标准发音'),
+        if (utterance.localAudioAsset != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('care-entry-first-utterance-audio'),
+              onPressed: isPlaying ? null : onPlayAudio,
+              icon: const Icon(Icons.volume_up_outlined),
+              label: Text(isPlaying ? '正在播放' : '听标准发音'),
+            ),
           ),
-        ),
         if (audioMessage != null) ...<Widget>[
           const SizedBox(height: 12),
           Text(audioMessage!, key: const Key('care-entry-audio-message')),

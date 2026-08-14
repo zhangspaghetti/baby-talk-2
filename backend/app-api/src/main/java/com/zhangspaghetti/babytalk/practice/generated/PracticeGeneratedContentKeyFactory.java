@@ -63,6 +63,12 @@ public final class PracticeGeneratedContentKeyFactory {
                 "practice-client-request-fingerprint:v1|" + keyVersion + "|" + ownerKey + "|" + immutableFacts);
     }
 
+    public String onboardingConversationFingerprint(String installationRefHash, String canonicalRequest) {
+        return "ocf_" + hmacHex(
+                "onboarding-conversation-fingerprint:v1|" + keyVersion + "|"
+                        + installationRefHash + "|" + canonicalRequest);
+    }
+
     public String stableDigest(String value) {
         try {
             var digest = MessageDigest.getInstance("SHA-256");
