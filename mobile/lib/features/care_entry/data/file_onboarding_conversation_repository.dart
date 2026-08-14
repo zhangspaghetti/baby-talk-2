@@ -70,6 +70,31 @@ final class FileOnboardingConversationRepository
   }
 
   @override
+  Future<OnboardingConversationSnapshot> defer({
+    required OnboardingConversationSnapshot checkpoint,
+    required DateTime deferredAt,
+  }) {
+    return _enqueueMutation(() async {
+      final existing = await _readInternal();
+      if (existing?.status == OnboardingConversationStatus.completed) {
+        return existing!;
+      }
+      var current = existing ?? checkpoint;
+      if (checkpoint.phase == OnboardingCheckpointPhase.selection &&
+          current.phraseSaidEventId == null &&
+          current.currentUtterance == null) {
+        current = checkpoint;
+      }
+      final next = current.copyWith(
+        status: OnboardingConversationStatus.deferred,
+        deferredAt: deferredAt.toUtc(),
+      );
+      await _writeInternal(next);
+      return next;
+    });
+  }
+
+  @override
   Future<OnboardingConversationSnapshot> recordPhraseSaid({
     required OnboardingConversationSnapshot checkpoint,
     required String eventId,
@@ -119,10 +144,12 @@ final class FileOnboardingConversationRepository
         );
       }
       final next = current.copyWith(
+        status: OnboardingConversationStatus.completed,
         phase: OnboardingCheckpointPhase.completed,
         completionId: _requiredString(completionId, 'completionId'),
         gardenTraceId: current.phraseSaidEventId,
         completedAt: completedAt.toUtc(),
+        deferredAt: null,
       );
       await _writeInternal(next);
       return next;
@@ -194,11 +221,17 @@ final class FileOnboardingConversationRepository
 Map<String, Object?> _snapshotToJson(OnboardingConversationSnapshot value) =>
     <String, Object?>{
       'schemaVersion': value.schemaVersion,
+      'status': value.status.name,
       'registryRevision': value.registryRevision,
       'phase': _phaseToWire(value.phase),
-      'selectedEntryId': value.selectedEntryId.value,
+      'selectedEntryId': value.selectedEntryId?.value,
       'activeEntryId': value.activeEntryId?.value,
       'conversationRequestEventId': value.conversationRequestEventId,
+      'conversationId': value.conversationId,
+      'conversationExpiresAt': value.conversationExpiresAt
+          ?.toUtc()
+          .toIso8601String(),
+      'currentUtterance': _utteranceToJson(value.currentUtterance),
       'phraseSaidEventId': value.phraseSaidEventId,
       'phraseSaidAt': value.phraseSaidAt?.toUtc().toIso8601String(),
       'selectedReaction': value.selectedReaction?.wireValue,
@@ -209,16 +242,33 @@ Map<String, Object?> _snapshotToJson(OnboardingConversationSnapshot value) =>
       'completionId': value.completionId,
       'gardenTraceId': value.gardenTraceId,
       'completedAt': value.completedAt?.toUtc().toIso8601String(),
+      'deferredAt': value.deferredAt?.toUtc().toIso8601String(),
     };
+
+Map<String, Object?>? _utteranceToJson(OnboardingUtterance? value) =>
+    value == null
+    ? null
+    : <String, Object?>{
+        'utteranceId': value.utteranceId,
+        'english': value.english,
+        'chinese': value.chinese,
+        'pronunciation': value.pronunciation,
+        'source': value.source.name,
+        'localAudioAsset': value.localAudioAsset,
+      };
 
 OnboardingConversationSnapshot _snapshotFromJson(Map<String, dynamic> json) {
   _requireSnapshotKeys(json, const <String>{
     'schemaVersion',
+    'status',
     'registryRevision',
     'phase',
     'selectedEntryId',
     'activeEntryId',
     'conversationRequestEventId',
+    'conversationId',
+    'conversationExpiresAt',
+    'currentUtterance',
     'phraseSaidEventId',
     'phraseSaidAt',
     'selectedReaction',
@@ -229,6 +279,7 @@ OnboardingConversationSnapshot _snapshotFromJson(Map<String, dynamic> json) {
     'completionId',
     'gardenTraceId',
     'completedAt',
+    'deferredAt',
   });
   if (json['schemaVersion'] != 2) {
     throw const FormatException('onboarding conversation schemaVersion 不受支持。');
@@ -237,20 +288,35 @@ OnboardingConversationSnapshot _snapshotFromJson(Map<String, dynamic> json) {
   final activeEntryId = _optionalString(json, 'activeEntryId');
   final nextSupportId = _optionalString(json, 'nextSupportId');
   final nextSupportSource = _optionalString(json, 'nextSupportSource');
+  final selectedEntryId = _optionalString(json, 'selectedEntryId');
+  final status = _optionalString(json, 'status');
   final snapshot = OnboardingConversationSnapshot(
+    status: status == null
+        ? (json['completionId'] == null
+              ? OnboardingConversationStatus.active
+              : OnboardingConversationStatus.completed)
+        : OnboardingConversationStatus.values.firstWhere(
+            (candidate) => candidate.name == status,
+            orElse: () => throw const FormatException(
+              'onboarding conversation status 不受支持。',
+            ),
+          ),
     registryRevision: _requiredString(
       json['registryRevision'],
       'registryRevision',
     ),
     phase: _parsePhase(_requiredString(json['phase'], 'phase')),
-    selectedEntryId: CareEntryId(
-      _requiredString(json['selectedEntryId'], 'selectedEntryId'),
-    ),
+    selectedEntryId: selectedEntryId == null
+        ? null
+        : CareEntryId(selectedEntryId),
     activeEntryId: activeEntryId == null ? null : CareEntryId(activeEntryId),
     conversationRequestEventId: _optionalString(
       json,
       'conversationRequestEventId',
     ),
+    conversationId: _optionalString(json, 'conversationId'),
+    conversationExpiresAt: _optionalDateTime(json, 'conversationExpiresAt'),
+    currentUtterance: _optionalUtterance(json['currentUtterance']),
     phraseSaidEventId: _optionalString(json, 'phraseSaidEventId'),
     phraseSaidAt: _optionalDateTime(json, 'phraseSaidAt'),
     selectedReaction: reaction == null ? null : parseCareReaction(reaction),
@@ -267,6 +333,7 @@ OnboardingConversationSnapshot _snapshotFromJson(Map<String, dynamic> json) {
     completionId: _optionalString(json, 'completionId'),
     gardenTraceId: _optionalString(json, 'gardenTraceId'),
     completedAt: _optionalDateTime(json, 'completedAt'),
+    deferredAt: _optionalDateTime(json, 'deferredAt'),
   );
   _validatePersistable(snapshot);
   return snapshot;
@@ -277,11 +344,21 @@ void _validatePersistable(OnboardingConversationSnapshot value) {
     throw const FormatException('onboarding conversation 必须使用 schema v2。');
   }
   _requiredString(value.registryRevision, 'registryRevision');
-  _requiredString(value.selectedEntryId.value, 'selectedEntryId');
+  final isLegacyCompletion =
+      value.status == OnboardingConversationStatus.completed &&
+      value.registryRevision == 'legacy.m1' &&
+      value.selectedEntryId == null;
+  if (!isLegacyCompletion) {
+    _requiredString(value.selectedEntryId?.value, 'selectedEntryId');
+  }
+  if ((value.conversationId == null) != (value.conversationExpiresAt == null)) {
+    throw const FormatException('conversation identity/expiry 必须同时存在。');
+  }
   if ((value.phraseSaidEventId == null) != (value.phraseSaidAt == null)) {
     throw const FormatException('PhraseSaid identity/time 必须同时存在。');
   }
-  if (value.phase.index >= OnboardingCheckpointPhase.reactionPrompt.index &&
+  if (!isLegacyCompletion &&
+      value.phase.index >= OnboardingCheckpointPhase.reactionPrompt.index &&
       value.phraseSaidEventId == null) {
     throw const FormatException('reaction 之后必须存在 PhraseSaid。');
   }
@@ -291,16 +368,35 @@ void _validatePersistable(OnboardingConversationSnapshot value) {
     value.completedAt,
   ];
   final completionCount = completionFields.where((item) => item != null).length;
-  if (completionCount != 0 && completionCount != completionFields.length) {
+  if (!isLegacyCompletion &&
+      completionCount != 0 &&
+      completionCount != completionFields.length) {
     throw const FormatException('completion 与 Garden Trace 必须原子存在。');
   }
-  if (value.phase == OnboardingCheckpointPhase.completed &&
+  if (!isLegacyCompletion &&
+      value.phase == OnboardingCheckpointPhase.completed &&
       completionCount != completionFields.length) {
     throw const FormatException('completed phase 缺少 completion/Trace。');
   }
   if (value.gardenTraceId != null &&
       value.gardenTraceId != value.phraseSaidEventId) {
     throw const FormatException('Garden Trace 必须由同一个 PhraseSaid event 投影。');
+  }
+  if (value.status == OnboardingConversationStatus.deferred) {
+    if (value.deferredAt == null ||
+        value.phase == OnboardingCheckpointPhase.completed) {
+      throw const FormatException('deferred status 缺少时间或 phase 非法。');
+    }
+  } else if (value.deferredAt != null) {
+    throw const FormatException('只有 deferred status 可以包含 deferredAt。');
+  }
+  if (value.status == OnboardingConversationStatus.completed &&
+      value.phase != OnboardingCheckpointPhase.completed) {
+    throw const FormatException('completed status/phase 必须一致。');
+  }
+  if (value.phase == OnboardingCheckpointPhase.completed &&
+      value.status != OnboardingConversationStatus.completed) {
+    throw const FormatException('completed phase 缺少 completed status。');
   }
   final nextSupportFields = <Object?>[
     value.nextSupportEnglish,
@@ -346,6 +442,46 @@ void _requireSnapshotKeys(Map<String, dynamic> json, Set<String> allowed) {
       !legacyRequired.every(json.containsKey)) {
     throw const FormatException('onboarding conversation 字段集合不合法。');
   }
+}
+
+OnboardingUtterance? _optionalUtterance(Object? value) {
+  if (value == null) return null;
+  if (value is! Map) {
+    throw const FormatException('currentUtterance 必须是对象。');
+  }
+  final json = value.map<String, dynamic>((key, value) {
+    if (key is! String) throw const FormatException('utterance key 非法。');
+    return MapEntry(key, value);
+  });
+  const keys = <String>{
+    'utteranceId',
+    'english',
+    'chinese',
+    'pronunciation',
+    'source',
+    'localAudioAsset',
+  };
+  if (json.keys.toSet().difference(keys).isNotEmpty ||
+      keys.difference(json.keys.toSet()).isNotEmpty) {
+    throw const FormatException('currentUtterance 字段集合不合法。');
+  }
+  final sourceName = _requiredString(json['source'], 'currentUtterance.source');
+  final source = OnboardingUtteranceSource.values.firstWhere(
+    (candidate) => candidate.name == sourceName,
+    orElse: () => throw const FormatException('currentUtterance source 非法。'),
+  );
+  final localAudioAsset = json['localAudioAsset'];
+  if (localAudioAsset != null && localAudioAsset is! String) {
+    throw const FormatException('currentUtterance localAudioAsset 非法。');
+  }
+  return OnboardingUtterance(
+    utteranceId: _requiredString(json['utteranceId'], 'utteranceId'),
+    english: _requiredString(json['english'], 'english'),
+    chinese: _requiredString(json['chinese'], 'chinese'),
+    pronunciation: _requiredString(json['pronunciation'], 'pronunciation'),
+    source: source,
+    localAudioAsset: localAudioAsset as String?,
+  );
 }
 
 String _phaseToWire(OnboardingCheckpointPhase value) => switch (value) {

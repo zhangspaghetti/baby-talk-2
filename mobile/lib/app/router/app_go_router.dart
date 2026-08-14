@@ -21,7 +21,12 @@ GoRouter createAppRouter({
   WidgetBuilder? shellBuilder,
 }) {
   final resolvedOnboardingBuilder =
-      onboardingBuilder ?? (context) => const CareEntryOnboardingScreen();
+      onboardingBuilder ??
+      (context) => CareEntryOnboardingScreen(
+        onDeferred: () {
+          if (context.mounted) context.go(AppRouteNames.shell);
+        },
+      );
 
   return GoRouter(
     navigatorKey: appRootNavigatorKey,

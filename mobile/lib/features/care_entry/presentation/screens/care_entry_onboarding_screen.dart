@@ -6,7 +6,9 @@ import 'package:mobile/features/care_entry/presentation/care_entry_providers.dar
 import 'package:mobile/features/care_entry/presentation/widgets/care_entry_entry_surface.dart';
 
 class CareEntryOnboardingScreen extends ConsumerWidget {
-  const CareEntryOnboardingScreen({super.key});
+  const CareEntryOnboardingScreen({super.key, this.onDeferred});
+
+  final VoidCallback? onDeferred;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,6 +20,9 @@ class CareEntryOnboardingScreen extends ConsumerWidget {
       ),
       onRetry: () =>
           unawaited(controller.initialize(localTime: DateTime.now())),
+      onDefer: () async {
+        if (await controller.defer()) onDeferred?.call();
+      },
     );
   }
 }

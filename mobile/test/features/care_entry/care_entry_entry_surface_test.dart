@@ -193,6 +193,44 @@ void main() {
     audioPlayer.completePlay();
     await tester.pump();
   });
+
+  testWidgets('defer navigates only after the checkpoint is durable', (
+    tester,
+  ) async {
+    final repository = _MemoryConversationRepository();
+    final controller = OnboardingConversationController(
+      registry: _MemoryRegistry(_resolution()),
+      repository: repository,
+      scheduler: _ManualScheduler(),
+      clock: () => DateTime.utc(2026, 8, 14, 20),
+      idGenerator: () => 'defer-widget-1',
+      visibleSlots: 4,
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+    var exits = 0;
+    repository.failNextDefer = true;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CareEntryEntrySurface(
+          controller: controller,
+          onDefer: () async {
+            if (await controller.defer()) exits += 1;
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('care-entry-defer-action')));
+    await tester.pumpAndSettle();
+    expect(exits, 0);
+    expect(repository.snapshot?.status, OnboardingConversationStatus.active);
+
+    await tester.tap(find.byKey(const Key('care-entry-defer-action')));
+    await tester.pumpAndSettle();
+    expect(exits, 1);
+    expect(repository.snapshot?.status, OnboardingConversationStatus.deferred);
+  });
 }
 
 final class _MemoryConversationRepository
@@ -200,6 +238,7 @@ final class _MemoryConversationRepository
   OnboardingConversationSnapshot? snapshot;
   int phraseSaidWrites = 0;
   int completionWrites = 0;
+  bool failNextDefer = false;
 
   @override
   Future<OnboardingConversationSnapshot?> read() async => snapshot;
@@ -214,6 +253,21 @@ final class _MemoryConversationRepository
     OnboardingConversationSnapshot checkpoint, {
     required bool Function() commitIfCurrent,
   }) async => commitIfCurrent() ? snapshot = checkpoint : snapshot;
+
+  @override
+  Future<OnboardingConversationSnapshot> defer({
+    required OnboardingConversationSnapshot checkpoint,
+    required DateTime deferredAt,
+  }) async {
+    if (failNextDefer) {
+      failNextDefer = false;
+      throw StateError('simulated defer failure');
+    }
+    return snapshot = checkpoint.copyWith(
+      status: OnboardingConversationStatus.deferred,
+      deferredAt: deferredAt,
+    );
+  }
 
   @override
   Future<OnboardingConversationSnapshot> recordPhraseSaid({
@@ -239,10 +293,12 @@ final class _MemoryConversationRepository
     if (existing?.completionId != null) return existing!;
     completionWrites += 1;
     return snapshot = checkpoint.copyWith(
+      status: OnboardingConversationStatus.completed,
       phase: OnboardingCheckpointPhase.completed,
       completionId: completionId,
       gardenTraceId: checkpoint.phraseSaidEventId,
       completedAt: completedAt,
+      deferredAt: null,
     );
   }
 }

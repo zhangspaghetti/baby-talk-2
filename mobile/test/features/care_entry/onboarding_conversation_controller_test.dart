@@ -415,6 +415,100 @@ void main() {
   );
 
   test(
+    'defer publishes only after persistence and exact utterance resumes',
+    () async {
+      final repository = _MemoryConversationRepository();
+      final gateway = _HeldConversationGateway();
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: _ManualScheduler(),
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+        idGenerator: () => 'defer-event-1',
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-defer-1234',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      final starting = controller.startSelected();
+      await Future<void>.delayed(Duration.zero);
+      gateway.complete(_remoteConversation('Exact remote before defer.'));
+      await starting;
+      final exactEnglish = controller.state.activeUtterance!.english;
+      expect(
+        controller.state.activeUtterance?.source,
+        OnboardingUtteranceSource.remoteGenerated,
+      );
+
+      repository.failNextDefer = true;
+      expect(await controller.defer(), isFalse);
+      expect(repository.snapshot?.status, OnboardingConversationStatus.active);
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.firstUtterance,
+      );
+
+      expect(await controller.defer(), isTrue);
+      expect(
+        repository.snapshot?.status,
+        OnboardingConversationStatus.deferred,
+      );
+      final resumed = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: _ManualScheduler(),
+        clock: () => DateTime.utc(2026, 8, 14, 13),
+        idGenerator: () => 'unused',
+        visibleSlots: 1,
+      );
+      addTearDown(resumed.dispose);
+      await resumed.initialize(localTime: DateTime(2026, 8, 14, 21));
+      expect(resumed.state.phase, OnboardingConversationPhase.firstUtterance);
+      expect(resumed.state.activeUtterance?.english, exactEnglish);
+      expect(
+        resumed.state.activeUtterance?.source,
+        OnboardingUtteranceSource.remoteGenerated,
+      );
+    },
+  );
+
+  test(
+    'defer invalidates a first-utterance save before remote starts',
+    () async {
+      final scheduler = _ManualScheduler();
+      final gateway = _HeldConversationGateway();
+      final repository = _MemoryConversationRepository();
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: scheduler,
+        clock: () => DateTime.utc(2026, 8, 14, 20),
+        idGenerator: () => 'defer-race',
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-defer-race',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      final heldSave = repository.holdNextSave();
+
+      final start = controller.startSelected();
+      await heldSave.waitUntilEntered;
+      final deferred = controller.defer();
+      heldSave.release();
+
+      expect(await deferred, isTrue);
+      await start;
+      expect(
+        repository.snapshot?.status,
+        OnboardingConversationStatus.deferred,
+      );
+      expect(gateway.request, isNull);
+    },
+  );
+
+  test(
     'canonical reaction advances to its local support after 500 ms',
     () async {
       final repository = _MemoryConversationRepository();
@@ -850,20 +944,114 @@ void main() {
     },
   );
 
+  test(
+    'post-speech defer resumes without a duplicate PhraseSaid trace',
+    () async {
+      final repository = _MemoryConversationRepository();
+      final ids = <String>['phrase-said-deferred', 'completion-deferred'];
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: _ManualScheduler(),
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+        idGenerator: () => ids.removeAt(0),
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      await controller.startSelected();
+      await controller.markPhraseSaid();
+      final phraseSaidId = controller.state.phraseSaidEventId;
+      expect(repository.phraseSaidWrites, 1);
+      expect(await controller.defer(), isTrue);
+
+      final resumed = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: _ManualScheduler(),
+        clock: () => DateTime.utc(2026, 8, 14, 13),
+        idGenerator: () => ids.removeAt(0),
+        visibleSlots: 1,
+      );
+      addTearDown(resumed.dispose);
+      await resumed.initialize(localTime: DateTime(2026, 8, 14, 21));
+      expect(resumed.state.phase, OnboardingConversationPhase.reactionPrompt);
+      expect(resumed.state.phraseSaidEventId, phraseSaidId);
+      expect(repository.phraseSaidWrites, 1);
+
+      await resumed.complete();
+      expect(resumed.state.gardenTraceId, phraseSaidId);
+      expect(repository.completionWrites, 1);
+    },
+  );
+
+  test('pending selected reaction resumes to reviewed local support', () async {
+    final repository = _MemoryConversationRepository()
+      ..snapshot = OnboardingConversationSnapshot(
+        status: OnboardingConversationStatus.deferred,
+        deferredAt: DateTime.utc(2026, 8, 14, 11, 30),
+        registryRevision: 'test.1',
+        phase: OnboardingCheckpointPhase.reactionPrompt,
+        selectedEntryId: const CareEntryId('care.bedtime_soothing'),
+        activeEntryId: const CareEntryId('care.bedtime_soothing'),
+        currentUtterance: OnboardingUtterance.local(
+          utteranceId: 'bedtime-phrase',
+          utterance: _resolution().entries.single.seed.firstUtterance,
+        ),
+        phraseSaidEventId: 'phrase-said-pending',
+        phraseSaidAt: DateTime.utc(2026, 8, 14, 11),
+        selectedReaction: CareReaction.hesitant,
+      );
+    final scheduler = _ManualScheduler();
+    final controller = OnboardingConversationController(
+      registry: _MemoryRegistry(_resolution()),
+      repository: repository,
+      scheduler: scheduler,
+      clock: () => DateTime.utc(2026, 8, 14, 12),
+      idGenerator: () => 'unused',
+      visibleSlots: 1,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+    scheduler.elapse(const Duration(milliseconds: 500));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      controller.state.phase,
+      OnboardingConversationPhase.nextSupportReady,
+    );
+    expect(controller.state.nextSupport?.english, 'Support hesitant.');
+    expect(
+      repository.snapshot?.nextSupportSource,
+      OnboardingUtteranceSource.localFallback,
+    );
+  });
+
   test('snapshot v2 restores every durable local checkpoint', () async {
     final occurredAt = DateTime.utc(2026, 8, 14, 11);
     final completedAt = DateTime.utc(2026, 8, 14, 12);
     final checkpoints = <OnboardingConversationSnapshot>[
-      const OnboardingConversationSnapshot(
+      OnboardingConversationSnapshot(
         registryRevision: 'test.1',
         phase: OnboardingCheckpointPhase.selection,
         selectedEntryId: CareEntryId('care.bedtime_soothing'),
       ),
-      const OnboardingConversationSnapshot(
+      OnboardingConversationSnapshot(
         registryRevision: 'test.1',
         phase: OnboardingCheckpointPhase.firstUtterance,
         selectedEntryId: CareEntryId('care.bedtime_soothing'),
         activeEntryId: CareEntryId('care.bedtime_soothing'),
+        currentUtterance: OnboardingUtterance.local(
+          utteranceId: 'bedtime_time_to_sleep',
+          utterance: CareFirstUtterance(
+            english: 'Time to sleep.',
+            chinese: '该睡觉啦。',
+            pronunciation: 'taɪm tə sliːp',
+            audioAsset: 'assets/audio/phrases/bedtime_time_to_sleep.mp3',
+            audioReview: AudioReview.reviewed,
+          ),
+        ),
       ),
       OnboardingConversationSnapshot(
         registryRevision: 'test.1',
@@ -876,6 +1064,7 @@ void main() {
         nextSupportId: const CareSupportId('support.bedtime.hesitant'),
       ),
       OnboardingConversationSnapshot(
+        status: OnboardingConversationStatus.completed,
         registryRevision: 'test.1',
         phase: OnboardingCheckpointPhase.completed,
         selectedEntryId: const CareEntryId('care.bedtime_soothing'),
@@ -909,6 +1098,34 @@ void main() {
       expect(controller.state.gardenTraceId, checkpoint.gardenTraceId);
     }
   });
+
+  test(
+    'incomplete first-utterance checkpoint restarts from durable selection',
+    () async {
+      final repository = _MemoryConversationRepository()
+        ..snapshot = const OnboardingConversationSnapshot(
+          registryRevision: 'test.1',
+          phase: OnboardingCheckpointPhase.firstUtterance,
+          selectedEntryId: CareEntryId('care.bedtime_soothing'),
+          activeEntryId: CareEntryId('care.bedtime_soothing'),
+        );
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: _ManualScheduler(),
+        idGenerator: () => 'unused',
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+      );
+      addTearDown(controller.dispose);
+
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+
+      expect(controller.state.phase, OnboardingConversationPhase.selection);
+      expect(controller.state.activeUtterance, isNull);
+      expect(repository.snapshot?.phase, OnboardingCheckpointPhase.selection);
+      expect(repository.snapshot?.activeEntryId, isNull);
+    },
+  );
 }
 
 final class _MemoryRegistry implements CareEntryRegistry {
@@ -976,12 +1193,14 @@ final class _MemoryConversationRepository
   int phraseSaidWrites = 0;
   int completionWrites = 0;
   bool failNextSave = false;
+  bool failNextDefer = false;
   _HeldWrite? _heldWrite;
   _HeldWrite? _heldCompletionWrite;
   final List<_HeldWrite> _heldSaves = <_HeldWrite>[];
   final List<_HeldWrite> _heldNextSupportSaves = <_HeldWrite>[];
   final List<_HeldWrite> _heldNextSupportCommits = <_HeldWrite>[];
   Future<void> _nextSupportTail = Future<void>.value();
+  Future<void>? _activeSave;
 
   _HeldWrite holdPhraseSaidWrite() => _heldWrite = _HeldWrite();
 
@@ -1017,8 +1236,17 @@ final class _MemoryConversationRepository
       throw StateError('simulated persistence failure');
     }
     final heldSave = _heldSaves.isEmpty ? null : _heldSaves.removeAt(0);
-    await heldSave?.future;
-    return snapshot = next;
+    final operation = () async {
+      heldSave?.markEntered();
+      await heldSave?.future;
+      return snapshot = next;
+    }();
+    _activeSave = operation.then<void>((_) {});
+    try {
+      return await operation;
+    } finally {
+      _activeSave = null;
+    }
   }
 
   @override
@@ -1041,6 +1269,23 @@ final class _MemoryConversationRepository
     });
     _nextSupportTail = operation.then<void>((_) {}, onError: (_, _) {});
     return operation;
+  }
+
+  @override
+  Future<OnboardingConversationSnapshot> defer({
+    required OnboardingConversationSnapshot checkpoint,
+    required DateTime deferredAt,
+  }) async {
+    if (failNextDefer) {
+      failNextDefer = false;
+      throw StateError('simulated defer failure');
+    }
+    await _activeSave;
+    final current = snapshot ?? checkpoint;
+    return snapshot = current.copyWith(
+      status: OnboardingConversationStatus.deferred,
+      deferredAt: deferredAt,
+    );
   }
 
   @override
@@ -1069,10 +1314,12 @@ final class _MemoryConversationRepository
     completionWrites += 1;
     await _heldCompletionWrite?.future;
     return snapshot = checkpoint.copyWith(
+      status: OnboardingConversationStatus.completed,
       phase: OnboardingCheckpointPhase.completed,
       completionId: completionId,
       gardenTraceId: checkpoint.phraseSaidEventId,
       completedAt: completedAt,
+      deferredAt: null,
     );
   }
 }

@@ -72,11 +72,13 @@ class CareEntryEntrySurface extends StatefulWidget {
     required this.controller,
     this.audioControllerFactory,
     this.onRetry,
+    this.onDefer,
   });
 
   final OnboardingConversationController controller;
   final CareEntryAudioPlayer Function()? audioControllerFactory;
   final VoidCallback? onRetry;
+  final Future<void> Function()? onDefer;
 
   @override
   State<CareEntryEntrySurface> createState() => _CareEntryEntrySurfaceState();
@@ -89,6 +91,7 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
   final TextEditingController _otherReactionController =
       TextEditingController();
   bool _isOtherReactionSelected = false;
+  bool _isDeferring = false;
 
   @override
   void dispose() {
@@ -108,6 +111,22 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
         final state = widget.controller.state;
         return Scaffold(
           backgroundColor: const Color(0xFFFFFBF3),
+          appBar:
+              state.phase == OnboardingConversationPhase.completed ||
+                  widget.onDefer == null
+              ? null
+              : AppBar(
+                  backgroundColor: const Color(0xFFFFFBF3),
+                  elevation: 0,
+                  actions: <Widget>[
+                    TextButton(
+                      key: const Key('care-entry-defer-action'),
+                      onPressed: _isDeferring ? null : _defer,
+                      child: Text(_isDeferring ? '正在保存…' : '稍后再来'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
           body: SafeArea(
             child: Center(
               child: ConstrainedBox(
@@ -221,6 +240,17 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
       setState(() => _isPlaying = false);
     }
     unawaited(widget.controller.markPhraseSaid());
+  }
+
+  Future<void> _defer() async {
+    final onDefer = widget.onDefer;
+    if (onDefer == null || _isDeferring) return;
+    setState(() => _isDeferring = true);
+    try {
+      await onDefer();
+    } finally {
+      if (mounted) setState(() => _isDeferring = false);
+    }
   }
 }
 

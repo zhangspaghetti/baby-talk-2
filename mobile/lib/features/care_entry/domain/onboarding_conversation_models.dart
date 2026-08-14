@@ -135,6 +135,8 @@ enum OnboardingCheckpointPhase {
   completed,
 }
 
+enum OnboardingConversationStatus { active, deferred, completed }
+
 @immutable
 final class OnboardingGardenTrace {
   const OnboardingGardenTrace({
@@ -154,11 +156,15 @@ final class OnboardingGardenTrace {
 final class OnboardingConversationSnapshot {
   const OnboardingConversationSnapshot({
     this.schemaVersion = 2,
+    this.status = OnboardingConversationStatus.active,
     required this.registryRevision,
     required this.phase,
     required this.selectedEntryId,
     this.activeEntryId,
     this.conversationRequestEventId,
+    this.conversationId,
+    this.conversationExpiresAt,
+    this.currentUtterance,
     this.phraseSaidEventId,
     this.phraseSaidAt,
     this.selectedReaction,
@@ -169,14 +175,30 @@ final class OnboardingConversationSnapshot {
     this.completionId,
     this.gardenTraceId,
     this.completedAt,
+    this.deferredAt,
   });
 
+  factory OnboardingConversationSnapshot.legacyCompleted({
+    required DateTime completedAt,
+  }) => OnboardingConversationSnapshot(
+    status: OnboardingConversationStatus.completed,
+    registryRevision: 'legacy.m1',
+    phase: OnboardingCheckpointPhase.completed,
+    selectedEntryId: null,
+    completionId: 'legacy-m1-completed',
+    completedAt: completedAt.toUtc(),
+  );
+
   final int schemaVersion;
+  final OnboardingConversationStatus status;
   final String registryRevision;
   final OnboardingCheckpointPhase phase;
-  final CareEntryId selectedEntryId;
+  final CareEntryId? selectedEntryId;
   final CareEntryId? activeEntryId;
   final String? conversationRequestEventId;
+  final String? conversationId;
+  final DateTime? conversationExpiresAt;
+  final OnboardingUtterance? currentUtterance;
   final String? phraseSaidEventId;
   final DateTime? phraseSaidAt;
   final CareReaction? selectedReaction;
@@ -187,6 +209,7 @@ final class OnboardingConversationSnapshot {
   final String? completionId;
   final String? gardenTraceId;
   final DateTime? completedAt;
+  final DateTime? deferredAt;
 
   OnboardingGardenTrace? get gardenTrace {
     final traceId = gardenTraceId;
@@ -208,10 +231,14 @@ final class OnboardingConversationSnapshot {
   }
 
   OnboardingConversationSnapshot copyWith({
+    OnboardingConversationStatus? status,
     OnboardingCheckpointPhase? phase,
-    CareEntryId? selectedEntryId,
+    Object? selectedEntryId = _unset,
     Object? activeEntryId = _unset,
     Object? conversationRequestEventId = _unset,
+    Object? conversationId = _unset,
+    Object? conversationExpiresAt = _unset,
+    Object? currentUtterance = _unset,
     Object? phraseSaidEventId = _unset,
     Object? phraseSaidAt = _unset,
     Object? selectedReaction = _unset,
@@ -222,18 +249,31 @@ final class OnboardingConversationSnapshot {
     Object? completionId = _unset,
     Object? gardenTraceId = _unset,
     Object? completedAt = _unset,
+    Object? deferredAt = _unset,
   }) {
     return OnboardingConversationSnapshot(
       schemaVersion: schemaVersion,
+      status: status ?? this.status,
       registryRevision: registryRevision,
       phase: phase ?? this.phase,
-      selectedEntryId: selectedEntryId ?? this.selectedEntryId,
+      selectedEntryId: identical(selectedEntryId, _unset)
+          ? this.selectedEntryId
+          : selectedEntryId as CareEntryId?,
       activeEntryId: identical(activeEntryId, _unset)
           ? this.activeEntryId
           : activeEntryId as CareEntryId?,
       conversationRequestEventId: identical(conversationRequestEventId, _unset)
           ? this.conversationRequestEventId
           : conversationRequestEventId as String?,
+      conversationId: identical(conversationId, _unset)
+          ? this.conversationId
+          : conversationId as String?,
+      conversationExpiresAt: identical(conversationExpiresAt, _unset)
+          ? this.conversationExpiresAt
+          : conversationExpiresAt as DateTime?,
+      currentUtterance: identical(currentUtterance, _unset)
+          ? this.currentUtterance
+          : currentUtterance as OnboardingUtterance?,
       phraseSaidEventId: identical(phraseSaidEventId, _unset)
           ? this.phraseSaidEventId
           : phraseSaidEventId as String?,
@@ -264,6 +304,9 @@ final class OnboardingConversationSnapshot {
       completedAt: identical(completedAt, _unset)
           ? this.completedAt
           : completedAt as DateTime?,
+      deferredAt: identical(deferredAt, _unset)
+          ? this.deferredAt
+          : deferredAt as DateTime?,
     );
   }
 }
@@ -278,6 +321,11 @@ abstract interface class OnboardingConversationRepository {
   Future<OnboardingConversationSnapshot?> saveNextSupport(
     OnboardingConversationSnapshot checkpoint, {
     required bool Function() commitIfCurrent,
+  });
+
+  Future<OnboardingConversationSnapshot> defer({
+    required OnboardingConversationSnapshot checkpoint,
+    required DateTime deferredAt,
   });
 
   Future<OnboardingConversationSnapshot> recordPhraseSaid({

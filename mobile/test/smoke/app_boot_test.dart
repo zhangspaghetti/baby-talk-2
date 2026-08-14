@@ -37,6 +37,9 @@ import 'package:mobile/features/onboarding/data/repositories/onboarding_reposito
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
+import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
+import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
+import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
@@ -209,6 +212,97 @@ void main() {
       final audioBytes = await rootBundle.load(phrase.audioAsset);
       expect(audioBytes.lengthInBytes, greaterThan(0));
     }
+  });
+
+  testWidgets('deferred V4 cold start stays in Today shell', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      await FileOnboardingConversationRepository(
+        directoryResolver: () async => created.tempDir,
+      ).save(
+        OnboardingConversationSnapshot(
+          status: OnboardingConversationStatus.deferred,
+          deferredAt: DateTime.utc(2026, 8, 14, 12),
+          registryRevision: 'test.deferred.1',
+          phase: OnboardingCheckpointPhase.selection,
+          selectedEntryId: const CareEntryId('care.bedtime_soothing'),
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async => _disposeWidgetTree(tester));
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
+
+    expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
+    expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
+  });
+
+  testWidgets('in-progress M1 boot quarantines metadata and opens fresh V4', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      await File(
+        '${created.tempDir.path}${Platform.pathSeparator}onboarding_flow_snapshot.json',
+      ).writeAsString(
+        '{"schemaVersion":1,"step":"care_turn","starterPhraseId":"legacy-private","updatedAt":"2026-08-01T08:00:00.000Z"}',
+      );
+      await OnboardingSnapshotStore(
+        directoryResolver: () async => created.tempDir,
+      ).write(
+        const OnboardingSnapshot(
+          schemaVersion: 1,
+          childDisplayName: 'legacy-private-name',
+          ageBucket: OnboardingAgeBucket.oneToTwo,
+          approxMonths: 15,
+          currentStage: 'gesture_plus_words',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bedtime',
+          starterPhraseId: 'legacy-private-phrase',
+          consentState: OnboardingConsentState.localOnly,
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async => _disposeWidgetTree(tester));
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('boot-route-onboarding')),
+    );
+
+    final metadata = (await tester.runAsync<List<String>>(() async {
+      final legacy = File(
+        '${harness.tempDir.path}${Platform.pathSeparator}onboarding_flow_snapshot.json',
+      );
+      expect(await legacy.exists(), isFalse);
+      final legacySnapshot = File(
+        '${harness.tempDir.path}${Platform.pathSeparator}onboarding_snapshot.json',
+      );
+      expect(await legacySnapshot.exists(), isFalse);
+      return Future.wait(<Future<String>>[
+        File(
+          '${harness.tempDir.path}${Platform.pathSeparator}onboarding_flow_snapshot.m1_quarantine.json',
+        ).readAsString(),
+        File(
+          '${harness.tempDir.path}${Platform.pathSeparator}onboarding_snapshot.m1_quarantine.json',
+        ).readAsString(),
+      ]);
+    }))!;
+    expect(metadata, everyElement(contains('legacy_m1_in_progress')));
+    expect(metadata.join(), isNot(contains('legacy-private')));
+    expect(find.byKey(const Key('boot-route-shell')), findsNothing);
   });
 
   testWidgets('account route renders the AccountNotifier-backed entry screen', (

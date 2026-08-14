@@ -9,6 +9,7 @@ import 'package:mobile/app/auth_state.dart';
 import 'package:mobile/app/feature_gates.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
+import 'package:mobile/app/onboarding_v4_migration.dart';
 import 'package:mobile/app/router/account_route_builder.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/router/root_navigator_key.dart';
@@ -17,6 +18,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
+import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 import 'package:mobile/features/care_entry/presentation/care_entry_providers.dart';
 import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
@@ -115,6 +117,7 @@ class _AppLaunchState {
   const _AppLaunchState({
     required this.practiceRepository,
     required this.onboardingRepository,
+    required this.onboardingConversationRepository,
     required this.accountRepository,
     required this.householdRepository,
     required this.mentorRepository,
@@ -127,6 +130,7 @@ class _AppLaunchState {
 
   final PracticeRepository practiceRepository;
   final OnboardingRepository onboardingRepository;
+  final OnboardingConversationRepository onboardingConversationRepository;
   final AccountRepository accountRepository;
   final HouseholdRepository householdRepository;
   final MentorRepository mentorRepository;
@@ -285,6 +289,8 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         return ProviderScope(
           overrides: _buildRiverpodOverrides(
             onboardingRepository: onboardingRepository,
+            onboardingConversationRepository:
+                launchState.onboardingConversationRepository,
             defaultPracticeArgs: launchState.defaultPracticeArgs,
             practiceRepository: launchState.practiceRepository,
             continuitySeed: launchState.continuitySeed,
@@ -311,17 +317,16 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
 
   List<Override> _buildRiverpodOverrides({
     required OnboardingRepository onboardingRepository,
+    required OnboardingConversationRepository onboardingConversationRepository,
     required PracticeRouteArgs defaultPracticeArgs,
     required PracticeRepository practiceRepository,
     required PracticeContinuitySeedState? continuitySeed,
   }) {
     return [
       onboardingRepositoryProvider.overrideWith((ref) => onboardingRepository),
-      onboardingConversationRepositoryProvider.overrideWith((ref) {
-        return FileOnboardingConversationRepository(
-          directoryResolver: () => ref.read(appDirectoryProvider.future),
-        );
-      }),
+      onboardingConversationRepositoryProvider.overrideWithValue(
+        onboardingConversationRepository,
+      ),
       onboardingInstallationIdLoaderProvider.overrideWithValue(
         practiceRepository.ensureInstallationId,
       ),
@@ -402,7 +407,11 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           path: AppRouteNames.onboarding,
           builder: (context, state) => _BootRouteMarker(
             routeKey: Key('boot-route-onboarding'),
-            child: const CareEntryOnboardingScreen(),
+            child: CareEntryOnboardingScreen(
+              onDeferred: () {
+                if (context.mounted) context.go(AppRouteNames.shell);
+              },
+            ),
           ),
         ),
         for (final path in AppRouteNames.legacyOnboardingPaths)
@@ -529,12 +538,26 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       snapshotStore: onboardingStore,
       flowStore: onboardingFlowStore,
     );
+    final onboardingConversationRepository =
+        FileOnboardingConversationRepository(
+          directoryResolver: () async => directory,
+        );
+    final legacyOnboardingSnapshot = await onboardingRepository.readSnapshot();
 
     // 3. AuthState: 读取认证状态
     final authState = await AuthState.load(
       onboardingRepository: onboardingRepository,
       completedSnapshotLoader: widget.completedSnapshotLoader,
     );
+    final conversationSnapshot =
+        await OnboardingV4Migration(
+          directoryResolver: () async => directory,
+          conversationRepository: onboardingConversationRepository,
+          clock: DateTime.now,
+        ).run(
+          legacySnapshot:
+              legacyOnboardingSnapshot ?? authState.completedSnapshot,
+        );
 
     // 4. FeatureGates: 解析启动目标和 feature gates
     final featureGates = await FeatureGates.resolve(
@@ -548,10 +571,14 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     return _AppLaunchState(
       practiceRepository: practiceRepository,
       onboardingRepository: onboardingRepository,
+      onboardingConversationRepository: onboardingConversationRepository,
       accountRepository: accountRepository,
       householdRepository: householdRepository,
       mentorRepository: mentorRepository,
-      destination: featureGates.destination,
+      destination: resolveOnboardingLaunchDestination(
+        completedSnapshot: authState.completedSnapshot,
+        conversationSnapshot: conversationSnapshot,
+      ),
       starterArgs: featureGates.starterArgs,
       defaultPracticeArgs: featureGates.defaultPracticeArgs,
       continuitySeed: featureGates.continuitySeed,

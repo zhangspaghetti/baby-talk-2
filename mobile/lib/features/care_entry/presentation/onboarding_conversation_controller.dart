@@ -103,8 +103,27 @@ final class OnboardingConversationController extends ChangeNotifier {
       final restored = await _repository.read();
       if (_disposed || epoch != _operationEpoch) return;
       _resolution = resolution;
-      final checkpoint = restored ?? _initialCheckpoint(resolution);
-      final persisted = restored == null
+      var checkpoint = restored ?? _initialCheckpoint(resolution);
+      var requiresSave = restored == null;
+      if (checkpoint.phase == OnboardingCheckpointPhase.firstUtterance &&
+          checkpoint.currentUtterance == null) {
+        checkpoint = checkpoint.copyWith(
+          phase: OnboardingCheckpointPhase.selection,
+          activeEntryId: null,
+          conversationRequestEventId: null,
+          conversationId: null,
+          conversationExpiresAt: null,
+        );
+        requiresSave = true;
+      }
+      if (checkpoint.status == OnboardingConversationStatus.deferred) {
+        checkpoint = checkpoint.copyWith(
+          status: OnboardingConversationStatus.active,
+          deferredAt: null,
+        );
+        requiresSave = true;
+      }
+      final persisted = requiresSave
           ? await _repository.save(checkpoint)
           : checkpoint;
       if (_disposed || epoch != _operationEpoch) return;
@@ -165,7 +184,8 @@ final class OnboardingConversationController extends ChangeNotifier {
     if (_state.phase != OnboardingConversationPhase.selection) {
       return Future<void>.value();
     }
-    final operation = _runStartSelected();
+    final epoch = ++_operationEpoch;
+    final operation = _runStartSelected(epoch);
     _startSelectedOperation = operation;
     operation.whenComplete(() {
       if (identical(_startSelectedOperation, operation)) {
@@ -175,13 +195,15 @@ final class OnboardingConversationController extends ChangeNotifier {
     return operation;
   }
 
-  Future<void> _runStartSelected() async {
+  Future<void> _runStartSelected(int epoch) async {
     final selectedId = _state.selectedEntryId;
     if (selectedId == null) {
       throw StateError('没有可启动的 Care Entry。');
     }
     final previous = _requireCheckpoint();
     var checkpoint = previous.copyWith(
+      status: OnboardingConversationStatus.active,
+      deferredAt: null,
       phase: OnboardingCheckpointPhase.firstUtterance,
       activeEntryId: selectedId,
     );
@@ -220,9 +242,8 @@ final class OnboardingConversationController extends ChangeNotifier {
         );
         return;
       }
-      if (_disposed) return;
+      if (_disposed || epoch != _operationEpoch) return;
       _checkpoint = checkpoint;
-      final epoch = ++_operationEpoch;
       final race = _FirstUtteranceRace();
       _activeFirstUtteranceRace = race;
       _firstUtteranceTimeout?.cancel();
@@ -254,11 +275,12 @@ final class OnboardingConversationController extends ChangeNotifier {
     }
     try {
       _firstUtterance = local;
+      checkpoint = checkpoint.copyWith(currentUtterance: local);
       final persisted = await _repository.save(checkpoint);
-      if (_disposed) return;
+      if (_disposed || epoch != _operationEpoch) return;
       _applyCheckpoint(persisted);
     } on Object {
-      if (_disposed) return;
+      if (_disposed || epoch != _operationEpoch) return;
       _publish(
         _stateFor(
           previous,
@@ -315,11 +337,31 @@ final class OnboardingConversationController extends ChangeNotifier {
   }) async {
     if (_disposed || epoch != _operationEpoch || !race.tryClaim()) return;
     _firstUtteranceTimeout?.cancel();
-    _firstUtterance = utterance;
-    _conversationId = conversationId;
-    _conversationExpiresAt = conversationExpiresAt;
-    _applyCheckpoint(checkpoint);
-    race.complete();
+    final durable = checkpoint.copyWith(
+      currentUtterance: utterance,
+      conversationId: conversationId,
+      conversationExpiresAt: conversationExpiresAt,
+    );
+    try {
+      final persisted = await _repository.save(durable);
+      if (_disposed || epoch != _operationEpoch) return;
+      _applyCheckpoint(persisted);
+    } on Object {
+      if (!_disposed && epoch == _operationEpoch) {
+        _publish(
+          _stateFor(
+            checkpoint.copyWith(
+              phase: OnboardingCheckpointPhase.selection,
+              activeEntryId: null,
+            ),
+            OnboardingConversationPhase.selection,
+            errorMessage: '这一句还没保存好，请再试一次。',
+          ),
+        );
+      }
+    } finally {
+      race.complete();
+    }
   }
 
   Future<void> markPhraseSaid() async {
@@ -458,6 +500,50 @@ final class OnboardingConversationController extends ChangeNotifier {
     }
   }
 
+  Future<bool> defer() async {
+    final checkpoint = _checkpoint;
+    if (checkpoint == null ||
+        checkpoint.status == OnboardingConversationStatus.completed) {
+      return false;
+    }
+    _operationEpoch += 1;
+    _reactionEpoch += 1;
+    _reactionTimeout?.cancel();
+    _firstUtteranceTimeout?.cancel();
+    _nextSupportTimeout?.cancel();
+    _activeFirstUtteranceRace?.complete();
+    _activeNextSupportRace?.complete();
+    var safe = checkpoint;
+    if (safe.phase == OnboardingCheckpointPhase.firstUtterance &&
+        safe.currentUtterance == null) {
+      safe = safe.copyWith(
+        phase: OnboardingCheckpointPhase.selection,
+        activeEntryId: null,
+        conversationId: null,
+        conversationExpiresAt: null,
+      );
+    }
+    try {
+      final persisted = await _repository.defer(
+        checkpoint: safe,
+        deferredAt: _clock().toUtc(),
+      );
+      if (_disposed) return false;
+      _checkpoint = persisted;
+      return true;
+    } on Object {
+      if (_disposed) return false;
+      _publish(
+        _stateFor(
+          checkpoint,
+          _viewPhase(checkpoint.phase),
+          errorMessage: '这一刻还没保存好，请再试一次。',
+        ),
+      );
+      return false;
+    }
+  }
+
   OnboardingConversationSnapshot _initialCheckpoint(
     CareEntryResolution resolution,
   ) {
@@ -485,6 +571,9 @@ final class OnboardingConversationController extends ChangeNotifier {
       _conversationId = null;
       _conversationExpiresAt = null;
     } else {
+      _firstUtterance = checkpoint.currentUtterance;
+      _conversationId = checkpoint.conversationId;
+      _conversationExpiresAt = checkpoint.conversationExpiresAt;
       _nextSupport = _supportFromCheckpoint(checkpoint);
     }
     _publish(_stateFor(checkpoint, _viewPhase(checkpoint.phase)));
@@ -801,7 +890,8 @@ final class OnboardingConversationController extends ChangeNotifier {
         entry == null) {
       return null;
     }
-    return _firstUtterance ??
+    return checkpoint.currentUtterance ??
+        _firstUtterance ??
         OnboardingUtterance.local(
           utteranceId: entry.seed.fallback.phraseId,
           utterance: entry.seed.firstUtterance,

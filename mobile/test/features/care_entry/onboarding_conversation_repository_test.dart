@@ -94,4 +94,117 @@ void main() {
       );
     },
   );
+
+  test('snapshot v2 round-trips every safe deferred checkpoint', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'onboarding_safe_checkpoint_test_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    final repository = FileOnboardingConversationRepository(
+      directoryResolver: () async => directory,
+    );
+    final deferredAt = DateTime.utc(2026, 8, 14, 12, 5);
+    final checkpoints = <OnboardingConversationSnapshot>[
+      OnboardingConversationSnapshot(
+        registryRevision: 'test.2',
+        phase: OnboardingCheckpointPhase.selection,
+        selectedEntryId: const CareEntryId('care.bedtime_soothing'),
+        status: OnboardingConversationStatus.deferred,
+        deferredAt: deferredAt,
+      ),
+      OnboardingConversationSnapshot(
+        registryRevision: 'test.2',
+        phase: OnboardingCheckpointPhase.firstUtterance,
+        selectedEntryId: const CareEntryId('care.bedtime_soothing'),
+        activeEntryId: const CareEntryId('care.bedtime_soothing'),
+        status: OnboardingConversationStatus.deferred,
+        deferredAt: deferredAt,
+        conversationId: 'conversation-safe-1',
+        conversationExpiresAt: DateTime.utc(2026, 8, 15, 12),
+        currentUtterance: OnboardingUtterance(
+          utteranceId: 'utterance-safe-1',
+          english: 'You are safe with me.',
+          chinese: '有我陪着你。',
+          pronunciation: 'you are safe with me',
+          source: OnboardingUtteranceSource.remoteGenerated,
+        ),
+      ),
+      OnboardingConversationSnapshot(
+        registryRevision: 'test.2',
+        phase: OnboardingCheckpointPhase.reactionPrompt,
+        selectedEntryId: const CareEntryId('care.bedtime_soothing'),
+        activeEntryId: const CareEntryId('care.bedtime_soothing'),
+        status: OnboardingConversationStatus.deferred,
+        deferredAt: deferredAt,
+        currentUtterance: OnboardingUtterance(
+          utteranceId: 'phrase-safe-1',
+          english: 'I am right here.',
+          chinese: '我就在这里。',
+          pronunciation: 'I am right here',
+          source: OnboardingUtteranceSource.localFallback,
+          localAudioAsset: 'assets/audio/right_here.mp3',
+        ),
+        phraseSaidEventId: 'phrase-said-safe-1',
+        phraseSaidAt: DateTime.utc(2026, 8, 14, 12, 1),
+      ),
+      OnboardingConversationSnapshot(
+        registryRevision: 'test.2',
+        phase: OnboardingCheckpointPhase.nextSupportReady,
+        selectedEntryId: const CareEntryId('care.bedtime_soothing'),
+        activeEntryId: const CareEntryId('care.bedtime_soothing'),
+        status: OnboardingConversationStatus.deferred,
+        deferredAt: deferredAt,
+        currentUtterance: OnboardingUtterance(
+          utteranceId: 'phrase-safe-1',
+          english: 'I am right here.',
+          chinese: '我就在这里。',
+          pronunciation: 'I am right here',
+          source: OnboardingUtteranceSource.localFallback,
+        ),
+        phraseSaidEventId: 'phrase-said-safe-1',
+        phraseSaidAt: DateTime.utc(2026, 8, 14, 12, 1),
+        selectedReaction: CareReaction.hesitant,
+        nextSupportId: const CareSupportId('support.safe.1'),
+        nextSupportEnglish: 'We can go slowly.',
+        nextSupportChinese: '我们可以慢慢来。',
+        nextSupportSource: OnboardingUtteranceSource.localFallback,
+      ),
+    ];
+
+    for (final checkpoint in checkpoints) {
+      await repository.save(checkpoint);
+      final restored = await FileOnboardingConversationRepository(
+        directoryResolver: () async => directory,
+      ).read();
+      expect(restored?.status, OnboardingConversationStatus.deferred);
+      expect(restored?.phase, checkpoint.phase);
+      expect(
+        restored?.currentUtterance?.english,
+        checkpoint.currentUtterance?.english,
+      );
+      expect(restored?.conversationId, checkpoint.conversationId);
+      expect(restored?.nextSupportEnglish, checkpoint.nextSupportEnglish);
+    }
+
+    final raw = await File(
+      '${directory.path}${Platform.pathSeparator}onboarding_conversation_v2.json',
+    ).readAsString();
+    expect(raw, isNot(contains('capability')));
+    expect(raw, isNot(contains('reactionText')));
+  });
+
+  test('unknown future snapshot schema is rejected', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'onboarding_future_schema_test_',
+    );
+    addTearDown(() => directory.delete(recursive: true));
+    await File(
+      '${directory.path}${Platform.pathSeparator}onboarding_conversation_v2.json',
+    ).writeAsString('{"schemaVersion":99}');
+
+    final repository = FileOnboardingConversationRepository(
+      directoryResolver: () async => directory,
+    );
+    expect(repository.read(), throwsFormatException);
+  });
 }
