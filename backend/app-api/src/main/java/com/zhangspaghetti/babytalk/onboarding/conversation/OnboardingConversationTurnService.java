@@ -113,14 +113,20 @@ public final class OnboardingConversationTurnService {
         var deadline = System.nanoTime() + REPLAY_WAIT.toNanos();
         var delayMillis = 25L;
         while (turn != null) {
-            if (!fingerprint.equals(turn.requestFingerprint())) throw conflict();
-            if ("active".equals(turn.status())) return response(turn, expiresAt);
+            if (!fingerprint.equals(turn.requestFingerprint())) {
+                throw conflict();
+            }
+            if ("active".equals(turn.status())) {
+                return response(turn, expiresAt);
+            }
             var now = utcNow();
             if (!turn.expiresAt().isAfter(now)) {
                 turns.deleteExpiredReservation(conversationId, request.localEventId(), now);
                 return next(conversationId, request);
             }
-            if (System.nanoTime() >= deadline) break;
+            if (System.nanoTime() >= deadline) {
+                break;
+            }
             try {
                 Thread.sleep(delayMillis);
             } catch (InterruptedException exception) {
@@ -165,12 +171,20 @@ public final class OnboardingConversationTurnService {
         }
         var reactionText = normalizedReactionText(request);
         if (Boolean.FALSE.equals(request.reactionProvided())) {
-            if (request.reaction() != null || request.reactionText() != null) throw invalid();
+            if (request.reaction() != null || request.reactionText() != null) {
+                throw invalid();
+            }
             return;
         }
-        if (!Boolean.TRUE.equals(request.reactionProvided())) throw invalid();
-        if (!REACTIONS.contains(request.reaction())) throw invalid();
-        if (!"other".equals(request.reaction()) && request.reactionText() != null) throw invalid();
+        if (!Boolean.TRUE.equals(request.reactionProvided())) {
+            throw invalid();
+        }
+        if (!REACTIONS.contains(request.reaction())) {
+            throw invalid();
+        }
+        if (!"other".equals(request.reaction()) && request.reactionText() != null) {
+            throw invalid();
+        }
         if ("other".equals(request.reaction())
                 && request.reactionText() != null
                 && (reactionText == null || reactionText.isEmpty() || reactionText.length() > 200)) {
@@ -225,7 +239,9 @@ public final class OnboardingConversationTurnService {
     }
 
     private String normalizedReactionText(NextRequest request) {
-        if (request.reactionText() == null) return null;
+        if (request.reactionText() == null) {
+            return null;
+        }
         return request.reactionText().trim();
     }
 
