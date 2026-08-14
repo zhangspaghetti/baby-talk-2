@@ -68,6 +68,24 @@
               "audioAsset": "assets/audio/phrases/diaper_change_all_dry.mp3"
             }
           ]
+        },
+        {
+          "id": "post_cry_soothing",
+          "title": "哭后安抚",
+          "summary": "宝宝刚哭过时，用一句短句先让宝宝知道你就在身边。",
+          "sceneTag": "Post-cry soothing",
+          "coachTip": "放慢语速、靠近一点，先用稳定声音回应宝宝。",
+          "phrases": [
+            {
+              "id": "post_cry_im_right_here",
+              "step": 1,
+              "english": "I'm right here.",
+              "chinese": "我就在这里。",
+              "pronunciation": "aɪm raɪt hɪr",
+              "difficulty": "starter",
+              "audioAsset": "assets/audio/phrases/post_cry_im_right_here.mp3"
+            }
+          ]
         }
       ]
     },

@@ -64,6 +64,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/content/seed_content.json
+    - assets/content/care_entry_registry.json
     - assets/audio/phrases/bath_time_warm_water.mp3
     - assets/audio/phrases/bath_time_splash_splash.mp3
     - assets/audio/phrases/bath_time_all_clean.mp3
@@ -73,6 +74,7 @@ flutter:
     - assets/audio/phrases/feeding_time_yummy_bite.mp3
     - assets/audio/phrases/bedtime_dim_the_lights.mp3
     - assets/audio/phrases/bedtime_time_to_sleep.mp3
+    - assets/audio/phrases/post_cry_im_right_here.mp3
     - assets/images/activities/
     - assets/images/baby_items/
     - assets/images/plants/

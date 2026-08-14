@@ -34,10 +34,9 @@ import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart'
 import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:mobile/features/onboarding/domain/models/onboarding_flow_models.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
+import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
@@ -180,8 +179,9 @@ void main() {
 
     expect(find.byKey(const Key('boot-route-gate-ready')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
-    expect(find.byType(OnboardingFlowScreen), findsOneWidget);
-    expect(find.text('宝宝正在做什么？'), findsOneWidget);
+    await _pumpUntilFound(tester, find.text('今天先从现在这一刻开始。'));
+    expect(find.byType(CareEntryOnboardingScreen), findsOneWidget);
+    expect(find.text('今天先从现在这一刻开始。'), findsOneWidget);
     expect(find.byKey(const Key('home-start-practice')), findsNothing);
 
     final content = harness.bootState.content!;
@@ -199,10 +199,11 @@ void main() {
     expect(allActivities.map((activity) => activity.id), [
       'bath_time',
       'diaper_change',
+      'post_cry_soothing',
       'feeding_time',
       'bedtime',
     ]);
-    expect(allPhrases, hasLength(9));
+    expect(allPhrases, hasLength(10));
 
     for (final phrase in allPhrases) {
       final audioBytes = await rootBundle.load(phrase.audioAsset);
@@ -261,159 +262,6 @@ void main() {
 
     expect(find.byType(CustomSceneInputScreen), findsOneWidget);
   });
-
-  testWidgets(
-    'persisted care turn resumes the selected moment without writing an event',
-    (WidgetTester tester) async {
-      final harness = (await tester.runAsync<_AppBootHarness>(() async {
-        final created = await _createHarness();
-        await _onboardingRepositoryFor(
-          created,
-        ).saveFlowSnapshot(_resumableFlow(step: OnboardingFlowStep.careTurn));
-        return created;
-      }))!;
-      addTearDown(harness.close);
-      addTearDown(() async {
-        await _disposeWidgetTree(tester);
-      });
-
-      await tester.pumpWidget(
-        _bootApp(harness, completedSnapshotLoader: () async => null),
-      );
-      await _pumpUntilFound(
-        tester,
-        find.byKey(const Key('care-turn-said-button')),
-      );
-
-      expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
-      expect(
-        await tester.runAsync(harness.repository.listEventHistory),
-        isEmpty,
-      );
-    },
-  );
-
-  testWidgets('persisted trace resumes without writing a duplicate event', (
-    WidgetTester tester,
-  ) async {
-    late String traceEventKey;
-    final harness = (await tester.runAsync<_AppBootHarness>(() async {
-      final created = await _createHarness();
-      final event = await created.repository.recordReaction(
-        spaceId: 'daily_care',
-        activityId: 'bath_time',
-        phraseId: 'bath_time_warm_water',
-        reactionType: BabyReactionType.hesitant,
-        clientTimestamp: DateTime.utc(2026, 7, 24, 12),
-        localEventId: 'evt_boot_trace_resume',
-      );
-      traceEventKey = event.eventKey;
-      await _onboardingRepositoryFor(created).saveFlowSnapshot(
-        _resumableFlow(
-          step: OnboardingFlowStep.trace,
-          traceEventKey: traceEventKey,
-        ),
-      );
-      return created;
-    }))!;
-    addTearDown(harness.close);
-    addTearDown(() async {
-      await _disposeWidgetTree(tester);
-    });
-
-    await tester.pumpWidget(
-      _bootApp(harness, completedSnapshotLoader: () async => null),
-    );
-    await _pumpUntilFound(tester, find.text('刚才这句话，已经留在你们的花园里。'));
-
-    final events = (await tester.runAsync(
-      harness.repository.listEventHistory,
-    ))!;
-    expect(events, hasLength(1));
-    expect(events.single.eventKey, traceEventKey);
-  });
-
-  testWidgets(
-    'confirmed next support resumes at trace without writing a duplicate event',
-    (WidgetTester tester) async {
-      late String traceEventKey;
-      final harness = (await tester.runAsync<_AppBootHarness>(() async {
-        final created = await _createHarness();
-        final event = await created.repository.recordReaction(
-          spaceId: 'daily_care',
-          activityId: 'bath_time',
-          phraseId: 'bath_time_warm_water',
-          reactionType: BabyReactionType.hesitant,
-          clientTimestamp: DateTime.utc(2026, 7, 24, 12),
-          localEventId: 'evt_boot_next_support_resume',
-        );
-        traceEventKey = event.eventKey;
-        await _onboardingRepositoryFor(created).saveFlowSnapshot(
-          _resumableFlow(
-            step: OnboardingFlowStep.careTurn,
-            traceEventKey: traceEventKey,
-          ),
-        );
-        return created;
-      }))!;
-      addTearDown(harness.close);
-      addTearDown(() async {
-        await _disposeWidgetTree(tester);
-      });
-
-      await tester.pumpWidget(
-        _bootApp(harness, completedSnapshotLoader: () async => null),
-      );
-      await _pumpUntilFound(tester, find.text('刚才这句话，已经留在你们的花园里。'));
-
-      final events = (await tester.runAsync(
-        harness.repository.listEventHistory,
-      ))!;
-      expect(events, hasLength(1));
-      expect(events.single.eventKey, traceEventKey);
-    },
-  );
-
-  testWidgets(
-    'persisted account invitation resumes without writing a duplicate event',
-    (WidgetTester tester) async {
-      late String traceEventKey;
-      final harness = (await tester.runAsync<_AppBootHarness>(() async {
-        final created = await _createHarness();
-        final event = await created.repository.recordReaction(
-          spaceId: 'daily_care',
-          activityId: 'bath_time',
-          phraseId: 'bath_time_warm_water',
-          reactionType: BabyReactionType.hesitant,
-          clientTimestamp: DateTime.utc(2026, 7, 24, 12),
-          localEventId: 'evt_boot_account_resume',
-        );
-        traceEventKey = event.eventKey;
-        await _onboardingRepositoryFor(created).saveFlowSnapshot(
-          _resumableFlow(
-            step: OnboardingFlowStep.accountInvitation,
-            traceEventKey: traceEventKey,
-          ),
-        );
-        return created;
-      }))!;
-      addTearDown(harness.close);
-      addTearDown(() async {
-        await _disposeWidgetTree(tester);
-      });
-
-      await tester.pumpWidget(
-        _bootApp(harness, completedSnapshotLoader: () async => null),
-      );
-      await _pumpUntilFound(tester, find.text('把这些照护时刻保存到账号'));
-
-      final events = (await tester.runAsync(
-        harness.repository.listEventHistory,
-      ))!;
-      expect(events, hasLength(1));
-      expect(events.single.eventKey, traceEventKey);
-    },
-  );
 
   testWidgets('存在 completed snapshot 时冷启动直接进入 shell home', (
     WidgetTester tester,
@@ -1388,25 +1236,6 @@ Widget _bootApp(
       practiceContinuityRefreshTimeout: Duration.zero,
       gardenGrowthRefreshTimeout: Duration.zero,
     ),
-  );
-}
-
-OnboardingFlowSnapshot _resumableFlow({
-  required OnboardingFlowStep step,
-  String? traceEventKey,
-}) {
-  final hasTrace = traceEventKey?.trim().isNotEmpty == true;
-  return OnboardingFlowSnapshot(
-    step: step,
-    ageBucket: OnboardingAgeBucket.oneToTwo,
-    selectedSceneIds: const ['bath_time'],
-    supportGoal: OnboardingSupportGoal.moreNatural,
-    selectedSpaceId: 'daily_care',
-    selectedActivityId: 'bath_time',
-    starterPhraseId: 'bath_time_warm_water',
-    selectedReaction: hasTrace ? BabyReactionType.hesitant : null,
-    traceEventKey: traceEventKey,
-    updatedAt: DateTime.utc(2026, 7, 24, 12),
   );
 }
 

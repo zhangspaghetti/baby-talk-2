@@ -9,7 +9,7 @@ import 'package:mobile/app/router/root_navigator_key.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
+import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -21,7 +21,7 @@ GoRouter createAppRouter({
   WidgetBuilder? shellBuilder,
 }) {
   final resolvedOnboardingBuilder =
-      onboardingBuilder ?? (context) => const OnboardingFlowScreen();
+      onboardingBuilder ?? (context) => const CareEntryOnboardingScreen();
 
   return GoRouter(
     navigatorKey: appRootNavigatorKey,

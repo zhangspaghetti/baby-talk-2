@@ -16,6 +16,7 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
@@ -27,7 +28,6 @@ import 'package:mobile/features/onboarding/data/local/onboarding_flow_store.dart
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_flow_screen.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
@@ -392,9 +392,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           path: AppRouteNames.onboarding,
           builder: (context, state) => _BootRouteMarker(
             routeKey: Key('boot-route-onboarding'),
-            child: OnboardingFlowScreen(
-              audioControllerFactory: widget.audioControllerFactory,
-            ),
+            child: const CareEntryOnboardingScreen(),
           ),
         ),
         for (final path in AppRouteNames.legacyOnboardingPaths)

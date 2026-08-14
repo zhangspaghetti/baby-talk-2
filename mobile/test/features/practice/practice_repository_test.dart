@@ -99,6 +99,7 @@ void main() {
       expect(catalog.activities.map((activity) => activity.activityId), [
         'bath_time',
         'diaper_change',
+        'post_cry_soothing',
         'feeding_time',
         'bedtime',
       ]);
@@ -136,6 +137,7 @@ void main() {
       expect(catalog.activities.map((activity) => activity.activityId), [
         'bath_time',
         'diaper_change',
+        'post_cry_soothing',
         'feeding_time',
         'bedtime',
       ]);

@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "revision": "2026-08-14.1",
+  "collections": [
+    {
+      "placement": "onboarding.primary",
+      "visibleSlots": 4,
+      "entryIds": [
+        "care.bedtime_soothing",
+        "care.feeding_now",
+        "care.post_cry_soothing",
+        "care.diaper_change"
+      ],
+      "safeDefaultEntryIds": [
+        "care.bedtime_soothing",
+        "care.feeding_now",
+        "care.post_cry_soothing",
+        "care.diaper_change"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "care.bedtime_soothing",
+      "placement": "onboarding.primary",
+      "order": 1,
+      "optional": false,
+      "title": "哄睡中",
+      "subtitle": "轻一点开始",
+      "visualToken": "route.moon",
+      "recommendationHours": [0, 1, 2, 3, 4, 17, 18, 19, 20, 21, 22, 23],
+      "generation": {
+        "id": "generation.bedtime",
+        "schemaVersion": 1,
+        "sceneType": "bedtime",
+        "parentTonePreference": "short_gentle"
+      },
+      "fallback": {
+        "id": "fallback.bedtime.time_to_sleep",
+        "spaceId": "family_rhythm",
+        "activityId": "bedtime",
+        "phraseId": "bedtime_time_to_sleep",
+        "audioReview": "reviewed"
+      }
+    },
+    {
+      "id": "care.feeding_now",
+      "placement": "onboarding.primary",
+      "order": 2,
+      "optional": false,
+      "title": "正在喂奶",
+      "subtitle": "一句一句陪着吃",
+      "visualToken": "route.bottle",
+      "recommendationHours": [5, 6, 7, 8, 9, 10],
+      "generation": {
+        "id": "generation.feeding",
+        "schemaVersion": 1,
+        "sceneType": "feeding",
+        "parentTonePreference": "short_gentle"
+      },
+      "fallback": {
+        "id": "fallback.feeding.open_wide",
+        "spaceId": "family_rhythm",
+        "activityId": "feeding_time",
+        "phraseId": "feeding_time_open_wide",
+        "audioReview": "reviewed"
+      }
+    },
+    {
+      "id": "care.post_cry_soothing",
+      "placement": "onboarding.primary",
+      "order": 3,
+      "optional": false,
+      "title": "宝宝刚哭过",
+      "subtitle": "先安抚一下",
+      "visualToken": "route.soothing",
+      "recommendationHours": [],
+      "generation": {
+        "id": "generation.post_cry",
+        "schemaVersion": 1,
+        "sceneType": "post_cry",
+        "parentTonePreference": "short_gentle"
+      },
+      "fallback": {
+        "id": "fallback.post_cry.right_here",
+        "spaceId": "daily_care",
+        "activityId": "post_cry_soothing",
+        "phraseId": "post_cry_im_right_here",
+        "audioReview": "reviewed"
+      }
+    },
+    {
+      "id": "care.diaper_change",
+      "placement": "onboarding.primary",
+      "order": 4,
+      "optional": false,
+      "title": "换尿布",
+      "subtitle": "快一点也可以",
+      "visualToken": "route.diaper",
+      "recommendationHours": [11, 12, 13, 14, 15, 16],
+      "generation": {
+        "id": "generation.diaper_change",
+        "schemaVersion": 1,
+        "sceneType": "diaper_change",
+        "parentTonePreference": "short_gentle"
+      },
+      "fallback": {
+        "id": "fallback.diaper.clean_bottom",
+        "spaceId": "daily_care",
+        "activityId": "diaper_change",
+        "phraseId": "diaper_change_clean_bottom",
+        "audioReview": "reviewed"
+      }
+    }
+  ]
+}
