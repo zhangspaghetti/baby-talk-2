@@ -27,6 +27,7 @@ public abstract class AbstractIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     private static final List<String> RESET_APP_TABLES = List.of(
+            "guest_onboarding_conversation_turns",
             "guest_onboarding_conversations",
             "kg_admin_notifications",
             "kg_contradictions",

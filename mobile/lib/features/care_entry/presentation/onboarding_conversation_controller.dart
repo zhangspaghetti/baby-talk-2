@@ -77,9 +77,12 @@ final class OnboardingConversationController extends ChangeNotifier {
   CareEntryResolution? _resolution;
   OnboardingScheduledTask? _reactionTimeout;
   OnboardingScheduledTask? _firstUtteranceTimeout;
+  OnboardingScheduledTask? _nextSupportTimeout;
   Future<void>? _startSelectedOperation;
   _FirstUtteranceRace? _activeFirstUtteranceRace;
+  _NextSupportRace? _activeNextSupportRace;
   OnboardingUtterance? _firstUtterance;
+  CareNextSupportUtterance? _nextSupport;
   String? _conversationId;
   DateTime? _conversationExpiresAt;
   bool _disposed = false;
@@ -353,6 +356,7 @@ final class OnboardingConversationController extends ChangeNotifier {
     if (_state.phase != OnboardingConversationPhase.reactionPrompt) return;
     final normalizedOtherText = otherText?.trim();
     final hasOtherText = normalizedOtherText?.isNotEmpty == true;
+    final privateReactionText = hasOtherText ? normalizedOtherText : null;
     if (hasOtherText && reaction != CareReaction.other) {
       throw ArgumentError.value(
         otherText,
@@ -365,6 +369,8 @@ final class OnboardingConversationController extends ChangeNotifier {
     }
     final reactionEpoch = ++_reactionEpoch;
     _reactionTimeout?.cancel();
+    final previous = _requireCheckpoint();
+    _publish(_stateFor(previous, OnboardingConversationPhase.savingReaction));
     var persistenceSucceeded = false;
     var delayElapsed = false;
     _reactionTimeout = _scheduler.schedule(
@@ -373,21 +379,30 @@ final class OnboardingConversationController extends ChangeNotifier {
         delayElapsed = true;
         if (persistenceSucceeded) {
           unawaited(
-            _resolveNextSupport(reaction, reactionEpoch: reactionEpoch),
+            _resolveNextSupport(
+              reaction,
+              otherText: privateReactionText,
+              reactionEpoch: reactionEpoch,
+            ),
           );
         }
       },
     );
-    final checkpoint = _requireCheckpoint().copyWith(
-      selectedReaction: reaction,
-    );
+    final checkpoint = previous.copyWith(selectedReaction: reaction);
     try {
       final persisted = await _repository.save(checkpoint);
       if (_disposed || reactionEpoch != _reactionEpoch) return;
-      _applyCheckpoint(persisted);
+      _checkpoint = persisted;
+      _publish(
+        _stateFor(persisted, OnboardingConversationPhase.savingReaction),
+      );
       persistenceSucceeded = true;
       if (delayElapsed) {
-        await _resolveNextSupport(reaction, reactionEpoch: reactionEpoch);
+        await _resolveNextSupport(
+          reaction,
+          otherText: privateReactionText,
+          reactionEpoch: reactionEpoch,
+        );
       }
     } on Object {
       if (_disposed || reactionEpoch != _reactionEpoch) return;
@@ -466,8 +481,11 @@ final class OnboardingConversationController extends ChangeNotifier {
     _checkpoint = checkpoint;
     if (checkpoint.phase == OnboardingCheckpointPhase.selection) {
       _firstUtterance = null;
+      _nextSupport = null;
       _conversationId = null;
       _conversationExpiresAt = null;
+    } else {
+      _nextSupport = _supportFromCheckpoint(checkpoint);
     }
     _publish(_stateFor(checkpoint, _viewPhase(checkpoint.phase)));
   }
@@ -490,9 +508,10 @@ final class OnboardingConversationController extends ChangeNotifier {
         activeEntry.seed.nextSupports.whenAbsent,
         ...activeEntry.seed.nextSupports.byReaction.values,
       ];
-      nextSupport = candidates.firstWhere(
-        (candidate) => candidate.id == nextSupportId,
-      );
+      nextSupport =
+          _supportFromCheckpoint(checkpoint) ??
+          _nextSupport ??
+          candidates.firstWhere((candidate) => candidate.id == nextSupportId);
     }
     return OnboardingConversationState(
       phase: phase,
@@ -524,35 +543,242 @@ final class OnboardingConversationController extends ChangeNotifier {
 
   Future<void> _resolveNextSupport(
     CareReaction? reaction, {
+    String? otherText,
     required int reactionEpoch,
   }) async {
     if (reactionEpoch != _reactionEpoch ||
-        _state.phase != OnboardingConversationPhase.reactionPrompt) {
+        (_state.phase != OnboardingConversationPhase.reactionPrompt &&
+            _state.phase != OnboardingConversationPhase.savingReaction)) {
       return;
     }
-    final checkpoint = _requireCheckpoint();
     final activeEntry = _state.activeEntry;
     if (activeEntry == null) return;
-    final support = activeEntry.seed.nextSupports.resolve(reaction);
-    final next = checkpoint.copyWith(
+    final localSupport = activeEntry.seed.nextSupports.resolve(reaction);
+    _publish(
+      _stateFor(
+        _requireCheckpoint(),
+        OnboardingConversationPhase.resolvingNextSupport,
+      ),
+    );
+    final fallback = _requireCheckpoint().copyWith(
       phase: OnboardingCheckpointPhase.nextSupportReady,
       selectedReaction: reaction,
-      nextSupportId: support.id,
+      nextSupportId: localSupport.id,
+      nextSupportEnglish: localSupport.english,
+      nextSupportChinese: localSupport.chinese,
+      nextSupportSource: OnboardingUtteranceSource.localFallback,
     );
+    OnboardingConversationSnapshot? persistedFallback;
     try {
-      final persisted = await _repository.save(next);
-      if (_disposed || reactionEpoch != _reactionEpoch) return;
-      _applyCheckpoint(persisted);
+      persistedFallback = await _repository.saveNextSupport(
+        fallback,
+        commitIfCurrent: () =>
+            !_disposed &&
+            reactionEpoch == _reactionEpoch &&
+            _state.phase == OnboardingConversationPhase.resolvingNextSupport,
+      );
     } on Object {
-      if (_disposed || reactionEpoch != _reactionEpoch) return;
+      persistedFallback = null;
+    }
+    if (_disposed || reactionEpoch != _reactionEpoch) return;
+    if (!_sameNextSupport(persistedFallback, fallback)) {
       _publish(
         _stateFor(
-          checkpoint,
+          _requireCheckpoint(),
           OnboardingConversationPhase.reactionPrompt,
           errorMessage: '下一句还没准备好，请再试一次。',
         ),
       );
+      return;
     }
+    final readyFallback = persistedFallback!;
+    _checkpoint = readyFallback;
+    final gateway = _conversationGateway;
+    final conversationId = _conversationId;
+    final previousUtterance = _firstUtterance;
+    if (gateway != null &&
+        conversationId != null &&
+        previousUtterance != null) {
+      final race = _NextSupportRace();
+      _activeNextSupportRace?.complete();
+      _activeNextSupportRace = race;
+      _nextSupportTimeout?.cancel();
+      _nextSupportTimeout = _scheduler.schedule(
+        const Duration(seconds: 6),
+        () => _publishPreparedFallback(
+          readyFallback,
+          localSupport,
+          reactionEpoch: reactionEpoch,
+          race: race,
+        ),
+      );
+      unawaited(
+        _requestRemoteNextSupport(
+          gateway,
+          activeEntry,
+          conversationId,
+          previousUtterance,
+          readyFallback,
+          localSupport,
+          reaction,
+          otherText: otherText,
+          reactionEpoch: reactionEpoch,
+          race: race,
+        ),
+      );
+      try {
+        await race.done;
+      } finally {
+        if (identical(_activeNextSupportRace, race)) {
+          _activeNextSupportRace = null;
+        }
+      }
+      return;
+    }
+    final localRace = _NextSupportRace();
+    _publishPreparedFallback(
+      readyFallback,
+      localSupport,
+      reactionEpoch: reactionEpoch,
+      race: localRace,
+    );
+  }
+
+  Future<void> _requestRemoteNextSupport(
+    GuestOnboardingConversationGateway gateway,
+    ResolvedCareEntry activeEntry,
+    String conversationId,
+    OnboardingUtterance previousUtterance,
+    OnboardingConversationSnapshot persistedFallback,
+    CareNextSupportUtterance localSupport,
+    CareReaction? reaction, {
+    String? otherText,
+    required int reactionEpoch,
+    required _NextSupportRace race,
+  }) async {
+    try {
+      final phraseSaidEventId = _requireCheckpoint().phraseSaidEventId;
+      if (phraseSaidEventId == null) return;
+      final remote = await gateway.nextSupport(
+        NextGuestOnboardingTurn(
+          conversationId: conversationId,
+          localEventId:
+              '$phraseSaidEventId.next.${reaction?.wireValue ?? 'none'}',
+          previousUtteranceId: previousUtterance.utteranceId,
+          generationScene: activeEntry.seed.generationRef,
+          reaction: reaction,
+          reactionText: otherText,
+        ),
+      );
+      final selected = await _selectNextSupport(
+        CareNextSupportUtterance(
+          id: CareSupportId(remote.utterance.utteranceId),
+          english: remote.utterance.english,
+          chinese: remote.utterance.chinese,
+        ),
+        reaction,
+        reactionEpoch: reactionEpoch,
+        race: race,
+      );
+      if (!selected && !race.isClaimed) {
+        _publishPreparedFallback(
+          persistedFallback,
+          localSupport,
+          reactionEpoch: reactionEpoch,
+          race: race,
+        );
+      }
+    } on Object {
+      _publishPreparedFallback(
+        persistedFallback,
+        localSupport,
+        reactionEpoch: reactionEpoch,
+        race: race,
+      );
+    }
+  }
+
+  Future<bool> _selectNextSupport(
+    CareNextSupportUtterance support,
+    CareReaction? reaction, {
+    required int reactionEpoch,
+    required _NextSupportRace race,
+  }) async {
+    if (_disposed ||
+        reactionEpoch != _reactionEpoch ||
+        _state.phase != OnboardingConversationPhase.resolvingNextSupport) {
+      return false;
+    }
+    final checkpoint = _requireCheckpoint();
+    final next = checkpoint.copyWith(
+      phase: OnboardingCheckpointPhase.nextSupportReady,
+      selectedReaction: reaction,
+      nextSupportId: support.id,
+      nextSupportEnglish: support.english,
+      nextSupportChinese: support.chinese,
+      nextSupportSource: OnboardingUtteranceSource.remoteGenerated,
+    );
+    final token = Object();
+    if (!race.beginRemote(token)) return false;
+    try {
+      final persisted = await _repository.saveNextSupport(
+        next,
+        commitIfCurrent: () => race.claimRemoteCommit(token),
+      );
+      if (_disposed || reactionEpoch != _reactionEpoch) return false;
+      final committedSnapshot = persisted;
+      if (committedSnapshot != null &&
+          _sameNextSupport(committedSnapshot, next) &&
+          race.finishRemote(token, committedSnapshot)) {
+        _nextSupportTimeout?.cancel();
+        _nextSupport = support;
+        _applyCheckpoint(committedSnapshot);
+        race.complete();
+        return true;
+      }
+      race.abandonRemote(token);
+      return false;
+    } on Object {
+      race.abandonRemote(token);
+      return false;
+    }
+  }
+
+  void _publishPreparedFallback(
+    OnboardingConversationSnapshot checkpoint,
+    CareNextSupportUtterance support, {
+    required int reactionEpoch,
+    required _NextSupportRace race,
+  }) {
+    if (_disposed ||
+        reactionEpoch != _reactionEpoch ||
+        _state.phase != OnboardingConversationPhase.resolvingNextSupport ||
+        !race.claimFallback(checkpoint)) {
+      return;
+    }
+    _nextSupportTimeout?.cancel();
+    _nextSupport = support;
+    _applyCheckpoint(checkpoint);
+    race.complete();
+  }
+
+  bool _sameNextSupport(
+    OnboardingConversationSnapshot? left,
+    OnboardingConversationSnapshot right,
+  ) =>
+      left?.nextSupportId == right.nextSupportId &&
+      left?.nextSupportEnglish == right.nextSupportEnglish &&
+      left?.nextSupportChinese == right.nextSupportChinese &&
+      left?.nextSupportSource == right.nextSupportSource;
+
+  CareNextSupportUtterance? _supportFromCheckpoint(
+    OnboardingConversationSnapshot checkpoint,
+  ) {
+    final id = checkpoint.nextSupportId;
+    final english = checkpoint.nextSupportEnglish;
+    final chinese = checkpoint.nextSupportChinese;
+    if (id == null || english == null || chinese == null) return null;
+    return CareNextSupportUtterance(id: id, english: english, chinese: chinese);
   }
 
   CareEntryResolution _requireResolution() =>
@@ -589,8 +815,11 @@ final class OnboardingConversationController extends ChangeNotifier {
     _reactionEpoch += 1;
     _reactionTimeout?.cancel();
     _firstUtteranceTimeout?.cancel();
+    _nextSupportTimeout?.cancel();
     _activeFirstUtteranceRace?.complete();
     _activeFirstUtteranceRace = null;
+    _activeNextSupportRace?.complete();
+    _activeNextSupportRace = null;
     super.dispose();
   }
 }
@@ -651,3 +880,54 @@ final class _FirstUtteranceRace {
     if (!_done.isCompleted) _done.complete();
   }
 }
+
+final class _NextSupportRace {
+  final Completer<void> _done = Completer<void>();
+  Object? _provisionalRemote;
+  Object? _winnerToken;
+  OnboardingConversationSnapshot? _winner;
+
+  bool get isClaimed => _winner != null;
+  Future<void> get done => _done.future;
+
+  bool beginRemote(Object token) {
+    if (_winnerToken != null || _provisionalRemote != null) return false;
+    _provisionalRemote = token;
+    return true;
+  }
+
+  bool claimFallback(OnboardingConversationSnapshot snapshot) {
+    if (_winnerToken != null) return false;
+    _winnerToken = _fallbackWinnerToken;
+    _winner = snapshot;
+    return true;
+  }
+
+  bool claimRemoteCommit(Object token) {
+    if (_winnerToken != null || !identical(_provisionalRemote, token)) {
+      return false;
+    }
+    _winnerToken = token;
+    _provisionalRemote = null;
+    return true;
+  }
+
+  bool finishRemote(Object token, OnboardingConversationSnapshot snapshot) {
+    if (!identical(_winnerToken, token) || _winner != null) return false;
+    _winner = snapshot;
+    return true;
+  }
+
+  void abandonRemote(Object token) {
+    if (identical(_provisionalRemote, token)) _provisionalRemote = null;
+    if (identical(_winnerToken, token) && _winner == null) {
+      _winnerToken = null;
+    }
+  }
+
+  void complete() {
+    if (!_done.isCompleted) _done.complete();
+  }
+}
+
+const Object _fallbackWinnerToken = Object();

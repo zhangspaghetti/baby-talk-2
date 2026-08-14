@@ -210,6 +210,12 @@ final class _MemoryConversationRepository
   ) async => snapshot = checkpoint;
 
   @override
+  Future<OnboardingConversationSnapshot?> saveNextSupport(
+    OnboardingConversationSnapshot checkpoint, {
+    required bool Function() commitIfCurrent,
+  }) async => commitIfCurrent() ? snapshot = checkpoint : snapshot;
+
+  @override
   Future<OnboardingConversationSnapshot> recordPhraseSaid({
     required OnboardingConversationSnapshot checkpoint,
     required String eventId,
@@ -361,6 +367,11 @@ final class _ImmediateConversationGateway
       remoteAudioAvailable: true,
     ),
   );
+
+  @override
+  Future<GuestOnboardingConversation> nextSupport(
+    NextGuestOnboardingTurn request,
+  ) async => throw StateError('not used');
 }
 
 final class _MemoryRegistry implements CareEntryRegistry {

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 public final class OnboardingConversationAudioService {
 
     private final OnboardingConversationStore store;
+    private final OnboardingConversationTurnStore turnStore;
     private final OnboardingAudioCapabilityService capabilities;
     private final GeneratedUtteranceAudioService generatedAudioService;
     private final Clock clock;
@@ -20,19 +21,22 @@ public final class OnboardingConversationAudioService {
     @Autowired
     public OnboardingConversationAudioService(
             OnboardingConversationStore store,
+            OnboardingConversationTurnStore turnStore,
             OnboardingAudioCapabilityService capabilities,
             GeneratedUtteranceAudioService generatedAudioService
     ) {
-        this(store, capabilities, generatedAudioService, Clock.systemUTC());
+        this(store, turnStore, capabilities, generatedAudioService, Clock.systemUTC());
     }
 
     OnboardingConversationAudioService(
             OnboardingConversationStore store,
+            OnboardingConversationTurnStore turnStore,
             OnboardingAudioCapabilityService capabilities,
             GeneratedUtteranceAudioService generatedAudioService,
             Clock clock
     ) {
         this.store = store;
+        this.turnStore = turnStore;
         this.capabilities = capabilities;
         this.generatedAudioService = generatedAudioService;
         this.clock = clock;
@@ -47,9 +51,16 @@ public final class OnboardingConversationAudioService {
         var conversation = store.findByConversationId(conversationId);
         if (conversation == null
                 || !"active".equals(conversation.status())
-                || !utteranceId.equals(conversation.utteranceId())
                 || !conversation.expiresAt().isAfter(OffsetDateTime.now(clock))) {
             throw audioNotFound();
+        }
+        if (!utteranceId.equals(conversation.utteranceId())) {
+            var turn = turnStore.findByUtterance(conversationId, utteranceId);
+            if (turn == null || !turn.expiresAt().isAfter(OffsetDateTime.now(clock))) {
+                throw audioNotFound();
+            }
+            return generatedAudioService.synthesizeApproved(
+                    turn.generatedContentId(), turn.utteranceId(), turn.englishText());
         }
         return generatedAudioService.synthesizeApproved(
                 conversation.generatedContentId(), conversation.utteranceId(), conversation.englishText());

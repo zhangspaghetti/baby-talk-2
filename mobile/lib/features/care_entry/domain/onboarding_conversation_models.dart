@@ -8,6 +8,8 @@ enum OnboardingConversationPhase {
   firstUtterance,
   savingPhraseSaid,
   reactionPrompt,
+  savingReaction,
+  resolvingNextSupport,
   nextSupportReady,
   completing,
   completed,
@@ -94,9 +96,32 @@ final class CreateGuestOnboardingConversation {
   final String timeBand;
 }
 
+@immutable
+final class NextGuestOnboardingTurn {
+  const NextGuestOnboardingTurn({
+    required this.conversationId,
+    required this.localEventId,
+    required this.previousUtteranceId,
+    required this.generationScene,
+    this.reaction,
+    this.reactionText,
+  });
+
+  final String conversationId;
+  final String localEventId;
+  final String previousUtteranceId;
+  final GenerationSceneRef generationScene;
+  final CareReaction? reaction;
+  final String? reactionText;
+}
+
 abstract interface class GuestOnboardingConversationGateway {
   Future<GuestOnboardingConversation> create(
     CreateGuestOnboardingConversation request,
+  );
+
+  Future<GuestOnboardingConversation> nextSupport(
+    NextGuestOnboardingTurn request,
   );
 }
 
@@ -138,6 +163,9 @@ final class OnboardingConversationSnapshot {
     this.phraseSaidAt,
     this.selectedReaction,
     this.nextSupportId,
+    this.nextSupportEnglish,
+    this.nextSupportChinese,
+    this.nextSupportSource,
     this.completionId,
     this.gardenTraceId,
     this.completedAt,
@@ -153,6 +181,9 @@ final class OnboardingConversationSnapshot {
   final DateTime? phraseSaidAt;
   final CareReaction? selectedReaction;
   final CareSupportId? nextSupportId;
+  final String? nextSupportEnglish;
+  final String? nextSupportChinese;
+  final OnboardingUtteranceSource? nextSupportSource;
   final String? completionId;
   final String? gardenTraceId;
   final DateTime? completedAt;
@@ -185,6 +216,9 @@ final class OnboardingConversationSnapshot {
     Object? phraseSaidAt = _unset,
     Object? selectedReaction = _unset,
     Object? nextSupportId = _unset,
+    Object? nextSupportEnglish = _unset,
+    Object? nextSupportChinese = _unset,
+    Object? nextSupportSource = _unset,
     Object? completionId = _unset,
     Object? gardenTraceId = _unset,
     Object? completedAt = _unset,
@@ -212,6 +246,15 @@ final class OnboardingConversationSnapshot {
       nextSupportId: identical(nextSupportId, _unset)
           ? this.nextSupportId
           : nextSupportId as CareSupportId?,
+      nextSupportEnglish: identical(nextSupportEnglish, _unset)
+          ? this.nextSupportEnglish
+          : nextSupportEnglish as String?,
+      nextSupportChinese: identical(nextSupportChinese, _unset)
+          ? this.nextSupportChinese
+          : nextSupportChinese as String?,
+      nextSupportSource: identical(nextSupportSource, _unset)
+          ? this.nextSupportSource
+          : nextSupportSource as OnboardingUtteranceSource?,
       completionId: identical(completionId, _unset)
           ? this.completionId
           : completionId as String?,
@@ -231,6 +274,11 @@ abstract interface class OnboardingConversationRepository {
   Future<OnboardingConversationSnapshot> save(
     OnboardingConversationSnapshot checkpoint,
   );
+
+  Future<OnboardingConversationSnapshot?> saveNextSupport(
+    OnboardingConversationSnapshot checkpoint, {
+    required bool Function() commitIfCurrent,
+  });
 
   Future<OnboardingConversationSnapshot> recordPhraseSaid({
     required OnboardingConversationSnapshot checkpoint,

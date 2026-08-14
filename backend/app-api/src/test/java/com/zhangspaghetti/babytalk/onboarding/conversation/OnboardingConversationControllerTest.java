@@ -106,14 +106,16 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
     void expiredIdentityDoesNotReviveBehindCleanupBacklog() throws Exception {
         jdbcTemplate.update("""
                 insert into guest_onboarding_conversations (
-                    conversation_id, installation_ref_hash, local_event_id, request_fingerprint,
+                    conversation_id, installation_ref_hash, installation_owner_key,
+                    local_event_id, request_fingerprint,
                     registry_revision, care_entry_id, generation_namespace, generation_key,
                     generation_version, generation_facets_json, locale, time_band,
                     generated_content_id, utterance_id, english_text, chinese_text,
                     pronunciation_hint, status, source, expires_at, created_at, updated_at
                 )
                 select 'onbc_expired_' || lpad(value::text, 3, '0'),
-                       'installation_expired_' || value, 'expired-event-' || value,
+                       'installation_expired_' || value, 'owner_' || repeat('a', 64),
+                       'expired-event-' || value,
                        'ocf_' || repeat('a', 64), 'old.1', 'care.bedtime_soothing',
                        'babytalk.care', 'bedtime', 1, '{}'::jsonb, 'zh-CN', 'evening',
                        'generated-expired', 'utterance-expired', 'Old.', '旧句。', 'old',
@@ -122,21 +124,23 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
                   from generate_series(1, 101) as value
                 """);
         var installationRef = keyFactory.installationRefHash("install-public-1234");
+        var installationOwner = keyFactory.ownerKey("installation", "install-public-1234");
         jdbcTemplate.update("""
                 insert into guest_onboarding_conversations (
-                    conversation_id, installation_ref_hash, local_event_id, request_fingerprint,
+                    conversation_id, installation_ref_hash, installation_owner_key,
+                    local_event_id, request_fingerprint,
                     registry_revision, care_entry_id, generation_namespace, generation_key,
                     generation_version, generation_facets_json, locale, time_band,
                     generated_content_id, utterance_id, english_text, chinese_text,
                     pronunciation_hint, status, source, expires_at, created_at, updated_at
                 ) values (
-                    'onbc_expired_target', ?, 'event-1234', 'ocf_' || repeat('b', 64),
+                    'onbc_expired_target', ?, ?, 'event-1234', 'ocf_' || repeat('b', 64),
                     'old.1', 'care.bedtime_soothing', 'babytalk.care', 'bedtime', 1,
                     '{}'::jsonb, 'zh-CN', 'evening', 'generated-expired', 'utterance-expired',
                     'Old.', '旧句。', 'old', 'active', 'remote_generated',
                     now() - interval '1 minute', now() - interval '1 day', now() - interval '1 day'
                 )
-                """, installationRef);
+                """, installationRef, installationOwner);
 
         mockMvc.perform(post("/api/v1/onboarding/conversations")
                         .header("X-App-Version", "1.2.0")
@@ -246,6 +250,65 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
                 String.class, conversationId)).isNull();
     }
 
+    @Test
+    void guestNextTurnIsUnauthenticatedExactAndIdempotentWithoutPersistingPrivateText() throws Exception {
+        var created = mockMvc.perform(post("/api/v1/onboarding/conversations")
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(validBody()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var root = objectMapper.readTree(created);
+        var conversationId = root.get("conversationId").asText();
+        var turnPath = "/api/v1/onboarding/conversations/" + conversationId + "/turns";
+        var body = turnBody("turn-event-1", true, "other", "宝宝想抱一会儿");
+
+        var turnResult = mockMvc.perform(post(turnPath)
+                        .header("X-App-Version", "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer deliberately-ignored")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conversationId").value(conversationId))
+                .andExpect(jsonPath("$.utterance.utteranceId").value("next-utterance-1"))
+                .andExpect(jsonPath("$.utterance.source").value("remote_generated"))
+                .andReturn().getResponse().getContentAsString();
+        mockMvc.perform(post(turnPath)
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.utterance.utteranceId").value("next-utterance-1"));
+
+        assertThat(generator.nextCalls).hasValue(1);
+        var turnRoot = objectMapper.readTree(turnResult);
+        mockMvc.perform(get("/api/v1/onboarding/conversations/" + conversationId
+                        + "/utterances/next-utterance-1/audio")
+                        .header("X-App-Version", "1.2.0")
+                        .header("X-Onboarding-Audio-Capability",
+                                turnRoot.get("utterance").get("audioRef").asText()))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray())
+                        .containsExactly(1, 2, 3));
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from guest_onboarding_conversation_turns", Integer.class)).isOne();
+        assertThat(jdbcTemplate.queryForObject("""
+                select count(*) from information_schema.columns
+                 where table_name = 'guest_onboarding_conversation_turns'
+                   and column_name = 'reaction_text'
+                """, Integer.class)).isZero();
+
+        mockMvc.perform(post(turnPath)
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(turnBody("turn-bad-1", true, "cooperating", "private")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_onboarding_turn"));
+        mockMvc.perform(post(turnPath)
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(turnBody("turn-bad-2", true, "unknown", null)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_onboarding_turn"));
+    }
+
     private String validBody() {
         return """
                 {"installationId":"install-public-1234","localEventId":"event-1234",
@@ -254,6 +317,17 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
                  "facets":{"parentTonePreference":"short_gentle"}},
                  "locale":"zh-CN","timeBand":"evening","babyNickname":null}
                 """;
+    }
+
+    private String turnBody(String eventId, boolean reactionProvided, String reaction, String reactionText) {
+        var reactionJson = reaction == null ? "null" : "\"" + reaction + "\"";
+        var textJson = reactionText == null ? "null" : "\"" + reactionText + "\"";
+        return """
+                {"localEventId":"%s","previousUtteranceId":"utterance-1","parentAction":"said_it",
+                 "reactionProvided":%s,"reaction":%s,"reactionText":%s,
+                 "generationScene":{"namespace":"babytalk.care","key":"bedtime","version":1,
+                 "facets":{"parentTonePreference":"short_gentle"}}}
+                """.formatted(eventId, reactionProvided, reactionJson, textJson);
     }
 
     private OnboardingConversationService.CreateRequest validRequest() {
@@ -283,11 +357,13 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
 
     static final class StubGenerator implements OnboardingConversationGenerator {
         final AtomicInteger calls = new AtomicInteger();
+        final AtomicInteger nextCalls = new AtomicInteger();
         volatile CountDownLatch entered = new CountDownLatch(0);
         volatile CountDownLatch release = new CountDownLatch(0);
 
         void reset() {
             calls.set(0);
+            nextCalls.set(0);
             entered = new CountDownLatch(0);
             release = new CountDownLatch(0);
         }
@@ -319,6 +395,14 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
             }
             return new GeneratedUtterance(
                     "generated-1", "utterance-1", "Time to sleep.", "该睡觉啦。", "taim tu sliip", null);
+        }
+
+        @Override
+        public GeneratedUtterance generateNext(NextGenerationRequest request) {
+            nextCalls.incrementAndGet();
+            return new GeneratedUtterance(
+                    "generated-next-1", "next-utterance-1", "We can go slowly.",
+                    "我们可以慢慢来。", "wi kan go slo-li", null);
         }
     }
 }

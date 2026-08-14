@@ -128,6 +128,11 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
                   ),
                   OnboardingConversationPhase.resolvingFirstUtterance =>
                     const Center(child: CircularProgressIndicator()),
+                  OnboardingConversationPhase.resolvingNextSupport =>
+                    const Center(child: CircularProgressIndicator()),
+                  OnboardingConversationPhase.savingReaction => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
                   OnboardingConversationPhase.firstUtterance ||
                   OnboardingConversationPhase.savingPhraseSaid =>
                     _FirstUtteranceView(

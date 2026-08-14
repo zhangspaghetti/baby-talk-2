@@ -24,7 +24,10 @@ public class OnboardingConversationRequestSizeFilter extends OncePerRequestFilte
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !"POST".equals(request.getMethod()) || !PATH.equals(request.getRequestURI());
+        var requestPath = request.getRequestURI();
+        return !"POST".equals(request.getMethod())
+                || !(PATH.equals(requestPath)
+                || requestPath.matches("^/api/v1/onboarding/conversations/[^/]+/turns$"));
     }
 
     @Override

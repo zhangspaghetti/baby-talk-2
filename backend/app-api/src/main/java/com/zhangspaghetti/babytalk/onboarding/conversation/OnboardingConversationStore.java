@@ -54,7 +54,8 @@ public interface OnboardingConversationStore {
             String status,
             OffsetDateTime expiresAt,
             OffsetDateTime createdAt,
-            OffsetDateTime updatedAt
+            OffsetDateTime updatedAt,
+            String installationOwnerKey
     ) {
     }
 }

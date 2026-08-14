@@ -17,7 +17,8 @@ public interface MyBatisOnboardingConversationStore extends OnboardingConversati
                    registry_revision, care_entry_id, generation_namespace, generation_key,
                    generation_version, generation_facets_json::text as generation_facets_json, locale, time_band,
                    generated_content_id, utterance_id, english_text, chinese_text,
-                   pronunciation_hint, audio_ref, status, expires_at, created_at, updated_at
+                   pronunciation_hint, audio_ref, status, expires_at, created_at, updated_at,
+                   installation_owner_key
               from guest_onboarding_conversations
              where installation_ref_hash = #{installationRefHash}
                and local_event_id = #{localEventId}
@@ -32,7 +33,8 @@ public interface MyBatisOnboardingConversationStore extends OnboardingConversati
                    registry_revision, care_entry_id, generation_namespace, generation_key,
                    generation_version, generation_facets_json::text as generation_facets_json, locale, time_band,
                    generated_content_id, utterance_id, english_text, chinese_text,
-                   pronunciation_hint, audio_ref, status, expires_at, created_at, updated_at
+                   pronunciation_hint, audio_ref, status, expires_at, created_at, updated_at,
+                   installation_owner_key
               from guest_onboarding_conversations
              where conversation_id = #{conversationId}
             """)
@@ -41,13 +43,15 @@ public interface MyBatisOnboardingConversationStore extends OnboardingConversati
     @Override
     @Insert("""
             insert into guest_onboarding_conversations (
-                conversation_id, installation_ref_hash, local_event_id, request_fingerprint,
+                conversation_id, installation_ref_hash, installation_owner_key,
+                local_event_id, request_fingerprint,
                 registry_revision, care_entry_id, generation_namespace, generation_key,
                 generation_version, generation_facets_json, locale, time_band,
                 generated_content_id, utterance_id, english_text, chinese_text,
                 pronunciation_hint, audio_ref, status, source, expires_at, created_at, updated_at
             ) values (
-                #{conversationId}, #{installationRefHash}, #{localEventId}, #{requestFingerprint},
+                #{conversationId}, #{installationRefHash}, #{installationOwnerKey},
+                #{localEventId}, #{requestFingerprint},
                 #{registryRevision}, #{careEntryId}, #{generationNamespace}, #{generationKey},
                 #{generationVersion}, cast(#{generationFacetsJson} as jsonb), #{locale}, #{timeBand},
                 null, null, null, null,

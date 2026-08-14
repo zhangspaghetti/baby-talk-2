@@ -243,6 +243,178 @@ void main() {
   );
 
   test(
+    'held remote persistence cannot block six-second fallback or overwrite it',
+    () async {
+      final scheduler = _ManualScheduler();
+      final gateway = _HeldConversationGateway();
+      final repository = _MemoryConversationRepository();
+      final ids = <String>['create-event-held', 'phrase-event-held'];
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: scheduler,
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+        idGenerator: () => ids.removeAt(0),
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-test-1234',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      final starting = controller.startSelected();
+      await Future<void>.delayed(Duration.zero);
+      gateway.complete(_remoteConversation('Remote first.'));
+      await starting;
+      await controller.markPhraseSaid();
+      await controller.selectReaction(CareReaction.hesitant);
+      scheduler.elapse(const Duration(milliseconds: 500));
+      await Future<void>.delayed(Duration.zero);
+
+      final heldRemoteSave = repository.holdNextSupportSave();
+      final publishedSupports = <String?>[];
+      controller.addListener(
+        () => publishedSupports.add(controller.state.nextSupport?.english),
+      );
+      gateway.completeNext(_remoteConversation('Remote held next.'));
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.resolvingNextSupport,
+      );
+
+      await controller.selectReaction(CareReaction.other, otherText: 'ignored');
+      expect(gateway.nextCalls, 1);
+      scheduler.elapse(const Duration(seconds: 6));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.nextSupportReady,
+      );
+      expect(controller.state.nextSupport?.english, 'Support hesitant.');
+      expect(
+        repository.snapshot?.nextSupportSource,
+        OnboardingUtteranceSource.localFallback,
+      );
+      heldRemoteSave.release();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.state.nextSupport?.english, 'Support hesitant.');
+      expect(repository.snapshot?.nextSupportEnglish, 'Support hesitant.');
+      expect(repository.snapshot?.selectedReaction, CareReaction.hesitant);
+      expect(publishedSupports, isNot(contains('Remote held next.')));
+    },
+  );
+
+  test(
+    'remote commit claimed before replacement cannot be stolen by deadline',
+    () async {
+      final scheduler = _ManualScheduler();
+      final gateway = _HeldConversationGateway();
+      final repository = _MemoryConversationRepository();
+      final ids = <String>['create-event-commit', 'phrase-event-commit'];
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: scheduler,
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+        idGenerator: () => ids.removeAt(0),
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-test-1234',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      final starting = controller.startSelected();
+      await Future<void>.delayed(Duration.zero);
+      gateway.complete(_remoteConversation('Remote first.'));
+      await starting;
+      await controller.markPhraseSaid();
+      await controller.selectReaction(CareReaction.hesitant);
+      scheduler.elapse(const Duration(milliseconds: 500));
+      await Future<void>.delayed(Duration.zero);
+
+      final heldReplacement = repository.holdNextSupportAfterCommit();
+      gateway.completeNext(_remoteConversation('Remote committed next.'));
+      await heldReplacement.waitUntilEntered;
+
+      scheduler.elapse(const Duration(seconds: 6));
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.resolvingNextSupport,
+      );
+      expect(repository.snapshot?.nextSupportEnglish, 'Support hesitant.');
+
+      heldReplacement.release();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.nextSupportReady,
+      );
+      expect(controller.state.nextSupport?.english, 'Remote committed next.');
+      expect(
+        repository.snapshot?.nextSupportSource,
+        OnboardingUtteranceSource.remoteGenerated,
+      );
+    },
+  );
+
+  test(
+    'remote next support restores exact content and source after restart',
+    () async {
+      final scheduler = _ManualScheduler();
+      final gateway = _HeldConversationGateway();
+      final repository = _MemoryConversationRepository();
+      final ids = <String>['create-event-restart', 'phrase-event-restart'];
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: scheduler,
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+        idGenerator: () => ids.removeAt(0),
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-test-1234',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      final starting = controller.startSelected();
+      await Future<void>.delayed(Duration.zero);
+      gateway.complete(_remoteConversation('Remote first.'));
+      await starting;
+      await controller.markPhraseSaid();
+      await controller.selectReaction(CareReaction.cooperating);
+      scheduler.elapse(const Duration(milliseconds: 500));
+      await Future<void>.delayed(Duration.zero);
+      gateway.completeNext(_remoteConversation('Exact remote next.'));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      final restored = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: repository,
+        scheduler: _ManualScheduler(),
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+        idGenerator: () => 'unused',
+        visibleSlots: 1,
+      );
+      addTearDown(restored.dispose);
+      await restored.initialize(localTime: DateTime(2026, 8, 14, 20));
+
+      expect(restored.state.nextSupport?.english, 'Exact remote next.');
+      expect(
+        repository.snapshot?.nextSupportSource,
+        OnboardingUtteranceSource.remoteGenerated,
+      );
+    },
+  );
+
+  test(
     'canonical reaction advances to its local support after 500 ms',
     () async {
       final repository = _MemoryConversationRepository();
@@ -264,7 +436,7 @@ void main() {
 
       expect(
         controller.state.phase,
-        OnboardingConversationPhase.reactionPrompt,
+        OnboardingConversationPhase.savingReaction,
       );
       expect(controller.state.selectedReaction, CareReaction.hesitant);
       expect(controller.state.nextSupport, isNull);
@@ -273,7 +445,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(
         controller.state.phase,
-        OnboardingConversationPhase.reactionPrompt,
+        OnboardingConversationPhase.savingReaction,
       );
 
       scheduler.elapse(const Duration(milliseconds: 1));
@@ -291,7 +463,7 @@ void main() {
   );
 
   test(
-    'latest reaction wins when persistence completes out of order',
+    'first reaction intent locks input before persistence completes',
     () async {
       final repository = _MemoryConversationRepository();
       final scheduler = _ManualScheduler();
@@ -309,25 +481,26 @@ void main() {
       await controller.markPhraseSaid();
 
       final firstWrite = repository.holdNextSave();
-      final secondWrite = repository.holdNextSave();
       final first = controller.selectReaction(CareReaction.cooperating);
-      final second = controller.selectReaction(CareReaction.hesitant);
+      await controller.selectReaction(CareReaction.hesitant);
+
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.savingReaction,
+      );
 
       firstWrite.release();
       await first;
       expect(scheduler.activeTaskCount, 1);
-
-      secondWrite.release();
-      await second;
-      expect(scheduler.activeTaskCount, 1);
       scheduler.elapse(const Duration(milliseconds: 500));
       await Future<void>.delayed(Duration.zero);
 
-      expect(controller.state.selectedReaction, CareReaction.hesitant);
+      expect(controller.state.selectedReaction, CareReaction.cooperating);
       expect(
         controller.state.nextSupport?.id.value,
-        'support.bedtime.hesitant',
+        'support.bedtime.cooperating',
       );
+      expect(repository.snapshot?.selectedReaction, CareReaction.cooperating);
     },
   );
 
@@ -356,7 +529,7 @@ void main() {
 
       expect(
         controller.state.phase,
-        OnboardingConversationPhase.reactionPrompt,
+        OnboardingConversationPhase.savingReaction,
       );
       expect(controller.state.nextSupport, isNull);
 
@@ -501,6 +674,96 @@ void main() {
         ),
         throwsArgumentError,
       );
+    },
+  );
+
+  test('remote contextual next support wins before six seconds', () async {
+    final scheduler = _ManualScheduler();
+    final gateway = _HeldConversationGateway();
+    final ids = <String>['create-event-1', 'phrase-event-1'];
+    final controller = OnboardingConversationController(
+      registry: _MemoryRegistry(_resolution()),
+      repository: _MemoryConversationRepository(),
+      scheduler: scheduler,
+      clock: () => DateTime.utc(2026, 8, 14, 12),
+      idGenerator: () => ids.removeAt(0),
+      conversationGateway: gateway,
+      installationIdLoader: () async => 'install-test-1234',
+      visibleSlots: 1,
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+    final starting = controller.startSelected();
+    await Future<void>.delayed(Duration.zero);
+    gateway.complete(_remoteConversation('Remote first.'));
+    await starting;
+    await controller.markPhraseSaid();
+
+    await controller.selectReaction(CareReaction.other, otherText: '宝宝想抱一会儿');
+    scheduler.elapse(const Duration(milliseconds: 500));
+    await Future<void>.delayed(Duration.zero);
+    expect(gateway.nextRequest?.previousUtteranceId, 'utterance-remote-1');
+    expect(gateway.nextRequest?.localEventId, 'phrase-event-1.next.other');
+    expect(gateway.nextRequest?.reaction, CareReaction.other);
+    expect(gateway.nextRequest?.reactionText, '宝宝想抱一会儿');
+    expect(gateway.nextRequest?.generationScene.key, 'bedtime');
+
+    gateway.completeNext(_remoteConversation('Remote next.'));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      controller.state.phase,
+      OnboardingConversationPhase.nextSupportReady,
+    );
+    expect(controller.state.nextSupport?.english, 'Remote next.');
+  });
+
+  test(
+    'six-second local next support is sticky against a late result',
+    () async {
+      final scheduler = _ManualScheduler();
+      final gateway = _HeldConversationGateway();
+      final ids = <String>['create-event-2', 'phrase-event-2'];
+      final controller = OnboardingConversationController(
+        registry: _MemoryRegistry(_resolution()),
+        repository: _MemoryConversationRepository(),
+        scheduler: scheduler,
+        clock: () => DateTime.utc(2026, 8, 14, 12),
+        idGenerator: () => ids.removeAt(0),
+        conversationGateway: gateway,
+        installationIdLoader: () async => 'install-test-1234',
+        visibleSlots: 1,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      final starting = controller.startSelected();
+      await Future<void>.delayed(Duration.zero);
+      gateway.complete(_remoteConversation('Remote first.'));
+      await starting;
+      await controller.markPhraseSaid();
+      await controller.selectReaction(CareReaction.hesitant);
+      scheduler.elapse(const Duration(milliseconds: 500));
+      await Future<void>.delayed(Duration.zero);
+
+      scheduler.elapse(const Duration(milliseconds: 5999));
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.resolvingNextSupport,
+      );
+      scheduler.elapse(const Duration(milliseconds: 1));
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        controller.state.phase,
+        OnboardingConversationPhase.nextSupportReady,
+      );
+      expect(controller.state.nextSupport?.english, 'Support hesitant.');
+      gateway.completeNext(_remoteConversation('Too late next.'));
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.state.nextSupport?.english, 'Support hesitant.');
     },
   );
 
@@ -664,8 +927,11 @@ final class _MemoryRegistry implements CareEntryRegistry {
 final class _HeldConversationGateway
     implements GuestOnboardingConversationGateway {
   final Completer<GuestOnboardingConversation> _response = Completer();
+  final Completer<GuestOnboardingConversation> _nextResponse = Completer();
   CreateGuestOnboardingConversation? request;
+  NextGuestOnboardingTurn? nextRequest;
   int calls = 0;
+  int nextCalls = 0;
 
   @override
   Future<GuestOnboardingConversation> create(
@@ -677,6 +943,18 @@ final class _HeldConversationGateway
   }
 
   void complete(GuestOnboardingConversation value) => _response.complete(value);
+
+  @override
+  Future<GuestOnboardingConversation> nextSupport(
+    NextGuestOnboardingTurn request,
+  ) {
+    nextCalls += 1;
+    nextRequest = request;
+    return _nextResponse.future;
+  }
+
+  void completeNext(GuestOnboardingConversation value) =>
+      _nextResponse.complete(value);
 }
 
 GuestOnboardingConversation _remoteConversation(String english) =>
@@ -701,6 +979,9 @@ final class _MemoryConversationRepository
   _HeldWrite? _heldWrite;
   _HeldWrite? _heldCompletionWrite;
   final List<_HeldWrite> _heldSaves = <_HeldWrite>[];
+  final List<_HeldWrite> _heldNextSupportSaves = <_HeldWrite>[];
+  final List<_HeldWrite> _heldNextSupportCommits = <_HeldWrite>[];
+  Future<void> _nextSupportTail = Future<void>.value();
 
   _HeldWrite holdPhraseSaidWrite() => _heldWrite = _HeldWrite();
 
@@ -709,6 +990,18 @@ final class _MemoryConversationRepository
   _HeldWrite holdNextSave() {
     final write = _HeldWrite();
     _heldSaves.add(write);
+    return write;
+  }
+
+  _HeldWrite holdNextSupportSave() {
+    final write = _HeldWrite();
+    _heldNextSupportSaves.add(write);
+    return write;
+  }
+
+  _HeldWrite holdNextSupportAfterCommit() {
+    final write = _HeldWrite();
+    _heldNextSupportCommits.add(write);
     return write;
   }
 
@@ -726,6 +1019,28 @@ final class _MemoryConversationRepository
     final heldSave = _heldSaves.isEmpty ? null : _heldSaves.removeAt(0);
     await heldSave?.future;
     return snapshot = next;
+  }
+
+  @override
+  Future<OnboardingConversationSnapshot?> saveNextSupport(
+    OnboardingConversationSnapshot next, {
+    required bool Function() commitIfCurrent,
+  }) {
+    final operation = _nextSupportTail.then((_) async {
+      final heldSave = _heldNextSupportSaves.isEmpty
+          ? null
+          : _heldNextSupportSaves.removeAt(0);
+      await heldSave?.future;
+      if (!commitIfCurrent()) return snapshot;
+      final heldCommit = _heldNextSupportCommits.isEmpty
+          ? null
+          : _heldNextSupportCommits.removeAt(0);
+      heldCommit?.markEntered();
+      await heldCommit?.future;
+      return snapshot = next;
+    });
+    _nextSupportTail = operation.then<void>((_) {}, onError: (_, _) {});
+    return operation;
   }
 
   @override
@@ -764,10 +1079,19 @@ final class _MemoryConversationRepository
 
 final class _HeldWrite {
   final _completer = Completer<void>();
+  final _entered = Completer<void>();
 
   Future<void> get future => _completer.future;
+  Future<void> get waitUntilEntered => _entered.future;
 
-  void release() => _completer.complete();
+  void markEntered() {
+    if (!_entered.isCompleted) _entered.complete();
+  }
+
+  void release() {
+    markEntered();
+    _completer.complete();
+  }
 }
 
 final class _ManualScheduler implements OnboardingDelayScheduler {

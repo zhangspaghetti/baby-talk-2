@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
 import 'package:mobile/features/care_entry/data/guest_onboarding_audio_api.dart';
+import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 
 const String defaultGuestOnboardingApiBaseUrl = String.fromEnvironment(
@@ -76,8 +77,68 @@ final class GuestOnboardingConversationApi
         _safeErrorCode(response.data) ?? 'onboarding_conversation_http_error',
       );
     }
+    return _parseResponse(response.data);
+  }
+
+  @override
+  Future<GuestOnboardingConversation> nextSupport(
+    NextGuestOnboardingTurn request,
+  ) async {
+    if (!_safeId.hasMatch(request.conversationId) ||
+        !_safeId.hasMatch(request.localEventId) ||
+        !_safeId.hasMatch(request.previousUtteranceId)) {
+      throw const GuestOnboardingConversationApiException(
+        'invalid_onboarding_turn',
+      );
+    }
+    Response<dynamic> response;
     try {
-      final root = _jsonObject(response.data);
+      response = await _dio.post<dynamic>(
+        '/api/v1/onboarding/conversations/${request.conversationId}/turns',
+        options: Options(
+          headers: <String, String>{
+            'Accept': 'application/json',
+            'X-App-Version': appVersion,
+          },
+        ),
+        data: <String, Object?>{
+          'localEventId': request.localEventId,
+          'previousUtteranceId': request.previousUtteranceId,
+          'parentAction': 'said_it',
+          'reactionProvided': request.reaction != null,
+          'reaction': request.reaction?.wireValue,
+          'reactionText': request.reactionText,
+          'generationScene': <String, Object?>{
+            'namespace': request.generationScene.namespace,
+            'key': request.generationScene.key,
+            'version': request.generationScene.version,
+            'facets': request.generationScene.facets,
+          },
+        },
+      );
+    } on DioException {
+      throw const GuestOnboardingConversationApiException(
+        'onboarding_turn_unavailable',
+      );
+    }
+    final statusCode = response.statusCode ?? 0;
+    if (statusCode < 200 || statusCode >= 300) {
+      throw GuestOnboardingConversationApiException(
+        _safeErrorCode(response.data) ?? 'onboarding_turn_http_error',
+      );
+    }
+    final result = _parseResponse(response.data);
+    if (result.conversationId != request.conversationId) {
+      throw const GuestOnboardingConversationApiException(
+        'malformed_onboarding_conversation_response',
+      );
+    }
+    return result;
+  }
+
+  GuestOnboardingConversation _parseResponse(Object? body) {
+    try {
+      final root = _jsonObject(body);
       _requireExactKeys(root, const <String>{
         'conversationId',
         'expiresAt',
@@ -156,11 +217,13 @@ String _requiredString(Map<String, dynamic> json, String field) {
 
 String _requiredId(Map<String, dynamic> json, String field) {
   final value = _requiredString(json, field);
-  if (!RegExp(r'^[A-Za-z0-9][A-Za-z0-9_-]{5,127}$').hasMatch(value)) {
+  if (!_safeId.hasMatch(value)) {
     throw FormatException('$field must be safe id');
   }
   return value;
 }
+
+final RegExp _safeId = RegExp(r'^[A-Za-z0-9][A-Za-z0-9_.:-]{5,95}$');
 
 void _requireExactKeys(Map<String, dynamic> json, Set<String> expected) {
   if (json.keys.toSet().difference(expected).isNotEmpty ||

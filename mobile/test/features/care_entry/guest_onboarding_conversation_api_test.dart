@@ -76,6 +76,102 @@ void main() {
       );
     },
   );
+
+  test('serializes exact no-reaction next-turn contract', () async {
+    final vault = GuestAudioCapabilityVault();
+    final api = GuestOnboardingConversationApi(
+      audioCapabilities: vault,
+      dio: _mockDio((options) async {
+        expect(options.path, '/api/v1/onboarding/conversations/onbc_1/turns');
+        expect(options.headers['X-App-Version'], '1.2.0');
+        expect(options.data, <String, Object?>{
+          'localEventId': 'next-event-1',
+          'previousUtteranceId': 'utterance-1',
+          'parentAction': 'said_it',
+          'reactionProvided': false,
+          'reaction': null,
+          'reactionText': null,
+          'generationScene': <String, Object?>{
+            'namespace': 'babytalk.care',
+            'key': 'bedtime',
+            'version': 1,
+            'facets': <String, String>{'parentTonePreference': 'short_gentle'},
+          },
+        });
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: <String, Object?>{
+            'conversationId': 'onbc_1',
+            'expiresAt': '2026-08-15T12:00:00Z',
+            'utterance': <String, Object?>{
+              'utteranceId': 'utterance-next-1',
+              'englishText': 'We can go slowly.',
+              'chineseText': '我们可以慢慢来。',
+              'pronunciationHint': 'wi kan go slo-li',
+              'audioRef': 'next-secret-capability',
+              'source': 'remote_generated',
+            },
+          },
+        );
+      }),
+    );
+
+    final result = await api.nextSupport(
+      const NextGuestOnboardingTurn(
+        conversationId: 'onbc_1',
+        localEventId: 'next-event-1',
+        previousUtteranceId: 'utterance-1',
+        generationScene: GenerationSceneRef(
+          id: GenerationSceneId('generation.bedtime'),
+          namespace: 'babytalk.care',
+          key: 'bedtime',
+          version: 1,
+          facets: <String, String>{'parentTonePreference': 'short_gentle'},
+        ),
+      ),
+    );
+
+    expect(result.utterance.english, 'We can go slowly.');
+    expect(result.utterance.remoteAudioAvailable, isTrue);
+  });
+
+  test(
+    'serializes canonical other reaction and bounded private text',
+    () async {
+      final api = GuestOnboardingConversationApi(
+        audioCapabilities: GuestAudioCapabilityVault(),
+        dio: _mockDio((options) async {
+          final data = options.data as Map<String, Object?>;
+          expect(data['reactionProvided'], isTrue);
+          expect(data['reaction'], 'other');
+          expect(data['reactionText'], '宝宝想抱一会儿');
+          return Response<dynamic>(
+            requestOptions: options,
+            statusCode: 200,
+            data: _response(),
+          );
+        }),
+      );
+
+      await api.nextSupport(
+        const NextGuestOnboardingTurn(
+          conversationId: 'onbc_1',
+          localEventId: 'next-event-other',
+          previousUtteranceId: 'utterance-1',
+          reaction: CareReaction.other,
+          reactionText: '宝宝想抱一会儿',
+          generationScene: GenerationSceneRef(
+            id: GenerationSceneId('generation.bedtime'),
+            namespace: 'babytalk.care',
+            key: 'bedtime',
+            version: 1,
+            facets: <String, String>{'parentTonePreference': 'short_gentle'},
+          ),
+        ),
+      );
+    },
+  );
 }
 
 CreateGuestOnboardingConversation _request() =>

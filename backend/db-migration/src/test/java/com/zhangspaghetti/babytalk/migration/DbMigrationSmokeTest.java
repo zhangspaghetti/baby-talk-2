@@ -127,6 +127,19 @@ class DbMigrationSmokeTest {
         assertThat(indexIsUnique("uq_guest_onboarding_conversations_install_event")).isTrue();
         assertThat(indexExists("idx_guest_onboarding_conversations_expires_at")).isTrue();
         assertThat(constraintExists("chk_guest_onboarding_conversations_status_payload")).isTrue();
+        assertThat(tableExists("guest_onboarding_conversation_turns")).isTrue();
+        assertThat(jdbcTemplate.queryForObject("""
+                select is_nullable
+                  from information_schema.columns
+                 where table_schema = current_schema()
+                   and table_name = 'guest_onboarding_conversations'
+                   and column_name = 'installation_owner_key'
+                """, String.class)).isEqualTo("NO");
+        assertThat(indexExists("uq_guest_onboarding_turns_conversation_event")).isTrue();
+        assertThat(indexIsUnique("uq_guest_onboarding_turns_conversation_event")).isTrue();
+        assertThat(indexExists("idx_guest_onboarding_turns_expires_at")).isTrue();
+        assertThat(constraintExists("chk_guest_onboarding_turns_reaction")).isTrue();
+        assertThat(constraintExists("chk_guest_onboarding_turns_status_payload")).isTrue();
 
         List<String> expectedPermissionCodes = List.of(
                 "users:read",

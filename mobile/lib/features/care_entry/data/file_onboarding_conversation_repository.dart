@@ -53,6 +53,23 @@ final class FileOnboardingConversationRepository
   }
 
   @override
+  Future<OnboardingConversationSnapshot?> saveNextSupport(
+    OnboardingConversationSnapshot checkpoint, {
+    required bool Function() commitIfCurrent,
+  }) {
+    return _enqueueMutation(() async {
+      _validatePersistable(checkpoint);
+      final existing = await _readInternal();
+      if (existing?.completionId != null) return existing;
+      final committed = await _writeInternal(
+        checkpoint,
+        commitIfCurrent: commitIfCurrent,
+      );
+      return committed ? checkpoint : _readInternal();
+    });
+  }
+
+  @override
   Future<OnboardingConversationSnapshot> recordPhraseSaid({
     required OnboardingConversationSnapshot checkpoint,
     required String eventId,
@@ -130,7 +147,10 @@ final class FileOnboardingConversationRepository
     }
   }
 
-  Future<void> _writeInternal(OnboardingConversationSnapshot snapshot) async {
+  Future<bool> _writeInternal(
+    OnboardingConversationSnapshot snapshot, {
+    bool Function()? commitIfCurrent,
+  }) async {
     _validatePersistable(snapshot);
     final file = await _resolveFile();
     final temporary = File('${file.path}.tmp');
@@ -141,8 +161,16 @@ final class FileOnboardingConversationRepository
         jsonEncode(_snapshotToJson(snapshot)),
         flush: true,
       );
+      // The callback is the single commit boundary. Callers may atomically
+      // claim a race here; once it returns true no competing winner may take
+      // over while the filesystem replacement finishes.
+      if (commitIfCurrent != null && !commitIfCurrent()) {
+        await _deleteIfExists(temporary);
+        return false;
+      }
       if (Platform.isWindows) await _deleteIfExists(file);
       await temporary.rename(file.path);
+      return true;
     } catch (error) {
       await _deleteIfExistsBestEffort(temporary);
       throw OnboardingConversationPersistenceException(
@@ -175,13 +203,16 @@ Map<String, Object?> _snapshotToJson(OnboardingConversationSnapshot value) =>
       'phraseSaidAt': value.phraseSaidAt?.toUtc().toIso8601String(),
       'selectedReaction': value.selectedReaction?.wireValue,
       'nextSupportId': value.nextSupportId?.value,
+      'nextSupportEnglish': value.nextSupportEnglish,
+      'nextSupportChinese': value.nextSupportChinese,
+      'nextSupportSource': value.nextSupportSource?.name,
       'completionId': value.completionId,
       'gardenTraceId': value.gardenTraceId,
       'completedAt': value.completedAt?.toUtc().toIso8601String(),
     };
 
 OnboardingConversationSnapshot _snapshotFromJson(Map<String, dynamic> json) {
-  _requireExactKeys(json, const <String>{
+  _requireSnapshotKeys(json, const <String>{
     'schemaVersion',
     'registryRevision',
     'phase',
@@ -192,6 +223,9 @@ OnboardingConversationSnapshot _snapshotFromJson(Map<String, dynamic> json) {
     'phraseSaidAt',
     'selectedReaction',
     'nextSupportId',
+    'nextSupportEnglish',
+    'nextSupportChinese',
+    'nextSupportSource',
     'completionId',
     'gardenTraceId',
     'completedAt',
@@ -202,6 +236,7 @@ OnboardingConversationSnapshot _snapshotFromJson(Map<String, dynamic> json) {
   final reaction = _optionalString(json, 'selectedReaction');
   final activeEntryId = _optionalString(json, 'activeEntryId');
   final nextSupportId = _optionalString(json, 'nextSupportId');
+  final nextSupportSource = _optionalString(json, 'nextSupportSource');
   final snapshot = OnboardingConversationSnapshot(
     registryRevision: _requiredString(
       json['registryRevision'],
@@ -220,6 +255,15 @@ OnboardingConversationSnapshot _snapshotFromJson(Map<String, dynamic> json) {
     phraseSaidAt: _optionalDateTime(json, 'phraseSaidAt'),
     selectedReaction: reaction == null ? null : parseCareReaction(reaction),
     nextSupportId: nextSupportId == null ? null : CareSupportId(nextSupportId),
+    nextSupportEnglish: _optionalString(json, 'nextSupportEnglish'),
+    nextSupportChinese: _optionalString(json, 'nextSupportChinese'),
+    nextSupportSource: nextSupportSource == null
+        ? null
+        : OnboardingUtteranceSource.values.firstWhere(
+            (source) => source.name == nextSupportSource,
+            orElse: () =>
+                throw const FormatException('nextSupportSource 不受支持。'),
+          ),
     completionId: _optionalString(json, 'completionId'),
     gardenTraceId: _optionalString(json, 'gardenTraceId'),
     completedAt: _optionalDateTime(json, 'completedAt'),
@@ -257,6 +301,50 @@ void _validatePersistable(OnboardingConversationSnapshot value) {
   if (value.gardenTraceId != null &&
       value.gardenTraceId != value.phraseSaidEventId) {
     throw const FormatException('Garden Trace 必须由同一个 PhraseSaid event 投影。');
+  }
+  final nextSupportFields = <Object?>[
+    value.nextSupportEnglish,
+    value.nextSupportChinese,
+    value.nextSupportSource,
+  ];
+  final nextSupportFieldCount = nextSupportFields
+      .where((item) => item != null)
+      .length;
+  if (nextSupportFieldCount != 0) {
+    if (value.nextSupportId == null ||
+        nextSupportFieldCount != nextSupportFields.length) {
+      throw const FormatException(
+        'next support identity/content/source 必须原子存在。',
+      );
+    }
+    _requiredString(value.nextSupportEnglish, 'nextSupportEnglish');
+    _requiredString(value.nextSupportChinese, 'nextSupportChinese');
+  }
+  if (value.phase == OnboardingCheckpointPhase.nextSupportReady &&
+      value.nextSupportId == null) {
+    throw const FormatException('next_support_ready 缺少 next support。');
+  }
+}
+
+void _requireSnapshotKeys(Map<String, dynamic> json, Set<String> allowed) {
+  const legacyRequired = <String>{
+    'schemaVersion',
+    'registryRevision',
+    'phase',
+    'selectedEntryId',
+    'activeEntryId',
+    'conversationRequestEventId',
+    'phraseSaidEventId',
+    'phraseSaidAt',
+    'selectedReaction',
+    'nextSupportId',
+    'completionId',
+    'gardenTraceId',
+    'completedAt',
+  };
+  if (!json.keys.every(allowed.contains) ||
+      !legacyRequired.every(json.containsKey)) {
+    throw const FormatException('onboarding conversation 字段集合不合法。');
   }
 }
 
@@ -297,13 +385,6 @@ DateTime? _optionalDateTime(Map<String, dynamic> json, String field) {
     throw FormatException('$field 必须是 UTC ISO 8601。');
   }
   return value;
-}
-
-void _requireExactKeys(Map<String, dynamic> json, Set<String> expected) {
-  if (json.keys.toSet().difference(expected).isNotEmpty ||
-      expected.difference(json.keys.toSet()).isNotEmpty) {
-    throw const FormatException('onboarding conversation 包含未知或缺失字段。');
-  }
 }
 
 Future<void> _deleteIfExists(File file) async {

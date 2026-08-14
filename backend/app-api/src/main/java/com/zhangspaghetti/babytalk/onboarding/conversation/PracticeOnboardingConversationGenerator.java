@@ -37,4 +37,36 @@ public class PracticeOnboardingConversationGenerator implements OnboardingConver
                 generated.generatedContentId(), starter.utteranceId(), starter.englishText(),
                 starter.chineseText(), starter.pronunciationHint(), null);
     }
+
+    @Override
+    public GeneratedUtterance generateNext(NextGenerationRequest request) {
+        var safeScene = SERVER_SCENES.get(request.sceneKey());
+        if (safeScene == null) {
+            throw new IllegalArgumentException("unsupported server-owned onboarding scene");
+        }
+        var reactionContext = request.reactionProvided()
+                ? "，宝宝反应类型为" + request.reaction()
+                : "，宝宝暂时没有明显反应";
+        var generated = generatedContentService.generateCustomSceneForInstallationOwner(
+                new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
+                        "onboarding", "next_support", null, null, null,
+                        "12_18m", "daily_care", request.locale(),
+                        safeScene + "，家长刚才说了英文：" + request.previousEnglishText() + reactionContext,
+                        request.localEventId()), request.installationOwnerKey(),
+                request.installationRefHash());
+        var utterances = generatedContentService.findApprovedUtterances(generated.generatedContentId());
+        var selected = request.reactionProvided()
+                ? utterances.stream()
+                        .filter(utterance -> "reaction_support".equals(utterance.role()))
+                        .filter(utterance -> request.reaction().equals(utterance.reactionType()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("generated onboarding support is unavailable"))
+                : utterances.stream()
+                        .filter(utterance -> "starter".equals(utterance.role()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("generated onboarding support is unavailable"));
+        return new GeneratedUtterance(
+                generated.generatedContentId(), selected.utteranceId(), selected.englishText(),
+                selected.chineseText(), selected.pronunciationHint(), null);
+    }
 }

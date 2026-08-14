@@ -294,10 +294,39 @@ public class PracticeGeneratedContentService {
             CustomSceneDiscoveryRequest request
     ) {
         requireCustomSceneGenerationAvailable();
+        return generateCustomScene(request, resolveOwner(request));
+    }
+
+    public PracticeGeneratedContentEntity generateCustomSceneForInstallationOwner(
+            CustomSceneDiscoveryRequest request,
+            String installationOwnerKey,
+            String installationRefHash
+    ) {
+        requireCustomSceneGenerationAvailable();
+        var normalizedRef = trimToNull(installationRefHash);
+        var normalizedOwnerKey = trimToNull(installationOwnerKey);
+        if (normalizedRef == null || !normalizedRef.matches("^installation_[0-9a-f]{64}$")
+                || normalizedOwnerKey == null || !normalizedOwnerKey.matches("^owner_[0-9a-f]{64}$")
+                || trimToNull(request.installationId()) != null
+                || trimToNull(request.accountId()) != null
+                || trimToNull(request.profileId()) != null) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_generated_content_owner",
+                    "installation owner ref 不合法。"
+            );
+        }
+        return generateCustomScene(request, new OwnerContext(
+                OWNER_INSTALLATION, normalizedOwnerKey, null, normalizedRef, null));
+    }
+
+    private PracticeGeneratedContentEntity generateCustomScene(
+            CustomSceneDiscoveryRequest request,
+            OwnerContext owner
+    ) {
         var forms = sceneTextCanonicalizer.derive(request.customSceneText());
         sceneTextSecurityPolicy.requireSafe(forms);
         var normalizedSceneText = validateDisplayLength(forms.displayText());
-        var owner = resolveOwner(request);
         var requestFingerprint = fingerprint(request, owner, forms.securityText());
         var clientRequestId = validateClientRequestId(request);
         var clientRequestFingerprint = clientRequestId == null
@@ -735,8 +764,7 @@ public class PracticeGeneratedContentService {
                 keyFactory.ownerKey(OWNER_INSTALLATION, installationId),
                 null,
                 keyFactory.installationRefHash(installationId),
-                null
-        );
+                null);
     }
 
     private String fingerprint(CustomSceneDiscoveryRequest request, OwnerContext owner, String securitySceneText) {

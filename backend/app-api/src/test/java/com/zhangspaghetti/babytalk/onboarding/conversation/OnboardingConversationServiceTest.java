@@ -161,7 +161,7 @@ class OnboardingConversationServiceTest {
                     row.registryRevision(), row.careEntryId(), row.generationNamespace(), row.generationKey(),
                     row.generationVersion(), row.generationFacetsJson(), row.locale(), row.timeBand(),
                     generatedContentId, utteranceId, englishText, chineseText, pronunciationHint, audioRef,
-                    "active", expiresAt, row.createdAt(), updatedAt));
+                    "active", expiresAt, row.createdAt(), updatedAt, row.installationOwnerKey()));
             return 1;
         }
 

@@ -42,6 +42,9 @@ void main() {
           phase: OnboardingCheckpointPhase.nextSupportReady,
           selectedReaction: CareReaction.other,
           nextSupportId: const CareSupportId('support.bedtime.other'),
+          nextSupportEnglish: 'I am right here.',
+          nextSupportChinese: '我就在这里。',
+          nextSupportSource: OnboardingUtteranceSource.remoteGenerated,
         ),
       );
       final completed = await repository.complete(
@@ -64,11 +67,13 @@ void main() {
       ).read();
       expect(restored?.schemaVersion, 2);
       expect(restored?.phase, OnboardingCheckpointPhase.completed);
-      expect(
-        restored?.conversationRequestEventId,
-        'onboarding-request-1',
-      );
+      expect(restored?.conversationRequestEventId, 'onboarding-request-1');
       expect(restored?.selectedReaction, CareReaction.other);
+      expect(restored?.nextSupportEnglish, 'I am right here.');
+      expect(
+        restored?.nextSupportSource,
+        OnboardingUtteranceSource.remoteGenerated,
+      );
       expect(restored?.phraseSaidEventId, 'event.phrase_said.1');
       expect(restored?.gardenTraceId, 'event.phrase_said.1');
       expect(restored?.gardenTrace?.traceId, 'event.phrase_said.1');

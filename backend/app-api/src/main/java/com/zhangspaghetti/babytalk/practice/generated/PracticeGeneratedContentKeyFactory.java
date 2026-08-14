@@ -69,6 +69,12 @@ public final class PracticeGeneratedContentKeyFactory {
                         + installationRefHash + "|" + canonicalRequest);
     }
 
+    public String onboardingTurnFingerprint(String conversationId, String canonicalRequest) {
+        return "otf_" + hmacHex(
+                "onboarding-turn-fingerprint:v1|" + keyVersion + "|"
+                        + conversationId + "|" + canonicalRequest);
+    }
+
     public String onboardingAudioCapabilitySignature(
             String conversationId,
             String utteranceId,

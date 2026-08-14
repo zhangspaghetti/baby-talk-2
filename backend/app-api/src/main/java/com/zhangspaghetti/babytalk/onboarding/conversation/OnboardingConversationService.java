@@ -84,7 +84,8 @@ public class OnboardingConversationService {
                 request.registryRevision(), request.careEntryId(), request.generationScene().namespace(),
                 request.generationScene().key(), request.generationScene().version(), canonicalFacets(request),
                 request.locale(), request.timeBand(), null, null, null, null, null, null,
-                "generating", now.plus(GENERATION_LEASE), now, now);
+                "generating", now.plus(GENERATION_LEASE), now, now,
+                keyFactory.ownerKey("installation", request.installationId()));
         if (store.reserve(reservation) == 0) {
             return awaitExisting(request, installationRef, fingerprint,
                     store.find(installationRef, request.localEventId()));
