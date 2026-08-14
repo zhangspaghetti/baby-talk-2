@@ -206,6 +206,71 @@ void main() {
       reason: 'M1 onboarding copy must avoid lesson, task, and reward framing.',
     );
   });
+
+  test('V4 onboarding visible literals stay behind the semantic firewall', () {
+    final files = <File>[
+      File(
+        'lib/features/care_entry/presentation/widgets/'
+        'care_entry_entry_surface.dart',
+      ),
+      File(
+        'lib/features/care_entry/presentation/'
+        'onboarding_conversation_controller.dart',
+      ),
+    ];
+    expect(files.every((file) => file.existsSync()), isTrue);
+
+    const blockedTerms = <String>[
+      '练习',
+      '学习',
+      '课程',
+      '任务',
+      '评分',
+      '得分',
+      '分数',
+      '跳过',
+      '奖励',
+      '积分',
+      '解锁',
+      'Practice',
+      'lesson',
+      'task',
+      'score',
+      'Skip',
+      'AI',
+      'LLM',
+      'prompt',
+      '2 of 3',
+    ];
+    final violations = <String>[];
+    final literalPattern = RegExp(r'''(['"])(.*?)\1''');
+    for (final file in files) {
+      final source = file.readAsStringSync();
+      for (final match in literalPattern.allMatches(source)) {
+        final literal = match.group(2)!;
+        if (literal.startsWith('care-entry-')) continue;
+        for (final term in blockedTerms) {
+          final containsTerm = _isAsciiTerm(term)
+              ? RegExp(
+                  '(?<![A-Za-z0-9_])${RegExp.escape(term)}(?![A-Za-z0-9_])',
+                  caseSensitive: false,
+                ).hasMatch(literal)
+              : literal.contains(term);
+          if (containsTerm) {
+            violations.add('${file.path}: "$literal" contains $term');
+          }
+        }
+      }
+    }
+
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'Onboarding V4 user-visible copy must stay free of learning, task, '
+          'score, completion-pressure, and AI framing.',
+    );
+  });
 }
 
 const _blockedVisibleTerms = [

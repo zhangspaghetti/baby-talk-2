@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 import 'package:mobile/features/care_entry/presentation/onboarding_conversation_controller.dart';
@@ -255,6 +259,480 @@ void main() {
     expect(exits, 1);
     expect(repository.snapshot?.status, OnboardingConversationStatus.deferred);
   });
+
+  testWidgets(
+    'selection stays 2x2 within 430 px and remains complete at large text',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+
+      await _pumpSurface(
+        tester,
+        controller: controller,
+        size: const Size(800, 844),
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('care-entry-content'))).width,
+        430,
+      );
+
+      await _pumpSurface(
+        tester,
+        controller: controller,
+        size: const Size(320, 568),
+        textScaler: const TextScaler.linear(2),
+      );
+
+      final grid = tester.widget<GridView>(
+        find.byKey(const Key('care-entry-grid')),
+      );
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(delegate.crossAxisCount, 2);
+      expect(
+        tester
+            .widgetList<CareEntryTile>(find.byType(CareEntryTile))
+            .where((tile) => tile.selected),
+        hasLength(1),
+      );
+      expect(find.text("I'm right here."), findsNothing);
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pump();
+      expect(find.text('直接从现在开始'), findsOneWidget);
+      expect(
+        tester
+            .widgetList<Text>(find.text('现在就能说'))
+            .every((text) => text.overflow == null),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'TalkBack exposes unambiguous selection and speaker-only actions',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      await _pumpSurface(tester, controller: controller);
+
+      final recommended = tester.getSemantics(
+        find.byKey(const Key('care-entry-tile-care.bedtime_soothing')),
+      );
+      expect(recommended.label, contains('哄睡中'));
+      expect(recommended.label, contains('现在推荐'));
+      expect(recommended.label, contains('现在就能说'));
+      expect(recommended.label, isNot(contains('已选择')));
+      expect(recommended.label, isNot(contains('未选择')));
+      expect(recommended.flagsCollection.isSelected, Tristate.isTrue);
+      _expectNoBannedVisibleCopy(tester);
+
+      await tester.tap(find.byKey(const Key('care-entry-primary-action')));
+      await tester.pumpAndSettle();
+
+      final audio = tester.getSemantics(
+        find.byKey(const Key('care-entry-first-utterance-audio')),
+      );
+      expect(audio.label, '播放标准发音');
+      expect(find.byIcon(Icons.mic), findsNothing);
+      expect(find.byIcon(Icons.mic_none), findsNothing);
+      expect(find.byIcon(Icons.graphic_eq), findsNothing);
+      expect(find.byKey(const Key('care-entry-reaction-prompt')), findsNothing);
+      _expectNoBannedVisibleCopy(tester);
+
+      await tester.tap(find.byKey(const Key('care-entry-said-action')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('宝宝现在怎么了？'), findsOneWidget);
+      for (final label in const <String>['配合', '犹豫', '不想', '没反应', '其他']) {
+        expect(find.text(label), findsOneWidget);
+      }
+      _expectNoBannedVisibleCopy(tester);
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('reaction and next-support exits require gentle confirmation', (
+    tester,
+  ) async {
+    final repository = _MemoryConversationRepository();
+    final controller = OnboardingConversationController(
+      registry: _MemoryRegistry(_resolution()),
+      repository: repository,
+      scheduler: _ManualScheduler(),
+      clock: () => DateTime.utc(2026, 8, 14, 20),
+      idGenerator: () => 'event.pop.route',
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+    await controller.startSelected();
+    await controller.markPhraseSaid();
+    var exits = 0;
+    await _pumpSurface(
+      tester,
+      controller: controller,
+      onDefer: () async {
+        if (await controller.defer()) exits += 1;
+      },
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('care-entry-exit-sheet')), findsOneWidget);
+    expect(find.text('好的，宝宝的小花园等你。'), findsOneWidget);
+    expect(exits, 0);
+
+    await tester.tap(find.byKey(const Key('care-entry-exit-stay-action')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('care-entry-exit-sheet')), findsNothing);
+
+    await _pumpSurface(
+      tester,
+      controller: controller,
+      size: const Size(320, 480),
+      textScaler: const TextScaler.linear(2),
+      onDefer: () async {
+        if (await controller.defer()) exits += 1;
+      },
+    );
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('care-entry-exit-confirm-action')),
+      100,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('care-entry-exit-sheet')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('care-entry-exit-confirm-action')));
+    await tester.pumpAndSettle();
+    expect(exits, 1);
+    expect(repository.snapshot?.status, OnboardingConversationStatus.deferred);
+  });
+
+  testWidgets('loading and failure can exit without a durable checkpoint', (
+    tester,
+  ) async {
+    var exits = 0;
+    final loading = _controller();
+    addTearDown(loading.dispose);
+    await _pumpSurface(
+      tester,
+      controller: loading,
+      onDefer: () async {},
+      onExit: () => exits += 1,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(exits, 1);
+
+    final failure = OnboardingConversationController(
+      registry: const _FailingRegistry(),
+      repository: _MemoryConversationRepository(),
+      scheduler: _ManualScheduler(),
+      clock: () => DateTime.utc(2026, 8, 14, 20),
+      idGenerator: () => 'unused.failure',
+    );
+    addTearDown(failure.dispose);
+    await failure.initialize(localTime: DateTime(2026, 8, 14, 20));
+    await _pumpSurface(
+      tester,
+      controller: failure,
+      onDefer: () async {},
+      onExit: () => exits += 1,
+    );
+
+    expect(failure.state.phase, OnboardingConversationPhase.failure);
+    await tester.tap(find.byKey(const Key('care-entry-defer-action')));
+    await tester.pump();
+    expect(exits, 2);
+  });
+
+  testWidgets(
+    'Xiaohe uses initials, next support explains continuity, and keyboard scrolls',
+    (tester) async {
+      final scheduler = _ManualScheduler();
+      final controller = _controller(scheduler: scheduler);
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      await _pumpSurface(
+        tester,
+        controller: controller,
+        size: const Size(320, 568),
+        textScaler: const TextScaler.linear(1.6),
+      );
+
+      expect(
+        find.byKey(const Key('care-entry-xiaohe-initials')),
+        findsOneWidget,
+      );
+      expect(find.text('小禾'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-entry-primary-action')));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView), const Offset(0, -400));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('care-entry-said-action')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('care-entry-reaction-other')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const Key('care-entry-reaction-other')));
+      await tester.pump();
+      await _pumpSurface(
+        tester,
+        controller: controller,
+        size: const Size(320, 568),
+        textScaler: const TextScaler.linear(1.6),
+        viewInsets: const EdgeInsets.only(bottom: 260),
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('care-entry-reaction-other-text')),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(
+        find.byKey(const Key('care-entry-reaction-other-text')),
+        '轻轻看着我',
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('care-entry-reaction-other-submit')),
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(
+        find.byKey(const Key('care-entry-reaction-other-submit')),
+      );
+      scheduler.elapse(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('care-entry-next-support')), findsOneWidget);
+      expect(find.text('这句是接着刚才来的。'), findsOneWidget);
+      expect(
+        find.byKey(const Key('care-entry-xiaohe-initials')),
+        findsOneWidget,
+      );
+      expect(find.byType(Image), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'visual evidence covers selection, first, reaction, next, exit, and Trace',
+    (tester) async {
+      await _loadGoldenFonts();
+      final scheduler = _ManualScheduler();
+      final controller = _controller(scheduler: scheduler);
+      addTearDown(controller.dispose);
+      await controller.initialize(localTime: DateTime(2026, 8, 14, 20));
+      await _pumpSurface(
+        tester,
+        controller: controller,
+        onDefer: () async {},
+        onToday: () {},
+        onGarden: () {},
+      );
+
+      await expectLater(
+        find.byType(Scaffold).first,
+        matchesGoldenFile('goldens/care_entry_selection.png'),
+      );
+
+      await tester.tap(find.byKey(const Key('care-entry-primary-action')));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(Scaffold).first,
+        matchesGoldenFile('goldens/care_entry_first_ready.png'),
+      );
+
+      await tester.tap(find.byKey(const Key('care-entry-said-action')));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(Scaffold).first,
+        matchesGoldenFile('goldens/care_entry_reaction_prompt.png'),
+      );
+
+      await tester.tap(find.byKey(const Key('care-entry-reaction-hesitant')));
+      scheduler.elapse(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(Scaffold).first,
+        matchesGoldenFile('goldens/care_entry_next_ready.png'),
+      );
+
+      await tester.tap(find.byKey(const Key('care-entry-defer-action')));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byKey(const Key('care-entry-exit-sheet')),
+        matchesGoldenFile('goldens/care_entry_exit_sheet.png'),
+      );
+      await tester.tap(find.byKey(const Key('care-entry-exit-stay-action')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('care-entry-finish-today-action')));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(Scaffold).first,
+        matchesGoldenFile('goldens/care_entry_trace_confirmation.png'),
+      );
+    },
+  );
+}
+
+OnboardingConversationController _controller({
+  OnboardingDelayScheduler? scheduler,
+}) => OnboardingConversationController(
+  registry: _MemoryRegistry(_resolution()),
+  repository: _MemoryConversationRepository(),
+  scheduler: scheduler ?? _ManualScheduler(),
+  clock: () => DateTime.utc(2026, 8, 14, 20),
+  idGenerator: () => 'event.widget.${DateTime.now().microsecondsSinceEpoch}',
+);
+
+Future<void> _pumpSurface(
+  WidgetTester tester, {
+  required OnboardingConversationController controller,
+  Size size = const Size(390, 844),
+  TextScaler textScaler = TextScaler.noScaling,
+  EdgeInsets viewInsets = EdgeInsets.zero,
+  Future<void> Function()? onDefer,
+  VoidCallback? onExit,
+  VoidCallback? onToday,
+  VoidCallback? onGarden,
+}) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = size;
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: _themeWithGoldenCjkFallback(),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: textScaler, viewInsets: viewInsets),
+        child: child!,
+      ),
+      home: CareEntryEntrySurface(
+        controller: controller,
+        onDefer: onDefer,
+        onExit: onExit,
+        onToday: onToday,
+        onGarden: onGarden,
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _loadGoldenFonts() async {
+  final fontAssets = <String, List<String>>{
+    'DM Sans': <String>[
+      'assets/fonts/dm_sans/DMSans-Regular.ttf',
+      'assets/fonts/dm_sans/DMSans-Bold.ttf',
+    ],
+    'Fraunces': <String>[
+      'assets/fonts/fraunces/Fraunces-Regular.ttf',
+      'assets/fonts/fraunces/Fraunces-Bold.ttf',
+    ],
+    'JetBrains Mono': <String>[
+      'assets/fonts/jetbrains_mono/JetBrainsMono-Regular.ttf',
+      'assets/fonts/jetbrains_mono/JetBrainsMono-Medium.ttf',
+    ],
+    'MaterialIcons': <String>['fonts/MaterialIcons-Regular.otf'],
+    'Golden CJK': <String>['test/fonts/NotoSansSC-CareEntrySubset.otf'],
+  };
+  for (final entry in fontAssets.entries) {
+    final loader = FontLoader(entry.key);
+    for (final asset in entry.value) {
+      loader.addFont(
+        asset.startsWith('test/')
+            ? Future<ByteData>.value(
+                ByteData.sublistView(File(asset).readAsBytesSync()),
+              )
+            : rootBundle.load(asset),
+      );
+    }
+    await loader.load();
+  }
+}
+
+ThemeData _themeWithGoldenCjkFallback() {
+  const fallback = <String>['Golden CJK'];
+  final base = AppTheme.build();
+  TextStyle? withFallback(TextStyle? style) =>
+      style?.copyWith(fontFamilyFallback: fallback);
+
+  return base.copyWith(
+    textTheme: base.textTheme.apply(fontFamilyFallback: fallback),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamilyFallback: fallback),
+    filledButtonTheme: FilledButtonThemeData(
+      style: base.filledButtonTheme.style?.copyWith(
+        textStyle: WidgetStatePropertyAll(
+          withFallback(base.filledButtonTheme.style?.textStyle?.resolve({})),
+        ),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: base.elevatedButtonTheme.style?.copyWith(
+        textStyle: WidgetStatePropertyAll(
+          withFallback(base.elevatedButtonTheme.style?.textStyle?.resolve({})),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: base.outlinedButtonTheme.style?.copyWith(
+        textStyle: WidgetStatePropertyAll(
+          withFallback(base.outlinedButtonTheme.style?.textStyle?.resolve({})),
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: base.textButtonTheme.style?.copyWith(
+        textStyle: WidgetStatePropertyAll(
+          withFallback(base.textButtonTheme.style?.textStyle?.resolve({})),
+        ),
+      ),
+    ),
+    chipTheme: base.chipTheme.copyWith(
+      labelStyle: withFallback(base.chipTheme.labelStyle),
+      secondaryLabelStyle: withFallback(base.chipTheme.secondaryLabelStyle),
+    ),
+  );
+}
+
+void _expectNoBannedVisibleCopy(WidgetTester tester) {
+  final visible = tester
+      .widgetList<Text>(find.byType(Text))
+      .map((text) => text.data ?? text.textSpan?.toPlainText() ?? '')
+      .join('\n');
+  for (final term in const <String>[
+    '练习',
+    '课程',
+    '任务',
+    '评分',
+    '得分',
+    '分数',
+    '完成压力',
+    'Skip',
+    '2 of 3',
+    'AI',
+    'LLM',
+    'prompt',
+  ]) {
+    expect(visible.toLowerCase(), isNot(contains(term.toLowerCase())));
+  }
 }
 
 final class _MemoryConversationRepository
@@ -470,6 +948,17 @@ final class _MemoryRegistry implements CareEntryRegistry {
     required int visibleSlots,
     required DateTime localTime,
   }) async => resolution;
+}
+
+final class _FailingRegistry implements CareEntryRegistry {
+  const _FailingRegistry();
+
+  @override
+  Future<CareEntryResolution> resolve({
+    required CareEntryPlacementId placement,
+    required int visibleSlots,
+    required DateTime localTime,
+  }) async => throw StateError('simulated registry failure');
 }
 
 CareEntryResolution _resolution() {

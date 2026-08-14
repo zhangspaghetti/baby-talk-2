@@ -33,6 +33,7 @@ class CareEntryOnboardingScreen extends ConsumerWidget {
       onDefer: () async {
         if (await controller.defer()) onDeferred?.call();
       },
+      onExit: onDeferred,
       onContinueCareTurn: onContinueCareTurn,
       onToday: onToday,
       onGarden: onGarden,

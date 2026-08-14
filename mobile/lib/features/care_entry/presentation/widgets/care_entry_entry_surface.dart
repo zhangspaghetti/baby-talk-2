@@ -74,6 +74,7 @@ class CareEntryEntrySurface extends StatefulWidget {
     this.audioControllerFactory,
     this.onRetry,
     this.onDefer,
+    this.onExit,
     this.onContinueCareTurn,
     this.onToday,
     this.onGarden,
@@ -83,6 +84,7 @@ class CareEntryEntrySurface extends StatefulWidget {
   final CareEntryAudioPlayer Function()? audioControllerFactory;
   final VoidCallback? onRetry;
   final Future<void> Function()? onDefer;
+  final VoidCallback? onExit;
   final ValueChanged<OnboardingCareTurnHandoff>? onContinueCareTurn;
   final VoidCallback? onToday;
   final VoidCallback? onGarden;
@@ -100,6 +102,7 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
   bool _isOtherReactionSelected = false;
   bool _isDeferring = false;
   bool _isCompleting = false;
+  bool _isExitSheetOpen = false;
 
   @override
   void dispose() {
@@ -117,102 +120,111 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
       animation: widget.controller,
       builder: (context, _) {
         final state = widget.controller.state;
-        return Scaffold(
-          backgroundColor: const Color(0xFFFFFBF3),
-          appBar:
-              state.phase == OnboardingConversationPhase.completed ||
-                  widget.onDefer == null
-              ? null
-              : AppBar(
-                  backgroundColor: const Color(0xFFFFFBF3),
-                  elevation: 0,
-                  actions: <Widget>[
-                    TextButton(
-                      key: const Key('care-entry-defer-action'),
-                      onPressed: _isDeferring ? null : _defer,
-                      child: Text(_isDeferring ? '正在保存…' : '稍后再来'),
+        final canLeaveDirectly =
+            state.phase == OnboardingConversationPhase.completed ||
+            (widget.onDefer == null && widget.onExit == null);
+        return PopScope<Object?>(
+          canPop: canLeaveDirectly,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) unawaited(_requestDefer());
+          },
+          child: Scaffold(
+            backgroundColor: const Color(0xFFFFFBF3),
+            appBar: canLeaveDirectly
+                ? null
+                : AppBar(
+                    backgroundColor: const Color(0xFFFFFBF3),
+                    elevation: 0,
+                    actions: <Widget>[
+                      TextButton(
+                        key: const Key('care-entry-defer-action'),
+                        onPressed: _isDeferring ? null : _requestDefer,
+                        child: Text(_isDeferring ? '正在保存…' : '稍后再来'),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+            body: SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  key: const Key('care-entry-content'),
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: switch (state.phase) {
+                    OnboardingConversationPhase.loading => const Center(
+                      child: CircularProgressIndicator(),
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-          body: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 430),
-                child: switch (state.phase) {
-                  OnboardingConversationPhase.loading => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  OnboardingConversationPhase.failure => _FailureView(
-                    message: state.errorMessage ?? '暂时无法准备入口。',
-                    onRetry: widget.onRetry,
-                  ),
-                  OnboardingConversationPhase.selection => _SelectionView(
-                    state: state,
-                    onSelected: (id) => unawaited(widget.controller.select(id)),
-                    onStarted: () =>
-                        unawaited(widget.controller.startSelected()),
-                  ),
-                  OnboardingConversationPhase.resolvingFirstUtterance =>
-                    const Center(child: CircularProgressIndicator()),
-                  OnboardingConversationPhase.resolvingNextSupport =>
-                    _ResolvingNextSupportView(
-                      isCompleting: _isCompleting,
+                    OnboardingConversationPhase.failure => _FailureView(
+                      message: state.errorMessage ?? '暂时无法准备入口。',
+                      onRetry: widget.onRetry,
+                    ),
+                    OnboardingConversationPhase.selection => _SelectionView(
+                      state: state,
+                      onSelected: (id) =>
+                          unawaited(widget.controller.select(id)),
+                      onStarted: () =>
+                          unawaited(widget.controller.startSelected()),
+                    ),
+                    OnboardingConversationPhase.resolvingFirstUtterance =>
+                      const _ResolvingFirstUtteranceView(),
+                    OnboardingConversationPhase.resolvingNextSupport =>
+                      _ResolvingNextSupportView(
+                        isCompleting: _isCompleting,
+                        onFinishToday: _finishForTrace,
+                      ),
+                    OnboardingConversationPhase.savingReaction => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                    OnboardingConversationPhase.firstUtterance ||
+                    OnboardingConversationPhase.savingPhraseSaid =>
+                      _FirstUtteranceView(
+                        entry: state.activeEntry!,
+                        utterance: state.activeUtterance!,
+                        audioMessage: _audioMessage,
+                        isPlaying: _isPlaying,
+                        isSaving:
+                            state.phase ==
+                            OnboardingConversationPhase.savingPhraseSaid,
+                        onPlayAudio: _playAudio,
+                        onSaid: _markPhraseSaid,
+                      ),
+                    OnboardingConversationPhase.reactionPrompt =>
+                      _ReactionPromptView(
+                        selectedReaction: state.selectedReaction,
+                        isOtherSelected: _isOtherReactionSelected,
+                        otherController: _otherReactionController,
+                        errorMessage: state.errorMessage,
+                        onSelected: (reaction, otherText) {
+                          setState(() => _isOtherReactionSelected = false);
+                          unawaited(
+                            widget.controller.selectReaction(
+                              reaction,
+                              otherText: otherText,
+                            ),
+                          );
+                        },
+                        onChooseOther: () {
+                          setState(() => _isOtherReactionSelected = true);
+                        },
+                        onContinue: () => unawaited(
+                          widget.controller.continueWithoutReaction(),
+                        ),
+                      ),
+                    OnboardingConversationPhase.nextSupportReady ||
+                    OnboardingConversationPhase.completing => _NextSupportView(
+                      support: state.nextSupport!,
+                      isCompleting:
+                          _isCompleting ||
+                          state.phase == OnboardingConversationPhase.completing,
+                      errorMessage: state.errorMessage,
+                      onContinue: _continueCareTurn,
                       onFinishToday: _finishForTrace,
                     ),
-                  OnboardingConversationPhase.savingReaction => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  OnboardingConversationPhase.firstUtterance ||
-                  OnboardingConversationPhase.savingPhraseSaid =>
-                    _FirstUtteranceView(
-                      entry: state.activeEntry!,
-                      utterance: state.activeUtterance!,
-                      audioMessage: _audioMessage,
-                      isPlaying: _isPlaying,
-                      isSaving:
-                          state.phase ==
-                          OnboardingConversationPhase.savingPhraseSaid,
-                      onPlayAudio: _playAudio,
-                      onSaid: _markPhraseSaid,
+                    OnboardingConversationPhase.completed => _GardenTraceView(
+                      onToday: widget.onToday,
+                      onGarden: widget.onGarden,
                     ),
-                  OnboardingConversationPhase.reactionPrompt =>
-                    _ReactionPromptView(
-                      selectedReaction: state.selectedReaction,
-                      isOtherSelected: _isOtherReactionSelected,
-                      otherController: _otherReactionController,
-                      errorMessage: state.errorMessage,
-                      onSelected: (reaction, otherText) {
-                        setState(() => _isOtherReactionSelected = false);
-                        unawaited(
-                          widget.controller.selectReaction(
-                            reaction,
-                            otherText: otherText,
-                          ),
-                        );
-                      },
-                      onChooseOther: () {
-                        setState(() => _isOtherReactionSelected = true);
-                      },
-                      onContinue: () => unawaited(
-                        widget.controller.continueWithoutReaction(),
-                      ),
-                    ),
-                  OnboardingConversationPhase.nextSupportReady ||
-                  OnboardingConversationPhase.completing => _NextSupportView(
-                    support: state.nextSupport!,
-                    isCompleting:
-                        _isCompleting ||
-                        state.phase == OnboardingConversationPhase.completing,
-                    errorMessage: state.errorMessage,
-                    onContinue: _continueCareTurn,
-                    onFinishToday: _finishForTrace,
-                  ),
-                  OnboardingConversationPhase.completed => _GardenTraceView(
-                    onToday: widget.onToday,
-                    onGarden: widget.onGarden,
-                  ),
-                },
+                  },
+                ),
               ),
             ),
           ),
@@ -269,6 +281,33 @@ class _CareEntryEntrySurfaceState extends State<CareEntryEntrySurface> {
     }
   }
 
+  Future<void> _requestDefer() async {
+    if (_isDeferring || _isExitSheetOpen) return;
+    final phase = widget.controller.state.phase;
+    if (_leavesWithoutCheckpoint(phase)) {
+      widget.onExit?.call();
+      return;
+    }
+    if (widget.onDefer == null) return;
+    if (_requiresExitConfirmation(phase)) {
+      _isExitSheetOpen = true;
+      bool? confirmed;
+      try {
+        confirmed = await showModalBottomSheet<bool>(
+          context: context,
+          useSafeArea: true,
+          showDragHandle: true,
+          isScrollControlled: true,
+          builder: (context) => const _ExitConfirmationSheet(),
+        );
+      } finally {
+        _isExitSheetOpen = false;
+      }
+      if (confirmed != true || !mounted) return;
+    }
+    await _defer();
+  }
+
   Future<void> _finishForTrace() async {
     if (_isCompleting) return;
     setState(() => _isCompleting = true);
@@ -304,9 +343,14 @@ class _SelectionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseTextHeight = MediaQuery.textScalerOf(context).scale(16);
+    final textScale = (baseTextHeight / 16).clamp(1.0, 3.0);
+    final tileExtent = 142 + ((textScale - 1) * 120);
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
       children: <Widget>[
+        const _XiaoheGuide(message: '先选最像现在的一刻。'),
+        const SizedBox(height: 20),
         Text(
           '今天先从现在这一刻开始。',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -327,11 +371,11 @@ class _SelectionView extends StatelessWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: state.entries.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 142,
+            mainAxisExtent: tileExtent,
           ),
           itemBuilder: (context, index) {
             final entry = state.entries[index];
@@ -343,8 +387,8 @@ class _SelectionView extends StatelessWidget {
           },
         ),
         const SizedBox(height: 24),
-        SizedBox(
-          height: 52,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
           child: FilledButton(
             key: const Key('care-entry-primary-action'),
             onPressed: state.selectedEntryId == null ? null : onStarted,
@@ -373,10 +417,18 @@ class CareEntryTile extends StatelessWidget {
     final borderColor = selected
         ? const Color(0xFFD67B45)
         : const Color(0xFFE1D7CA);
+    final semanticLabel = <String>[
+      entry.title,
+      if (entry.isRecommended) '现在推荐',
+      entry.subtitle,
+    ].join('，');
     return Semantics(
+      container: true,
       button: true,
       selected: selected,
-      label: entry.isRecommended ? '${entry.title}，现在推荐' : entry.title,
+      label: semanticLabel,
+      onTap: onPressed,
+      excludeSemantics: true,
       child: OutlinedButton(
         key: Key('care-entry-tile-${entry.id.value}'),
         onPressed: onPressed,
@@ -393,7 +445,11 @@ class CareEntryTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Icon(_iconFor(entry.visualToken), color: const Color(0xFF6F6258)),
+            Icon(
+              _iconFor(entry.visualToken),
+              color: const Color(0xFF6F6258),
+              semanticLabel: null,
+            ),
             const SizedBox(height: 10),
             Text(
               entry.title,
@@ -402,7 +458,7 @@ class CareEntryTile extends StatelessWidget {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
-            Text(entry.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(entry.subtitle),
           ],
         ),
       ),
@@ -462,11 +518,18 @@ class _FirstUtteranceView extends StatelessWidget {
         if (utterance.localAudioAsset != null || utterance.remoteAudioAvailable)
           Align(
             alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              key: const Key('care-entry-first-utterance-audio'),
-              onPressed: isPlaying ? null : onPlayAudio,
-              icon: const Icon(Icons.volume_up_outlined),
-              label: Text(isPlaying ? '正在播放' : '听标准发音'),
+            child: Semantics(
+              button: true,
+              enabled: !isPlaying,
+              label: isPlaying ? '标准发音正在播放' : '播放标准发音',
+              onTap: isPlaying ? null : onPlayAudio,
+              excludeSemantics: true,
+              child: OutlinedButton.icon(
+                key: const Key('care-entry-first-utterance-audio'),
+                onPressed: isPlaying ? null : onPlayAudio,
+                icon: const Icon(Icons.volume_up_outlined),
+                label: Text(isPlaying ? '正在播放' : '听标准发音'),
+              ),
             ),
           ),
         if (audioMessage != null) ...<Widget>[
@@ -474,8 +537,8 @@ class _FirstUtteranceView extends StatelessWidget {
           Text(audioMessage!, key: const Key('care-entry-audio-message')),
         ],
         const SizedBox(height: 32),
-        SizedBox(
-          height: 52,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
           child: FilledButton(
             key: const Key('care-entry-said-action'),
             onPressed: isSaving ? null : onSaid,
@@ -579,6 +642,8 @@ class _NextSupportView extends StatelessWidget {
       key: const Key('care-entry-next-support'),
       padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
       children: <Widget>[
+        const _XiaoheGuide(message: '这句是接着刚才来的。'),
+        const SizedBox(height: 24),
         Text(
           support.english,
           style: Theme.of(context).textTheme.displaySmall?.copyWith(
@@ -589,8 +654,8 @@ class _NextSupportView extends StatelessWidget {
         const SizedBox(height: 16),
         Text(support.chinese, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 36),
-        SizedBox(
-          height: 52,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
           child: FilledButton(
             key: const Key('care-entry-continue-action'),
             onPressed: isCompleting ? null : onContinue,
@@ -626,6 +691,8 @@ class _ResolvingNextSupportView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            const _XiaoheGuide(message: '小禾正在为你准备最贴近这一刻的话。'),
+            const SizedBox(height: 24),
             const CircularProgressIndicator(),
             const SizedBox(height: 20),
             const Text('正在把下一句换好。'),
@@ -637,6 +704,114 @@ class _ResolvingNextSupportView extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ResolvingFirstUtteranceView extends StatelessWidget {
+  const _ResolvingFirstUtteranceView();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _XiaoheGuide(message: '小禾正在为你准备最贴近这一刻的话。'),
+            SizedBox(height: 24),
+            CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _XiaoheGuide extends StatelessWidget {
+  const _XiaoheGuide({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: '小禾，$message',
+      excludeSemantics: true,
+      child: Row(
+        children: <Widget>[
+          Container(
+            key: const Key('care-entry-xiaohe-initials'),
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFE2CE),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '小禾',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: const Color(0xFF8A4527),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6F6258)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExitConfirmationSheet extends StatelessWidget {
+  const _ExitConfirmationSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      key: const Key('care-entry-exit-sheet'),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            '好的，宝宝的小花园等你。',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: const Color(0xFF3F342C),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text('这一刻会先保存好，回来时可以接着说。'),
+          const SizedBox(height: 24),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
+            child: FilledButton(
+              key: const Key('care-entry-exit-stay-action'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('继续留在这里'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            key: const Key('care-entry-exit-confirm-action'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('稍后再来'),
+          ),
+        ],
       ),
     );
   }
@@ -723,3 +898,18 @@ String _reactionLabel(CareReaction reaction) => switch (reaction) {
   CareReaction.noResponse => '没反应',
   CareReaction.other => '其他',
 };
+
+bool _requiresExitConfirmation(OnboardingConversationPhase phase) =>
+    switch (phase) {
+      OnboardingConversationPhase.savingPhraseSaid ||
+      OnboardingConversationPhase.reactionPrompt ||
+      OnboardingConversationPhase.savingReaction ||
+      OnboardingConversationPhase.resolvingNextSupport ||
+      OnboardingConversationPhase.nextSupportReady ||
+      OnboardingConversationPhase.completing => true,
+      _ => false,
+    };
+
+bool _leavesWithoutCheckpoint(OnboardingConversationPhase phase) =>
+    phase == OnboardingConversationPhase.loading ||
+    phase == OnboardingConversationPhase.failure;
