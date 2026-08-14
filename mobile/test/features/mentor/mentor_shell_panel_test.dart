@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
@@ -531,6 +533,13 @@ class _Harness {
     final riverpodOverrides = <Override>[
       assetPhraseServiceProvider.overrideWithValue(assetPhraseService),
       practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
+      carePathNotifierProvider.overrideWith(
+        (ref) => CarePathNotifier(
+          repository: CarePathRepository(
+            practiceRepository: practiceRepository,
+          ),
+        ),
+      ),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
       mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
@@ -586,6 +595,13 @@ class _Harness {
     final riverpodOverrides = <Override>[
       assetPhraseServiceProvider.overrideWithValue(assetPhraseService),
       practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
+      carePathNotifierProvider.overrideWith(
+        (ref) => CarePathNotifier(
+          repository: CarePathRepository(
+            practiceRepository: practiceRepository,
+          ),
+        ),
+      ),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
       mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
