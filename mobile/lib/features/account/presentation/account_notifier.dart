@@ -766,6 +766,40 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> clearRetainedLocalData() async {
+    if (isBusy) {
+      return;
+    }
+    _isGlobalOperationBusy = true;
+    _submissionMessage = '正在清除本机保留数据…';
+    notifyListeners();
+    try {
+      final runner = _localDataClearanceRunner;
+      if (runner == null) {
+        throw StateError('本机数据清理服务不可用。');
+      }
+      final requestedAt = _clearanceClock().toUtc();
+      final report = await runner(
+        trigger: LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed,
+        correlationId:
+            'account-device-erase-${requestedAt.microsecondsSinceEpoch}',
+        requestedAt: requestedAt,
+      );
+      if (report.hasFailures) {
+        _submissionMessage = '部分本机数据未能清除，请重试。';
+        return;
+      }
+      _snapshot = await _repository.loadSnapshot();
+      _bumpRuntimeToken();
+      _submissionMessage = '本机保留数据已清除；账号不会被删除。';
+    } on Object {
+      _submissionMessage = '本机数据清理失败，请重试。';
+    } finally {
+      _isGlobalOperationBusy = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> handleHomeVisible() {
     if (!_hasLoaded && !_isLoading) {
       return initialize();

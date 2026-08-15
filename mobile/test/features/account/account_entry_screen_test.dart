@@ -344,6 +344,10 @@ void main() {
       find.byKey(const Key('account-family-context-section')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('account-device-erase-button')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('account-management-section')), findsOneWidget);
     expect(
       find.byKey(const Key('account-danger-zone-section')),

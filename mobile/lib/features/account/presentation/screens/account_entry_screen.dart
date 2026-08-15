@@ -94,6 +94,22 @@ Future<void> _confirmAccountDeletion(
   await ref.read(accountNotifierProvider.notifier).deleteAccount();
 }
 
+Future<void> _confirmDeviceErase(BuildContext context, WidgetRef ref) async {
+  final confirmed = await _confirmLifecycleAction(
+    context,
+    title: '清除本机保留数据？',
+    content: '这会清除本机账号、练习和缓存数据，不会删除服务器账号。',
+    confirmLabel: '清除本机数据',
+    dialogKey: const Key('account-device-erase-confirm-dialog'),
+    cancelKey: const Key('account-device-erase-cancel-button'),
+    confirmKey: const Key('account-device-erase-confirm-button'),
+  );
+  if (!confirmed || !context.mounted) {
+    return;
+  }
+  await ref.read(accountNotifierProvider.notifier).clearRetainedLocalData();
+}
+
 Future<bool> _confirmLifecycleAction(
   BuildContext context, {
   required String title,
@@ -892,6 +908,19 @@ class AccountEntryScreen extends HookConsumerWidget {
                               spacing: 12,
                               runSpacing: 12,
                               children: [
+                                OutlinedButton(
+                                  key: const Key('account-device-erase-button'),
+                                  onPressed: notifier.isBusy
+                                      ? null
+                                      : () async {
+                                          AppHaptics.lightTap();
+                                          await _confirmDeviceErase(
+                                            context,
+                                            ref,
+                                          );
+                                        },
+                                  child: const Text('清除本机数据'),
+                                ),
                                 OutlinedButton(
                                   key: const Key('account-revoke-button'),
                                   onPressed:
