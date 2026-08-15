@@ -594,6 +594,9 @@ Future<void> _pumpEntryScreen(
       key: UniqueKey(),
       overrides: [
         accountNotifierProvider.overrideWith((ref) => notifier),
+        householdRepositoryProvider.overrideWith(
+          (ref) async => _FakeHouseholdRepository(),
+        ),
         householdNotifierProvider.overrideWith(
           (ref) => HouseholdNotifier(repository: _FakeHouseholdRepository()),
         ),
@@ -649,6 +652,9 @@ Future<void> _pumpAccountOriginRouter(
       overrides: <Override>[
         accountNotifierProvider.overrideWith((ref) => notifier),
         authContinuationStoreProvider.overrideWithValue(continuationStore),
+        householdRepositoryProvider.overrideWith(
+          (ref) async => _FakeHouseholdRepository(),
+        ),
         householdNotifierProvider.overrideWith(
           (ref) => HouseholdNotifier(repository: _FakeHouseholdRepository()),
         ),
@@ -721,6 +727,9 @@ Future<void> _pumpStatusCard(
       key: UniqueKey(),
       overrides: [
         accountNotifierProvider.overrideWith((ref) => notifier),
+        householdRepositoryProvider.overrideWith(
+          (ref) async => _FakeHouseholdRepository(),
+        ),
         householdNotifierProvider.overrideWith(
           (ref) => HouseholdNotifier(repository: _FakeHouseholdRepository()),
         ),

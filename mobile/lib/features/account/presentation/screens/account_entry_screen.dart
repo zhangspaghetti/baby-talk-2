@@ -548,7 +548,7 @@ class AccountEntryScreen extends HookConsumerWidget {
     final colors = context.appColors;
     final theme = Theme.of(context);
     final notifier = ref.watch(accountNotifierProvider);
-    final householdNotifier = ref.watch(householdNotifierProvider);
+    final householdRepository = ref.watch(householdRepositoryProvider);
     final phase = resolveAccountPhase(notifier);
     final helperBody = _accountBodyForPhase(l, phase, null, notifier);
     final showSubmissionMessage =
@@ -827,27 +827,10 @@ class AccountEntryScreen extends HookConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      _AccountEntrySection(
-                        key: const Key('account-family-context-section'),
-                        title: l.accountFamilyContextSectionTitle,
-                        description: l.accountFamilyContextSectionHint,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            HouseholdSharedContextCard(
-                              surfaceKeyPrefix: 'account',
-                              notifier: householdNotifier,
-                              title: l.sharedAttributionNextStep,
-                              retryReason: 'account_entry_manual_refresh',
-                            ),
-                            const SizedBox(height: 16),
-                            HouseholdInviteCard(
-                              surfaceKeyPrefix: 'account',
-                              notifier: householdNotifier,
-                              inviteSource: 'account_entry',
-                            ),
-                          ],
-                        ),
+                      householdRepository.when(
+                        data: (_) => const _AccountHouseholdSection(),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, _) => const SizedBox.shrink(),
                       ),
                       const SizedBox(height: 24),
                       _AccountEntrySection(
@@ -1079,5 +1062,42 @@ class AccountEntryScreen extends HookConsumerWidget {
       case AccountSurfacePhase.error:
         return colors.error;
     }
+  }
+}
+
+class _AccountHouseholdSection extends ConsumerWidget {
+  const _AccountHouseholdSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
+    final householdNotifier = ref.watch(householdNotifierProvider);
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        _AccountEntrySection(
+          key: const Key('account-family-context-section'),
+          title: l.accountFamilyContextSectionTitle,
+          description: l.accountFamilyContextSectionHint,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              HouseholdSharedContextCard(
+                surfaceKeyPrefix: 'account',
+                notifier: householdNotifier,
+                title: l.sharedAttributionNextStep,
+                retryReason: 'account_entry_manual_refresh',
+              ),
+              const SizedBox(height: 16),
+              HouseholdInviteCard(
+                surfaceKeyPrefix: 'account',
+                notifier: householdNotifier,
+                inviteSource: 'account_entry',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
