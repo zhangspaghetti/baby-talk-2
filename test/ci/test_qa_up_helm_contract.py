@@ -79,6 +79,10 @@ class QaUpHelmContractTest(unittest.TestCase):
                 / "values-kind-qa-secrets.yaml"
             ).touch()
             (isolated_root / "mobile").mkdir()
+            (isolated_root / "mobile" / "pubspec.yaml").write_text(
+                "version: 1.2.3+4\n",
+                encoding="utf-8",
+            )
 
             fake_bin = isolated_root / "fake-bin"
             fake_bin.mkdir()
@@ -89,7 +93,8 @@ class QaUpHelmContractTest(unittest.TestCase):
 printf '%s\n' "$*" >> "$FAKE_HELM_LOG"
 if [[ "${1:-}" == "template" ]] \
     || [[ "${1:-}" == "upgrade" && "$*" == *"babytalk-qa-app"* ]]; then
-  if [[ "$*" != *"--set-string config.BABY_TALK_ADMIN_WEB_ORIGIN=http://127.0.0.1:3003"* ]]; then
+  if [[ "$*" != *"--set-string config.BABY_TALK_ADMIN_WEB_ORIGIN=http://127.0.0.1:3003"* ]] \
+      || [[ "$*" != *"--set-string candidate.id=m2-test"* ]]; then
     exit 64
   fi
 fi
@@ -114,7 +119,14 @@ if [[ "${1:-}" == "devices" ]]; then
 fi
 """,
             )
-            self._write_shim(fake_bin / "curl", "exit 0\n")
+            self._write_shim(
+                fake_bin / "curl",
+                """\
+if [[ "$*" == *"/qa/candidate-compatibility"* ]]; then
+  printf '%s\\n' '{"candidateId":"m2-test","requiredMigrationVersion":"33","status":"compatible"}'
+fi
+""",
+            )
             self._write_shim(fake_bin / "pkill", "exit 0\n")
             self._write_shim(fake_bin / "sleep", "exit 0\n")
 
@@ -122,6 +134,7 @@ fi
             env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
             env["FAKE_HELM_LOG"] = helm_log.as_posix()
             env["QA_ADMIN_WEB_LOCAL_PORT"] = "3003"
+            env["QA_CANDIDATE_ID"] = "m2-test"
             result = subprocess.run(
                 [BASH, str(isolated_script)],
                 cwd=isolated_root,

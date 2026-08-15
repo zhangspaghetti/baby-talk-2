@@ -5,6 +5,8 @@ metadata:
   labels:
     {{- include "babytalk-app.labels" . | nindent 4 }}
 data:
+  BABY_TALK_CANDIDATE_ID: {{ required "candidate.id is required" .Values.candidate.id | quote }}
+  BABY_TALK_CANDIDATE_REQUIRED_MIGRATION_VERSION: {{ required "candidate.requiredMigrationVersion is required" .Values.candidate.requiredMigrationVersion | quote }}
   BABY_TALK_MIN_SUPPORTED_VERSION: {{ required "config.BABY_TALK_MIN_SUPPORTED_VERSION is required" .Values.config.BABY_TALK_MIN_SUPPORTED_VERSION | quote }}
   BABY_TALK_UPGRADE_URL: {{ required "config.BABY_TALK_UPGRADE_URL is required" .Values.config.BABY_TALK_UPGRADE_URL | quote }}
   BABY_TALK_SYNC_MAX_BATCH_SIZE: {{ required "config.BABY_TALK_SYNC_MAX_BATCH_SIZE is required" .Values.config.BABY_TALK_SYNC_MAX_BATCH_SIZE | quote }}

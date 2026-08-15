@@ -11,6 +11,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Value;
 
 @SpringBootApplication
 public class DbMigrationApplication {
@@ -35,8 +36,19 @@ public class DbMigrationApplication {
     }
 
     @Bean
-    ApplicationRunner migrationSummaryRunner(Flyway flyway) {
+    ApplicationRunner migrationSummaryRunner(
+            Flyway flyway,
+            @Value("${babytalk.candidate.id:local-dev}") String candidateId,
+            @Value("${babytalk.candidate.required-migration-version:33}") String requiredMigrationVersion
+    ) {
         return args -> {
+            if (!EXPECTED_CURRENT_VERSION.equals(requiredMigrationVersion)) {
+                throw new IllegalStateException(String.format(
+                        "db-migration candidate %s requires migration version %s but runtime is pinned to %s",
+                        candidateId,
+                        requiredMigrationVersion,
+                        EXPECTED_CURRENT_VERSION));
+            }
             var info = flyway.info();
             MigrationInfo current = info.current();
             String currentVersion = current == null ? "<none>" : current.getVersion().getVersion();
@@ -52,7 +64,8 @@ public class DbMigrationApplication {
                         currentVersion,
                         appliedCount));
             }
-            log.info("db-migration completed successfully. currentVersion={}, appliedCount={}", currentVersion, appliedCount);
+            log.info("db-migration completed successfully. candidateId={}, currentVersion={}, appliedCount={}",
+                    candidateId, currentVersion, appliedCount);
         };
     }
 

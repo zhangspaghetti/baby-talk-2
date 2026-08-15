@@ -111,6 +111,7 @@ Create the name of the shared Secret.
 {{- if not (has $mode (list "disabled" "fake" "openai" "dashscope")) -}}
 {{- fail "generatedAudio.providerMode must be disabled, fake, openai, or dashscope" -}}
 {{- end -}}
+
 {{- if ne $audio.enabled (ne $mode "disabled") -}}
 {{- fail "generatedAudio.enabled must match whether providerMode is disabled" -}}
 {{- end -}}
@@ -190,6 +191,33 @@ Create the name of the shared Secret.
 {{- if not (get $credentialMatch "found") -}}
 {{- fail "generatedAudio must reuse a configured Practice AI credential" -}}
 {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Reject a QA deployment whose services or migration job are not one candidate. */}}
+{{- define "babytalk-app.validateCandidateIdentity" -}}
+{{- $candidateId := required "candidate.id is required" .Values.candidate.id -}}
+{{- $requiredMigrationVersion := required "candidate.requiredMigrationVersion is required" .Values.candidate.requiredMigrationVersion -}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9._-]{2,127}$" $candidateId) -}}
+{{- fail "candidate.id must be a safe immutable candidate identifier" -}}
+{{- end -}}
+{{- if not (regexMatch "^[0-9]+(?:_[0-9]+)?$" (printf "%v" $requiredMigrationVersion)) -}}
+{{- fail "candidate.requiredMigrationVersion must be a Flyway version" -}}
+{{- end -}}
+{{- if ne $candidateId (required "appApi.image.tag is required" .Values.appApi.image.tag) -}}
+{{- fail "appApi.image.tag must equal candidate.id" -}}
+{{- end -}}
+{{- if ne $candidateId (required "adminApi.image.tag is required" .Values.adminApi.image.tag) -}}
+{{- fail "adminApi.image.tag must equal candidate.id" -}}
+{{- end -}}
+{{- if ne $candidateId (required "adminWeb.image.tag is required" .Values.adminWeb.image.tag) -}}
+{{- fail "adminWeb.image.tag must equal candidate.id" -}}
+{{- end -}}
+{{- if ne $candidateId (required "gateway.image.tag is required" .Values.gateway.image.tag) -}}
+{{- fail "gateway.image.tag must equal candidate.id" -}}
+{{- end -}}
+{{- if ne $candidateId (required "dbMigration.image.tag is required" .Values.dbMigration.image.tag) -}}
+{{- fail "dbMigration.image.tag must equal candidate.id" -}}
 {{- end -}}
 {{- end -}}
 

@@ -50,6 +50,10 @@ generatedAudio:
   providerProfile: default
   allowedDownloadHosts: []
 
+candidate:
+  id: "1.0.0"
+  requiredMigrationVersion: "33"
+
 appApi:
   replicaCount: 1
   image:

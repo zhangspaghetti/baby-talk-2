@@ -8,6 +8,10 @@
 
 fullnameOverride: babytalk-qa-app
 
+candidate:
+  id: m2-0877167d2af7
+  requiredMigrationVersion: "33"
+
 appApi:
   image:
     tag: m2-0877167d2af7

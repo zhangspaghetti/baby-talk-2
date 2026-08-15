@@ -4,6 +4,10 @@
 imagePullSecrets:
   - name: acr-credential
 
+candidate:
+  id: release-placeholder
+  requiredMigrationVersion: "33"
+
 appApi:
   replicaCount: 2
   image:

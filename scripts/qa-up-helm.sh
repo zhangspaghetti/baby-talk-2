@@ -5,7 +5,7 @@
 #   - Builds Flutter debug APK; installs to a connected Android emulator if found
 #
 # Usage: ./scripts/qa-up-helm.sh
-# Frozen candidate: QA_IMAGE_TAG=m2-<commit> ./scripts/qa-up-helm.sh
+# Frozen candidate: QA_CANDIDATE_ID=m2-<commit> ./scripts/qa-up-helm.sh
 #
 # Prerequisites:
 #   helm ≥ 3.14, kubectl ≥ 1.28, flutter ≥ 3.11.4
@@ -29,9 +29,12 @@ ADMIN_WEB_LOCAL_PORT="${QA_ADMIN_WEB_LOCAL_PORT:-3001}"
 APP_RUNTIME_ARGS=(
   --set-string "config.BABY_TALK_ADMIN_WEB_ORIGIN=http://127.0.0.1:${ADMIN_WEB_LOCAL_PORT}"
 )
-# Set this for a frozen candidate so every application workload, including
-# admin-web and the pre-upgrade Flyway hook, resolves the same Kind image tag.
-QA_IMAGE_TAG="${QA_IMAGE_TAG:-}"
+# Every QA run must name one immutable candidate. The tag remains accepted for
+# compatibility, but it must name exactly the same candidate.
+QA_CANDIDATE_ID="${QA_CANDIDATE_ID:-}"
+QA_IMAGE_TAG="${QA_IMAGE_TAG:-$QA_CANDIDATE_ID}"
+QA_REQUIRED_MIGRATION_VERSION="${QA_REQUIRED_MIGRATION_VERSION:-33}"
+export QA_CANDIDATE_ID QA_REQUIRED_MIGRATION_VERSION
 
 INFRA_VALUES="${REPO_ROOT}/deploy/helm/babytalk-infra/values-kind-qa.yaml"
 APP_VALUES="${REPO_ROOT}/deploy/helm/babytalk-app/values-kind-qa.yaml"
@@ -44,18 +47,28 @@ CANDIDATE_IMAGES=(
   "db-migration=dbMigration"
 )
 APP_IMAGE_TAG_ARGS=()
-if [[ -n "$QA_IMAGE_TAG" ]]; then
-  for image_mapping in "${CANDIDATE_IMAGES[@]}"; do
-    value_key="${image_mapping#*=}"
-    APP_IMAGE_TAG_ARGS+=(--set-string "${value_key}.image.tag=$QA_IMAGE_TAG")
-  done
+if [[ -z "$QA_CANDIDATE_ID" ]]; then
+  echo "ERROR: QA_CANDIDATE_ID is required for a frozen QA candidate."
+  exit 1
 fi
+if [[ "$QA_IMAGE_TAG" != "$QA_CANDIDATE_ID" ]]; then
+  echo "ERROR: QA_IMAGE_TAG must equal QA_CANDIDATE_ID."
+  exit 1
+fi
+for image_mapping in "${CANDIDATE_IMAGES[@]}"; do
+  value_key="${image_mapping#*=}"
+  APP_IMAGE_TAG_ARGS+=(--set-string "${value_key}.image.tag=$QA_IMAGE_TAG")
+done
+APP_RUNTIME_ARGS+=(
+  --set-string "candidate.id=$QA_CANDIDATE_ID"
+  --set-string "candidate.requiredMigrationVersion=$QA_REQUIRED_MIGRATION_VERSION"
+)
 
 cd "$REPO_ROOT"
 
 # ── Preflight ──────────────────────────────────────────────────────────────────
 echo "==> [preflight] checking dependencies..."
-for cmd in helm kubectl flutter docker; do
+for cmd in helm kubectl flutter docker python3; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: '$cmd' not found. Install it and retry."
     exit 1
@@ -312,11 +325,42 @@ fi
 
 echo "    gateway: healthy"
 
+echo "==> [candidate] verifying gateway compatibility..."
+if ! candidate_compatibility="$(curl -fsS "http://127.0.0.1:${GATEWAY_LOCAL_PORT}/qa/candidate-compatibility")"; then
+  echo "ERROR: gateway candidate compatibility endpoint is unavailable."
+  exit 1
+fi
+if ! python3 -c '
+import json
+import os
+import sys
+payload = json.load(sys.stdin)
+expected_id = os.environ["QA_CANDIDATE_ID"]
+expected_migration = os.environ["QA_REQUIRED_MIGRATION_VERSION"]
+if payload != {
+    "candidateId": expected_id,
+    "requiredMigrationVersion": expected_migration,
+    "status": "compatible",
+}:
+    raise SystemExit(1)
+' <<< "$candidate_compatibility"; then
+  echo "ERROR: deployed gateway candidate identity or required migration mismatches frozen candidate."
+  exit 1
+fi
+echo "    candidate: $QA_CANDIDATE_ID (migration $QA_REQUIRED_MIGRATION_VERSION)"
+
 # ── APK build ─────────────────────────────────────────────────────────────────
 echo "==> [apk] building Flutter debug APK (gateway=${GATEWAY_LOCAL_PORT})..."
 cd "$REPO_ROOT/mobile"
+APK_BUILD_VERSION="$(awk -F ': ' '$1 == "version" { print $2; exit }' pubspec.yaml)"
+if [[ -z "$APK_BUILD_VERSION" ]]; then
+  echo "ERROR: mobile/pubspec.yaml does not declare an APK version."
+  exit 1
+fi
 flutter build apk --debug \
   --dart-define=BABY_TALK_API_BASE_URL="http://127.0.0.1:${GATEWAY_LOCAL_PORT}" \
+  --dart-define=BABY_TALK_CANDIDATE_ID="$QA_CANDIDATE_ID" \
+  --dart-define=BABY_TALK_BUILD_VERSION="$APK_BUILD_VERSION" \
   --dart-define=BABY_TALK_CUSTOM_SCENE_ENABLED=true
 
 APK_PATH="${REPO_ROOT}/mobile/build/app/outputs/flutter-apk/app-debug.apk"
@@ -351,6 +395,7 @@ fi
 echo ""
 echo "qa_status=ok"
 echo "namespace=${QA_NS}"
+echo "candidate_id=${QA_CANDIDATE_ID}"
 echo "gateway_url=http://127.0.0.1:${GATEWAY_LOCAL_PORT}/"
 echo "admin_web_url=http://127.0.0.1:${ADMIN_WEB_LOCAL_PORT}"
 echo "apk_path=${APK_PATH}"

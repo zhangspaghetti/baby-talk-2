@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/core/runtime/candidate_build_identity.dart';
 
 class AboutScreen extends ConsumerWidget {
   const AboutScreen({super.key});
@@ -11,6 +12,7 @@ class AboutScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.watch(settingsNotifierProvider);
     final snapshot = notifier.snapshot;
+    const buildIdentity = CandidateBuildIdentity.current;
     final colors = context.appColors;
 
     return Scaffold(
@@ -84,12 +86,14 @@ class AboutScreen extends ConsumerWidget {
                       '版本',
                       snapshot.appVersion.isNotEmpty
                           ? snapshot.appVersion
-                          : '1.0.0',
+                          : buildIdentity.appVersion,
                     ),
+                    Divider(color: colors.bgSunken),
+                    _infoRow(colors, '候选 ID', buildIdentity.candidateId),
                     Divider(color: colors.bgSunken),
                     _infoRow(colors, '开发者', 'BabyTalk Studio'),
                     Divider(color: colors.bgSunken),
-                    _infoRow(colors, '数据存储', '仅本地'),
+                    _infoRow(colors, '数据存储', '本地缓存与已登录账号云端数据'),
                   ],
                 ),
               ),
