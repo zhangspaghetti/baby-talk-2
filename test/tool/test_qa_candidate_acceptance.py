@@ -16,7 +16,7 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             apk.write_bytes(b"frozen-apk")
             manifest = root / "candidate.json"
             manifest.write_text(
-                json.dumps(_manifest(apk, status="PASS")),
+                json.dumps(_manifest(apk)),
                 encoding="utf-8",
             )
 
@@ -28,13 +28,14 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
                     "requiredMigrationVersion": "33",
                     "status": "compatible",
                 },
-            ):
+            ), patch.object(harness, "run_case_command", return_value=harness.CaseCommandResult(0, "ok", "")):
                 report = harness.run_acceptance(manifest)
 
             self.assertTrue(report.passes)
             self.assertEqual(report.evidence["candidate_id"], "btqa-2026-08-15")
             self.assertEqual(report.evidence["apk_sha256"], _sha256(apk))
             self.assertNotIn("apk_path", report.evidence)
+            self.assertEqual(report.evidence["cases"][0]["status"], "PASS")
 
     def test_blocked_required_case_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -43,7 +44,7 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             apk.write_bytes(b"frozen-apk")
             manifest = root / "candidate.json"
             manifest.write_text(
-                json.dumps(_manifest(apk, status="BLOCKED")),
+                json.dumps(_manifest(apk)),
                 encoding="utf-8",
             )
 
@@ -55,7 +56,7 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
                     "requiredMigrationVersion": "33",
                     "status": "compatible",
                 },
-            ):
+            ), patch.object(harness, "run_case_command", return_value=harness.CaseCommandResult(77, "", "not runnable")):
                 report = harness.run_acceptance(manifest)
 
             self.assertFalse(report.passes)
@@ -68,7 +69,7 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             apk.write_bytes(b"frozen-apk")
             manifest = root / "candidate.json"
             manifest.write_text(
-                json.dumps(_manifest(apk, status="PASS")),
+                json.dumps(_manifest(apk)),
                 encoding="utf-8",
             )
 
@@ -87,7 +88,7 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             self.assertEqual(report.violations, ["candidate_identity_mismatch"])
 
 
-def _manifest(apk: Path, *, status: str) -> dict[str, object]:
+def _manifest(apk: Path) -> dict[str, object]:
     return {
         "schema_version": harness.SCHEMA_VERSION,
         "candidate": {
@@ -97,7 +98,7 @@ def _manifest(apk: Path, *, status: str) -> dict[str, object]:
             "gateway_url": "http://127.0.0.1:19091",
             "required_migration_version": "33",
         },
-        "cases": [{"id": "guest_onboarding", "status": status}],
+        "cases": [{"id": "guest_onboarding", "command": ["qa-case", "guest_onboarding"]}],
     }
 
 

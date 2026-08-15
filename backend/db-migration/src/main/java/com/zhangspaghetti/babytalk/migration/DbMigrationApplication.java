@@ -42,25 +42,16 @@ public class DbMigrationApplication {
             @Value("${babytalk.candidate.required-migration-version:33}") String requiredMigrationVersion
     ) {
         return args -> {
-            if (!EXPECTED_CURRENT_VERSION.equals(requiredMigrationVersion)) {
-                throw new IllegalStateException(String.format(
-                        "db-migration candidate %s requires migration version %s but runtime is pinned to %s",
-                        candidateId,
-                        requiredMigrationVersion,
-                        EXPECTED_CURRENT_VERSION));
-            }
             var info = flyway.info();
             MigrationInfo current = info.current();
             String currentVersion = current == null ? "<none>" : current.getVersion().getVersion();
             int appliedCount = info.applied().length;
-            if (!EXPECTED_CURRENT_VERSION.equals(currentVersion)
-                    || EXPECTED_APPLIED_MIGRATION_COUNT != appliedCount) {
+            if (!requiredMigrationVersion.equals(currentVersion)) {
                 throw new IllegalStateException(String.format(
-                        "db-migration finished with unexpected schema state. "
-                                + "expected currentVersion=%s appliedCount=%d "
-                                + "but got currentVersion=%s appliedCount=%d",
-                        EXPECTED_CURRENT_VERSION,
-                        EXPECTED_APPLIED_MIGRATION_COUNT,
+                        "db-migration candidate %s requires currentVersion=%s but got currentVersion=%s "
+                                + "with appliedCount=%d",
+                        candidateId,
+                        requiredMigrationVersion,
                         currentVersion,
                         appliedCount));
             }

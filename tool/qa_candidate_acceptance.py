@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -19,7 +20,6 @@ _CANDIDATE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{2,127}$")
 _SHA256 = re.compile(r"^[a-f0-9]{64}$")
 _MIGRATION_VERSION = re.compile(r"^[0-9]+(?:_[0-9]+)?$")
 _CASE_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{2,127}$")
-_CASE_STATUSES = {"PASS", "FAIL", "BLOCKED"}
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,13 @@ class AcceptanceReport:
     @property
     def passes(self) -> bool:
         return not self.violations
+
+
+@dataclass(frozen=True)
+class CaseCommandResult:
+    exit_code: int
+    stdout: str
+    stderr: str
 
 
 def read_gateway_compatibility(gateway_url: str) -> dict[str, object]:
@@ -68,10 +75,20 @@ def run_acceptance(manifest_path: Path) -> AcceptanceReport:
         return AcceptanceReport(["candidate_identity_mismatch"], {})
 
     violations = []
+    executed_cases = []
     for case in cases:
-        if case["status"] == "BLOCKED":
+        result = run_case_command(case["command"])
+        status = "PASS" if result.exit_code == 0 else "BLOCKED" if result.exit_code == 77 else "FAIL"
+        executed_cases.append({
+            "id": case["id"],
+            "status": status,
+            "exit_code": result.exit_code,
+            "stdout_sha256": hashlib.sha256(result.stdout.encode()).hexdigest(),
+            "stderr_sha256": hashlib.sha256(result.stderr.encode()).hexdigest(),
+        })
+        if status == "BLOCKED":
             violations.append("blocked_required_case")
-        elif case["status"] != "PASS":
+        elif status != "PASS":
             violations.append("failed_required_case")
 
     evidence: dict[str, object] = {
@@ -81,7 +98,7 @@ def run_acceptance(manifest_path: Path) -> AcceptanceReport:
         "gateway_url": candidate["gateway_url"],
         "required_migration_version": candidate["required_migration_version"],
         "gateway_compatibility": compatibility,
-        "cases": cases,
+        "cases": executed_cases,
         "status": "PASS" if not violations else "FAIL",
     }
     return AcceptanceReport(violations, evidence)
@@ -144,27 +161,36 @@ def _validate_candidate(manifest: dict[str, object]) -> dict[str, str] | None:
     return candidate
 
 
-def _validate_cases(manifest: dict[str, object]) -> list[dict[str, str]] | None:
+def run_case_command(command: list[str]) -> CaseCommandResult:
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        return CaseCommandResult(completed.returncode, completed.stdout, completed.stderr)
+    except OSError as error:
+        return CaseCommandResult(127, "", str(error))
+
+
+def _validate_cases(manifest: dict[str, object]) -> list[dict[str, object]] | None:
     raw = manifest.get("cases")
     if not isinstance(raw, list) or not raw:
         return None
-    cases: list[dict[str, str]] = []
+    cases: list[dict[str, object]] = []
     ids: set[str] = set()
     for value in raw:
-        if not isinstance(value, dict) or set(value) != {"id", "status"}:
+        if not isinstance(value, dict) or set(value) != {"id", "command"}:
             return None
         case_id = value.get("id")
-        status = value.get("status")
+        command = value.get("command")
         if (
             not isinstance(case_id, str)
             or not _CASE_ID.fullmatch(case_id)
             or case_id in ids
-            or not isinstance(status, str)
-            or status not in _CASE_STATUSES
+            or not isinstance(command, list)
+            or not command
+            or any(not isinstance(part, str) or not part for part in command)
         ):
             return None
         ids.add(case_id)
-        cases.append({"id": case_id, "status": status})
+        cases.append({"id": case_id, "command": command})
     return cases
 
 
