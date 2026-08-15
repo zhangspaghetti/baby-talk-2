@@ -77,6 +77,7 @@ class FullChainTestHarness {
   Future<void> pumpApp(
     WidgetTester tester, {
     OnboardingCompletedSnapshotLoader? completedSnapshotLoader,
+    List<riverpod.Override> providerOverrides = const <riverpod.Override>[],
   }) async {
     await disposeMountedApp(tester);
     final practiceRepository = await _openRepository(
@@ -107,6 +108,7 @@ class FullChainTestHarness {
           householdRepositoryProvider.overrideWith(
             (ref) => householdRepository,
           ),
+          ...providerOverrides,
         ],
         child: BabyTalkApp(
           bootState: bootState,

@@ -499,7 +499,7 @@ final mentorRepositoryProvider = FutureProvider<MentorRepository>((ref) async {
     directoryResolver: () async => directory,
   );
 
-  return MentorRepository(
+  final repository = MentorRepository(
     localDataSource: await MentorLocalDataSource.open(
       directory: directory.path,
     ),
@@ -507,6 +507,8 @@ final mentorRepositoryProvider = FutureProvider<MentorRepository>((ref) async {
     onboardingSnapshotStore: onboardingStore,
     householdSnapshotLoader: householdRepository.loadSnapshot,
   );
+  ref.onDispose(repository.close);
+  return repository;
 });
 
 // ---------------------------------------------------------------------------
