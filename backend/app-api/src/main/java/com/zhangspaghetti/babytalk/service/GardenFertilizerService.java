@@ -4,6 +4,7 @@ import com.zhangspaghetti.babytalk.garden.mapper.GardenFertilizerMapper;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.List;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,7 @@ public class GardenFertilizerService {
                     state.lastClaimedAt(),
                     state.lastAppliedAt(),
                     state.version(),
+                    state.claimedEventKeys(),
                     true
             );
         }
@@ -63,6 +65,7 @@ public class GardenFertilizerService {
                 state.lastClaimedAt(),
                 state.lastAppliedAt(),
                 state.version(),
+                state.claimedEventKeys(),
                 false
         );
     }
@@ -82,6 +85,7 @@ public class GardenFertilizerService {
                     state.lastClaimedAt(),
                     state.lastAppliedAt(),
                     state.version(),
+                    state.claimedEventKeys(),
                     true
             );
         }
@@ -103,6 +107,7 @@ public class GardenFertilizerService {
                 state.lastClaimedAt(),
                 state.lastAppliedAt(),
                 state.version(),
+                state.claimedEventKeys(),
                 false
         );
     }
@@ -123,11 +128,19 @@ public class GardenFertilizerService {
                     state.appliedCount(),
                     state.lastClaimedAt(),
                     state.lastAppliedAt(),
-                    state.version()
+                    state.version(),
+                    mapper.listClaimedEventKeys(userId)
             );
         }
 
-        return new FertilizerStateResponse(mapper.countClaims(userId), 0, null, null, 0L);
+        return new FertilizerStateResponse(
+                mapper.countClaims(userId),
+                0,
+                null,
+                null,
+                0L,
+                mapper.listClaimedEventKeys(userId)
+        );
     }
 
     private boolean isUniqueViolation(DataAccessException exception) {
@@ -151,7 +164,8 @@ public class GardenFertilizerService {
             int appliedCount,
             Instant lastClaimedAt,
             Instant lastAppliedAt,
-            long version
+            long version,
+            List<String> claimedEventKeys
     ) {
     }
 
@@ -161,6 +175,7 @@ public class GardenFertilizerService {
             Instant lastClaimedAt,
             Instant lastAppliedAt,
             long version,
+            List<String> claimedEventKeys,
             boolean idempotent
     ) {
     }
@@ -171,6 +186,7 @@ public class GardenFertilizerService {
             Instant lastClaimedAt,
             Instant lastAppliedAt,
             long version,
+            List<String> claimedEventKeys,
             boolean idempotent
     ) {
     }

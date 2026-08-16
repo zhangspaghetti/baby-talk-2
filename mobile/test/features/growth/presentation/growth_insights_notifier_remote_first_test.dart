@@ -49,6 +49,7 @@ void main() {
 
     final week = notifier.viewFor(GrowthPeriod.week);
     expect(week.stats.totalEvents, 42); // from cache
+    expect(week.isCached, isTrue);
     expect(notifier.hasError, isFalse); // stale cache available
   });
 
@@ -65,6 +66,22 @@ void main() {
     expect(notifier.hasError, isTrue);
     final week = notifier.viewFor(GrowthPeriod.week);
     expect(week.hasError, isTrue);
+  });
+
+  test('keeps a failed period as an error instead of zero-value data', () async {
+    final api = _FakeApiService(failedPeriods: {'month'});
+    final notifier = GrowthInsightsNotifier(
+      apiService: api,
+      prefs: _FakePrefs(),
+    );
+    addTearDown(notifier.dispose);
+
+    await notifier.initialize();
+
+    expect(notifier.viewFor(GrowthPeriod.week).hasError, isFalse);
+    expect(notifier.viewFor(GrowthPeriod.month).hasError, isTrue);
+    expect(notifier.viewFor(GrowthPeriod.month).stats.totalEvents, 0);
+    expect(notifier.viewFor(GrowthPeriod.month).isEmpty, isFalse);
   });
 }
 
@@ -152,10 +169,12 @@ String _cacheEntry({
 class _FakeApiService implements GrowthInsightsApiService {
   _FakeApiService({
     this.throwOnFetch = false,
+    this.failedPeriods = const <String>{},
     GrowthInsightsPayload? weekPayload,
   }) : weekPayload = weekPayload ?? _makePayload(period: 'week');
 
   final bool throwOnFetch;
+  final Set<String> failedPeriods;
   final GrowthInsightsPayload weekPayload;
   final List<String> calls = [];
 
@@ -165,7 +184,7 @@ class _FakeApiService implements GrowthInsightsApiService {
   @override
   Future<GrowthInsightsPayload> fetchInsights(String period) async {
     calls.add(period);
-    if (throwOnFetch) {
+    if (throwOnFetch || failedPeriods.contains(period)) {
       throw const GrowthInsightsApiException.network(message: 'offline');
     }
     if (period == 'week') return weekPayload;

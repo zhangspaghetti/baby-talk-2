@@ -2,6 +2,10 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/network/auth_headers.dart';
+import 'package:mobile/features/account/data/services/account_api_service.dart';
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/garden/data/remote/garden_fertilizer_api_service.dart';
 
 class _MockInterceptor extends Interceptor {
@@ -137,7 +141,7 @@ void main() {
     test('fetchState reads remote authoritative state', () async {
       final dio = _createMockDio((options) async {
         expect(options.method, 'GET');
-        expect(options.path, '/api/v1/garden/fertilizer/state');
+        expect(options.path, '/api/v1/garden/fertilizer');
         return Response<dynamic>(
           requestOptions: options,
           statusCode: 200,
@@ -159,6 +163,41 @@ void main() {
       expect(state.appliedCount, 2);
       expect(state.backpackCount, 1);
       expect(state.claimedEventKeys, {'evt-1', 'evt-2', 'evt-3'});
+    });
+
+    test('authenticated fetch sends account bearer token', () async {
+      final dio = _createMockDio((options) async {
+        expect(options.headers[authorizationHeaderName], 'Bearer access-live');
+        return Response<dynamic>(
+          requestOptions: options,
+          statusCode: 200,
+          data: {'appliedCount': 0, 'claimedEventKeys': <String>[]},
+          headers: Headers.fromMap({
+            'content-type': ['application/json'],
+          }),
+        );
+      });
+      final service = GardenFertilizerApiService(
+        dio: dio,
+        authenticatedApiClient: AuthenticatedApiClient(
+          apiService: AccountApiService(),
+        ),
+      );
+      final session = AccountSession(
+        accountId: 'account-1',
+        sessionId: 'session-1',
+        maskedPhoneNumber: '138****0000',
+        createdAt: DateTime.utc(2026, 6, 1),
+        accessToken: 'access-live',
+        refreshToken: 'refresh-live',
+        accessTokenExpiresAt: DateTime.utc(2026, 6, 2),
+        refreshTokenExpiresAt: DateTime.utc(2026, 7, 1),
+      );
+
+      await service.fetchState(
+        session: session,
+        persistRefreshedSession: (refreshed) async => refreshed,
+      );
     });
 
     test('network error maps to network exception', () async {

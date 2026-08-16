@@ -16,12 +16,14 @@ void main() {
   GrowthInsightsViewState contentView(
     GrowthPeriod period, {
     required int currentStreak,
+    bool isCached = false,
     GrowthNextStepSuggestion? suggestion,
     GrowthRecentActivity? recentActivity,
   }) {
     return GrowthInsightsViewState(
       isLoading: false,
       hasError: false,
+      isCached: isCached,
       period: period,
       streak: StreakResult(
         currentStreak: currentStreak,
@@ -379,6 +381,35 @@ void main() {
     await pump(tester, stub);
 
     expect(find.byKey(const Key('growth-insights-loading')), findsOneWidget);
+    expect(find.byKey(const Key('growth-insights-chart')), findsNothing);
+  });
+
+  testWidgets('labels cached growth data instead of presenting it as fresh', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: contentView(
+        GrowthPeriod.week,
+        currentStreak: 11,
+        isCached: true,
+      ),
+    });
+    await pump(tester, stub);
+
+    expect(find.byKey(const Key('growth-insights-cached-notice')), findsOneWidget);
+    expect(find.text('显示的是最近缓存的数据。'), findsOneWidget);
+  });
+
+  testWidgets('renders an error instead of zero-value growth content', (
+    tester,
+  ) async {
+    final stub = _StubNotifier({
+      GrowthPeriod.week: const GrowthInsightsViewState.error(GrowthPeriod.week),
+    });
+    await pump(tester, stub);
+
+    expect(find.byKey(const Key('growth-insights-error')), findsOneWidget);
+    expect(find.byKey(const Key('growth-insights-empty')), findsNothing);
     expect(find.byKey(const Key('growth-insights-chart')), findsNothing);
   });
 

@@ -161,7 +161,17 @@ final growthSummaryApiServiceProvider = Provider<GrowthSummaryApiService>((
 final growthInsightsApiServiceProvider = Provider<GrowthInsightsApiService>((
   ref,
 ) {
-  final service = GrowthInsightsApiService();
+  final service = GrowthInsightsApiService(
+    authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
+    sessionLoader: () async {
+      final repository = await ref.read(accountRepositoryProvider.future);
+      return (await repository.loadSnapshot()).session;
+    },
+    persistRefreshedSession: (session) async {
+      final repository = await ref.read(accountRepositoryProvider.future);
+      return repository.persistRefreshedSession(session);
+    },
+  );
   ref.onDispose(service.close);
   return service;
 });
@@ -675,7 +685,9 @@ final carePathNotifierProvider = ChangeNotifierProvider<CarePathNotifier>((
 /// Garden V2 fertilizer API service (remote data source for fertilizer state).
 final gardenFertilizerApiServiceProvider = Provider<GardenFertilizerApiService>(
   (ref) {
-    final service = GardenFertilizerApiService();
+    final service = GardenFertilizerApiService(
+      authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
+    );
     ref.onDispose(service.close);
     return service;
   },
@@ -685,12 +697,17 @@ final gardenFertilizerApiServiceProvider = Provider<GardenFertilizerApiService>(
 final gardenFertilizerRepositoryProvider =
     FutureProvider<GardenFertilizerRepository>((ref) async {
       final directory = await ref.watch(appDirectoryProvider.future);
+      final accountRepository = await ref.watch(
+        accountRepositoryProvider.future,
+      );
       final localDataSource = await GardenFertilizerLocalDataSource.open(
         directory: directory.path,
       );
       return GardenFertilizerRepository(
         localDataSource: localDataSource,
         remoteDataSource: ref.watch(gardenFertilizerApiServiceProvider),
+        accountSnapshotLoader: accountRepository.loadSnapshot,
+        persistRefreshedSession: accountRepository.persistRefreshedSession,
       );
     });
 

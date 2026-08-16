@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.garden.mapper;
 
 import com.zhangspaghetti.babytalk.garden.model.GardenFertilizerStateProjection;
 import java.time.Instant;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -41,4 +42,6 @@ public interface GardenFertilizerMapper {
     GardenFertilizerStateProjection findState(@Param("userId") String userId);
 
     int countClaims(@Param("userId") String userId);
+
+    List<String> listClaimedEventKeys(@Param("userId") String userId);
 }

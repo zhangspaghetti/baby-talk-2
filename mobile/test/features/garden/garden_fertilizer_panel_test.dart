@@ -160,6 +160,27 @@ void main() {
     );
     expect(button.onPressed, isNull);
   });
+
+  testWidgets('shows product failure copy with retry action', (tester) async {
+    final stub = _FertilizerNotifierStub(
+      GardenFertilizerViewState(
+        isLoading: false,
+        pendingPacks: const [],
+        claimedPacks: const [],
+        backpackCount: 0,
+        stageInfo: resolveFertilizerStage(0),
+        errorMessage: '网络不可用，请检查网络后重试。',
+        canRetry: true,
+      ),
+    );
+    await pump(tester, stub);
+
+    expect(find.byKey(const Key('garden-fertilizer-error')), findsOneWidget);
+    expect(
+      find.byKey(const Key('garden-fertilizer-retry-button')),
+      findsOneWidget,
+    );
+  });
 }
 
 class _FertilizerNotifierStub extends GardenFertilizerNotifier {

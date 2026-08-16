@@ -61,6 +61,8 @@ class GardenFertilizerViewState {
     required this.claimedPacks,
     required this.backpackCount,
     required this.stageInfo,
+    this.errorMessage,
+    this.canRetry = false,
   });
 
   const GardenFertilizerViewState.loading()
@@ -68,7 +70,9 @@ class GardenFertilizerViewState {
       pendingPacks = const <FertilizerPack>[],
       claimedPacks = const <FertilizerPack>[],
       backpackCount = 0,
-      stageInfo = null;
+      stageInfo = null,
+      errorMessage = null,
+      canRetry = false;
 
   final bool isLoading;
 
@@ -83,6 +87,12 @@ class GardenFertilizerViewState {
 
   /// Current flower stage info; null only while loading.
   final FertilizerStageInfo? stageInfo;
+
+  /// Human-readable failure state. Never contains transport or backend codes.
+  final String? errorMessage;
+
+  /// Retry is available only for a failed authenticated request.
+  final bool canRetry;
 
   bool get hasPendingPacks => pendingPacks.isNotEmpty;
 

@@ -87,6 +87,7 @@ class GrowthInsightsViewState {
     required this.streak,
     required this.stats,
     required this.bars,
+    this.isCached = false,
     this.scenes = const <SceneDistribution>[],
     this.windowStart,
     this.windowEnd,
@@ -113,6 +114,7 @@ class GrowthInsightsViewState {
         practicedDays: 0,
       ),
       bars = const <GrowthBarBucket>[],
+      isCached = false,
       scenes = const <SceneDistribution>[],
       windowStart = null,
       windowEnd = null,
@@ -138,6 +140,7 @@ class GrowthInsightsViewState {
         practicedDays: 0,
       ),
       bars = const <GrowthBarBucket>[],
+      isCached = false,
       scenes = const <SceneDistribution>[],
       windowStart = null,
       windowEnd = null,
@@ -146,6 +149,9 @@ class GrowthInsightsViewState {
 
   final bool isLoading;
   final bool hasError;
+
+  /// True only when this view came from local cache, not a confirmed response.
+  final bool isCached;
   final GrowthPeriod period;
   final StreakResult streak;
   final PeriodStats stats;

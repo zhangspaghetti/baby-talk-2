@@ -76,4 +76,11 @@
         from garden_fertilizer_claim_log
         where user_id = #{userId}
     </select>
+
+    <select id="listClaimedEventKeys" resultType="string">
+        select event_key
+        from garden_fertilizer_claim_log
+        where user_id = #{userId}
+        order by claimed_at asc, id asc
+    </select>
 </mapper>

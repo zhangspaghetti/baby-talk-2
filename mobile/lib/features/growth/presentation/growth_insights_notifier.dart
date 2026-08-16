@@ -78,7 +78,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         final payload = GrowthInsightsPayload.fromJson(
           json['payload'] as Map<String, dynamic>,
         );
-        _views[period] = _mapToViewState(period, payload);
+        _views[period] = _mapToViewState(period, payload, isCached: true);
       }
       if (_views.isNotEmpty) {
         _loaded = true;
@@ -95,7 +95,7 @@ class GrowthInsightsNotifier extends ChangeNotifier {
       final now = _now().toUtc().toIso8601String();
       for (final period in GrowthPeriod.values) {
         final view = _views[period];
-        if (view == null) continue;
+        if (view == null || view.hasError || view.isCached) continue;
         // Reconstruct the payload fields from the view-state for serialization.
         final payload = _viewStateToPayloadJson(period, view);
         final cacheEntry = jsonEncode({'cachedAt': now, 'payload': payload});
@@ -112,76 +112,58 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     final newViews = <GrowthPeriod, GrowthInsightsViewState>{};
     bool anySuccess = false;
 
-    // Fetch all 3 periods in parallel. Wrap each in catchError so a single
-    // period failure doesn't cancel the others via AggregateException.
+    // Fetch all 3 periods in parallel. Keep each failure explicit: a failed
+    // request must never be represented as a zero-value growth payload.
     final periods = GrowthPeriod.values;
-    final results = await Future.wait([
+    final results = await Future.wait<_GrowthFetchResult>([
       for (final period in periods)
-        _apiService
-            .fetchInsights(period.name)
-            .catchError(
-              (Object e) => GrowthInsightsPayload(
-                period: period.name,
-                windowStart: _now(),
-                windowEnd: _now(),
-                generatedAt: _now(),
-                stats: const InsightsStats(
-                  totalEvents: 0,
-                  uniquePhrases: 0,
-                  uniqueActivities: 0,
-                  cooperatingCount: 0,
-                  practicedDays: 0,
-                ),
-                streak: const InsightsStreak(
-                  currentStreak: 0,
-                  longestStreak: 0,
-                  totalDaysPracticed: 0,
-                ),
-                bars: const [],
-                scenes: const [],
-                recentActivity: const InsightsRecentActivity(
-                  thisWeekCount: 0,
-                  lastWeekCount: 0,
-                ),
-                isFallback: true,
-              ),
-            ),
+        _fetchPeriod(period),
     ]);
 
     for (var i = 0; i < periods.length; i++) {
-      if (!results[i].isFallback) {
-        newViews[periods[i]] = _mapToViewState(periods[i], results[i]);
+      final result = results[i];
+      if (result.payload case final payload?) {
+        newViews[periods[i]] = _mapToViewState(periods[i], payload);
         anySuccess = true;
+      } else if (!_views.containsKey(periods[i])) {
+        newViews[periods[i]] = GrowthInsightsViewState.error(periods[i]);
       }
     }
 
-    if (anySuccess) {
+    if (newViews.isNotEmpty) {
       _views = {..._views, ...newViews};
-      _hasError = false;
-      await _saveToCache();
-    } else if (_views.isEmpty) {
-      _hasError = true;
-      // Populate _views with error states so viewFor returns hasError
-      // instead of the loading placeholder.
-      for (final period in GrowthPeriod.values) {
-        _views[period] = GrowthInsightsViewState.error(period);
-      }
     }
-    // else: keep stale cache data already loaded, _hasError stays false.
+    if (anySuccess) {
+      await _saveToCache();
+    }
+    _hasError = _views.values.isNotEmpty &&
+        _views.values.every((view) => view.hasError);
 
     _loaded = true;
     if (!_disposed) notifyListeners();
+  }
+
+  Future<_GrowthFetchResult> _fetchPeriod(GrowthPeriod period) async {
+    try {
+      return _GrowthFetchResult.success(
+        await _apiService.fetchInsights(period.name),
+      );
+    } on Object {
+      return const _GrowthFetchResult.failure();
+    }
   }
 
   // ── Mapping ──────────────────────────────────────────────────────────────
 
   GrowthInsightsViewState _mapToViewState(
     GrowthPeriod period,
-    GrowthInsightsPayload payload,
-  ) {
+    GrowthInsightsPayload payload, {
+    bool isCached = false,
+  }) {
     return GrowthInsightsViewState(
       isLoading: false,
       hasError: false,
+      isCached: isCached,
       period: period,
       streak: StreakResult(
         currentStreak: payload.streak.currentStreak,
@@ -325,4 +307,11 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     _disposed = true;
     super.dispose();
   }
+}
+
+class _GrowthFetchResult {
+  const _GrowthFetchResult.success(this.payload);
+  const _GrowthFetchResult.failure() : payload = null;
+
+  final GrowthInsightsPayload? payload;
 }

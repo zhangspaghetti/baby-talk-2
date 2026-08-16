@@ -6,7 +6,11 @@ import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
 import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart'
-    show defaultAccountApiBaseUrl, defaultAccountApiVersion;
+    show
+        AccountApiException,
+        AccountApiFailureKind,
+        defaultAccountApiBaseUrl,
+        defaultAccountApiVersion;
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 
@@ -212,13 +216,28 @@ class MentorApiService {
     try {
       final result = await authenticatedApiClient.execute<Map<String, dynamic>>(
         session: session,
-        send: (accessToken) => _requestJson(
-          method,
-          path,
-          accessToken: accessToken,
-          queryParameters: queryParameters,
-          body: body,
-        ),
+        send: (accessToken) async {
+          try {
+            return await _requestJson(
+              method,
+              path,
+              accessToken: accessToken,
+              queryParameters: queryParameters,
+              body: body,
+            );
+          } on MentorApiException catch (error) {
+            if (error.isUnauthorized) {
+              throw AccountApiException(
+                kind: AccountApiFailureKind.http,
+                message: error.message,
+                statusCode: error.statusCode,
+                code: error.code,
+                details: error.details,
+              );
+            }
+            rethrow;
+          }
+        },
         persistRefreshedSession: persist,
       );
       return result.value;
