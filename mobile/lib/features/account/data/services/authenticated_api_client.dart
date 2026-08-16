@@ -16,6 +16,7 @@ class AuthenticatedApiClientException implements Exception {
     required this.kind,
     required this.phaseSuffix,
     required this.visibleMessage,
+    this.correlationId,
   });
 
   const AuthenticatedApiClientException.missingCredentials()
@@ -35,6 +36,7 @@ class AuthenticatedApiClientException implements Exception {
   final AuthenticatedApiClientFailureKind kind;
   final String phaseSuffix;
   final String visibleMessage;
+  final String? correlationId;
 
   @override
   String toString() {
@@ -95,10 +97,14 @@ class AuthenticatedApiClient {
       );
     } on AccountApiException catch (error) {
       if (error.isUnauthorized) {
-        throw const AuthenticatedApiClientException(
+        throw AuthenticatedApiClientException(
           kind: AuthenticatedApiClientFailureKind.sessionExpired,
           phaseSuffix: 'session_expired',
-          visibleMessage: '登录已过期，请重新登录后再试。',
+          visibleMessage: _withCorrelationId(
+            '登录已过期，请重新登录后再试。',
+            error.correlationId,
+          ),
+          correlationId: error.correlationId,
         );
       }
       rethrow;
@@ -167,37 +173,66 @@ class AuthenticatedApiClient {
     AccountApiException error,
   ) {
     if (error.kind == AccountApiFailureKind.timeout) {
-      return const AuthenticatedApiClientException(
+      return AuthenticatedApiClientException(
         kind: AuthenticatedApiClientFailureKind.refreshTimeout,
         phaseSuffix: 'refresh_timeout',
-        visibleMessage: '登录刷新超时，请重新登录后再试。',
+        visibleMessage: _withCorrelationId(
+          '登录刷新超时，请重新登录后再试。',
+          error.correlationId,
+        ),
+        correlationId: error.correlationId,
       );
     }
     if (error.kind == AccountApiFailureKind.network) {
-      return const AuthenticatedApiClientException(
+      return AuthenticatedApiClientException(
         kind: AuthenticatedApiClientFailureKind.refreshNetwork,
         phaseSuffix: 'refresh_network',
-        visibleMessage: '登录刷新失败，请检查网络后重新登录。',
+        visibleMessage: _withCorrelationId(
+          '登录刷新失败，请检查网络后重新登录。',
+          error.correlationId,
+        ),
+        correlationId: error.correlationId,
       );
     }
     if (error.kind == AccountApiFailureKind.malformed) {
-      return const AuthenticatedApiClientException(
+      return AuthenticatedApiClientException(
         kind: AuthenticatedApiClientFailureKind.refreshMalformed,
         phaseSuffix: 'refresh_malformed',
-        visibleMessage: '登录状态异常，请重新登录后再试。',
+        visibleMessage: _withCorrelationId(
+          '登录状态异常，请重新登录后再试。',
+          error.correlationId,
+        ),
+        correlationId: error.correlationId,
       );
     }
     if (error.isUnauthorized) {
-      return const AuthenticatedApiClientException(
+      return AuthenticatedApiClientException(
         kind: AuthenticatedApiClientFailureKind.sessionExpired,
         phaseSuffix: 'session_expired',
-        visibleMessage: '登录已过期，请重新登录后再试。',
+        visibleMessage: _withCorrelationId(
+          '登录已过期，请重新登录后再试。',
+          error.correlationId,
+        ),
+        correlationId: error.correlationId,
       );
     }
-    return const AuthenticatedApiClientException(
+    return AuthenticatedApiClientException(
       kind: AuthenticatedApiClientFailureKind.refreshFailed,
       phaseSuffix: 'refresh_failed',
-      visibleMessage: '登录刷新失败，请重新登录后再试。',
+      visibleMessage: _withCorrelationId(
+        '登录刷新失败，请重新登录后再试。',
+        error.correlationId,
+      ),
+      correlationId: error.correlationId,
     );
+  }
+
+  String _withCorrelationId(String message, String? correlationId) {
+    final trimmed = correlationId?.trim();
+    if (trimmed == null ||
+        !RegExp(r'^err_[A-Za-z0-9]{16,64}$').hasMatch(trimmed)) {
+      return message;
+    }
+    return '$message 支持编号：$trimmed。';
   }
 }

@@ -924,52 +924,64 @@ class AccountRepository implements AccountRepositoryContract {
 
   String _visibleMessageForError(AccountApiException error) {
     if (error.kind == AccountApiFailureKind.timeout) {
-      return '同步超时，已保留本机待同步记录，可稍后重试。';
+      return _withCorrelationId('同步超时，已保留本机待同步记录，可稍后重试。', error);
     }
     if (error.kind == AccountApiFailureKind.network) {
-      return '当前离线，已保留本机待同步记录，可稍后重试。';
+      return _withCorrelationId('当前离线，已保留本机待同步记录，可稍后重试。', error);
     }
     if (error.isVersionBlocked) {
-      return _visibleUpgradeMessage(
-        minimumSupportedVersion: error.minimumSupportedVersion,
-        upgradeFailureKind: validateAccountUpgradeUrl(
-          error.upgradeUrl,
-        ).failureKind,
+      return _withCorrelationId(
+        _visibleUpgradeMessage(
+          minimumSupportedVersion: error.minimumSupportedVersion,
+          upgradeFailureKind: validateAccountUpgradeUrl(
+            error.upgradeUrl,
+          ).failureKind,
+        ),
+        error,
       );
     }
     if (error.isUnauthorized) {
-      return '登录已过期，请重新登录后再试。';
+      return _withCorrelationId('登录已过期，请重新登录后再试。', error);
     }
     if (error.isConsentRevoked || error.isConsentRequired) {
-      return '同意已撤回；重新登录并再次同意后才能继续同步。';
+      return _withCorrelationId('同意已撤回；重新登录并再次同意后才能继续同步。', error);
     }
     if (error.isAccountDeleted) {
-      return '账号已删除；如需重新同步，请重新注册。';
+      return _withCorrelationId('账号已删除；如需重新同步，请重新注册。', error);
     }
     if (error.kind == AccountApiFailureKind.malformed) {
-      return '服务响应异常，未导入远端恢复数据。';
+      return _withCorrelationId('服务响应异常，未导入远端恢复数据。', error);
     }
     if (error.isServerFailure) {
-      return '服务暂时不可用，已保留本机待同步记录。';
+      return _withCorrelationId('服务暂时不可用，已保留本机待同步记录。', error);
     }
-    return _sanitizeVisibleError(error.message);
+    return _withCorrelationId(_sanitizeVisibleError(error.message), error);
   }
 
   String _signInFailureMessage(AccountApiException error) {
     if (error.isUnauthorized) {
-      return '验证码错误或已过期，请重新获取。';
+      return _withCorrelationId('验证码错误或已过期，请重新获取。', error);
     }
     if (error.isVersionBlocked) {
-      return '应用版本过低，请更新后重试。';
+      return _withCorrelationId('应用版本过低，请更新后重试。', error);
     }
     if (error.isAccountDeleted) {
-      return '该账号已注销。';
+      return _withCorrelationId('该账号已注销。', error);
     }
     if (error.kind == AccountApiFailureKind.network ||
         error.kind == AccountApiFailureKind.timeout) {
-      return '网络连接失败，请稍后重试。';
+      return _withCorrelationId('网络连接失败，请稍后重试。', error);
     }
-    return '验证失败，请稍后重试。';
+    return _withCorrelationId('验证失败，请稍后重试。', error);
+  }
+
+  String _withCorrelationId(String message, AccountApiException error) {
+    final correlationId = error.correlationId?.trim();
+    if (correlationId == null ||
+        !RegExp(r'^err_[A-Za-z0-9]{16,64}$').hasMatch(correlationId)) {
+      return message;
+    }
+    return '$message 支持编号：$correlationId。';
   }
 
   String _sanitizeVisibleError(String value) {

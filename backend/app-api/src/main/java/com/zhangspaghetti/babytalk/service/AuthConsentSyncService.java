@@ -232,12 +232,13 @@ public class AuthConsentSyncService {
     public ConsentResponse acceptConsent(String sessionId, String consentVersion) {
         var session = requireExistingActiveSession(sessionId);
         var now = Instant.now(clock);
+        var auditedVersion = auditConsentVersion(consentVersion);
         if ("accepted".equals(session.latestConsentStatus())) {
-            repository.insertConsentAudit(audit(session, "accept", "duplicate", sanitizeReason(consentVersion), now));
+            repository.insertConsentAudit(audit(session, "accept", "duplicate", auditedVersion, now));
             return new ConsentResponse(false, "duplicate", "accepted", session.accountId(), session.sessionId(), now);
         }
         repository.updateAccountConsent(session.accountId(), "accepted");
-        repository.insertConsentAudit(audit(session, "accept", "applied", sanitizeReason(consentVersion), now));
+        repository.insertConsentAudit(audit(session, "accept", "applied", auditedVersion, now));
         return new ConsentResponse(true, "applied", "accepted", session.accountId(), session.sessionId(), now);
     }
 
@@ -249,12 +250,12 @@ public class AuthConsentSyncService {
         }
         var now = Instant.now(clock);
         if ("revoked".equals(session.latestConsentStatus())) {
-            repository.insertConsentAudit(audit(session, "revoke", "duplicate", sanitizeReason(reason), now));
+            repository.insertConsentAudit(audit(session, "revoke", "duplicate", "server_sync_revoked", now));
             return new ConsentResponse(false, "duplicate", "revoked", session.accountId(), session.sessionId(), now);
         }
         repository.updateAccountConsent(session.accountId(), "revoked");
         repository.updateSessionsStatus(session.accountId(), "revoked", now);
-        repository.insertConsentAudit(audit(session, "revoke", "applied", sanitizeReason(reason), now));
+        repository.insertConsentAudit(audit(session, "revoke", "applied", "server_sync_revoked", now));
         return new ConsentResponse(true, "applied", "revoked", session.accountId(), session.sessionId(), now);
     }
 
@@ -263,7 +264,7 @@ public class AuthConsentSyncService {
         var session = requireExistingSessionAnyStatus(sessionId);
         var now = Instant.now(clock);
         if ("deleted".equals(session.accountStatus())) {
-            repository.insertConsentAudit(audit(session, "delete", "duplicate", sanitizeReason(reason), now));
+            repository.insertConsentAudit(audit(session, "delete", "duplicate", "account_owned_server_data_deleted", now));
             return new DeleteResponse(false, "duplicate", session.accountId(), session.sessionId(), 0, now);
         }
 
@@ -272,7 +273,7 @@ public class AuthConsentSyncService {
         babyProfileMapper.deleteByAccountId(session.accountId());
         repository.updateSessionsStatus(session.accountId(), "deleted", now);
         repository.tombstoneAccount(session.accountId(), "deleted:" + session.accountId(), now);
-        repository.insertConsentAudit(audit(session, "delete", "applied", sanitizeReason(reason), now));
+        repository.insertConsentAudit(audit(session, "delete", "applied", "account_owned_server_data_deleted", now));
         return new DeleteResponse(true, "applied", session.accountId(), session.sessionId(), deletedEvents, now);
     }
 
@@ -351,7 +352,7 @@ public class AuthConsentSyncService {
         if (!normalizedInstallationId.equals(session.installationId())) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "installation_mismatch", "请求 installationId 与当前 session 不一致。");
         }
-        var events = repository.listInteractionEvents(session.accountId(), normalizedInstallationId, contractProperties.bootstrapMaxEvents())
+        var events = repository.listInteractionEventsForAccount(session.accountId(), contractProperties.bootstrapMaxEvents())
                 .stream()
                 .map(row -> new BootstrapEvent(
                         row.eventKey(),
@@ -782,12 +783,11 @@ public class AuthConsentSyncService {
         return "crt_" + UUID.randomUUID();
     }
 
-    private String sanitizeReason(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
+    private String auditConsentVersion(String value) {
+        if (value == null || !value.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,79}")) {
+            throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_consent_version", "协议版本格式不合法。");
         }
-        var trimmed = value.trim();
-        return trimmed.length() > 240 ? trimmed.substring(0, 240) : trimmed;
+        return "consent_version:" + value;
     }
 
     public enum AccessValidationResult {

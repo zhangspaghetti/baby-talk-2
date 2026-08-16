@@ -71,7 +71,6 @@ public interface AuthConsentSyncMapper {
 
     List<AuthConsentSyncRepository.StoredInteractionEvent> listInteractionEvents(
             @Param("accountId") String accountId,
-            @Param("installationId") String installationId,
             @Param("limit") int limit
     );
 

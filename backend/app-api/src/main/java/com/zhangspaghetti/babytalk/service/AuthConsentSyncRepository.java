@@ -112,8 +112,8 @@ public class AuthConsentSyncRepository {
         return mapper.insertInteractionEvent(accountId, sessionId, event, receivedAt) > 0;
     }
 
-    List<StoredInteractionEvent> listInteractionEvents(String accountId, String installationId, int limit) {
-        return mapper.listInteractionEvents(accountId, installationId, limit);
+    List<StoredInteractionEvent> listInteractionEventsForAccount(String accountId, int limit) {
+        return mapper.listInteractionEvents(accountId, limit);
     }
 
     int countInteractionEvents(String accountId, String installationId) {

@@ -19,18 +19,22 @@ public class SensitiveAuthDataProtector {
     private final byte[] pepper;
 
     public SensitiveAuthDataProtector(ConsumerAuthProperties properties) {
-        this.pepper = properties.jwtSecret().getBytes(StandardCharsets.UTF_8);
+        var configuredPepper = properties.sensitiveDataPepper();
+        if (configuredPepper == null || configuredPepper.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("app.auth.sensitive-data-pepper must be at least 32 bytes.");
+        }
+        this.pepper = configuredPepper.getBytes(StandardCharsets.UTF_8);
     }
 
     public String phoneLookupRef(String normalizedPhoneNumber) {
-        return "v1:" + encode(hmac("phone-lookup-v1\\u0000" + normalizedPhoneNumber));
+        return "v1:" + encode(hmac("phone-lookup-v1\u0000" + normalizedPhoneNumber));
     }
 
     public String createVerificationVerifier(String verificationCode) {
         byte[] salt = new byte[16];
         RANDOM.nextBytes(salt);
         String encodedSalt = encode(salt);
-        return "v1:" + encodedSalt + ":" + encode(hmac("otp-verifier-v1\\u0000" + encodedSalt + "\\u0000" + verificationCode));
+        return "v1:" + encodedSalt + ":" + encode(hmac("otp-verifier-v1\u0000" + encodedSalt + "\u0000" + verificationCode));
     }
 
     public boolean matchesVerificationVerifier(String storedVerifier, String verificationCode) {
@@ -45,7 +49,7 @@ public class SensitiveAuthDataProtector {
         if (expected == null) {
             return false;
         }
-        return MessageDigest.isEqual(expected, hmac("otp-verifier-v1\\u0000" + parts[1] + "\\u0000" + verificationCode));
+        return MessageDigest.isEqual(expected, hmac("otp-verifier-v1\u0000" + parts[1] + "\u0000" + verificationCode));
     }
 
     private byte[] hmac(String value) {

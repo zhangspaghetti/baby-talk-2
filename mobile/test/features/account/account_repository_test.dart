@@ -492,6 +492,51 @@ void main() {
       expect(persisted.upgradeUrl, isNull);
     });
 
+    test('冷启动会复用持久化且未过期的 session，无需再次验证手机号', () async {
+      await harness.seedSignedInSnapshot(
+        accessToken: 'access_cold_start',
+        refreshToken: 'refresh_cold_start',
+      );
+
+      final restartedRepository = harness.buildRepository();
+      final snapshot = await restartedRepository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.appBoot,
+      );
+
+      expect(snapshot.consentState, AccountConsentState.acceptedPendingSync);
+      expect(snapshot.session?.accessToken, 'access_cold_start');
+      expect(snapshot.session?.refreshToken, 'refresh_cold_start');
+      expect(harness.api.bootstrapAccessTokens, <String>['access_cold_start']);
+      expect(harness.api.refreshCallCount, 0);
+      expect(harness.api.acceptedConsentAccessTokens, isEmpty);
+    });
+
+    test('refresh 超时后收敛到可恢复的重新登录状态', () async {
+      await harness.seedSignedInSnapshot(
+        accessToken: 'access_expired',
+        refreshToken: 'refresh_expired',
+      );
+      harness.api.unauthorizedBootstrapTokens.add('access_expired');
+      harness.api.refreshException = const AccountApiException.timeout(
+        message: 'refresh timeout',
+      );
+      final repository = harness.buildRepository();
+
+      final snapshot = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.appBoot,
+      );
+
+      expect(snapshot.consentState, AccountConsentState.signedOut);
+      expect(snapshot.session, isNull);
+      expect(snapshot.lastSyncPhase, 'bootstrap_failed_refresh_timeout');
+      expect(snapshot.lastVisibleError, contains('重新登录'));
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.consentState, AccountConsentState.signedOut);
+      expect(persisted.session, isNull);
+      expect(persisted.lastSyncPhase, 'bootstrap_failed_refresh_timeout');
+    });
+
     test('persistRefreshedSession 拒绝不匹配的账号或 session', () async {
       final repository = harness.buildRepository();
       await harness.seedSignedInSnapshot();
@@ -592,6 +637,7 @@ void main() {
         message: 'server down',
         statusCode: 503,
         code: 'temporary_unavailable',
+        correlationId: 'err_qa1234567890abcdef',
       );
       final repository = harness.buildRepository();
 
@@ -603,11 +649,47 @@ void main() {
       expect(snapshot.failedCount, 0);
       expect(snapshot.lastSyncPhase, 'upload_server_error');
       expect(snapshot.lastVisibleError, contains('服务暂时不可用'));
+      expect(snapshot.lastVisibleError, contains('err_qa1234567890abcdef'));
       final history = await harness.practiceRepository.listEventHistory(
         activityId: 'bath_time',
       );
       expect(history.single.syncState, InteractionSyncState.pending);
       expect(history.single.lastSyncPhase, 'upload_server_error');
+    });
+
+    test('手动重试只在服务端确认后清除真实 pending 记录', () async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.cooperating,
+        clientTimestamp: DateTime.utc(2026, 4, 10, 2),
+        localEventId: 'evt_retry_after_failure',
+      );
+      await harness.seedSignedInSnapshot();
+      harness.api.syncException = const AccountApiException(
+        kind: AccountApiFailureKind.timeout,
+        message: 'timeout',
+      );
+      final repository = harness.buildRepository();
+
+      final failed = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+      harness.api.syncException = null;
+      final retried = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+
+      expect(failed.pendingSyncCount, 1);
+      expect(failed.lastSyncPhase, 'upload_timeout');
+      expect(retried.pendingSyncCount, 0);
+      expect(retried.lastSyncPhase, 'batch_ack_applied');
+      expect(retried.lastVisibleError, isNull);
+      final history = await harness.practiceRepository.listEventHistory(
+        activityId: 'bath_time',
+      );
+      expect(history.single.syncState, InteractionSyncState.synced);
     });
   });
 }

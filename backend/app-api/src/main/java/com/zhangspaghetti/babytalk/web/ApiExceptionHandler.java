@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -17,6 +19,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler(ContractException.class)
     public ResponseEntity<Map<String, Object>> handleContract(ContractException exception) {
@@ -48,7 +52,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException exception) {
         return ResponseEntity.badRequest()
-                .body(errorBody(HttpStatus.BAD_REQUEST, "validation_failed", exception.getMessage(), Map.of()));
+                .body(errorBody(HttpStatus.BAD_REQUEST, "validation_failed", "请求参数不合法。", Map.of()));
     }
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
@@ -59,17 +63,30 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleUnexpected(Exception exception) {
+        var correlationId = SafeCorrelationId.create();
+        log.error("app-api unexpected failure correlationId={}, type={}", correlationId, exception.getClass().getSimpleName());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "服务端处理失败。", Map.of()));
+                .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "服务端处理失败。", Map.of(), correlationId));
     }
 
     private Map<String, Object> errorBody(HttpStatus status, String code, String message, Map<String, Object> details) {
+        return errorBody(status, code, message, details, SafeCorrelationId.create());
+    }
+
+    private Map<String, Object> errorBody(
+            HttpStatus status,
+            String code,
+            String message,
+            Map<String, Object> details,
+            String correlationId
+    ) {
         return Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", status.value(),
                 "code", code,
                 "message", message,
-                "details", details == null ? Map.of() : details
+                "details", details == null ? Map.of() : details,
+                "correlationId", correlationId
         );
     }
 }

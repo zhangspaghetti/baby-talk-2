@@ -45,6 +45,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
+import com.zhangspaghetti.babytalk.web.SafeCorrelationId;
 
 @Configuration
 @EnableWebSecurity
@@ -229,12 +230,15 @@ public class AppSecurityConfig {
         response.setStatus(status.value());
         response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        var correlationId = SafeCorrelationId.create();
+        response.setHeader("X-Correlation-Id", correlationId);
         objectMapper.writeValue(response.getWriter(), Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", status.value(),
                 "code", code,
                 "message", message,
-                "details", Map.of("reason", reason)
+                "details", Map.of("reason", reason),
+                "correlationId", correlationId
         ));
     }
 

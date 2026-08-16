@@ -79,8 +79,10 @@ void main() {
 
     test('refresh timeout fail closed，且不会 replay 原请求', () async {
       final requestTokens = <String>[];
-      api.refreshException = const AccountApiException.timeout(
+      api.refreshException = const AccountApiException(
+        kind: AccountApiFailureKind.timeout,
         message: '请求超时。',
+        correlationId: 'err_qa1234567890abcdef',
       );
 
       Future<void> send(String accessToken) async {
@@ -110,6 +112,11 @@ void main() {
                 (error) => error.visibleMessage,
                 'visibleMessage',
                 contains('重新登录'),
+              )
+              .having(
+                (error) => error.visibleMessage,
+                'visibleMessage',
+                contains('err_qa1234567890abcdef'),
               ),
         ),
       );

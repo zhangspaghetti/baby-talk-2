@@ -156,7 +156,8 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 {"phoneNumber":"12345"}
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("invalid_phone_number"));
+                .andExpect(jsonPath("$.code").value("invalid_phone_number"))
+                .andExpect(jsonPath("$.correlationId").isNotEmpty());
 
         var challengeId = createChallenge("13800138000");
         mockMvc.perform(post("/api/v1/auth/verify")
@@ -201,7 +202,8 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("consumer_authentication_required"))
-                .andExpect(jsonPath("$.details.reason").value("missing"));
+                .andExpect(jsonPath("$.details.reason").value("missing"))
+                .andExpect(jsonPath("$.correlationId").isNotEmpty());
 
         mockMvc.perform(post("/api/v1/consent/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")

@@ -167,6 +167,7 @@ secret:
   BABY_TALK_DB_USERNAME: "change-me-prod-db-user"
   BABY_TALK_DB_PASSWORD: "change-me-prod-db-password"
   BABY_TALK_CONSUMER_JWT_SECRET: "change-me-prod-consumer-jwt-secret"
+  BABY_TALK_AUTH_SENSITIVE_DATA_PEPPER: "change-me-prod-auth-sensitive-data-pepper"
   BABY_TALK_AI_API_KEY: "change-me-prod-ai-api-key"
   BABY_TALK_MINIO_ENDPOINT: "https://storage.babytalk.example.com"
   BABY_TALK_MINIO_ACCESS_KEY: "change-me-prod-storage-access-key"

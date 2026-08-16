@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.matchesPattern;
 
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +52,9 @@ class ApiVersionHandshakeWebTest extends AbstractIntegrationTest {
                 .andExpect(status().isUpgradeRequired())
                 .andExpect(header().string(ApiVersionInterceptor.MIN_VERSION_HEADER, "1.2.0"))
                 .andExpect(header().string(ApiVersionInterceptor.UPGRADE_URL_HEADER, "https://download.example.com/upgrade?channel=stable&source=version_gate"))
-                .andExpect(jsonPath("$.code").value("app_version_required"));
+                .andExpect(header().exists("X-Correlation-Id"))
+                .andExpect(jsonPath("$.code").value("app_version_required"))
+                .andExpect(jsonPath("$.correlationId").value(matchesPattern("err_[a-f0-9]{32}")));
     }
 
     @Test

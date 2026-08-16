@@ -24,6 +24,7 @@ class AccountApiException implements Exception {
     required this.message,
     this.statusCode,
     this.code,
+    this.correlationId,
     this.minimumSupportedVersion,
     this.upgradeUrl,
     this.details = const <String, Object?>{},
@@ -42,6 +43,7 @@ class AccountApiException implements Exception {
   final String message;
   final int? statusCode;
   final String? code;
+  final String? correlationId;
   final String? minimumSupportedVersion;
   final String? upgradeUrl;
   final Map<String, Object?> details;
@@ -429,6 +431,7 @@ class AccountApiService {
         message: _readOptionalString(decoded, 'message') ?? '请求失败。',
         statusCode: statusCode,
         code: _readOptionalString(decoded, 'code'),
+        correlationId: _readOptionalString(decoded, 'correlationId'),
         minimumSupportedVersion:
             response.headers.value('x-min-supported-version') ??
             _readOptionalString(decoded, 'minimumSupportedVersion'),

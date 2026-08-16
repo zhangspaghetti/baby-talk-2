@@ -239,6 +239,25 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                 .containsExactly("accept:applied", "revoke:applied", "revoke:duplicate");
         }
 
+        @Test
+        void lifecycleAuditRetainsOnlySafeEffectCodes() {
+                var session = createAcceptedSession("13800138000", "install-alpha");
+                service.revokeConsent(session.sessionId(), "宝宝姓名和家庭地址不得写入审计");
+                var relogin = createSignedInSession("13800138000", "install-alpha");
+                service.acceptConsent(relogin.sessionId(), "pipl-v2");
+                service.deleteAccount(relogin.sessionId(), "删除原因包含私密内容");
+
+                assertThat(service.listAuditEntries(session.accountId()))
+                                .extracting(AuthConsentSyncService.AuditEntry::reason)
+                                .containsExactly(
+                                                "consent_version:pipl-v1",
+                                                "server_sync_revoked",
+                                                "consent_version:pipl-v2",
+                                                "account_owned_server_data_deleted"
+                                )
+                                .noneMatch(reason -> reason.contains("宝宝") || reason.contains("私密"));
+        }
+
             @Test
             void ingestEventsRejectsInvalidReactionTypeBeforeAnyWrite() {
                 var session = createAcceptedSession("13800138000", "install-alpha");
@@ -299,6 +318,83 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                         });
 
                 assertThat(service.countInteractionEvents(session.accountId(), "install-alpha")).isZero();
+            }
+
+            @Test
+            void repeatedCareTurnAndReactionSyncAreIdempotent() {
+                var session = createAcceptedSession("13800138000", "install-alpha");
+                var events = List.of(
+                        new AuthConsentSyncService.SyncEventRequest(
+                                "install-alpha:care-turn-1",
+                                "care-turn-1",
+                                "install-alpha",
+                                "daily_care",
+                                "bath_time",
+                                "bath_time_warm_water",
+                                "cooperating",
+                                Instant.parse("2026-04-09T03:00:00Z")
+                        ),
+                        new AuthConsentSyncService.SyncEventRequest(
+                                "install-alpha:baby-reaction-1",
+                                "baby-reaction-1",
+                                "install-alpha",
+                                "daily_care",
+                                "bath_time",
+                                "bath_time_splash_splash",
+                                "hesitant",
+                                Instant.parse("2026-04-09T03:01:00Z")
+                        )
+                );
+
+                var first = service.ingestEvents(session.sessionId(), "install-alpha", events);
+                var replay = service.ingestEvents(session.sessionId(), "install-alpha", events);
+
+                assertThat(first.acceptedCount()).isEqualTo(2);
+                assertThat(replay.acceptedCount()).isZero();
+                assertThat(replay.duplicateEventKeys())
+                        .containsExactly("install-alpha:care-turn-1", "install-alpha:baby-reaction-1");
+                assertThat(service.countInteractionEvents(session.accountId(), "install-alpha")).isEqualTo(2);
+            }
+
+            @Test
+            void bootstrapRestoresAllAccountEventsOnNewDeviceWithoutCrossAccountLeakage() {
+                var firstDevice = createAcceptedSession("13800138000", "install-alpha");
+                service.ingestEvents(
+                        firstDevice.sessionId(),
+                        "install-alpha",
+                        List.of(new AuthConsentSyncService.SyncEventRequest(
+                                "install-alpha:care-turn-1",
+                                "care-turn-1",
+                                "install-alpha",
+                                "daily_care",
+                                "bath_time",
+                                "bath_time_warm_water",
+                                "cooperating",
+                                Instant.parse("2026-04-09T03:00:00Z")
+                        ))
+                );
+                var secondDevice = createSignedInSession("13800138000", "install-beta");
+                var otherAccount = createAcceptedSession("13900139000", "install-gamma");
+                service.ingestEvents(
+                        otherAccount.sessionId(),
+                        "install-gamma",
+                        List.of(new AuthConsentSyncService.SyncEventRequest(
+                                "install-gamma:foreign-event-1",
+                                "foreign-event-1",
+                                "install-gamma",
+                                "daily_care",
+                                "bath_time",
+                                "bath_time_splash_splash",
+                                "resisting",
+                                Instant.parse("2026-04-09T03:02:00Z")
+                        ))
+                );
+
+                var restored = service.bootstrap(secondDevice.sessionId(), "install-beta");
+
+                assertThat(restored.eventCount()).isEqualTo(1);
+                assertThat(restored.events()).extracting(AuthConsentSyncService.BootstrapEvent::eventKey)
+                        .containsExactly("install-alpha:care-turn-1");
             }
 
     private AuthConsentSyncService.SessionResponse createSignedInSession(String phoneNumber, String installationId) {

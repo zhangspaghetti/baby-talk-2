@@ -439,7 +439,6 @@
                received_at
         from interaction_events
         where account_id = #{accountId}
-          and installation_id = #{installationId}
         order by client_timestamp asc, event_key asc
         limit #{limit}
     </select>

@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ConsumerAuthProperties(
         String issuer,
         String jwtSecret,
+        String sensitiveDataPepper,
         Duration accessTokenTtl,
         Duration refreshTokenTtl
 ) {

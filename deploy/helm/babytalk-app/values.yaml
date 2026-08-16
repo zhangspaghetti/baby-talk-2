@@ -372,6 +372,7 @@ secret:
   BABY_TALK_DB_USERNAME: "babytalk"
   BABY_TALK_DB_PASSWORD: "change-me-db-password"
   BABY_TALK_CONSUMER_JWT_SECRET: "change-me-consumer-jwt-secret"
+  BABY_TALK_AUTH_SENSITIVE_DATA_PEPPER: "change-me-auth-sensitive-data-pepper"
   BABY_TALK_AI_API_KEY: "change-me-ai-api-key"
   BABY_TALK_MINIO_ENDPOINT: "https://minio.example.internal"
   BABY_TALK_MINIO_ACCESS_KEY: "change-me-minio-access-key"

@@ -121,6 +121,7 @@ app:
   auth:
     issuer: ${BABY_TALK_CONSUMER_JWT_ISSUER:babytalk-app-api}
     jwt-secret: ${BABY_TALK_CONSUMER_JWT_SECRET}
+    sensitive-data-pepper: ${BABY_TALK_AUTH_SENSITIVE_DATA_PEPPER}
     access-token-ttl: ${BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL:PT15M}
     refresh-token-ttl: ${BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL:P30D}
   contract:
