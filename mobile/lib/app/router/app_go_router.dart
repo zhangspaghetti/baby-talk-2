@@ -91,6 +91,14 @@ GoRouter createAppRouter({
               return CustomSceneInputScreen(
                 routeArgs: args,
                 controller: controller.valueOrNull,
+                onPresetFallback: () async {
+                  if (context.mounted) {
+                    context.go(
+                      AppRouteNames.shell,
+                      extra: AppShellDestination.discover,
+                    );
+                  }
+                },
                 onOpenPreparedContent:
                     recoveryCoordinator.valueOrNull?.openPreparedContent,
               );

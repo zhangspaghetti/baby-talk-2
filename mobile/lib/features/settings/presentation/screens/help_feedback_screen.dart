@@ -48,29 +48,8 @@ class HelpFeedbackScreen extends StatelessWidget {
                   _faqTile(
                     colors,
                     question: '数据会同步到云端吗？',
-                    answer: '当前版本所有数据仅存储在本地设备，不会上传到服务器。',
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Feedback section
-              _buildSection(
-                colors,
-                title: '意见反馈',
-                children: [
-                  _feedbackTile(
-                    colors,
-                    icon: Icons.email_outlined,
-                    title: '发送邮件',
-                    subtitle: 'feedback@babytalk.app',
-                  ),
-                  _feedbackTile(
-                    colors,
-                    icon: Icons.star_outline,
-                    title: '给我们评分',
-                    subtitle: '在应用商店为 BabyTalk 评分',
+                    answer:
+                        '登录后，宝宝档案、照护记录和家庭共享信息会与账号云端数据同步；未登录或网络不可用时，App 只使用本机可用的缓存。',
                   ),
                 ],
               ),
@@ -98,13 +77,16 @@ class HelpFeedbackScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: colors.bgSurface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: colors.warmShadowSm,
+        Material(
+          color: colors.bgSurface,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: colors.warmShadowSm,
+            ),
+            child: Column(children: children),
           ),
-          child: Column(children: children),
         ),
       ],
     );
@@ -134,29 +116,6 @@ class HelpFeedbackScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _feedbackTile(
-    BabyTalkColors colors, {
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: colors.accent),
-      title: Text(
-        title,
-        style: TextStyle(fontSize: 15, color: colors.textPrimary),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 13, color: colors.textMuted),
-      ),
-      trailing: Icon(Icons.open_in_new, size: 16, color: colors.textMuted),
-      onTap: () {
-        // TODO: Implement external link / mailto
-      },
     );
   }
 }

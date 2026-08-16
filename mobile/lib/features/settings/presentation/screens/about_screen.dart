@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/core/runtime/candidate_build_identity.dart';
 
-class AboutScreen extends ConsumerWidget {
+class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.watch(settingsNotifierProvider);
-    final snapshot = notifier.snapshot;
+  Widget build(BuildContext context) {
     const buildIdentity = CandidateBuildIdentity.current;
     final colors = context.appColors;
 
@@ -81,13 +77,7 @@ class AboutScreen extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    _infoRow(
-                      colors,
-                      '版本',
-                      snapshot.appVersion.isNotEmpty
-                          ? snapshot.appVersion
-                          : buildIdentity.appVersion,
-                    ),
+                    _infoRow(colors, '版本', buildIdentity.appVersion),
                     Divider(color: colors.bgSunken),
                     _infoRow(colors, '候选 ID', buildIdentity.candidateId),
                     Divider(color: colors.bgSunken),
@@ -97,28 +87,6 @@ class AboutScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              // Legal
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colors.bgSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: colors.warmShadowSm,
-                ),
-                child: Column(
-                  children: [
-                    _legalTile(colors, '隐私政策'),
-                    Divider(color: colors.bgSunken),
-                    _legalTile(colors, '用户协议'),
-                    Divider(color: colors.bgSunken),
-                    _legalTile(colors, '开源许可'),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 24),
 
               Center(
@@ -155,20 +123,6 @@ class AboutScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _legalTile(BabyTalkColors colors, String title) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        title,
-        style: TextStyle(fontSize: 15, color: colors.textPrimary),
-      ),
-      trailing: Icon(Icons.chevron_right, size: 20, color: colors.textMuted),
-      onTap: () {
-        // TODO: Implement legal pages
-      },
     );
   }
 }

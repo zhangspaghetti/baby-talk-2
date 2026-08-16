@@ -403,22 +403,26 @@ class _FunctionGrid extends StatelessWidget {
       _GridEntry(
         icon: Icons.notifications_outlined,
         label: l.meReminders,
-        route: '/me/settings',
+        key: const Key('me-function-reminder'),
+        route: '/me/settings/reminder',
       ),
       _GridEntry(
         icon: Icons.child_care_outlined,
         label: l.meBabyProfile,
-        route: '/me/settings',
+        key: const Key('me-function-baby-profile'),
+        route: '/me/settings/baby-profile',
       ),
       _GridEntry(
         icon: Icons.play_circle_outline,
         label: l.mePlaybackPrefs,
-        route: '/me/settings',
+        key: const Key('me-function-playback'),
+        route: '/me/settings/playback',
       ),
       _GridEntry(
         icon: Icons.help_outline,
         label: l.meHelp,
-        route: '/me/settings',
+        key: const Key('me-function-help'),
+        route: '/me/settings/help',
       ),
     ];
 
@@ -440,11 +444,13 @@ class _GridEntry {
   const _GridEntry({
     required this.icon,
     required this.label,
+    required this.key,
     required this.route,
   });
 
   final IconData icon;
   final String label;
+  final Key key;
   final String route;
 }
 
@@ -461,6 +467,7 @@ class _FunctionGridTile extends StatelessWidget {
       color: colors.bgSurface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
+        key: entry.key,
         borderRadius: BorderRadius.circular(12),
         onTap: () => context.push(entry.route),
         child: Padding(

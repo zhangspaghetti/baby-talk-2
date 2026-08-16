@@ -47,6 +47,8 @@ void main() {
       expect(find.byKey(const Key('discover-pill-all')), findsOneWidget);
       expect(find.byKey(const Key('discover-pill-mealtime')), findsOneWidget);
       expect(find.byKey(const Key('discover-pill-bath')), findsOneWidget);
+      expect(find.text('筛选'), findsOneWidget);
+      expect(find.text('全部（4）'), findsOneWidget);
 
       // Sort dropdown
       expect(find.byKey(const Key('discover-sort-dropdown')), findsOneWidget);
@@ -104,15 +106,28 @@ void main() {
       findsOneWidget,
     );
 
-    // Scene pills container exists with all 7 pills
+    // Filters contain only categories with matching content. Empty drinking
+    // and outing categories are not offered as if they could return content.
     expect(find.byKey(const Key('discover-scene-pills')), findsOneWidget);
     expect(find.byKey(const Key('discover-pill-all')), findsOneWidget);
     expect(find.byKey(const Key('discover-pill-mealtime')), findsOneWidget);
     expect(find.byKey(const Key('discover-pill-bath')), findsOneWidget);
     expect(find.byKey(const Key('discover-pill-diaper')), findsOneWidget);
-    expect(find.byKey(const Key('discover-pill-drinking')), findsOneWidget);
     expect(find.byKey(const Key('discover-pill-bedtime')), findsOneWidget);
-    expect(find.byKey(const Key('discover-pill-outing')), findsOneWidget);
+    expect(find.byKey(const Key('discover-pill-drinking')), findsNothing);
+    expect(find.byKey(const Key('discover-pill-outing')), findsNothing);
+
+    // The named filter reaches its matching content instead of an empty list.
+    await tester.tap(find.byKey(const Key('discover-pill-mealtime')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('discover-phrase-card-feeding_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsNothing,
+    );
 
     // Tap "全部" pill (always visible) - should keep all activities
     await tester.tap(find.byKey(const Key('discover-pill-all')));

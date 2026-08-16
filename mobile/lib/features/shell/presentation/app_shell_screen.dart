@@ -48,9 +48,11 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialDestination == AppShellDestination.garden
-        ? 2
-        : 0;
+    _selectedIndex = switch (widget.initialDestination) {
+      AppShellDestination.today => 0,
+      AppShellDestination.discover => 1,
+      AppShellDestination.garden => 2,
+    };
   }
 
   void _openGardenTab(GrowthTab tab) {

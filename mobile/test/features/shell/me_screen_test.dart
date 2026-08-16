@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -100,6 +101,52 @@ void main() {
       final delegate =
           gridView.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
       expect(delegate.crossAxisCount, 2);
+    });
+
+    testWidgets('提醒设置 tile opens the named reminder page', (tester) async {
+      final accountNotifier = AccountNotifier(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot.localOnly,
+        ),
+      );
+      await accountNotifier.initialize();
+      addTearDown(accountNotifier.dispose);
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const MeScreen()),
+          GoRoute(
+            path: '/me/settings/reminder',
+            builder: (_, _) => const Scaffold(body: Text('提醒页')),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            gardenGrowthNotifierProvider.overrideWith(
+              (ref) => _StubGardenGrowthNotifier(
+                snapshot: GardenGrowthSnapshot.empty(),
+              ),
+            ),
+            accountNotifierProvider.overrideWith((ref) => accountNotifier),
+          ],
+          child: MaterialApp.router(
+            locale: const Locale('zh'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: AppTheme.build(),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('me-function-reminder')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('提醒页'), findsOneWidget);
     });
 
     testWidgets('renders stat labels in growth data block', (tester) async {

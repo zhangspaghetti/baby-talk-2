@@ -21,4 +21,4 @@ class AppRouteNames {
   };
 }
 
-enum AppShellDestination { today, garden }
+enum AppShellDestination { today, discover, garden }
