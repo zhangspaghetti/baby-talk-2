@@ -111,6 +111,36 @@ void main() {
       },
     );
 
+    test(
+      'executes caregiver-confirmed device erase without Staff+ approval',
+      () async {
+        final calls = <LocalSensitiveDataTarget>[];
+        final orchestrator = RegistryLocalSensitiveDataClearanceOrchestrator(
+          steps: _allSteps(calls),
+          clock: _incrementingClock(),
+        );
+
+        final report = await orchestrator.clear(
+          LocalSensitiveDataClearanceRequest(
+            trigger: LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed,
+            authorization: CaregiverConfirmedAuthorization(
+              confirmedAt: DateTime.utc(2026, 5, 19),
+              confirmationText: '清除本机数据',
+            ),
+            correlationId: 'r020-caregiver-device-erase',
+            requestedAt: DateTime.utc(2026, 5, 19),
+          ),
+        );
+
+        expect(calls, LocalSensitiveDataTarget.values);
+        expect(
+          report.overallStatus,
+          LocalSensitiveDataClearanceOverallStatus.completed,
+        );
+        expect(report.authorizationEvidence.kind, 'caregiver_confirmed');
+      },
+    );
+
     test('records skipped targets for session-only clearance policy', () async {
       final calls = <LocalSensitiveDataTarget>[];
       final orchestrator = RegistryLocalSensitiveDataClearanceOrchestrator(

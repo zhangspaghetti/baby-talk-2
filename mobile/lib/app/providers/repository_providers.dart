@@ -428,9 +428,14 @@ final accountNotifierProvider = ChangeNotifierProvider<AccountNotifier>((ref) {
           return orchestrator.clear(
             LocalSensitiveDataClearanceRequest(
               trigger: trigger,
-              authorization: ref.read(
-                accountDestructiveClearanceAuthorizationProvider,
-              ),
+              authorization:
+                  trigger ==
+                      LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed
+                  ? CaregiverConfirmedAuthorization(
+                      confirmedAt: requestedAt,
+                      confirmationText: '清除本机数据',
+                    )
+                  : ref.read(accountDestructiveClearanceAuthorizationProvider),
               correlationId: correlationId,
               requestedAt: requestedAt,
             ),

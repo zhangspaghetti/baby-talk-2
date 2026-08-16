@@ -568,6 +568,117 @@ void main() {
     );
     expect(find.text('账号已删除；本机敏感数据已清理。'), findsOneWidget);
   });
+
+  testWidgets('清除本机数据需独立确认，不会撤回同意或删除服务器账号', (WidgetTester tester) async {
+    final repository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+    final clearanceRequests = <LocalSensitiveDataClearanceTrigger>[];
+
+    await _pumpEntryScreen(
+      tester,
+      repository: repository,
+      localDataClearanceRunner:
+          ({
+            required trigger,
+            required correlationId,
+            required requestedAt,
+          }) async {
+            clearanceRequests.add(trigger);
+            return _clearanceReport(
+              trigger: trigger,
+              correlationId: correlationId,
+              requestedAt: requestedAt,
+            );
+          },
+    );
+
+    final eraseButton = find.byKey(const Key('account-device-erase-button'));
+    await _pressButton(tester, eraseButton);
+
+    expect(
+      find.byKey(const Key('account-device-erase-confirm-dialog')),
+      findsOneWidget,
+    );
+    expect(find.text('清除本机保留数据？'), findsOneWidget);
+    expect(find.text('这会清除本机账号、练习和缓存数据，不会删除服务器账号。'), findsOneWidget);
+    expect(repository.revokeCalls, 0);
+    expect(repository.deleteCalls, 0);
+    expect(clearanceRequests, isEmpty);
+
+    await tester.tap(
+      find.byKey(const Key('account-device-erase-confirm-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(clearanceRequests, [
+      LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed,
+    ]);
+    expect(repository.revokeCalls, 0);
+    expect(repository.deleteCalls, 0);
+    expect(find.text('本机保留数据已清除；账号不会被删除。'), findsOneWidget);
+  });
+
+  testWidgets('本机数据清除被拒绝时不得显示成功', (WidgetTester tester) async {
+    final repository = FakeAccountRepository(
+      currentSnapshot: _signedInSnapshot(),
+    );
+
+    await _pumpEntryScreen(
+      tester,
+      repository: repository,
+      localDataClearanceRunner:
+          ({
+            required trigger,
+            required correlationId,
+            required requestedAt,
+          }) async => LocalSensitiveDataClearanceReport(
+            correlationId: correlationId,
+            trigger: trigger,
+            requestedAt: requestedAt,
+            startedAt: requestedAt,
+            finishedAt: requestedAt,
+            overallStatus:
+                LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance,
+            authorizationEvidence: LocalSensitiveDataAuthorizationEvidence.from(
+              const ReportOnlyAuthorization(reason: 'test rejection'),
+            ),
+            results: const <LocalSensitiveDataTargetResult>[],
+          ),
+    );
+
+    await _pressButton(
+      tester,
+      find.byKey(const Key('account-device-erase-button')),
+    );
+    await tester.tap(
+      find.byKey(const Key('account-device-erase-confirm-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('本机数据清理未完成；账号不会被删除。请重试。'), findsOneWidget);
+    expect(find.text('本机保留数据已清除；账号不会被删除。'), findsNothing);
+    expect(repository.deleteCalls, 0);
+  });
+}
+
+LocalSensitiveDataClearanceReport _clearanceReport({
+  required LocalSensitiveDataClearanceTrigger trigger,
+  required String correlationId,
+  required DateTime requestedAt,
+}) {
+  return LocalSensitiveDataClearanceReport(
+    correlationId: correlationId,
+    trigger: trigger,
+    requestedAt: requestedAt,
+    startedAt: requestedAt,
+    finishedAt: requestedAt,
+    overallStatus: LocalSensitiveDataClearanceOverallStatus.completed,
+    authorizationEvidence: LocalSensitiveDataAuthorizationEvidence.from(
+      const ReportOnlyAuthorization(reason: 'widget test'),
+    ),
+    results: const <LocalSensitiveDataTargetResult>[],
+  );
 }
 
 Future<void> _pressButton(WidgetTester tester, Finder finder) async {

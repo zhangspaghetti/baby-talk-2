@@ -67,6 +67,19 @@ final class StaffPlusDestructiveAuthorization
   final String confirmationText;
 }
 
+/// Evidence that the caregiver confirmed a device-local erase in the app.
+/// This never authorizes deletion of the server-side account.
+final class CaregiverConfirmedAuthorization
+    extends LocalSensitiveDataClearanceAuthorization {
+  const CaregiverConfirmedAuthorization({
+    required this.confirmedAt,
+    required this.confirmationText,
+  });
+
+  final DateTime confirmedAt;
+  final String confirmationText;
+}
+
 final class LocalSensitiveDataTargetSet {
   const LocalSensitiveDataTargetSet.policyDefault() : explicitTargets = null;
 
@@ -131,6 +144,11 @@ final class LocalSensitiveDataAuthorizationEvidence {
           decisionId: decisionId,
           approvedBy: approvedBy,
           approvedAt: approvedAt,
+        ),
+      CaregiverConfirmedAuthorization(:final confirmedAt) =>
+        LocalSensitiveDataAuthorizationEvidence._(
+          kind: 'caregiver_confirmed',
+          approvedAt: confirmedAt,
         ),
     };
   }
@@ -213,8 +231,7 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
       request.authorization,
     );
 
-    if (_requiresStaffPlusAuthorization(request) &&
-        request.authorization is! StaffPlusDestructiveAuthorization) {
+    if (!_isAuthorized(request)) {
       return LocalSensitiveDataClearanceReport(
         correlationId: request.correlationId,
         trigger: request.trigger,
@@ -357,18 +374,21 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
     };
   }
 
-  bool _requiresStaffPlusAuthorization(
-    LocalSensitiveDataClearanceRequest request,
-  ) {
+  bool _isAuthorized(LocalSensitiveDataClearanceRequest request) {
     return switch (request.trigger) {
-      LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed ||
-      LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed => true,
+      LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed =>
+        request.authorization is StaffPlusDestructiveAuthorization,
+      LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed =>
+        request.authorization is CaregiverConfirmedAuthorization ||
+            request.authorization is StaffPlusDestructiveAuthorization,
       LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed =>
-        _targetsFor(request).any(
-          (target) => target != LocalSensitiveDataTarget.accountLocalSnapshot,
-        ),
+        !_targetsFor(request).any(
+              (target) =>
+                  target != LocalSensitiveDataTarget.accountLocalSnapshot,
+            ) ||
+            request.authorization is StaffPlusDestructiveAuthorization,
       LocalSensitiveDataClearanceTrigger.logoutSessionOnly ||
-      LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly => false,
+      LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly => true,
     };
   }
 }

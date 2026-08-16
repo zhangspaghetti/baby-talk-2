@@ -785,8 +785,9 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
             'account-device-erase-${requestedAt.microsecondsSinceEpoch}',
         requestedAt: requestedAt,
       );
-      if (report.hasFailures) {
-        _submissionMessage = '部分本机数据未能清除，请重试。';
+      if (report.overallStatus !=
+          LocalSensitiveDataClearanceOverallStatus.completed) {
+        _submissionMessage = '本机数据清理未完成；账号不会被删除。请重试。';
         return;
       }
       _snapshot = await _repository.loadSnapshot();
