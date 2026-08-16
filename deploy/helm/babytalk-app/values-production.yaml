@@ -6,7 +6,7 @@ imagePullSecrets:
 
 candidate:
   id: release-placeholder
-  requiredMigrationVersion: "33"
+  requiredMigrationVersion: "34"
 
 appApi:
   replicaCount: 2

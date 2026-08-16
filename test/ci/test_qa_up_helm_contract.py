@@ -123,7 +123,7 @@ fi
                 fake_bin / "curl",
                 """\
 if [[ "$*" == *"/qa/candidate-compatibility"* ]]; then
-  printf '%s\\n' '{"candidateId":"m2-test","requiredMigrationVersion":"33","status":"compatible"}'
+  printf '%s\\n' '{"candidateId":"m2-test","requiredMigrationVersion":"34","status":"compatible"}'
 fi
 """,
             )

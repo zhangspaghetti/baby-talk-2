@@ -5,6 +5,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VALUES = REPO_ROOT / "deploy" / "helm" / "babytalk-app" / "values.yaml"
 QA_VALUES = REPO_ROOT / "deploy" / "helm" / "babytalk-app" / "values-kind-qa.yaml"
+PRODUCTION_VALUES = REPO_ROOT / "deploy" / "helm" / "babytalk-app" / "values-production.yaml"
 CONFIG_MAP = REPO_ROOT / "deploy" / "helm" / "babytalk-app" / "templates" / "configmap.yaml"
 DEPLOYMENT = REPO_ROOT / "deploy" / "helm" / "babytalk-app" / "templates" / "deployment.yaml"
 QA_BOOTSTRAP = REPO_ROOT / "scripts" / "qa-up-helm.sh"
@@ -35,6 +36,17 @@ class CandidateIdentityContractTest(unittest.TestCase):
         self.assertIn('QA_CANDIDATE_ID="${QA_CANDIDATE_ID:-}"', script)
         self.assertIn('candidate.id=$QA_CANDIDATE_ID', script)
         self.assertIn("candidate:", qa_values)
+
+    def test_candidate_migration_contract_tracks_current_v34(self) -> None:
+        values = VALUES.read_text(encoding="utf-8")
+        qa_values = QA_VALUES.read_text(encoding="utf-8")
+        production_values = PRODUCTION_VALUES.read_text(encoding="utf-8")
+        script = QA_BOOTSTRAP.read_text(encoding="utf-8")
+
+        self.assertIn('requiredMigrationVersion: "34"', values)
+        self.assertIn('requiredMigrationVersion: "34"', qa_values)
+        self.assertIn('requiredMigrationVersion: "34"', production_values)
+        self.assertIn('QA_REQUIRED_MIGRATION_VERSION="${QA_REQUIRED_MIGRATION_VERSION:-34}"', script)
 
 
 if __name__ == "__main__":
