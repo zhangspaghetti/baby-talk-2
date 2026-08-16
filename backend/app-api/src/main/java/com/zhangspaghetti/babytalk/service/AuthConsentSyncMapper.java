@@ -12,11 +12,15 @@ public interface AuthConsentSyncMapper {
 
     AuthConsentSyncRepository.ChallengeRow findChallenge(@Param("challengeId") String challengeId);
 
+    AuthConsentSyncRepository.ChallengeRow lockChallenge(@Param("challengeId") String challengeId);
+
     int markChallengeVerified(@Param("challengeId") String challengeId, @Param("verifiedAt") Instant verifiedAt);
 
     int markChallengeExpired(@Param("challengeId") String challengeId, @Param("reason") String reason);
 
-    AuthConsentSyncRepository.AccountRow findActiveAccountByPhone(@Param("phoneNumber") String phoneNumber);
+    void recordChallengeVerificationFailure(@Param("challengeId") String challengeId);
+
+    AuthConsentSyncRepository.AccountRow findActiveAccountByPhoneLookupRef(@Param("phoneLookupRef") String phoneLookupRef);
 
     AuthConsentSyncRepository.AccountRow findAccountById(@Param("accountId") String accountId);
 

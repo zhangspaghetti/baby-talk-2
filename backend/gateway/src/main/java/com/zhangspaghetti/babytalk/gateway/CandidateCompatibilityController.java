@@ -13,7 +13,7 @@ public class CandidateCompatibilityController {
 
     public CandidateCompatibilityController(
             @Value("${babytalk.candidate.id:local-dev}") String candidateId,
-            @Value("${babytalk.candidate.required-migration-version:33}") String requiredMigrationVersion
+            @Value("${babytalk.candidate.required-migration-version:34}") String requiredMigrationVersion
     ) {
         this.candidateId = candidateId;
         this.requiredMigrationVersion = requiredMigrationVersion;

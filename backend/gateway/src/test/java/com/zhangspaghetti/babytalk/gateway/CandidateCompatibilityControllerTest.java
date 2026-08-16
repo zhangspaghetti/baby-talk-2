@@ -9,7 +9,7 @@ class CandidateCompatibilityControllerTest {
 
     @Test
     void exposesOnlySafeFrozenCandidateCompatibilityFields() {
-        var controller = new CandidateCompatibilityController("btqa-2026-08-15", "33");
+        var controller = new CandidateCompatibilityController("btqa-2026-08-15", "34");
         WebTestClient client = WebTestClient.bindToController(controller).build();
 
         client.get().uri("/qa/candidate-compatibility")
@@ -17,7 +17,7 @@ class CandidateCompatibilityControllerTest {
                 .expectStatus().isOk()
                 .expectBody()
                 .jsonPath("$.candidateId").isEqualTo("btqa-2026-08-15")
-                .jsonPath("$.requiredMigrationVersion").isEqualTo("33")
+                .jsonPath("$.requiredMigrationVersion").isEqualTo("34")
                 .jsonPath("$.status").isEqualTo("compatible");
 
         var response = controller.compatibility();

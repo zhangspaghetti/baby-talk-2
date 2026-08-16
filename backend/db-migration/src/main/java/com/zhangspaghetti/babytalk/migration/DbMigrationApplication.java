@@ -16,8 +16,8 @@ import org.springframework.beans.factory.annotation.Value;
 @SpringBootApplication
 public class DbMigrationApplication {
 
-    static final String EXPECTED_CURRENT_VERSION = "33";
-    static final int EXPECTED_APPLIED_MIGRATION_COUNT = 32;
+    static final String EXPECTED_CURRENT_VERSION = "34";
+    static final int EXPECTED_APPLIED_MIGRATION_COUNT = 33;
 
     private static final Logger log = LoggerFactory.getLogger(DbMigrationApplication.class);
 
@@ -39,7 +39,7 @@ public class DbMigrationApplication {
     ApplicationRunner migrationSummaryRunner(
             Flyway flyway,
             @Value("${babytalk.candidate.id:local-dev}") String candidateId,
-            @Value("${babytalk.candidate.required-migration-version:33}") String requiredMigrationVersion
+            @Value("${babytalk.candidate.required-migration-version:34}") String requiredMigrationVersion
     ) {
         return args -> {
             var info = flyway.info();

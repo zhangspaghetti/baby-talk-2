@@ -7,20 +7,23 @@
     <resultMap id="challengeRowMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$ChallengeRow">
         <constructor>
             <arg column="challenge_id" javaType="java.lang.String"/>
-            <arg column="phone_number" javaType="java.lang.String"/>
-            <arg column="verification_code" javaType="java.lang.String"/>
+            <arg column="phone_lookup_ref" javaType="java.lang.String"/>
+            <arg column="phone_mask" javaType="java.lang.String"/>
+            <arg column="verification_verifier" javaType="java.lang.String"/>
             <arg column="status" javaType="java.lang.String"/>
             <arg column="issued_at" javaType="java.time.Instant"/>
             <arg column="expires_at" javaType="java.time.Instant"/>
             <arg column="verified_at" javaType="java.time.Instant"/>
             <arg column="failure_reason" javaType="java.lang.String"/>
+            <arg column="verification_attempts" javaType="int"/>
         </constructor>
     </resultMap>
 
     <resultMap id="accountRowMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$AccountRow">
         <constructor>
             <arg column="account_id" javaType="java.lang.String"/>
-            <arg column="phone_number" javaType="java.lang.String"/>
+            <arg column="phone_lookup_ref" javaType="java.lang.String"/>
+            <arg column="phone_mask" javaType="java.lang.String"/>
             <arg column="status" javaType="java.lang.String"/>
             <arg column="latest_consent_status" javaType="java.lang.String"/>
             <arg column="created_at" javaType="java.time.Instant"/>
@@ -36,7 +39,6 @@
             <arg column="session_status" javaType="java.lang.String"/>
             <arg column="created_at" javaType="java.time.Instant"/>
             <arg column="revoked_at" javaType="java.time.Instant"/>
-            <arg column="phone_number" javaType="java.lang.String"/>
             <arg column="account_status" javaType="java.lang.String"/>
             <arg column="latest_consent_status" javaType="java.lang.String"/>
             <arg column="account_created_at" javaType="java.time.Instant"/>
@@ -92,7 +94,6 @@
                s.status as session_status,
                s.created_at,
                s.revoked_at,
-               a.phone_number,
                a.status as account_status,
                a.latest_consent_status,
                a.created_at as account_created_at,
@@ -104,36 +105,58 @@
     <insert id="insertChallenge">
         insert into sms_challenges (
             challenge_id,
-            phone_number,
-            verification_code,
+            phone_lookup_ref,
+            phone_mask,
+            verification_verifier,
             status,
             issued_at,
             expires_at,
             verified_at,
-            failure_reason
+            failure_reason,
+            verification_attempts
         ) values (
             #{row.challengeId},
-            #{row.phoneNumber},
-            #{row.verificationCode},
+            #{row.phoneLookupRef},
+            #{row.phoneMask},
+            #{row.verificationVerifier},
             #{row.status},
             #{row.issuedAt},
             #{row.expiresAt},
             #{row.verifiedAt},
-            #{row.failureReason}
+            #{row.failureReason},
+            #{row.verificationAttempts}
         )
     </insert>
 
     <select id="findChallenge" resultMap="challengeRowMap">
         select challenge_id,
-               phone_number,
-               verification_code,
+               phone_lookup_ref,
+               phone_mask,
+               verification_verifier,
                status,
                issued_at,
                expires_at,
                verified_at,
-               failure_reason
+               failure_reason,
+               verification_attempts
         from sms_challenges
         where challenge_id = #{challengeId}
+    </select>
+
+    <select id="lockChallenge" resultMap="challengeRowMap">
+        select challenge_id,
+               phone_lookup_ref,
+               phone_mask,
+               verification_verifier,
+               status,
+               issued_at,
+               expires_at,
+               verified_at,
+               failure_reason,
+               verification_attempts
+        from sms_challenges
+        where challenge_id = #{challengeId}
+        for update
     </select>
 
     <update id="markChallengeVerified">
@@ -141,6 +164,15 @@
         set status = 'verified',
             verified_at = #{verifiedAt},
             failure_reason = null
+        where challenge_id = #{challengeId}
+          and status = 'pending'
+    </update>
+
+    <update id="recordChallengeVerificationFailure">
+        update sms_challenges
+        set verification_attempts = verification_attempts + 1,
+            status = case when verification_attempts + 1 >= 5 then 'expired' else status end,
+            failure_reason = case when verification_attempts + 1 >= 5 then 'verification_attempt_limit' else 'verification_code_invalid' end
         where challenge_id = #{challengeId}
           and status = 'pending'
     </update>
@@ -153,21 +185,23 @@
           and status = 'pending'
     </update>
 
-    <select id="findActiveAccountByPhone" resultMap="accountRowMap">
+    <select id="findActiveAccountByPhoneLookupRef" resultMap="accountRowMap">
         select account_id,
-               phone_number,
+               phone_lookup_ref,
+               phone_mask,
                status,
                latest_consent_status,
                created_at,
                deleted_at
         from accounts
-        where phone_number = #{phoneNumber}
+        where phone_lookup_ref = #{phoneLookupRef}
           and status = 'active'
     </select>
 
     <select id="findAccountById" resultMap="accountRowMap">
         select account_id,
-               phone_number,
+               phone_lookup_ref,
+               phone_mask,
                status,
                latest_consent_status,
                created_at,
@@ -179,14 +213,16 @@
     <insert id="insertAccount">
         insert into accounts (
             account_id,
-            phone_number,
+            phone_lookup_ref,
+            phone_mask,
             status,
             latest_consent_status,
             created_at,
             deleted_at
         ) values (
             #{row.accountId},
-            #{row.phoneNumber},
+            #{row.phoneLookupRef},
+            #{row.phoneMask},
             #{row.status},
             #{row.latestConsentStatus},
             #{row.createdAt},
@@ -428,7 +464,8 @@
     <update id="tombstoneAccount">
         update accounts
         set status = 'deleted',
-            phone_number = #{tombstonePhone},
+            phone_lookup_ref = #{tombstonePhone},
+            phone_mask = '账号已删除',
             latest_consent_status = 'deleted',
             deleted_at = #{deletedAt}
         where account_id = #{accountId}

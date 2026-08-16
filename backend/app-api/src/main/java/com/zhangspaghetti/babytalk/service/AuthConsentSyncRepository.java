@@ -22,6 +22,10 @@ public class AuthConsentSyncRepository {
         return Optional.ofNullable(mapper.findChallenge(challengeId));
     }
 
+    Optional<ChallengeRow> lockChallenge(String challengeId) {
+        return Optional.ofNullable(mapper.lockChallenge(challengeId));
+    }
+
     int markChallengeVerified(String challengeId, Instant verifiedAt) {
         return mapper.markChallengeVerified(challengeId, verifiedAt);
     }
@@ -30,8 +34,12 @@ public class AuthConsentSyncRepository {
         mapper.markChallengeExpired(challengeId, reason);
     }
 
-    Optional<AccountRow> findActiveAccountByPhone(String phoneNumber) {
-        return Optional.ofNullable(mapper.findActiveAccountByPhone(phoneNumber));
+    void recordChallengeVerificationFailure(String challengeId) {
+        mapper.recordChallengeVerificationFailure(challengeId);
+    }
+
+    Optional<AccountRow> findActiveAccountByPhoneLookupRef(String phoneLookupRef) {
+        return Optional.ofNullable(mapper.findActiveAccountByPhoneLookupRef(phoneLookupRef));
     }
 
     Optional<AccountRow> findAccountById(String accountId) {
@@ -126,19 +134,22 @@ public class AuthConsentSyncRepository {
 
     public record ChallengeRow(
             String challengeId,
-            String phoneNumber,
-            String verificationCode,
+            String phoneLookupRef,
+            String phoneMask,
+            String verificationVerifier,
             String status,
             Instant issuedAt,
             Instant expiresAt,
             Instant verifiedAt,
-            String failureReason
+            String failureReason,
+            Integer verificationAttempts
     ) {
     }
 
     public record AccountRow(
             String accountId,
-            String phoneNumber,
+            String phoneLookupRef,
+            String phoneMask,
             String status,
             String latestConsentStatus,
             Instant createdAt,
@@ -153,7 +164,6 @@ public class AuthConsentSyncRepository {
             String sessionStatus,
             Instant createdAt,
             Instant revokedAt,
-            String phoneNumber,
             String accountStatus,
             String latestConsentStatus,
             Instant accountCreatedAt,

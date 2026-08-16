@@ -120,15 +120,16 @@ class BabyProfileMapperTest extends AbstractIntegrationTest {
                 """
                 insert into accounts (
                     account_id,
-                    phone_number,
+                    phone_lookup_ref,
+                    phone_mask,
                     status,
                     latest_consent_status,
                     created_at,
                     deleted_at
-                ) values (?, ?, 'active', 'accepted', ?, null)
+                ) values (?, ?, '138****8000', 'active', 'accepted', ?, null)
                 """,
                 accountId,
-                accountId + "_phone",
+                "test-phone-ref:" + accountId,
                 Timestamp.from(NOW_DB.toInstant()));
     }
 

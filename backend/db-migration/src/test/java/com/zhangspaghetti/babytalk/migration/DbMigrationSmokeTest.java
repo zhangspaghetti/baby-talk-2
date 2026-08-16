@@ -30,6 +30,7 @@ class DbMigrationSmokeTest {
     private static final String V13_UPGRADE_SCHEMA = "flyway_v13_chat_memory_upgrade";
     private static final String V22_1_REACTION_UPGRADE_SCHEMA = "flyway_v22_1_reaction_upgrade";
     private static final String V26_GENERATED_CONTENT_UPGRADE_SCHEMA = "flyway_v26_generated_content_upgrade";
+    private static final String V34_AUTH_PRIVACY_UPGRADE_SCHEMA = "flyway_v34_auth_privacy_upgrade";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -95,6 +96,12 @@ class DbMigrationSmokeTest {
         assertThat(trackedVersions).isEqualTo(16);
 
         assertThat(tableExists("accounts")).isTrue();
+        assertThat(columnNamesFor("accounts")).contains("phone_lookup_ref", "phone_mask").doesNotContain("phone_number");
+        assertThat(columnNamesFor("sms_challenges"))
+                .contains("phone_lookup_ref", "phone_mask", "verification_verifier", "verification_attempts")
+                .doesNotContain("phone_number", "verification_code");
+        assertThat(constraintExists("uq_accounts_phone_lookup_ref")).isTrue();
+        assertThat(constraintExists("chk_sms_challenges_verification_attempts")).isTrue();
         assertThat(tableExists("practice_generated_content_utterances")).isTrue();
         assertThat(columnNamesFor("practice_generated_content_utterances"))
                 .contains(
@@ -987,6 +994,41 @@ class DbMigrationSmokeTest {
     }
 
     @Test
+    void flywayUpgradeToV34DisposesHistoricalRawAuthValues() {
+        Flyway v33 = flywayFor(V34_AUTH_PRIVACY_UPGRADE_SCHEMA, "33");
+        v33.migrate();
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-16T02:00:00Z"));
+        jdbcTemplate.update("""
+                        insert into %s.accounts (
+                            account_id, phone_number, status, latest_consent_status, created_at, deleted_at
+                        ) values (?, ?, 'active', 'signed_out', ?, null)
+                        """.formatted(V34_AUTH_PRIVACY_UPGRADE_SCHEMA),
+                "acct_legacy_privacy", "13800138000", now);
+        jdbcTemplate.update("""
+                        insert into %s.sms_challenges (
+                            challenge_id, phone_number, verification_code, status, issued_at, expires_at,
+                            verified_at, failure_reason
+                        ) values (?, ?, ?, 'pending', ?, ?, null, null)
+                        """.formatted(V34_AUTH_PRIVACY_UPGRADE_SCHEMA),
+                "challenge_legacy_privacy", "13800138000", "246810", now, Timestamp.from(now.toInstant().plusSeconds(300)));
+
+        Flyway v34 = flywayFor(V34_AUTH_PRIVACY_UPGRADE_SCHEMA, "34");
+        v34.migrate();
+
+        assertThat(columnNamesFor(V34_AUTH_PRIVACY_UPGRADE_SCHEMA, "accounts")).doesNotContain("phone_number");
+        assertThat(columnNamesFor(V34_AUTH_PRIVACY_UPGRADE_SCHEMA, "sms_challenges"))
+                .doesNotContain("phone_number", "verification_code");
+        assertThat(jdbcTemplate.queryForObject(
+                "select phone_lookup_ref from " + V34_AUTH_PRIVACY_UPGRADE_SCHEMA + ".accounts where account_id = ?",
+                String.class,
+                "acct_legacy_privacy")).isEqualTo("legacy-disposed:acct_legacy_privacy");
+        assertThat(jdbcTemplate.queryForObject(
+                "select verification_verifier from " + V34_AUTH_PRIVACY_UPGRADE_SCHEMA + ".sms_challenges where challenge_id = ?",
+                String.class,
+                "challenge_legacy_privacy")).isEqualTo("legacy-disposed");
+    }
+
+    @Test
     @Transactional
     void v31RejectsPartialProvenanceAndNonCanonicalReactionDisplayMapping() {
         var partialId = "pgc_db_v31_partial_provenance";
@@ -1142,15 +1184,20 @@ class DbMigrationSmokeTest {
     }
 
     private List<String> columnNamesFor(String tableName) {
+        return columnNamesFor(currentSchema(), tableName);
+    }
+
+    private List<String> columnNamesFor(String schemaName, String tableName) {
         return jdbcTemplate.queryForList(
                 """
                 select column_name
                 from information_schema.columns
-                where table_schema = current_schema()
+                where table_schema = ?
                   and table_name = ?
                 order by ordinal_position
                 """,
                 String.class,
+                schemaName,
                 tableName);
     }
 
@@ -1366,15 +1413,16 @@ class DbMigrationSmokeTest {
                 """
                 insert into accounts (
                     account_id,
-                    phone_number,
+                    phone_lookup_ref,
+                    phone_mask,
                     status,
                     latest_consent_status,
                     created_at,
                     deleted_at
-                ) values (?, ?, 'active', 'accepted', ?, null)
+                ) values (?, ?, '138****8000', 'active', 'accepted', ?, null)
                 """,
                 accountId,
-                accountId + "_phone",
+                "test-phone-ref:" + accountId,
                 Timestamp.from(dbTime("2026-07-03T00:00:00Z").toInstant()));
     }
 

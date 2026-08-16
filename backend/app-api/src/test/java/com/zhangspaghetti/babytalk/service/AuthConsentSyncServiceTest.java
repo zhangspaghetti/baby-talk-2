@@ -145,9 +145,9 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                 assertThat(jdbcTemplate.queryForObject("select count(*) from accounts", Integer.class)).isZero();
         }
 
-        @Test
-        void verifyChallengeRejectsWrongCodeWithoutBurningChallenge() {
-                var challenge = service.createChallenge("13800138000");
+	        @Test
+	        void verifyChallengeRejectsWrongCodeWithoutBurningChallenge() {
+	                var challenge = service.createChallenge("13800138000");
 
                 assertThatThrownBy(() -> service.verifyChallenge(challenge.challengeId(), "111111", "install-alpha"))
                                 .isInstanceOf(ContractException.class)
@@ -160,8 +160,54 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
 
                 var session = service.verifyChallenge(challenge.challengeId(), "246810", "install-alpha");
                 assertThat(session.accountId()).startsWith("acct_");
-                assertThat(session.sessionId()).startsWith("sess_");
-        }
+	                assertThat(session.sessionId()).startsWith("sess_");
+	        }
+
+	        @Test
+	        void persistsOnlyProtectedPhoneReferenceAndOtpVerifier() {
+	                var challenge = service.createChallenge("13800138000");
+
+	                var row = jdbcTemplate.queryForMap(
+	                                "select phone_lookup_ref, phone_mask, verification_verifier from sms_challenges where challenge_id = ?",
+	                                challenge.challengeId()
+	                );
+	                assertThat(row.get("phone_lookup_ref").toString()).doesNotContain("13800138000");
+	                assertThat(row.get("phone_mask")).isEqualTo("138****8000");
+	                assertThat(row.get("verification_verifier").toString())
+	                                .startsWith("v1:")
+	                                .doesNotContain("246810");
+
+	                var session = service.verifyChallenge(challenge.challengeId(), "246810", "install-alpha");
+	                var accountLookupRef = jdbcTemplate.queryForObject(
+	                                "select phone_lookup_ref from accounts where account_id = ?",
+	                                String.class,
+	                                session.accountId()
+	                );
+	                assertThat(accountLookupRef).isEqualTo(row.get("phone_lookup_ref"));
+	        }
+
+	        @Test
+	        void wrongOtpExpiresChallengeAfterFiveAttempts() {
+	                var challenge = service.createChallenge("13800138000");
+
+	                for (int attempt = 0; attempt < 5; attempt++) {
+	                        assertThatThrownBy(() -> service.verifyChallenge(challenge.challengeId(), "111111", "install-alpha"))
+	                                        .isInstanceOf(ContractException.class)
+	                                        .satisfies(error -> {
+	                                            var contract = (ContractException) error;
+	                                            assertThat(contract.code()).isEqualTo("verification_code_invalid");
+	                                        });
+	                }
+
+	                assertThat(jdbcTemplate.queryForObject(
+	                                "select status from sms_challenges where challenge_id = ?",
+	                                String.class,
+	                                challenge.challengeId()
+	                )).isEqualTo("expired");
+	                assertThatThrownBy(() -> service.verifyChallenge(challenge.challengeId(), "246810", "install-alpha"))
+	                                .isInstanceOf(ContractException.class)
+	                                .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("challenge_expired"));
+	        }
 
         @Test
         void acceptConsentReturnsDuplicateWhenSessionAlreadyAccepted() {

@@ -37,6 +37,7 @@ public class AuthConsentSyncService {
     private final ApiContractProperties contractProperties;
     private final ConsumerAuthProperties consumerAuthProperties;
     private final JwtTokenService jwtTokenService;
+    private final SensitiveAuthDataProtector sensitiveAuthDataProtector;
     private final Clock clock = Clock.systemUTC();
 
     public AuthConsentSyncService(
@@ -47,7 +48,8 @@ public class AuthConsentSyncService {
             HouseholdSharedContextProjector householdSharedContextProjector,
             ApiContractProperties contractProperties,
             ConsumerAuthProperties consumerAuthProperties,
-            JwtTokenService jwtTokenService
+            JwtTokenService jwtTokenService,
+            SensitiveAuthDataProtector sensitiveAuthDataProtector
     ) {
         this.repository = repository;
         this.babyProfileMapper = babyProfileMapper;
@@ -57,6 +59,7 @@ public class AuthConsentSyncService {
         this.contractProperties = contractProperties;
         this.consumerAuthProperties = consumerAuthProperties;
         this.jwtTokenService = jwtTokenService;
+        this.sensitiveAuthDataProtector = sensitiveAuthDataProtector;
     }
 
     @Transactional
@@ -81,13 +84,15 @@ public class AuthConsentSyncService {
         repository.insertChallenge(
                 new AuthConsentSyncRepository.ChallengeRow(
                         challengeId,
-                        normalizedPhone,
-                        issued.verificationCode(),
+                        sensitiveAuthDataProtector.phoneLookupRef(normalizedPhone),
+                        issued.maskedPhoneNumber(),
+                        sensitiveAuthDataProtector.createVerificationVerifier(issued.verificationCode()),
                         "pending",
                         now,
                         issued.expiresAt(),
                         null,
-                        null
+                        null,
+                        0
                 )
         );
         log.info("[AUTH] 验证码已创建: challengeId={}, phone={}, codeLen={}", challengeId, issued.maskedPhoneNumber(), issued.codeLength());
@@ -105,7 +110,7 @@ public class AuthConsentSyncService {
         var normalizedInstallationId = normalizeInstallationId(installationId);
 
         log.info("[AUTH] 验证请求: challengeId={}, codeLen={}", challengeId, verificationCode.length());
-        var challenge = repository.findChallenge(challengeId)
+        var challenge = repository.lockChallenge(challengeId)
                 .orElseThrow(() -> new ContractException(HttpStatus.BAD_REQUEST, "challenge_not_found", "challenge 不存在。"));
         var now = Instant.now(clock);
         if (challenge.expiresAt().isBefore(now)) {
@@ -113,8 +118,15 @@ public class AuthConsentSyncService {
             repository.markChallengeExpired(challengeId, "expired_before_verify");
             throw new ContractException(HttpStatus.BAD_REQUEST, "challenge_expired", "验证码已过期，请重新获取。", Map.of("retryable", true));
         }
-        if (!challenge.verificationCode().equals(verificationCode)) {
-            log.warn("[AUTH] 验证码不匹配: challengeId={}, expected={}, got={}", challengeId, challenge.verificationCode(), verificationCode);
+        if (!"pending".equals(challenge.status())) {
+            if ("expired".equals(challenge.status())) {
+                throw new ContractException(HttpStatus.BAD_REQUEST, "challenge_expired", "验证码已过期，请重新获取。", Map.of("retryable", true));
+            }
+            throw new ContractException(HttpStatus.CONFLICT, "challenge_already_verified", "challenge 已被其他请求验证。");
+        }
+        if (!sensitiveAuthDataProtector.matchesVerificationVerifier(challenge.verificationVerifier(), verificationCode)) {
+            repository.recordChallengeVerificationFailure(challengeId);
+            log.warn("[AUTH] 验证码不匹配: challengeId={}, attempts={}", challengeId, challenge.verificationAttempts() + 1);
             throw new ContractException(HttpStatus.BAD_REQUEST, "verification_code_invalid", "验证码错误。", Map.of("retryable", true));
         }
 
@@ -123,11 +135,12 @@ public class AuthConsentSyncService {
         if (affectedRows == 0) {
             throw new ContractException(HttpStatus.CONFLICT, "challenge_already_verified", "challenge 已被其他请求验证。");
         }
-        var account = repository.findActiveAccountByPhone(challenge.phoneNumber())
+        var account = repository.findActiveAccountByPhoneLookupRef(challenge.phoneLookupRef())
                 .orElseGet(() -> repository.insertAccount(
                         new AuthConsentSyncRepository.AccountRow(
                                 "acct_" + UUID.randomUUID(),
-                                challenge.phoneNumber(),
+                                challenge.phoneLookupRef(),
+                                challenge.phoneMask(),
                                 "active",
                                 "signed_out",
                                 now,
@@ -143,7 +156,6 @@ public class AuthConsentSyncService {
                 "active",
                 now,
                 null,
-                account.phoneNumber(),
                 account.status(),
                 account.latestConsentStatus(),
                 account.createdAt(),
@@ -694,7 +706,7 @@ public class AuthConsentSyncService {
         return new SessionResponse(
                 account.accountId(),
                 session.sessionId(),
-                maskPhone(account.phoneNumber()),
+                account.phoneMask(),
                 session.createdAt(),
                 session.latestConsentStatus(),
                 accessToken.tokenValue(),
@@ -768,10 +780,6 @@ public class AuthConsentSyncService {
 
     private String newRefreshTokenId() {
         return "crt_" + UUID.randomUUID();
-    }
-
-    private String maskPhone(String phoneNumber) {
-        return phoneNumber.substring(0, 3) + "****" + phoneNumber.substring(phoneNumber.length() - 4);
     }
 
     private String sanitizeReason(String value) {
