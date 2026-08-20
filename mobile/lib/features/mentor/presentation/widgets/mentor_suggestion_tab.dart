@@ -24,8 +24,8 @@ class MentorSuggestionTab extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
       children: [
         AppMentorBubble(
-          message: '先给你几条现在就能说出口的建议。离线时也可以直接用，不需要等聊天连通。',
-          caption: '小禾老师',
+          message: l.mentorSuggestionIntro,
+          caption: l.mentorName,
         ),
         const SizedBox(height: 16),
         if (notifier.bannerMessage != null)
@@ -214,6 +214,7 @@ class _MentorSharedContextBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final foregroundColor = status.adopted ? colors.info : colors.warning;
     final backgroundColor = status.adopted
@@ -249,7 +250,7 @@ class _MentorSharedContextBanner extends StatelessWidget {
           const SizedBox(height: 10),
           Chip(
             key: const Key('mentor-shared-context-chip'),
-            label: Text('状态：${status.headline}'),
+            label: Text(l.mentorStatusLabel(status.headline)),
           ),
         ],
       ),
@@ -307,7 +308,9 @@ class _SuggestionCard extends StatelessWidget {
                 key: Key('mentor-suggestion-audio-${suggestion.suggestionId}'),
                 onPressed: isSpeaking ? null : onReadAloud,
                 icon: const Icon(Icons.volume_up_outlined),
-                label: Text(isSpeaking ? '朗读中…' : l.mentorSuggestionRead),
+                label: Text(
+                  isSpeaking ? l.mentorReading : l.mentorSuggestionRead,
+                ),
               ),
               if (suggestion.reasonCode != null &&
                   suggestion.reasonCode!.trim().isNotEmpty) ...[
@@ -319,7 +322,9 @@ class _SuggestionCard extends StatelessWidget {
                     children: [
                       Chip(
                         label: Text(
-                          '来源：${_suggestionReasonLabel(suggestion.reasonCode!)}',
+                          l.mentorSuggestionSource(
+                            _suggestionReasonLabel(l, suggestion.reasonCode!),
+                          ),
                         ),
                       ),
                     ],
@@ -334,27 +339,27 @@ class _SuggestionCard extends StatelessWidget {
   }
 }
 
-String _suggestionReasonLabel(String reasonCode) {
+String _suggestionReasonLabel(AppLocalizations l, String reasonCode) {
   switch (reasonCode) {
     case 'recent_result':
-      return '刚刚的回应';
+      return l.mentorSuggestionReasonRecentResult;
     case 'stage_reinforcement':
-      return '阶段巩固';
+      return l.mentorSuggestionReasonStageReinforcement;
     case 'stage_guide':
-      return '阶段引导';
+      return l.mentorSuggestionReasonStageGuide;
     case 'stage_only':
-      return '阶段建议';
+      return l.mentorSuggestionReasonStageOnly;
     case 'starter_phrase':
-      return '熟悉短句';
+      return l.mentorSuggestionReasonStarterPhrase;
     case 'shared_context_adopted_newer':
     case 'shared_context_adopted_local_gap':
-      return '家庭共享';
+      return l.mentorSuggestionReasonSharedContext;
     case 'fallback':
     case 'safe_small_step':
     case 'context_fallback_used':
-      return '安全建议';
+      return l.mentorSuggestionReasonSafe;
     default:
-      return '建议';
+      return l.mentorSuggestionReasonDefault;
   }
 }
 

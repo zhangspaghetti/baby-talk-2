@@ -1992,6 +1992,36 @@ abstract class AppLocalizations {
   /// **'朗读回应'**
   String get mentorReadResponse;
 
+  /// No description provided for @mentorChatResponseUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近回应已更新'**
+  String get mentorChatResponseUpdated;
+
+  /// No description provided for @mentorChatResponseGenerated.
+  ///
+  /// In zh, this message translates to:
+  /// **'回应已生成'**
+  String get mentorChatResponseGenerated;
+
+  /// No description provided for @mentorChatResponseStatusUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'回应状态已更新'**
+  String get mentorChatResponseStatusUpdated;
+
+  /// No description provided for @mentorChatAccountConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号已连接'**
+  String get mentorChatAccountConnected;
+
+  /// No description provided for @mentorChatRateRemaining.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日剩余 {remaining}/{limit}'**
+  String mentorChatRateRemaining(Object remaining, Object limit);
+
   /// No description provided for @mentorSuggestionIntro.
   ///
   /// In zh, this message translates to:
@@ -2027,6 +2057,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'朗读'**
   String get mentorSuggestionRead;
+
+  /// No description provided for @mentorStatusLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态：{status}'**
+  String mentorStatusLabel(Object status);
+
+  /// No description provided for @mentorSuggestionSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'来源：{reason}'**
+  String mentorSuggestionSource(Object reason);
+
+  /// No description provided for @mentorSuggestionReasonRecentResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚刚的回应'**
+  String get mentorSuggestionReasonRecentResult;
+
+  /// No description provided for @mentorSuggestionReasonStageReinforcement.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段巩固'**
+  String get mentorSuggestionReasonStageReinforcement;
+
+  /// No description provided for @mentorSuggestionReasonStageGuide.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段引导'**
+  String get mentorSuggestionReasonStageGuide;
+
+  /// No description provided for @mentorSuggestionReasonStageOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段建议'**
+  String get mentorSuggestionReasonStageOnly;
+
+  /// No description provided for @mentorSuggestionReasonStarterPhrase.
+  ///
+  /// In zh, this message translates to:
+  /// **'熟悉短句'**
+  String get mentorSuggestionReasonStarterPhrase;
+
+  /// No description provided for @mentorSuggestionReasonSharedContext.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭共享'**
+  String get mentorSuggestionReasonSharedContext;
+
+  /// No description provided for @mentorSuggestionReasonSafe.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全建议'**
+  String get mentorSuggestionReasonSafe;
+
+  /// No description provided for @mentorSuggestionReasonDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议'**
+  String get mentorSuggestionReasonDefault;
 
   /// No description provided for @phraseRecorded.
   ///

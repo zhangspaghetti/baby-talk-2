@@ -120,6 +120,17 @@ void main() {
     expect(find.byKey(const Key('mentor-panel-banner')), findsOneWidget);
     expect(find.textContaining('离线'), findsWidgets);
 
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-suggestion-tab'))),
+    )!;
+    expect(
+      find.text(
+        l.mentorSuggestionSource(l.mentorSuggestionReasonStarterPhrase),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Warm water.'), findsOneWidget);
+
     await tester.tap(find.byKey(const Key('mentor-tab-chat-button')));
     await _pumpUntilFound(tester, find.byKey(const Key('mentor-chat-tab')));
     await tester.scrollUntilVisible(
@@ -193,7 +204,10 @@ void main() {
     );
     expect(find.byKey(const Key('mentor-shared-context-chip')), findsOneWidget);
     expect(find.text('已采用家庭共享建议'), findsOneWidget);
-    expect(find.text('状态：已采用家庭共享建议'), findsOneWidget);
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-suggestion-tab'))),
+    )!;
+    expect(find.text(l.mentorStatusLabel('已采用家庭共享建议')), findsOneWidget);
     expect(find.textContaining('shared_context_adopted_newer'), findsNothing);
     expect(find.textContaining('喂饭时间'), findsWidgets);
   });
@@ -372,6 +386,12 @@ void main() {
     expect(find.byKey(const Key('mentor-chat-response-card')), findsOneWidget);
     expect(find.byKey(const Key('mentor-chat-response-text')), findsOneWidget);
     expect(find.textContaining('I\'m here with you.'), findsOneWidget);
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-chat-response-card'))),
+    )!;
+    expect(find.text(l.mentorChatResponseGenerated), findsOneWidget);
+    expect(find.text(l.mentorChatAccountConnected), findsOneWidget);
+    expect(find.text(l.mentorChatRateRemaining(2, 3)), findsOneWidget);
     expect(
       harness.mentorRepository.appendedFacts.map((fact) => fact.eventType),
       containsAll([

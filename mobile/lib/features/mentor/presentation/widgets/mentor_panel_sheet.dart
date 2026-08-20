@@ -229,7 +229,7 @@ class _MentorChatTab extends ConsumerWidget {
                 label: Text(
                   notifier.chatResponsePhase == null
                       ? availability.title
-                      : '最近回应已更新',
+                      : l.mentorChatResponseUpdated,
                 ),
               ),
               Chip(
@@ -245,7 +245,10 @@ class _MentorChatTab extends ConsumerWidget {
                 Chip(
                   key: const Key('mentor-chat-rate-chip'),
                   label: Text(
-                    '今日剩余 ${notifier.chatRateLimit!.remaining}/${notifier.chatRateLimit!.limit}',
+                    l.mentorChatRateRemaining(
+                      notifier.chatRateLimit!.remaining,
+                      notifier.chatRateLimit!.limit,
+                    ),
                   ),
                 ),
             ],
@@ -272,9 +275,7 @@ class _MentorChatTab extends ConsumerWidget {
                   maxLength: mentorPromptMaxLength,
                   enabled: !notifier.isSubmittingChat,
                   onChanged: notifier.updateChatDraft,
-                  decoration: const InputDecoration(
-                    hintText: '例如：宝宝一直哭，我现在该怎么开口安抚？',
-                  ),
+                  decoration: InputDecoration(hintText: l.mentorChatHint),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -361,11 +362,13 @@ class _ChatResponseCard extends StatelessWidget {
               if (notifier.chatResponseCode != null)
                 Chip(
                   label: Text(
-                    notifier.chatResponseCode == 'ok' ? '回应已生成' : '回应状态已更新',
+                    notifier.chatResponseCode == 'ok'
+                        ? l.mentorChatResponseGenerated
+                        : l.mentorChatResponseStatusUpdated,
                   ),
                 ),
               if (notifier.chatAuthenticated)
-                const Chip(label: Text('账号已连接'))
+                Chip(label: Text(l.mentorChatAccountConnected))
               else
                 Chip(label: Text(l.mentorNotLoggedIn)),
               if (notifier.chatFallbackUsed)

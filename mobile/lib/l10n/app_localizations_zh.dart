@@ -1061,6 +1061,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mentorReadResponse => '朗读回应';
 
   @override
+  String get mentorChatResponseUpdated => '最近回应已更新';
+
+  @override
+  String get mentorChatResponseGenerated => '回应已生成';
+
+  @override
+  String get mentorChatResponseStatusUpdated => '回应状态已更新';
+
+  @override
+  String get mentorChatAccountConnected => '账号已连接';
+
+  @override
+  String mentorChatRateRemaining(Object remaining, Object limit) {
+    return '今日剩余 $remaining/$limit';
+  }
+
+  @override
   String get mentorSuggestionIntro => '先给你几条现在就能说出口的建议。离线时也可以直接用，不需要等聊天连通。';
 
   @override
@@ -1077,6 +1094,40 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mentorSuggestionRead => '朗读';
+
+  @override
+  String mentorStatusLabel(Object status) {
+    return '状态：$status';
+  }
+
+  @override
+  String mentorSuggestionSource(Object reason) {
+    return '来源：$reason';
+  }
+
+  @override
+  String get mentorSuggestionReasonRecentResult => '刚刚的回应';
+
+  @override
+  String get mentorSuggestionReasonStageReinforcement => '阶段巩固';
+
+  @override
+  String get mentorSuggestionReasonStageGuide => '阶段引导';
+
+  @override
+  String get mentorSuggestionReasonStageOnly => '阶段建议';
+
+  @override
+  String get mentorSuggestionReasonStarterPhrase => '熟悉短句';
+
+  @override
+  String get mentorSuggestionReasonSharedContext => '家庭共享';
+
+  @override
+  String get mentorSuggestionReasonSafe => '安全建议';
+
+  @override
+  String get mentorSuggestionReasonDefault => '建议';
 
   @override
   String get phraseRecorded => '已记录';
