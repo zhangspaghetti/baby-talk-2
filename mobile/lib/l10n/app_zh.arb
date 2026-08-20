@@ -665,6 +665,27 @@
   "@practiceListenOnce": { "description": "T4 one-turn listen button" },
   "practiceListenOnce": "听一下",
 
+  "@practiceReplayAudio": { "description": "T4 one-turn replay button" },
+  "practiceReplayAudio": "重播",
+
+  "@practicePlayAudioSemantics": { "description": "T4 one-turn play accessibility label" },
+  "practicePlayAudioSemantics": "播放音频",
+
+  "@practiceReplayAudioSemantics": { "description": "T4 one-turn replay accessibility label" },
+  "practiceReplayAudioSemantics": "重播音频",
+
+  "@practicePauseAudio": { "description": "T4 one-turn pause button" },
+  "practicePauseAudio": "暂停",
+
+  "@practicePauseAudioSemantics": { "description": "T4 one-turn pause accessibility label" },
+  "practicePauseAudioSemantics": "暂停音频",
+
+  "@practiceResumeAudio": { "description": "T4 one-turn resume button" },
+  "practiceResumeAudio": "继续播放",
+
+  "@practiceResumeAudioSemantics": { "description": "T4 one-turn resume accessibility label" },
+  "practiceResumeAudioSemantics": "继续播放音频",
+
   "@practiceSaid": { "description": "T4 one-turn said button" },
   "practiceSaid": "我说了",
 
@@ -676,6 +697,9 @@
 
   "@practiceAudioPlayingInline": { "description": "T4 one-turn audio playback announcement" },
   "practiceAudioPlayingInline": "正在播放音频…",
+
+  "@practiceAudioPausedInline": { "description": "T4 one-turn audio paused announcement" },
+  "practiceAudioPausedInline": "音频已暂停",
 
   "@practiceAudioMissingInline": { "description": "T4 one-turn inline copy when current utterance has no audio asset" },
   "practiceAudioMissingInline": "这句暂时没有音频，可以直接说。",

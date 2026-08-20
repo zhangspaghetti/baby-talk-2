@@ -3488,6 +3488,48 @@ abstract class AppLocalizations {
   /// **'听一下'**
   String get practiceListenOnce;
 
+  /// T4 one-turn replay button
+  ///
+  /// In zh, this message translates to:
+  /// **'重播'**
+  String get practiceReplayAudio;
+
+  /// T4 one-turn play accessibility label
+  ///
+  /// In zh, this message translates to:
+  /// **'播放音频'**
+  String get practicePlayAudioSemantics;
+
+  /// T4 one-turn replay accessibility label
+  ///
+  /// In zh, this message translates to:
+  /// **'重播音频'**
+  String get practiceReplayAudioSemantics;
+
+  /// T4 one-turn pause button
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get practicePauseAudio;
+
+  /// T4 one-turn pause accessibility label
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停音频'**
+  String get practicePauseAudioSemantics;
+
+  /// T4 one-turn resume button
+  ///
+  /// In zh, this message translates to:
+  /// **'继续播放'**
+  String get practiceResumeAudio;
+
+  /// T4 one-turn resume accessibility label
+  ///
+  /// In zh, this message translates to:
+  /// **'继续播放音频'**
+  String get practiceResumeAudioSemantics;
+
   /// T4 one-turn said button
   ///
   /// In zh, this message translates to:
@@ -3511,6 +3553,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正在播放音频…'**
   String get practiceAudioPlayingInline;
+
+  /// T4 one-turn audio paused announcement
+  ///
+  /// In zh, this message translates to:
+  /// **'音频已暂停'**
+  String get practiceAudioPausedInline;
 
   /// T4 one-turn inline copy when current utterance has no audio asset
   ///

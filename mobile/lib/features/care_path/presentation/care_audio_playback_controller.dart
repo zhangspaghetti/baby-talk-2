@@ -9,9 +9,17 @@ import 'package:mobile/features/practice/presentation/practice_audio_controller.
 abstract interface class CareAudioPlaybackController {
   Stream<CareAudioPlaybackCompletion> get completionStream;
 
+  CareAudioPlaybackCapabilities get capabilities;
+
   Future<void> play(CareAudioPlaybackRequest request);
 
   Future<void> stop();
+
+  Future<void> pause();
+
+  Future<void> resume();
+
+  Future<void> setPlaybackRate(double rate);
 
   Future<void> dispose();
 }
@@ -20,10 +28,51 @@ class CareAudioPlaybackRequest {
   const CareAudioPlaybackRequest({
     required this.source,
     required this.sessionId,
+    this.playbackRate = 1.0,
   });
 
   final CareAudioSource source;
   final int sessionId;
+  final double playbackRate;
+}
+
+class CareAudioPlaybackCapabilities {
+  const CareAudioPlaybackCapabilities({
+    required this.canAutoPlay,
+    required this.canPauseAndResume,
+    required this.canChangePlaybackRate,
+  });
+
+  static const supported = CareAudioPlaybackCapabilities(
+    canAutoPlay: true,
+    canPauseAndResume: true,
+    canChangePlaybackRate: true,
+  );
+
+  static const legacyAssetOnly = CareAudioPlaybackCapabilities(
+    canAutoPlay: false,
+    canPauseAndResume: false,
+    canChangePlaybackRate: false,
+  );
+
+  final bool canAutoPlay;
+  final bool canPauseAndResume;
+  final bool canChangePlaybackRate;
+}
+
+class CareTurnAudioPlaybackPolicy {
+  const CareTurnAudioPlaybackPolicy({
+    required this.autoPlayEnabled,
+    required this.playbackRate,
+  });
+
+  static const disabled = CareTurnAudioPlaybackPolicy(
+    autoPlayEnabled: false,
+    playbackRate: 1.0,
+  );
+
+  final bool autoPlayEnabled;
+  final double playbackRate;
 }
 
 class CareAudioPlaybackCompletion {
@@ -45,17 +94,23 @@ class SourceNeutralCareAudioPlaybackController
   int _intent = 0;
 
   @override
+  CareAudioPlaybackCapabilities get capabilities =>
+      CareAudioPlaybackCapabilities.supported;
+
+  @override
   Stream<CareAudioPlaybackCompletion> get completionStream =>
       _output.completionStream;
 
   @override
   Future<void> play(CareAudioPlaybackRequest request) async {
     final intent = ++_intent;
+    _validatePlaybackRate(request.playbackRate);
     switch (request.source) {
       case CareAssetAudioSource(:final assetPath):
         await _output.playAsset(
           _normalizedAssetPath(assetPath),
           sessionId: request.sessionId,
+          playbackRate: request.playbackRate,
         );
       case final generatedSource as GeneratedCareAudioSource:
         final payload = await _generatedAudioRepository.load(generatedSource);
@@ -66,6 +121,7 @@ class SourceNeutralCareAudioPlaybackController
           payload.bytes,
           payload.mimeType,
           sessionId: request.sessionId,
+          playbackRate: request.playbackRate,
         );
     }
   }
@@ -74,6 +130,18 @@ class SourceNeutralCareAudioPlaybackController
   Future<void> stop() async {
     _intent += 1;
     await _output.stop();
+  }
+
+  @override
+  Future<void> pause() => _output.pause();
+
+  @override
+  Future<void> resume() => _output.resume();
+
+  @override
+  Future<void> setPlaybackRate(double rate) {
+    _validatePlaybackRate(rate);
+    return _output.setPlaybackRate(rate);
   }
 
   @override
@@ -91,20 +159,37 @@ class SourceNeutralCareAudioPlaybackController
         ? normalized.substring(7)
         : normalized;
   }
+
+  void _validatePlaybackRate(double rate) {
+    if (rate < 0.5 || rate > 2.0) {
+      throw ArgumentError.value(rate, 'rate', '播放速度必须在 0.5 到 2.0 倍之间。');
+    }
+  }
 }
 
 abstract interface class CareAudioOutput {
   Stream<CareAudioPlaybackCompletion> get completionStream;
 
-  Future<void> playAsset(String assetPath, {required int sessionId});
+  Future<void> playAsset(
+    String assetPath, {
+    required int sessionId,
+    required double playbackRate,
+  });
 
   Future<void> playBytes(
     List<int> bytes,
     String mimeType, {
     required int sessionId,
+    required double playbackRate,
   });
 
   Future<void> stop();
+
+  Future<void> pause();
+
+  Future<void> resume();
+
+  Future<void> setPlaybackRate(double rate);
 
   Future<void> dispose();
 }
@@ -123,10 +208,15 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
       _completions.stream;
 
   @override
-  Future<void> playAsset(String assetPath, {required int sessionId}) {
+  Future<void> playAsset(
+    String assetPath, {
+    required int sessionId,
+    required double playbackRate,
+  }) {
     return _startSession(
       sessionId,
-      (player) => player.play(AssetSource(assetPath)),
+      playbackRate: playbackRate,
+      start: (player) => player.play(AssetSource(assetPath)),
     );
   }
 
@@ -135,10 +225,12 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
     List<int> bytes,
     String mimeType, {
     required int sessionId,
+    required double playbackRate,
   }) {
     return _startSession(
       sessionId,
-      (player) => player.play(
+      playbackRate: playbackRate,
+      start: (player) => player.play(
         BytesSource(Uint8List.fromList(bytes), mimeType: mimeType),
       ),
     );
@@ -146,6 +238,20 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
 
   @override
   Future<void> stop() => _disposeActivePlayer();
+
+  @override
+  Future<void> pause() => _activePlayer?.pause() ?? Future.value();
+
+  @override
+  Future<void> resume() => _activePlayer?.resume() ?? Future.value();
+
+  @override
+  Future<void> setPlaybackRate(double rate) async {
+    if (rate < 0.5 || rate > 2.0) {
+      throw ArgumentError.value(rate, 'rate', '播放速度必须在 0.5 到 2.0 倍之间。');
+    }
+    await _activePlayer?.setPlaybackRate(rate);
+  }
 
   @override
   Future<void> dispose() async {
@@ -159,9 +265,10 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
   }
 
   Future<void> _startSession(
-    int sessionId,
-    Future<void> Function(AudioPlayer player) start,
-  ) async {
+    int sessionId, {
+    required double playbackRate,
+    required Future<void> Function(AudioPlayer player) start,
+  }) async {
     await _disposeActivePlayer();
     final player = _initialPlayer ?? AudioPlayer();
     _initialPlayer = null;
@@ -173,6 +280,9 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
     });
     try {
       await start(player);
+      // audioplayers applies playback rate after a source starts. Calling it
+      // before play only updates the cached value on some platforms.
+      await player.setPlaybackRate(playbackRate);
     } catch (_) {
       if (identical(_activePlayer, player)) {
         await _disposeActivePlayer();
@@ -214,6 +324,10 @@ class LegacyPracticeCareAudioPlaybackController
   int? _activeSessionId;
 
   @override
+  CareAudioPlaybackCapabilities get capabilities =>
+      CareAudioPlaybackCapabilities.legacyAssetOnly;
+
+  @override
   Stream<CareAudioPlaybackCompletion> get completionStream =>
       _completions.stream;
 
@@ -242,6 +356,15 @@ class LegacyPracticeCareAudioPlaybackController
     _activeSessionId = null;
     await _delegate.stop();
   }
+
+  @override
+  Future<void> pause() => _delegate.stop();
+
+  @override
+  Future<void> resume() => Future.value();
+
+  @override
+  Future<void> setPlaybackRate(double rate) => Future.value();
 
   @override
   Future<void> dispose() async {

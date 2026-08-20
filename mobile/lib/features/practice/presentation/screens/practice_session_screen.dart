@@ -217,9 +217,15 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
       _scheduleHandoffConfirmation(generatedContentId);
     }
 
+    final playbackSettings = ref.watch(settingsNotifierProvider).snapshot;
+
     return CareTurnSurface(
       notifier: notifier,
       audioControllerFactory: widget.audioControllerFactory,
+      playbackPolicy: CareTurnAudioPlaybackPolicy(
+        autoPlayEnabled: playbackSettings.autoPlayEnabled,
+        playbackRate: playbackSettings.audioSpeed,
+      ),
       careAudioControllerFactory: widget.audioControllerFactory == null
           ? () => SourceNeutralCareAudioPlaybackController(
               generatedAudioRepository: ref.read(

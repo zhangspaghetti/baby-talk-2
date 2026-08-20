@@ -63,6 +63,27 @@ void main() {
   });
 
   test(
+    'requested playback rate reaches the audio output before asset playback',
+    () async {
+      final output = _MemoryOutput();
+      final controller = SourceNeutralCareAudioPlaybackController(
+        generatedAudioRepository: _repository(_DelayedGateway()),
+        output: output,
+      );
+
+      await controller.play(
+        const CareAudioPlaybackRequest(
+          source: CareAssetAudioSource(assetPath: 'assets/audio/seed.mp3'),
+          sessionId: 1,
+          playbackRate: 2.0,
+        ),
+      );
+
+      expect(output.playbackRates, <double>[2.0]);
+    },
+  );
+
+  test(
     'old output completion never becomes a newer playback session',
     () async {
       final output = _MemoryOutput();
@@ -275,6 +296,7 @@ class _MemoryOutput implements CareAudioOutput {
       StreamController<CareAudioPlaybackCompletion>.broadcast();
   final List<List<int>> playedBytes = <List<int>>[];
   final List<String> playedAssets = <String>[];
+  final List<double> playbackRates = <double>[];
   int stopCalls = 0;
 
   @override
@@ -289,8 +311,13 @@ class _MemoryOutput implements CareAudioOutput {
   Future<void> dispose() => _completion.close();
 
   @override
-  Future<void> playAsset(String assetPath, {required int sessionId}) async {
+  Future<void> playAsset(
+    String assetPath, {
+    required int sessionId,
+    required double playbackRate,
+  }) async {
     playedAssets.add(assetPath);
+    playbackRates.add(playbackRate);
   }
 
   @override
@@ -298,12 +325,23 @@ class _MemoryOutput implements CareAudioOutput {
     List<int> bytes,
     String mimeType, {
     required int sessionId,
+    required double playbackRate,
   }) async {
     playedBytes.add(bytes);
+    playbackRates.add(playbackRate);
   }
 
   @override
   Future<void> stop() async {
     stopCalls += 1;
   }
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume() async {}
+
+  @override
+  Future<void> setPlaybackRate(double rate) async {}
 }

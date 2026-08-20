@@ -26,6 +26,7 @@ class CareTurnSurface extends StatefulWidget {
     required this.notifier,
     this.audioControllerFactory,
     this.careAudioControllerFactory,
+    this.playbackPolicy = CareTurnAudioPlaybackPolicy.disabled,
     this.onTraceReady,
     this.onTraceContinue,
     this.traceContinueLabel,
@@ -44,6 +45,7 @@ class CareTurnSurface extends StatefulWidget {
   final CarePathNotifier notifier;
   final PracticeAudioController Function()? audioControllerFactory;
   final CareAudioPlaybackController Function()? careAudioControllerFactory;
+  final CareTurnAudioPlaybackPolicy playbackPolicy;
   final CareTurnTraceReady? onTraceReady;
   final VoidCallback? onTraceContinue;
   final String? traceContinueLabel;
@@ -66,6 +68,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   CareAudioPlaybackController? _audioController;
   StreamSubscription<CareAudioPlaybackCompletion>? _audioCompletionSubscription;
   bool _isPlayingAudio = false;
+  bool _isAudioPaused = false;
+  bool _hasPlayedAudio = false;
   String? _audioMessage;
   String? _lastNotifiedTraceEventKey;
   String? _activeAudioKey;
@@ -75,6 +79,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   Future<bool>? _audioStopBarrier;
   bool _isAudioStopping = false;
   bool _audioStopFailed = false;
+  String? _lastAutoPlayedAudioKey;
 
   @override
   void initState() {
@@ -83,6 +88,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _initializeAudioController();
     widget.notifier.addListener(_onNotifierChanged);
     _notifyTraceIfReady();
+    _scheduleAutoplayIfEligible();
   }
 
   @override
@@ -94,9 +100,14 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       _cancelAudioForSourceChange();
       widget.notifier.addListener(_onNotifierChanged);
       _activeAudioKey = _audioKey(widget.notifier.snapshot?.currentUtterance);
+      _lastAutoPlayedAudioKey = null;
     }
     if (notifierChanged || oldWidget.onTraceReady != widget.onTraceReady) {
       _notifyTraceIfReady();
+    }
+    if (notifierChanged || oldWidget.playbackPolicy != widget.playbackPolicy) {
+      _scheduleAutoplayIfEligible();
+      _applyPlaybackRateIfActive();
     }
   }
 
@@ -137,6 +148,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       final l = AppLocalizations.of(context)!;
       setState(() {
         _isPlayingAudio = false;
+        _isAudioPaused = false;
+        _hasPlayedAudio = true;
         _audioMessage = l.practiceAudioPlayedOnce;
         _pendingAudioKey = null;
         _playbackIntent = null;
@@ -151,10 +164,12 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     final nextAudioKey = _audioKey(widget.notifier.snapshot?.currentUtterance);
     if (_activeAudioKey != nextAudioKey) {
       _cancelAudioForSourceChange();
+      _lastAutoPlayedAudioKey = null;
     }
     _activeAudioKey = nextAudioKey;
     _notifyTraceIfReady();
     setState(() {});
+    _scheduleAutoplayIfEligible();
   }
 
   void _cancelAudioForSourceChange() {
@@ -162,6 +177,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _pendingAudioKey = null;
     _playbackIntent = null;
     _isPlayingAudio = false;
+    _isAudioPaused = false;
     _audioMessage = null;
     _isAudioStopping = true;
     _audioStopFailed = false;
@@ -222,6 +238,113 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     });
   }
 
+  void _scheduleAutoplayIfEligible() {
+    final snapshot = widget.notifier.snapshot;
+    final utterance = snapshot?.currentUtterance;
+    final audioKey = _audioKey(utterance);
+    if (utterance == null ||
+        audioKey == null ||
+        _lastAutoPlayedAudioKey == audioKey ||
+        snapshot?.phase != CareTurnPhase.utteranceReady ||
+        !widget.playbackPolicy.autoPlayEnabled ||
+        !(_audioController?.capabilities.canAutoPlay ?? false)) {
+      return;
+    }
+    _lastAutoPlayedAudioKey = audioKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _activeAudioKey != audioKey ||
+          widget.notifier.snapshot?.phase != CareTurnPhase.utteranceReady ||
+          !widget.playbackPolicy.autoPlayEnabled) {
+        return;
+      }
+      unawaited(_playCurrentUtterance(utterance));
+    });
+  }
+
+  void _applyPlaybackRateIfActive() {
+    final controller = _audioController;
+    if (controller == null ||
+        !_isPlayingAudio ||
+        !controller.capabilities.canChangePlaybackRate) {
+      return;
+    }
+    final intent = _audioIntent;
+    unawaited(
+      controller.setPlaybackRate(widget.playbackPolicy.playbackRate).catchError(
+        (_) {
+          if (mounted && intent == _audioIntent) {
+            setState(() {
+              _isPlayingAudio = false;
+              _audioMessage = AppLocalizations.of(
+                context,
+              )!.practiceAudioUnavailableInline;
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _pauseCurrentAudio() async {
+    final controller = _audioController;
+    if (controller == null ||
+        !_isPlayingAudio ||
+        !controller.capabilities.canPauseAndResume) {
+      return;
+    }
+    final intent = _audioIntent;
+    try {
+      await controller.pause();
+      if (!mounted || intent != _audioIntent) return;
+      final l = AppLocalizations.of(context)!;
+      setState(() {
+        _isPlayingAudio = false;
+        _isAudioPaused = true;
+        _audioMessage = l.practiceAudioPausedInline;
+      });
+    } on Object {
+      if (mounted && intent == _audioIntent) {
+        setState(() {
+          _isPlayingAudio = false;
+          _isAudioPaused = false;
+          _audioMessage = AppLocalizations.of(
+            context,
+          )!.practiceAudioUnavailableInline;
+        });
+      }
+    }
+  }
+
+  Future<void> _resumeCurrentAudio() async {
+    final controller = _audioController;
+    if (controller == null ||
+        !_isAudioPaused ||
+        !controller.capabilities.canPauseAndResume) {
+      return;
+    }
+    final intent = _audioIntent;
+    try {
+      await controller.resume();
+      if (!mounted || intent != _audioIntent) return;
+      final l = AppLocalizations.of(context)!;
+      setState(() {
+        _isPlayingAudio = true;
+        _isAudioPaused = false;
+        _audioMessage = l.practiceAudioPlayingInline;
+      });
+    } on Object {
+      if (mounted && intent == _audioIntent) {
+        setState(() {
+          _isAudioPaused = false;
+          _audioMessage = AppLocalizations.of(
+            context,
+          )!.practiceAudioUnavailableInline;
+        });
+      }
+    }
+  }
+
   Future<void> _playCurrentUtterance(CareUtterance utterance) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final l = AppLocalizations.of(context)!;
@@ -243,6 +366,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _playbackIntent = null;
     setState(() {
       _isPlayingAudio = true;
+      _isAudioPaused = false;
       _audioMessage = l.practiceAudioLoadingInline;
     });
     try {
@@ -268,7 +392,11 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         return;
       }
       await controller.play(
-        CareAudioPlaybackRequest(source: source, sessionId: intent),
+        CareAudioPlaybackRequest(
+          source: source,
+          sessionId: intent,
+          playbackRate: widget.playbackPolicy.playbackRate,
+        ),
       );
       if (!mounted ||
           intent != _audioIntent ||
@@ -287,6 +415,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       }
       setState(() {
         _isPlayingAudio = false;
+        _isAudioPaused = false;
         _audioMessage = l.practiceAudioUnavailableInline;
         _pendingAudioKey = null;
         _playbackIntent = null;
@@ -529,41 +658,108 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                       key: const Key('care-turn-semantics-actions'),
                       container: true,
                       sortKey: OrdinalSortKey(4),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              key: const Key('care-turn-listen-once'),
-                              onPressed:
-                                  _isPlayingAudio ||
-                                      _isAudioStopping ||
-                                      _audioStopFailed
-                                  ? null
-                                  : () => _playCurrentUtterance(utterance),
-                              icon: Icon(
-                                _isPlayingAudio
-                                    ? Icons.equalizer_rounded
-                                    : Icons.volume_up_rounded,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Semantics(
+                                  key: const Key(
+                                    'care-turn-audio-primary-control',
+                                  ),
+                                  button: true,
+                                  enabled:
+                                      !_isPlayingAudio &&
+                                      !_isAudioPaused &&
+                                      !_isAudioStopping &&
+                                      !_audioStopFailed,
+                                  label: _hasPlayedAudio
+                                      ? l.practiceReplayAudioSemantics
+                                      : l.practicePlayAudioSemantics,
+                                  child: OutlinedButton.icon(
+                                    key: const Key('care-turn-listen-once'),
+                                    onPressed:
+                                        _isPlayingAudio ||
+                                            _isAudioPaused ||
+                                            _isAudioStopping ||
+                                            _audioStopFailed
+                                        ? null
+                                        : () =>
+                                              _playCurrentUtterance(utterance),
+                                    icon: Icon(
+                                      _isPlayingAudio
+                                          ? Icons.equalizer_rounded
+                                          : Icons.volume_up_rounded,
+                                    ),
+                                    label: Text(
+                                      _hasPlayedAudio
+                                          ? l.practiceReplayAudio
+                                          : l.practiceListenOnce,
+                                    ),
+                                  ),
+                                ),
                               ),
-                              label: Text(l.practiceListenOnce),
-                            ),
-                          ),
-                          const SizedBox(width: AppLayoutConstants.spacingSm),
-                          Expanded(
-                            child: FilledButton.icon(
-                              key: const Key('care-turn-said-button'),
-                              onPressed:
-                                  snapshot.phase ==
-                                          CareTurnPhase.utteranceReady &&
-                                      !blocksStarterPhraseActions
-                                  ? () {
-                                      AppHaptics.lightTap();
-                                      notifier.markSaid();
-                                    }
-                                  : null,
-                              icon: const Icon(Icons.check_rounded),
-                              label: Text(l.practiceSaid),
-                            ),
+                              if ((_isPlayingAudio || _isAudioPaused) &&
+                                  (_audioController
+                                          ?.capabilities
+                                          .canPauseAndResume ??
+                                      false)) ...[
+                                const SizedBox(
+                                  width: AppLayoutConstants.spacingSm,
+                                ),
+                                Expanded(
+                                  child: Semantics(
+                                    key: const Key(
+                                      'care-turn-audio-pause-control',
+                                    ),
+                                    button: true,
+                                    label: _isAudioPaused
+                                        ? l.practiceResumeAudioSemantics
+                                        : l.practicePauseAudioSemantics,
+                                    child: OutlinedButton.icon(
+                                      key: Key(
+                                        _isAudioPaused
+                                            ? 'care-turn-resume-audio'
+                                            : 'care-turn-pause-audio',
+                                      ),
+                                      onPressed: _isAudioPaused
+                                          ? _resumeCurrentAudio
+                                          : _pauseCurrentAudio,
+                                      icon: Icon(
+                                        _isAudioPaused
+                                            ? Icons.play_arrow_rounded
+                                            : Icons.pause_rounded,
+                                      ),
+                                      label: Text(
+                                        _isAudioPaused
+                                            ? l.practiceResumeAudio
+                                            : l.practicePauseAudio,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(
+                                width: AppLayoutConstants.spacingSm,
+                              ),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  key: const Key('care-turn-said-button'),
+                                  onPressed:
+                                      snapshot.phase ==
+                                              CareTurnPhase.utteranceReady &&
+                                          !blocksStarterPhraseActions
+                                      ? () {
+                                          AppHaptics.lightTap();
+                                          notifier.markSaid();
+                                        }
+                                      : null,
+                                  icon: const Icon(Icons.check_rounded),
+                                  label: Text(l.practiceSaid),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

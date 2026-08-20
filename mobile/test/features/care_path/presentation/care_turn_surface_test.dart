@@ -241,6 +241,127 @@ void main() {
   });
 
   testWidgets(
+    'autoplay starts only when the matching Care Turn becomes interactive',
+    (tester) async {
+      final audio = _ControllableCareAudioPlaybackController();
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: notifier,
+          careAudio: audio,
+          playbackPolicy: const CareTurnAudioPlaybackPolicy(
+            autoPlayEnabled: true,
+            playbackRate: 2.0,
+          ),
+        ),
+      );
+
+      expect(audio.requests, isEmpty);
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(audio.requests, hasLength(1));
+      expect(audio.requests.single.playbackRate, 2.0);
+      expect(
+        audio.requests.single.source,
+        isA<CareAssetAudioSource>().having(
+          (source) => source.assetPath,
+          'asset path',
+          'assets/audio/phrases/bath_time_warm_water.mp3',
+        ),
+      );
+    },
+  );
+
+  testWidgets(
+    'audio controls pause, resume, and replay with localized semantics',
+    (tester) async {
+      final audio = _ControllableCareAudioPlaybackController();
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: notifier,
+          careAudio: audio,
+          playbackPolicy: const CareTurnAudioPlaybackPolicy(
+            autoPlayEnabled: false,
+            playbackRate: 0.5,
+          ),
+        ),
+      );
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await tester.pump();
+      expect(audio.requests, isEmpty);
+
+      await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+      await tester.pump();
+      expect(audio.requests.single.playbackRate, 0.5);
+      expect(find.byKey(const Key('care-turn-pause-audio')), findsOneWidget);
+      expect(
+        tester
+            .widget<Semantics>(
+              find.byKey(const Key('care-turn-audio-pause-control')),
+            )
+            .properties
+            .label,
+        '暂停音频',
+      );
+
+      await tester.tap(find.byKey(const Key('care-turn-pause-audio')));
+      await tester.pump();
+      expect(audio.pauseCalls, 1);
+      expect(find.byKey(const Key('care-turn-resume-audio')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('care-turn-resume-audio')));
+      await tester.pump();
+      expect(audio.resumeCalls, 1);
+      audio.completeLastPlayback();
+      await tester.pump();
+      expect(find.text('重播'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+      await tester.pump();
+      expect(audio.requests, hasLength(2));
+    },
+  );
+
+  testWidgets(
+    'legacy asset playback does not claim autoplay or pause capabilities',
+    (tester) async {
+      final legacy = _SilentPracticeAudioController();
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: notifier,
+          audioControllerFactory: () => legacy,
+          playbackPolicy: const CareTurnAudioPlaybackPolicy(
+            autoPlayEnabled: true,
+            playbackRate: 2.0,
+          ),
+        ),
+      );
+
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(legacy.playCalls, 0);
+      expect(find.byKey(const Key('care-turn-pause-audio')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+      await tester.pump();
+      expect(legacy.playCalls, 1);
+      expect(find.byKey(const Key('care-turn-pause-audio')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'generated branch transition cancels a pre-mounted starter load',
     (tester) async {
       final generatedNotifier = CarePathNotifier(
@@ -591,6 +712,10 @@ Widget _surfaceTestApp({
   required CarePathNotifier notifier,
   CareTurnTraceReady? onTraceReady,
   CareTurnRetryReaction? onRetryReaction,
+  CareAudioPlaybackController? careAudio,
+  PracticeAudioController Function()? audioControllerFactory,
+  CareTurnAudioPlaybackPolicy playbackPolicy =
+      CareTurnAudioPlaybackPolicy.disabled,
 }) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -598,7 +723,10 @@ Widget _surfaceTestApp({
     home: Scaffold(
       body: CareTurnSurface(
         notifier: notifier,
-        audioControllerFactory: _SilentPracticeAudioController.new,
+        audioControllerFactory:
+            audioControllerFactory ?? _SilentPracticeAudioController.new,
+        careAudioControllerFactory: careAudio == null ? null : () => careAudio,
+        playbackPolicy: playbackPolicy,
         onTraceReady: onTraceReady,
         onRetryReaction: onRetryReaction,
         onQuietExit: () {},
@@ -625,12 +753,15 @@ Widget _generatedSurfaceTestApp({
 
 class _SilentPracticeAudioController implements PracticeAudioController {
   final StreamController<void> _completion = StreamController<void>.broadcast();
+  int playCalls = 0;
 
   @override
   Stream<void> get completionStream => _completion.stream;
 
   @override
-  Future<void> playAsset(String assetPath) async {}
+  Future<void> playAsset(String assetPath) async {
+    playCalls += 1;
+  }
 
   @override
   Future<void> stop() async {}
@@ -644,6 +775,10 @@ class _FailingCareAudioPlaybackController
   final StreamController<CareAudioPlaybackCompletion> _completion =
       StreamController<CareAudioPlaybackCompletion>.broadcast();
   int playCalls = 0;
+
+  @override
+  CareAudioPlaybackCapabilities get capabilities =>
+      CareAudioPlaybackCapabilities.supported;
 
   @override
   Stream<CareAudioPlaybackCompletion> get completionStream =>
@@ -660,12 +795,25 @@ class _FailingCareAudioPlaybackController
 
   @override
   Future<void> stop() async {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume() async {}
+
+  @override
+  Future<void> setPlaybackRate(double rate) async {}
 }
 
 class _HeldCareAudioPlaybackController implements CareAudioPlaybackController {
   final StreamController<CareAudioPlaybackCompletion> _completion =
       StreamController<CareAudioPlaybackCompletion>.broadcast();
   final Completer<void> _playback = Completer<void>();
+
+  @override
+  CareAudioPlaybackCapabilities get capabilities =>
+      CareAudioPlaybackCapabilities.supported;
 
   @override
   Stream<CareAudioPlaybackCompletion> get completionStream =>
@@ -681,6 +829,15 @@ class _HeldCareAudioPlaybackController implements CareAudioPlaybackController {
 
   @override
   Future<void> stop() async {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume() async {}
+
+  @override
+  Future<void> setPlaybackRate(double rate) async {}
 }
 
 class _DeferredCareAudioPlaybackController
@@ -698,6 +855,10 @@ class _DeferredCareAudioPlaybackController
   final bool failStop;
   int _generation = 0;
   int stopCalls = 0;
+
+  @override
+  CareAudioPlaybackCapabilities get capabilities =>
+      CareAudioPlaybackCapabilities.supported;
 
   @override
   Stream<CareAudioPlaybackCompletion> get completionStream =>
@@ -739,6 +900,15 @@ class _DeferredCareAudioPlaybackController
     _generation += 1;
   }
 
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> resume() async {}
+
+  @override
+  Future<void> setPlaybackRate(double rate) async {}
+
   Completer<void> _requestFor(CareAudioSource source) {
     return _requested.putIfAbsent(source, Completer<void>.new);
   }
@@ -746,6 +916,53 @@ class _DeferredCareAudioPlaybackController
   Completer<void> _responseFor(CareAudioSource source) {
     return _responses.putIfAbsent(source, Completer<void>.new);
   }
+}
+
+class _ControllableCareAudioPlaybackController
+    implements CareAudioPlaybackController {
+  final StreamController<CareAudioPlaybackCompletion> _completion =
+      StreamController<CareAudioPlaybackCompletion>.broadcast();
+  final List<CareAudioPlaybackRequest> requests = <CareAudioPlaybackRequest>[];
+  int pauseCalls = 0;
+  int resumeCalls = 0;
+
+  @override
+  CareAudioPlaybackCapabilities get capabilities =>
+      CareAudioPlaybackCapabilities.supported;
+
+  @override
+  Stream<CareAudioPlaybackCompletion> get completionStream =>
+      _completion.stream;
+
+  void completeLastPlayback() {
+    _completion.add(
+      CareAudioPlaybackCompletion(sessionId: requests.last.sessionId),
+    );
+  }
+
+  @override
+  Future<void> dispose() => _completion.close();
+
+  @override
+  Future<void> pause() async {
+    pauseCalls += 1;
+  }
+
+  @override
+  Future<void> play(CareAudioPlaybackRequest request) async {
+    requests.add(request);
+  }
+
+  @override
+  Future<void> resume() async {
+    resumeCalls += 1;
+  }
+
+  @override
+  Future<void> setPlaybackRate(double rate) async {}
+
+  @override
+  Future<void> stop() async {}
 }
 
 class _GeneratedBranchPracticeRepository implements PracticeRepository {

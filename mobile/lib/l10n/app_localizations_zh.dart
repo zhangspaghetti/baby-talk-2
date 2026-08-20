@@ -1867,6 +1867,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get practiceListenOnce => '听一下';
 
   @override
+  String get practiceReplayAudio => '重播';
+
+  @override
+  String get practicePlayAudioSemantics => '播放音频';
+
+  @override
+  String get practiceReplayAudioSemantics => '重播音频';
+
+  @override
+  String get practicePauseAudio => '暂停';
+
+  @override
+  String get practicePauseAudioSemantics => '暂停音频';
+
+  @override
+  String get practiceResumeAudio => '继续播放';
+
+  @override
+  String get practiceResumeAudioSemantics => '继续播放音频';
+
+  @override
   String get practiceSaid => '我说了';
 
   @override
@@ -1877,6 +1898,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get practiceAudioPlayingInline => '正在播放音频…';
+
+  @override
+  String get practiceAudioPausedInline => '音频已暂停';
 
   @override
   String get practiceAudioMissingInline => '这句暂时没有音频，可以直接说。';
