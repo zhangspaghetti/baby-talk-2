@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from tool import qa_candidate_acceptance as harness
 
@@ -76,6 +77,26 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             self.assertFalse(report.passes)
             self.assertIn("invalid_case_receipt", report.violations)
 
+    def test_case_receipt_must_bind_to_apk_and_independent_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            apk = root / "candidate.apk"
+            apk.write_bytes(b"frozen-apk")
+            manifest = root / "candidate.json"
+            candidate = _manifest(apk)
+            manifest.write_text(json.dumps(candidate), encoding="utf-8")
+            receipts = _receipts(candidate)
+            receipts["android_audio"]["apk_sha256"] = _sha256_text("other-apk")
+            receipts["android_audio"]["evidence"]["user_visible"]["surface_sha256"] = _sha256_text(
+                "fake-screenshot"
+            )
+
+            with _passing_harness(candidate, receipts=receipts):
+                report = harness.run_acceptance(manifest)
+
+            self.assertFalse(report.passes)
+            self.assertIn("invalid_case_receipt", report.violations)
+
     def test_blocked_required_case_fails_closed_after_device_install(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -119,13 +140,45 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             self.assertEqual(report.violations, ["candidate_identity_mismatch"])
             collect_device.assert_not_called()
 
+    def test_manifest_rejects_arbitrary_case_command(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            apk = root / "candidate.apk"
+            apk.write_bytes(b"frozen-apk")
+            manifest = root / "candidate.json"
+            candidate = _manifest(apk)
+            candidate["cases"][0] = {
+                "id": harness.REQUIRED_CASE_IDS[0],
+                "command": ["cmd", "/c", "exit", "0"],
+            }
+            manifest.write_text(json.dumps(candidate), encoding="utf-8")
+
+            report = harness.run_acceptance(manifest)
+
+            self.assertEqual(report.violations, ["invalid_manifest"])
+
+    def test_gateway_redirect_is_rejected(self) -> None:
+        error = HTTPError(
+            "http://127.0.0.1:19091/qa/candidate-compatibility",
+            302,
+            "redirect",
+            {"Location": "https://attacker.invalid/"},
+            None,
+        )
+        with patch.object(harness._NO_REDIRECT_OPENER, "open", side_effect=error):
+            with self.assertRaisesRegex(ValueError, "redirect rejected"):
+                harness.read_gateway_compatibility("http://127.0.0.1:19091")
+
 
 def _passing_harness(candidate: dict[str, object], *, receipts: dict[str, dict[str, object]] | None = None):
     resolved_receipts = receipts or _receipts(candidate)
 
-    def run_case(command: list[str]) -> harness.CaseCommandResult:
-        case_id = command[-1]
+    def run_case(case_id: str, *, context: harness.CaseExecutionContext) -> harness.CaseCommandResult:
+        assert case_id in context.identity_fingerprints or case_id in harness.REQUIRED_CASE_IDS
         return harness.CaseCommandResult(0, json.dumps(resolved_receipts[case_id]), "")
+
+    def collect_case_evidence(*, case_id: str, **_: object) -> harness.CaseEvidence:
+        return _case_evidence(candidate, case_id)
 
     return _PatchGroup(
         patch.object(harness, "read_gateway_compatibility", return_value=_compatibility(candidate)),
@@ -139,6 +192,7 @@ def _passing_harness(candidate: dict[str, object], *, receipts: dict[str, dict[s
             ),
         ),
         patch.object(harness, "run_case_command", side_effect=run_case),
+        patch.object(harness, "collect_case_evidence", side_effect=collect_case_evidence),
     )
 
 
@@ -186,7 +240,7 @@ def _manifest(apk: Path) -> dict[str, object]:
         },
         "synthetic_identities": identities,
         "cases": [
-            {"id": case_id, "command": ["qa-case", case_id]}
+            {"id": case_id, "runner": case_id}
             for case_id in harness.REQUIRED_CASE_IDS
         ],
     }
@@ -209,6 +263,11 @@ def _receipts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
         "idempotent_account_sync": {
             **common,
             "case_id": "idempotent_account_sync",
+            "apk_sha256": str(candidate["apk_sha256"]),
+            "android_device_identity_sha256": _sha256_text("emulator-5554"),
+            "android_version": "14",
+            "package_id": "com.zhangspaghetti.babytalk",
+            "evidence": _case_evidence(manifest, "idempotent_account_sync").to_receipt(),
             "observations": {
                 "external_user_behavior_observed": True,
                 "server_observable_observed": True,
@@ -220,6 +279,11 @@ def _receipts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
         "two_account_household": {
             **common,
             "case_id": "two_account_household",
+            "apk_sha256": str(candidate["apk_sha256"]),
+            "android_device_identity_sha256": _sha256_text("emulator-5554"),
+            "android_version": "14",
+            "package_id": "com.zhangspaghetti.babytalk",
+            "evidence": _case_evidence(manifest, "two_account_household").to_receipt(),
             "observations": {
                 "external_user_behavior_observed": True,
                 "server_observable_observed": True,
@@ -232,6 +296,11 @@ def _receipts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
         "android_notification": {
             **common,
             "case_id": "android_notification",
+            "apk_sha256": str(candidate["apk_sha256"]),
+            "android_device_identity_sha256": _sha256_text("emulator-5554"),
+            "android_version": "14",
+            "package_id": "com.zhangspaghetti.babytalk",
+            "evidence": _case_evidence(manifest, "android_notification").to_receipt(),
             "observations": {
                 "system_state_observed": True,
                 "user_visible_result_observed": True,
@@ -241,6 +310,11 @@ def _receipts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
         "android_audio": {
             **common,
             "case_id": "android_audio",
+            "apk_sha256": str(candidate["apk_sha256"]),
+            "android_device_identity_sha256": _sha256_text("emulator-5554"),
+            "android_version": "14",
+            "package_id": "com.zhangspaghetti.babytalk",
+            "evidence": _case_evidence(manifest, "android_audio").to_receipt(),
             "observations": {
                 "system_state_observed": True,
                 "user_visible_result_observed": True,
@@ -252,6 +326,11 @@ def _receipts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
         "android_deep_link": {
             **common,
             "case_id": "android_deep_link",
+            "apk_sha256": str(candidate["apk_sha256"]),
+            "android_device_identity_sha256": _sha256_text("emulator-5554"),
+            "android_version": "14",
+            "package_id": "com.zhangspaghetti.babytalk",
+            "evidence": _case_evidence(manifest, "android_deep_link").to_receipt(),
             "observations": {
                 "system_state_observed": True,
                 "user_visible_result_observed": True,
@@ -261,6 +340,34 @@ def _receipts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
             },
         },
     }
+
+
+def _case_evidence(manifest: dict[str, object], case_id: str) -> harness.CaseEvidence:
+    candidate = manifest["candidate"] if "candidate" in manifest else manifest
+    assert isinstance(candidate, dict)
+    compatibility = {
+        "candidateId": str(candidate["id"]),
+        "requiredMigrationVersion": str(candidate["required_migration_version"]),
+        "status": "compatible",
+    }
+    return harness.CaseEvidence(
+        server_response_sha256=harness._canonical_json_sha256(
+            {"case_id": case_id, "compatibility": compatibility}
+        ),
+        adb_state_sha256=_sha256_text(
+            "\n".join(
+                (
+                    "device",
+                    "14",
+                    "package:/data/app/com.zhangspaghetti.babytalk/base.apk",
+                    _sha256_text("emulator-5554"),
+                    "com.zhangspaghetti.babytalk",
+                    str(candidate["apk_sha256"]),
+                )
+            )
+        ),
+        user_visible_sha256=_sha256_text("fixed-visible-surface"),
+    )
 
 
 def _sha256(path: Path) -> str:

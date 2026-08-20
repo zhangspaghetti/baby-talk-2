@@ -12,11 +12,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
-from urllib.request import urlopen
+from urllib.error import HTTPError
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
-SCHEMA_VERSION = "BTQA_CANDIDATE_ACCEPTANCE_V2"
-CASE_RECEIPT_SCHEMA_VERSION = "BTQA_CASE_RECEIPT_V1"
+SCHEMA_VERSION = "BTQA_CANDIDATE_ACCEPTANCE_V3"
+CASE_RECEIPT_SCHEMA_VERSION = "BTQA_CASE_RECEIPT_V2"
 REQUIRED_CASE_IDS = (
     "idempotent_account_sync",
     "two_account_household",
@@ -24,7 +25,6 @@ REQUIRED_CASE_IDS = (
     "android_audio",
     "android_deep_link",
 )
-_CASE_COMMAND_TIMEOUT_SECONDS = 600
 _DEVICE_COMMAND_TIMEOUT_SECONDS = 120
 _CANDIDATE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{2,127}$")
 _SHA256 = re.compile(r"^[a-f0-9]{64}$")
@@ -36,6 +36,20 @@ _ANDROID_PACKAGE = re.compile(r"^[a-zA-Z][A-Za-z0-9_]*(?:\.[a-zA-Z][A-Za-z0-9_]*
 _ANDROID_VERSION = re.compile(r"^[0-9]+(?:\.[0-9]+){0,3}$")
 _TOP_LEVEL_KEYS = {"schema_version", "candidate", "android_device", "synthetic_identities", "cases"}
 _SYNTHETIC_KEYS = {"primary_account_ref", "caregiver_account_ref", "idempotent_event_id"}
+_CASE_KEYS = {"id", "runner"}
+_RECEIPT_KEYS = {
+    "schema_version",
+    "candidate_id",
+    "apk_sha256",
+    "case_id",
+    "android_device_identity_sha256",
+    "android_version",
+    "package_id",
+    "synthetic_identity_fingerprints",
+    "evidence",
+    "observations",
+}
+_EVIDENCE_KEYS = {"server", "adb", "user_visible"}
 
 
 @dataclass(frozen=True)
@@ -53,6 +67,35 @@ class CaseCommandResult:
     exit_code: int
     stdout: str
     stderr: str
+
+
+@dataclass(frozen=True)
+class CaseEvidence:
+    """Evidence collected by harness after a fixed runner completes."""
+
+    server_response_sha256: str
+    adb_state_sha256: str
+    user_visible_sha256: str
+
+    def to_receipt(self) -> dict[str, dict[str, str]]:
+        return {
+            "server": {
+                "response_sha256": self.server_response_sha256,
+            },
+            "adb": {"state_sha256": self.adb_state_sha256},
+            "user_visible": {"surface_sha256": self.user_visible_sha256},
+        }
+
+
+@dataclass(frozen=True)
+class CaseExecutionContext:
+    candidate_id: str
+    apk_sha256: str
+    gateway_url: str
+    package_id: str
+    device_identity_sha256: str
+    android_version: str
+    identity_fingerprints: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -110,10 +153,24 @@ class AndroidDeviceEvidence:
         return {key: value for key, value in values.items() if value is not None}
 
 
+class _RejectRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, request, file, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        return None
+
+
+_NO_REDIRECT_OPENER = build_opener(_RejectRedirectHandler)
+
+
 def read_gateway_compatibility(gateway_url: str) -> dict[str, object]:
     endpoint = f"{gateway_url.rstrip('/')}/qa/candidate-compatibility"
-    with urlopen(endpoint, timeout=10) as response:  # noqa: S310 - manifest is an explicit QA input.
-        payload = json.loads(response.read().decode("utf-8"))
+    request = Request(endpoint, headers={"Accept": "application/json"}, method="GET")
+    try:
+        with _NO_REDIRECT_OPENER.open(request, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        if 300 <= error.code < 400:
+            raise ValueError("gateway compatibility redirect rejected") from error
+        raise
     if not isinstance(payload, dict):
         raise ValueError("gateway response is not a JSON object")
     return payload
@@ -158,15 +215,44 @@ def run_acceptance(manifest_path: Path) -> AcceptanceReport:
     violations: list[str] = []
     executed_cases: list[dict[str, object]] = []
     identity_fingerprints = _fingerprint_identities(synthetic_identities)
+    context = _case_execution_context(
+        candidate=candidate,
+        device=android_device,
+        device_evidence=device_evidence,
+        identity_fingerprints=identity_fingerprints,
+    )
     for case in cases:
-        result = run_case_command(case["command"])
+        try:
+            result = run_case_command(case["runner"], context=context)
+        except Exception as error:
+            result = CaseCommandResult(127, "", f"case runner error: {type(error).__name__}: {error}")
         status = "PASS" if result.exit_code == 0 else "BLOCKED" if result.exit_code == 77 else "FAIL"
+        try:
+            case_evidence = (
+                collect_case_evidence(
+                    candidate=candidate,
+                    device=android_device,
+                    device_evidence=device_evidence,
+                    case_id=case["id"],
+                    compatibility=compatibility,
+                )
+                if status == "PASS"
+                else None
+            )
+        except Exception:
+            case_evidence = None
+        if status == "PASS" and case_evidence is None:
+            status = "BLOCKED"
+            violations.append("missing_case_evidence")
         receipt = _validate_case_receipt(
             result.stdout,
             case_id=case["id"],
             candidate_id=candidate["id"],
+            apk_sha256=candidate["apk_sha256"],
+            device_evidence=device_evidence,
             identity_fingerprints=identity_fingerprints,
-        ) if status == "PASS" else None
+            expected_evidence=case_evidence,
+        ) if status == "PASS" and case_evidence is not None else None
         if status == "PASS" and receipt is None:
             status = "FAIL"
             violations.append("invalid_case_receipt")
@@ -180,6 +266,7 @@ def run_acceptance(manifest_path: Path) -> AcceptanceReport:
             "exit_code": result.exit_code,
             "stdout_sha256": _text_sha256(result.stdout),
             "stderr_sha256": _text_sha256(result.stderr),
+            "evidence": case_evidence.to_receipt() if case_evidence is not None else None,
             "receipt": receipt,
         })
 
@@ -229,8 +316,110 @@ def collect_android_device_evidence(*, apk: Path, device: dict[str, str]) -> And
     )
 
 
-def run_case_command(command: list[str]) -> CaseCommandResult:
-    return _run_command(command, timeout_seconds=_CASE_COMMAND_TIMEOUT_SECONDS)
+def _case_execution_context(
+    *,
+    candidate: dict[str, str],
+    device: dict[str, str],
+    device_evidence: AndroidDeviceEvidence,
+    identity_fingerprints: dict[str, str],
+) -> CaseExecutionContext:
+    if (
+        device_evidence.device_identity_sha256 is None
+        or device_evidence.android_version is None
+        or device_evidence.package_id is None
+    ):
+        raise ValueError("passing device evidence is incomplete")
+    return CaseExecutionContext(
+        candidate_id=candidate["id"],
+        apk_sha256=candidate["apk_sha256"],
+        gateway_url=candidate["gateway_url"],
+        package_id=device["package_id"],
+        device_identity_sha256=device_evidence.device_identity_sha256,
+        android_version=device_evidence.android_version,
+        identity_fingerprints=identity_fingerprints,
+    )
+
+
+def collect_case_evidence(
+    *,
+    candidate: dict[str, str],
+    device: dict[str, str],
+    device_evidence: AndroidDeviceEvidence,
+    case_id: str,
+    compatibility: dict[str, object],
+) -> CaseEvidence | None:
+    """Collect independent server, ADB, and user-visible evidence.
+
+    No receipt-provided value is used as an input. The runner may drive the
+    scenario, but the harness owns all evidence hashes used for acceptance.
+    """
+    try:
+        observed_compatibility = read_gateway_compatibility(candidate["gateway_url"])
+    except Exception:
+        return None
+    if observed_compatibility != compatibility:
+        return None
+
+    serial = device["serial"]
+    state = run_device_command(["adb", "-s", serial, "get-state"])
+    version = run_device_command(["adb", "-s", serial, "shell", "getprop", "ro.build.version.release"])
+    package_path = run_device_command(["adb", "-s", serial, "shell", "pm", "path", device["package_id"]])
+    if (
+        state.exit_code != 0
+        or state.stdout.strip() != "device"
+        or version.exit_code != 0
+        or version.stdout.strip() != device_evidence.android_version
+        or package_path.exit_code != 0
+        or not package_path.stdout.strip().startswith("package:")
+    ):
+        return None
+
+    ui_dump = run_device_command(["adb", "-s", serial, "shell", "uiautomator", "dump", "/dev/tty"])
+    screenshot = _run_binary_command(["adb", "-s", serial, "exec-out", "screencap", "-p"])
+    if ui_dump.exit_code != 0 or screenshot.exit_code != 0 or not screenshot.stdout:
+        return None
+
+    adb_state = "\n".join(
+        (
+            state.stdout.strip(),
+            version.stdout.strip(),
+            package_path.stdout.strip(),
+            device_evidence.device_identity_sha256 or "",
+            device_evidence.package_id or "",
+            candidate["apk_sha256"],
+        )
+    )
+    user_visible = ui_dump.stdout.encode("utf-8") + b"\0" + screenshot.stdout
+    return CaseEvidence(
+        server_response_sha256=_canonical_json_sha256(
+            {"case_id": case_id, "compatibility": observed_compatibility}
+        ),
+        adb_state_sha256=_text_sha256(adb_state),
+        user_visible_sha256=_bytes_sha256(user_visible),
+    )
+
+
+def _fixed_case_runner_unavailable(context: CaseExecutionContext) -> CaseCommandResult:
+    del context
+    return CaseCommandResult(77, "", "fixed case runner unavailable")
+
+
+_CASE_RUNNERS = {
+    case_id: _fixed_case_runner_unavailable
+    for case_id in REQUIRED_CASE_IDS
+}
+
+
+def run_case_command(case_id: str, *, context: CaseExecutionContext) -> CaseCommandResult:
+    """Run only the fixed in-process runner for a required case.
+
+    Manifest values never reach a process launcher. A runner not explicitly
+    registered below is blocked, including future case IDs until reviewed.
+    """
+    runner = _CASE_RUNNERS.get(case_id)
+    if runner is None:
+        return CaseCommandResult(77, "", "case runner is not allow-listed")
+    return runner(context)
 
 
 def run_device_command(command: list[str]) -> CaseCommandResult:
@@ -320,21 +509,21 @@ def _validate_cases(manifest: dict[str, object]) -> list[dict[str, object]] | No
     cases: list[dict[str, object]] = []
     ids: set[str] = set()
     for value in raw:
-        if not isinstance(value, dict) or set(value) != {"id", "command"}:
+        if not isinstance(value, dict) or set(value) != _CASE_KEYS:
             return None
         case_id = value.get("id")
-        command = value.get("command")
+        runner = value.get("runner")
         if (
             not isinstance(case_id, str)
             or not _CASE_ID.fullmatch(case_id)
             or case_id in ids
-            or not isinstance(command, list)
-            or not command
-            or any(not isinstance(part, str) or not part for part in command)
+            or not isinstance(runner, str)
+            or runner != case_id
+            or runner not in _CASE_RUNNERS
         ):
             return None
         ids.add(case_id)
-        cases.append({"id": case_id, "command": command})
+        cases.append({"id": case_id, "runner": runner})
     return cases if ids == set(REQUIRED_CASE_IDS) else None
 
 
@@ -343,27 +532,60 @@ def _validate_case_receipt(
     *,
     case_id: str,
     candidate_id: str,
+    apk_sha256: str,
+    device_evidence: AndroidDeviceEvidence,
     identity_fingerprints: dict[str, str],
+    expected_evidence: CaseEvidence,
 ) -> dict[str, object] | None:
     try:
         receipt = json.loads(raw)
     except json.JSONDecodeError:
         return None
-    if not isinstance(receipt, dict) or set(receipt) != {
-        "schema_version", "candidate_id", "case_id", "synthetic_identity_fingerprints", "observations",
-    }:
+    if not isinstance(receipt, dict) or set(receipt) != _RECEIPT_KEYS:
         return None
     if (
         receipt.get("schema_version") != CASE_RECEIPT_SCHEMA_VERSION
         or receipt.get("candidate_id") != candidate_id
+        or receipt.get("apk_sha256") != apk_sha256
         or receipt.get("case_id") != case_id
+        or receipt.get("android_device_identity_sha256") != device_evidence.device_identity_sha256
+        or receipt.get("android_version") != device_evidence.android_version
+        or receipt.get("package_id") != device_evidence.package_id
         or receipt.get("synthetic_identity_fingerprints") != identity_fingerprints
+        or receipt.get("evidence") != expected_evidence.to_receipt()
     ):
+        return None
+    evidence = receipt.get("evidence")
+    if not _valid_case_evidence(evidence):
         return None
     observations = receipt.get("observations")
     if not isinstance(observations, dict) or not _valid_observations(case_id, observations):
         return None
     return {"case_id": case_id, "observations": observations}
+
+
+def _valid_case_evidence(value: object) -> bool:
+    if not isinstance(value, dict) or set(value) != _EVIDENCE_KEYS:
+        return False
+    server = value.get("server")
+    adb = value.get("adb")
+    user_visible = value.get("user_visible")
+    if (
+        not isinstance(server, dict)
+        or set(server) != {"response_sha256"}
+        or not isinstance(server.get("response_sha256"), str)
+        or not _SHA256.fullmatch(server["response_sha256"])
+        or not isinstance(adb, dict)
+        or set(adb) != {"state_sha256"}
+        or not isinstance(adb.get("state_sha256"), str)
+        or not _SHA256.fullmatch(adb["state_sha256"])
+        or not isinstance(user_visible, dict)
+        or set(user_visible) != {"surface_sha256"}
+        or not isinstance(user_visible.get("surface_sha256"), str)
+        or not _SHA256.fullmatch(user_visible["surface_sha256"])
+    ):
+        return False
+    return True
 
 
 def _valid_observations(case_id: str, observations: dict[str, object]) -> bool:
@@ -444,6 +666,31 @@ def _run_command(command: list[str], *, timeout_seconds: int) -> CaseCommandResu
         return CaseCommandResult(127, "", str(error))
 
 
+@dataclass(frozen=True)
+class _BinaryCommandResult:
+    exit_code: int
+    stdout: bytes
+    stderr: bytes
+
+
+def _run_binary_command(command: list[str], *, timeout_seconds: int = _DEVICE_COMMAND_TIMEOUT_SECONDS) -> _BinaryCommandResult:
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=False,
+            check=False,
+            timeout=timeout_seconds,
+        )
+        return _BinaryCommandResult(completed.returncode, completed.stdout, completed.stderr)
+    except subprocess.TimeoutExpired as error:
+        stdout = error.stdout if isinstance(error.stdout, bytes) else b""
+        stderr = error.stderr if isinstance(error.stderr, bytes) else b""
+        return _BinaryCommandResult(124, stdout, stderr)
+    except OSError as error:
+        return _BinaryCommandResult(127, b"", str(error).encode())
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -454,6 +701,14 @@ def _sha256(path: Path) -> str:
 
 def _text_sha256(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _bytes_sha256(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def _canonical_json_sha256(value: object) -> str:
+    return _bytes_sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode())
 
 
 def _main() -> int:
