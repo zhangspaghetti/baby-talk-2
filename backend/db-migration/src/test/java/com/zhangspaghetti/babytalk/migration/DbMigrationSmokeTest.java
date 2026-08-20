@@ -28,7 +28,7 @@ import org.testcontainers.utility.DockerImageName;
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
                 "babytalk.candidate.id=btqa-migration-test",
-                "babytalk.candidate.required-migration-version=35"
+                "babytalk.candidate.required-migration-version=36"
         }
 )
 class DbMigrationSmokeTest {
@@ -38,6 +38,7 @@ class DbMigrationSmokeTest {
     private static final String V26_GENERATED_CONTENT_UPGRADE_SCHEMA = "flyway_v26_generated_content_upgrade";
     private static final String V34_AUTH_PRIVACY_UPGRADE_SCHEMA = "flyway_v34_auth_privacy_upgrade";
     private static final String V35_INVITE_TOKEN_PRIVACY_SCHEMA = "flyway_v35_invite_token_privacy";
+    private static final String V36_INTERACTION_EVENT_PRIVACY_SCHEMA = "flyway_v36_interaction_event_privacy";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -1086,6 +1087,132 @@ class DbMigrationSmokeTest {
                 "household_legacy_invite"))
                 .startsWith("legacy-disposed:")
                 .doesNotContain("raw-legacy-invite-token");
+    }
+
+    @Test
+    void flywayUpgradeToV36DisposesHistoricalRawInteractionIdentityAndScopesEventIdempotencyToAccount() {
+        Flyway v35 = flywayFor(V36_INTERACTION_EVENT_PRIVACY_SCHEMA, "35");
+        v35.migrate();
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-20T03:00:00Z"));
+        assertThat(jdbcTemplate.queryForObject("select gen_random_uuid()::text", String.class))
+                .matches("[0-9a-f-]{36}");
+        jdbcTemplate.update("""
+                        insert into %s.accounts (
+                            account_id, phone_lookup_ref, phone_mask, status, latest_consent_status, created_at, deleted_at
+                        ) values (?, ?, ?, 'active', 'accepted', ?, null),
+                                 (?, ?, ?, 'active', 'accepted', ?, null)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "acct_legacy_event_a", "v1:event-phone-a", "已保护号码", now,
+                "acct_legacy_event_b", "v1:event-phone-b", "已保护号码", now);
+        jdbcTemplate.update("""
+                        insert into %s.account_sessions (session_id, account_id, installation_id, status, created_at, revoked_at)
+                        values (?, ?, ?, 'active', ?, null),
+                               (?, ?, ?, 'active', ?, null)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "sess_legacy_event_a", "acct_legacy_event_a", "raw-installation-a", now,
+                "sess_legacy_event_b", "acct_legacy_event_b", "raw-installation-b", now);
+        jdbcTemplate.update("""
+                        insert into %s.interaction_events (
+                            event_key, account_id, session_id, installation_id, local_event_id,
+                            space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                        ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "raw-installation-a:replayed-event", "acct_legacy_event_a", "sess_legacy_event_a",
+                "raw-installation-a", "replayed-event", now, now);
+        jdbcTemplate.update("""
+                        insert into %s.interaction_events (
+                            event_key, account_id, session_id, installation_id, local_event_id,
+                            space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                        ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_splash_splash', 'hesitant', ?, ?)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "raw-installation-b:replayed-event", "acct_legacy_event_b", "sess_legacy_event_b",
+                "raw-installation-b", "replayed-event", now, now);
+
+        Flyway v36 = flywayFor(V36_INTERACTION_EVENT_PRIVACY_SCHEMA, "36");
+        v36.migrate();
+
+        var disposedRows = jdbcTemplate.queryForList(
+                "select event_key, installation_id from " + V36_INTERACTION_EVENT_PRIVACY_SCHEMA
+                        + ".interaction_events order by account_id");
+        assertThat(disposedRows).hasSize(2);
+        var disposedEventKeys = disposedRows.stream()
+                .map(row -> (String) row.get("event_key"))
+                .toList();
+        assertThat(disposedEventKeys)
+                .allMatch(value -> value.matches("legacy-disposed:[0-9a-f-]{36}"))
+                .doesNotContain("raw-installation-a:replayed-event", "raw-installation-b:replayed-event");
+        var disposedInstallationReferences = disposedRows.stream()
+                .map(row -> (String) row.get("installation_id"))
+                .toList();
+        assertThat(disposedInstallationReferences)
+                .allMatch(value -> value.matches("legacy-disposed:[0-9a-f-]{36}"))
+                .doesNotContain("raw-installation-a", "raw-installation-b");
+        assertThat(disposedRows.get(0).get("event_key"))
+                .isNotEqualTo(disposedRows.get(1).get("event_key"));
+        assertThat(disposedRows.get(0).get("installation_id"))
+                .isNotEqualTo(disposedRows.get(1).get("installation_id"));
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.table_constraints "
+                        + "where table_schema = ? and table_name = 'interaction_events' "
+                        + "and constraint_name = ?",
+                Integer.class,
+                V36_INTERACTION_EVENT_PRIVACY_SCHEMA,
+                "chk_interaction_events_installation_ref")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.table_constraints "
+                        + "where table_schema = ? and table_name = 'interaction_events' "
+                        + "and constraint_name = ?",
+                Integer.class,
+                V36_INTERACTION_EVENT_PRIVACY_SCHEMA,
+                "chk_interaction_events_event_key_ref")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.table_constraints "
+                        + "where table_schema = ? and table_name = 'interaction_events' "
+                        + "and constraint_name = ?",
+                Integer.class,
+                V36_INTERACTION_EVENT_PRIVACY_SCHEMA,
+                "pk_interaction_events_account_event_key")).isEqualTo(1);
+
+        jdbcTemplate.update("""
+                        insert into %s.interaction_events (
+                            event_key, account_id, session_id, installation_id, local_event_id,
+                            space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                        ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "e1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "acct_legacy_event_a", "sess_legacy_event_a",
+                "v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "new-event-a", now, now);
+        jdbcTemplate.update("""
+                        insert into %s.interaction_events (
+                            event_key, account_id, session_id, installation_id, local_event_id,
+                            space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                        ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "e1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "acct_legacy_event_b", "sess_legacy_event_b",
+                "v1:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "new-event-b", now, now);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from " + V36_INTERACTION_EVENT_PRIVACY_SCHEMA + ".interaction_events "
+                        + "where event_key = ?",
+                Integer.class,
+                "e1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")).isEqualTo(2);
+
+        assertThatThrownBy(() -> jdbcTemplate.update("""
+                        insert into %s.interaction_events (
+                            event_key, account_id, session_id, installation_id, local_event_id,
+                            space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                        ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "raw-installation-b:new-event", "acct_legacy_event_b", "sess_legacy_event_b",
+                "v1:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "new-event", now, now))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbcTemplate.update("""
+                        insert into %s.interaction_events (
+                            event_key, account_id, session_id, installation_id, local_event_id,
+                            space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                        ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "e1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "acct_legacy_event_a", "sess_legacy_event_a",
+                "v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "duplicate-event", now, now))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

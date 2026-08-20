@@ -115,8 +115,8 @@ class AdminUsersWebTest {
                 null,
                 null
         );
-        seedInteractionEvent("install-alpha:event-1", "acct_001", "sess_live", "install-alpha", "event-1", Instant.parse("2026-04-22T00:01:00Z"));
-        seedInteractionEvent("install-alpha:event-2", "acct_001", "sess_live", "install-alpha", "event-2", Instant.parse("2026-04-22T00:02:00Z"));
+        seedInteractionEvent("e1:" + "A".repeat(43), "acct_001", "sess_live", "install-alpha", "event-1", Instant.parse("2026-04-22T00:01:00Z"));
+        seedInteractionEvent("e1:" + "B".repeat(43), "acct_001", "sess_live", "install-alpha", "event-2", Instant.parse("2026-04-22T00:02:00Z"));
         seedConsentAudit("acct_001", "sess_old", "install-beta", "accept", "applied", "consent_v1", Instant.parse("2026-04-20T00:05:00Z"));
         seedConsentAudit("acct_001", "sess_live", "install-alpha", "revoke", "duplicate", "already_revoked", Instant.parse("2026-04-22T00:03:00Z"));
 
@@ -153,7 +153,7 @@ class AdminUsersWebTest {
                 .andExpect(jsonPath("$.total").value(0))
                 .andExpect(jsonPath("$.items", hasSize(0)));
 
-        mockMvc.perform(get("/api/admin/users/{accountId}", "acct_001")
+        var userDetail = mockMvc.perform(get("/api/admin/users/{accountId}", "acct_001")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.account.accountId").value("acct_001"))
@@ -161,17 +161,27 @@ class AdminUsersWebTest {
                 .andExpect(jsonPath("$.account.status").value("active"))
                 .andExpect(jsonPath("$.recentSessions", hasSize(2)))
                 .andExpect(jsonPath("$.recentSessions[0].sessionId").value("sess_live"))
-                .andExpect(jsonPath("$.recentSessions[0].installationId").value("install-alpha"))
+                .andExpect(jsonPath("$.recentSessions[0].installationId")
+                        .value(sensitiveAuthDataProtector.installationLookupRef("install-alpha")))
                 .andExpect(jsonPath("$.recentSessions[0].status").value("active"))
                 .andExpect(jsonPath("$.recentSessions[0].revokedAt").value(nullValue()))
                 .andExpect(jsonPath("$.recentSessions[1].sessionId").value("sess_old"))
+                .andExpect(jsonPath("$.recentSessions[1].installationId")
+                        .value(sensitiveAuthDataProtector.installationLookupRef("install-beta")))
                 .andExpect(jsonPath("$.recentSessions[1].status").value("revoked"))
                 .andExpect(jsonPath("$.recentConsentAudit", hasSize(2)))
                 .andExpect(jsonPath("$.recentConsentAudit[0].action").value("revoke"))
+                .andExpect(jsonPath("$.recentConsentAudit[0].installationId")
+                        .value(sensitiveAuthDataProtector.installationLookupRef("install-alpha")))
                 .andExpect(jsonPath("$.recentConsentAudit[0].result").value("duplicate"))
                 .andExpect(jsonPath("$.recentConsentAudit[0].reason").value("already_revoked"))
                 .andExpect(jsonPath("$.recentConsentAudit[1].action").value("accept"))
-                .andExpect(jsonPath("$.recentConsentAudit[1].result").value("applied"));
+                .andExpect(jsonPath("$.recentConsentAudit[1].installationId")
+                        .value(sensitiveAuthDataProtector.installationLookupRef("install-beta")))
+                .andExpect(jsonPath("$.recentConsentAudit[1].result").value("applied"))
+                .andReturn();
+        assertThat(userDetail.getResponse().getContentAsString())
+                .doesNotContain("install-alpha", "install-beta");
 
         var disableResult = mockMvc.perform(patch("/api/admin/users/{accountId}/disable", "acct_001")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
@@ -465,7 +475,7 @@ class AdminUsersWebTest {
                 """,
                 sessionId,
                 accountId,
-                installationId,
+                sensitiveAuthDataProtector.installationLookupRef(installationId),
                 status,
                 Timestamp.from(createdAt),
                 revokedAt == null ? null : Timestamp.from(revokedAt)
@@ -539,7 +549,7 @@ class AdminUsersWebTest {
                 eventKey,
                 accountId,
                 sessionId,
-                installationId,
+                sensitiveAuthDataProtector.installationLookupRef(installationId),
                 localEventId,
                 "space-1",
                 "activity-1",

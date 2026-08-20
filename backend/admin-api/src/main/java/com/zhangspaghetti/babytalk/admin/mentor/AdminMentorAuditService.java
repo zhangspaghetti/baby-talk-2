@@ -59,7 +59,7 @@ public class AdminMentorAuditService {
                         effectiveLimit).stream()
                 .map(row -> new QueueIncidentView(
                         row.correlationId(),
-                        row.installationId(),
+                        sensitiveAuthDataProtector.safeInstallationReference(row.installationId()),
                         row.flagCode(),
                         row.latestPhase(),
                         row.failureCode(),
@@ -99,7 +99,7 @@ public class AdminMentorAuditService {
         return new AuditDetailView(
                 "incident_evidence",
                 snapshot.correlationId(),
-                snapshot.installationId(),
+                sensitiveAuthDataProtector.safeInstallationReference(snapshot.installationId()),
                 snapshot.flagCode(),
                 snapshot.latestPhase(),
                 snapshot.failureCode(),
@@ -150,16 +150,12 @@ public class AdminMentorAuditService {
         if (normalizedInstallationId == null) {
             return new InstallationFilter(null, null);
         }
-        if (isInstallationReference(normalizedInstallationId)) {
+        if (sensitiveAuthDataProtector.isInstallationReference(normalizedInstallationId)) {
             return new InstallationFilter(normalizedInstallationId, null);
         }
         return new InstallationFilter(
                 sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId),
                 normalizedInstallationId);
-    }
-
-    private boolean isInstallationReference(String value) {
-        return value.matches("v1:[A-Za-z0-9_-]{43}");
     }
 
     private String normalizeFlag(String flag) {

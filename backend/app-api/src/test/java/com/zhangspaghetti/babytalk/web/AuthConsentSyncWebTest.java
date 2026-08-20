@@ -12,6 +12,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
+import java.sql.Timestamp;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -138,14 +140,65 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.acceptedCount").value(0))
                 .andExpect(jsonPath("$.duplicateCount").value(2));
 
+        var storedInstallationReference = jdbcTemplate.queryForObject(
+                "select installation_id from interaction_events where account_id = ? and local_event_id = ?",
+                String.class,
+                session.accountId(),
+                "evt_1"
+        );
         mockMvc.perform(get("/api/v1/bootstrap")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .param("installationId", "install-alpha"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.eventCount").value(2))
-                .andExpect(jsonPath("$.events[0].eventKey").value("install-alpha:evt_1"))
+                .andExpect(jsonPath("$.installationId").value("install-alpha"))
+                .andExpect(jsonPath("$.events[0].eventKey").value(storedInstallationReference + ":evt_1"))
+                .andExpect(jsonPath("$.events[0].installationId").value(storedInstallationReference))
                 .andExpect(jsonPath("$.events[1].phraseId").value("bath_time_splash_splash"));
+    }
+
+    @Test
+    void bootstrapFindsLegacyDisposedRowButNeverReturnsItsStoredIdentity() throws Exception {
+        var challengeId = createChallenge("13800138000");
+        var session = verifyChallenge(challengeId, "install-alpha");
+        acceptConsent(session.accessToken());
+
+        var legacyEventKey = "legacy-disposed:00000000-0000-0000-0000-000000000011";
+        var legacyInstallationReference = "legacy-disposed:00000000-0000-0000-0000-000000000012";
+        var timestamp = Timestamp.from(Instant.parse("2026-08-20T03:00:00Z"));
+        jdbcTemplate.update(
+                """
+                insert into interaction_events (
+                    event_key, account_id, session_id, installation_id, local_event_id,
+                    space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                """,
+                legacyEventKey,
+                session.accountId(),
+                session.sessionId(),
+                legacyInstallationReference,
+                "legacy-event",
+                timestamp,
+                timestamp
+        );
+
+        var response = mockMvc.perform(get("/api/v1/bootstrap")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .param("installationId", "install-alpha"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eventCount").value(1))
+                .andReturn();
+        var body = response.getResponse().getContentAsString();
+        assertThat(body).doesNotContain(legacyEventKey, legacyInstallationReference);
+        var event = readJson(body).get("events").get(0);
+        assertThat(event.get("eventKey").asText())
+                .startsWith("v1:")
+                .endsWith(":legacy-event");
+        assertThat(event.get("installationId").asText())
+                .startsWith("v1:")
+                .doesNotContain("legacy-disposed");
     }
 
     @Test

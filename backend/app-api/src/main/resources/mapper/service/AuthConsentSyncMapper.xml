@@ -75,9 +75,9 @@
 
     <resultMap id="storedInteractionEventMap" type="com.zhangspaghetti.babytalk.service.AuthConsentSyncRepository$StoredInteractionEvent">
         <constructor>
-            <arg column="event_key" javaType="java.lang.String"/>
+            <arg column="event_key_ref" javaType="java.lang.String"/>
             <arg column="local_event_id" javaType="java.lang.String"/>
-            <arg column="installation_id" javaType="java.lang.String"/>
+            <arg column="installation_ref" javaType="java.lang.String"/>
             <arg column="space_id" javaType="java.lang.String"/>
             <arg column="activity_id" javaType="java.lang.String"/>
             <arg column="phrase_id" javaType="java.lang.String"/>
@@ -421,10 +421,10 @@
             client_timestamp,
             received_at
         ) values (
-            #{event.eventKey},
+            #{event.eventKeyRef},
             #{accountId},
             #{sessionId},
-            #{event.installationId},
+            #{event.installationRef},
             #{event.localEventId},
             #{event.spaceId},
             #{event.activityId},
@@ -433,13 +433,13 @@
             #{event.clientTimestamp},
             #{receivedAt}
         )
-        on conflict (event_key) do nothing
+        on conflict (account_id, event_key) do nothing
     </insert>
 
     <select id="listInteractionEvents" resultMap="storedInteractionEventMap">
-        select event_key,
+        select event_key as event_key_ref,
                local_event_id,
-               installation_id,
+               installation_id as installation_ref,
                space_id,
                activity_id,
                phrase_id,
@@ -456,7 +456,7 @@
         select count(*)
         from interaction_events
         where account_id = #{accountId}
-          and installation_id = #{installationId}
+          and installation_id = #{installationReference}
     </select>
 
     <select id="countAllInteractionEvents" resultType="int">

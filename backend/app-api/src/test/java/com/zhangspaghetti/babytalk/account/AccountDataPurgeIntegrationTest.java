@@ -14,6 +14,8 @@ class AccountDataPurgeIntegrationTest extends AbstractIntegrationTest {
 
     private static final Instant CREATED_AT = Instant.parse("2026-08-20T00:00:00Z");
     private static final OffsetDateTime DELETED_AT = OffsetDateTime.parse("2026-08-20T01:00:00Z");
+    private static final String DELETED_EVENT_KEY_REF = "e1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1";
+    private static final String OTHER_EVENT_KEY_REF = "e1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2";
 
     @Autowired
     private AccountDataPurgeService purgeService;
@@ -30,8 +32,8 @@ class AccountDataPurgeIntegrationTest extends AbstractIntegrationTest {
         seedRefreshToken("crt_deleted", "acct_deleted", "sess_deleted", "active");
         seedRefreshToken("crt_other", "acct_other", "sess_other", "active");
         seedSmsChallenge("acct_deleted");
-        seedInteractionEvent("deleted-event", "acct_deleted", "sess_deleted");
-        seedInteractionEvent("other-event", "acct_other", "sess_other");
+        seedInteractionEvent(DELETED_EVENT_KEY_REF, "acct_deleted", "sess_deleted");
+        seedInteractionEvent(OTHER_EVENT_KEY_REF, "acct_other", "sess_other");
         seedMentorRows("acct_deleted", "sess_deleted", "turn-deleted", "audit-deleted");
         seedMentorRows("acct_other", "sess_other", "turn-other", "audit-other");
         seedGardenRows("acct_deleted");
@@ -123,6 +125,11 @@ class AccountDataPurgeIntegrationTest extends AbstractIntegrationTest {
 
         assertThat(count("select count(*) from interaction_events where account_id = 'acct_other'"))
                 .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select installation_id from interaction_events where event_key = ?",
+                String.class,
+                OTHER_EVENT_KEY_REF
+        )).startsWith("v1:").doesNotContain("install-acct_other");
         assertThat(count("select count(*) from mentor_turns where turn_id = 'turn-other'"))
                 .isEqualTo(1);
         assertThat(count("select count(*) from garden_fertilizer_state where user_id = 'acct_other'"))
@@ -294,7 +301,7 @@ class AccountDataPurgeIntegrationTest extends AbstractIntegrationTest {
                 eventKey,
                 accountId,
                 sessionId,
-                "install-" + accountId,
+                "v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 eventKey,
                 timestamp(CREATED_AT),
                 timestamp(CREATED_AT)

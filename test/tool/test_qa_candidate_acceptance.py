@@ -130,7 +130,7 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
                 "read_gateway_compatibility",
                 return_value={
                     "candidateId": "mixed-candidate",
-                    "requiredMigrationVersion": "35",
+                    "requiredMigrationVersion": "36",
                     "status": "compatible",
                 },
             ), patch.object(harness, "collect_android_device_evidence") as collect_device:
@@ -247,7 +247,7 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
         )
         compatibility = {
             "candidateId": candidate["id"],
-            "requiredMigrationVersion": "35",
+            "requiredMigrationVersion": "36",
             "status": "compatible",
         }
         commands = (
@@ -298,7 +298,7 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
         )
         compatibility = {
             "candidateId": candidate["id"],
-            "requiredMigrationVersion": "35",
+            "requiredMigrationVersion": "36",
             "status": "compatible",
         }
         one_read = (
@@ -424,7 +424,7 @@ def _manifest(apk: Path) -> dict[str, object]:
             "apk_path": str(apk),
             "apk_sha256": _sha256(apk),
             "gateway_url": "http://127.0.0.1:19091",
-            "required_migration_version": "35",
+            "required_migration_version": "36",
         },
         "android_device": {
             "serial": "emulator-5554",

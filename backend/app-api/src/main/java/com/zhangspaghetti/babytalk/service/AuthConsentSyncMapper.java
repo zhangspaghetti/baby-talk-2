@@ -76,7 +76,10 @@ public interface AuthConsentSyncMapper {
             @Param("limit") int limit
     );
 
-    int countInteractionEvents(@Param("accountId") String accountId, @Param("installationId") String installationId);
+    int countInteractionEvents(
+            @Param("accountId") String accountId,
+            @Param("installationReference") String installationReference
+    );
 
     int countAllInteractionEvents();
 

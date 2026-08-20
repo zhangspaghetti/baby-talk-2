@@ -126,7 +126,7 @@ public class AdminUsersService {
                 adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                         normalizedAccountId,
                         auditContext.sessionId(),
-                        installationReference(auditContext.installationId()),
+                        sensitiveAuthDataProtector.safeInstallationReference(auditContext.installationId()),
                         AUDIT_ACTION_DELETE,
                         AUDIT_RESULT_DUPLICATE,
                         normalizedReason,
@@ -152,7 +152,7 @@ public class AdminUsersService {
                 adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                         normalizedAccountId,
                         auditContext.sessionId(),
-                        installationReference(auditContext.installationId()),
+                        sensitiveAuthDataProtector.safeInstallationReference(auditContext.installationId()),
                         AUDIT_ACTION_DELETE,
                         AUDIT_RESULT_DUPLICATE,
                         normalizedReason,
@@ -171,7 +171,7 @@ public class AdminUsersService {
             adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                     normalizedAccountId,
                     auditContext.sessionId(),
-                    installationReference(auditContext.installationId()),
+                    sensitiveAuthDataProtector.safeInstallationReference(auditContext.installationId()),
                     AUDIT_ACTION_DELETE,
                     AUDIT_RESULT_APPLIED,
                     normalizedReason,
@@ -208,21 +208,10 @@ public class AdminUsersService {
         );
     }
 
-    private String installationReference(String installationId) {
-        if (installationId == null || installationId.isBlank()) {
-            return "redacted";
-        }
-        var normalized = installationId.trim();
-        if (normalized.matches("v1:[A-Za-z0-9_-]{43}")) {
-            return normalized;
-        }
-        return sensitiveAuthDataProtector.installationLookupRef(normalized);
-    }
-
     private UserSessionView toSessionView(AdminUserReadRepository.UserSessionRow row) {
         return new UserSessionView(
                 row.sessionId(),
-                row.installationId(),
+                sensitiveAuthDataProtector.safeInstallationReference(row.installationId()),
                 requireAllowed(row.status(), ALLOWED_SESSION_STATUSES, "session.status"),
                 row.createdAt(),
                 row.revokedAt()
@@ -233,7 +222,7 @@ public class AdminUsersService {
         return new UserConsentAuditView(
                 row.auditId(),
                 row.sessionId(),
-                row.installationId(),
+                sensitiveAuthDataProtector.safeInstallationReference(row.installationId()),
                 requireAllowed(row.action(), ALLOWED_AUDIT_ACTIONS, "consentAudit.action"),
                 requireAllowed(row.result(), ALLOWED_AUDIT_RESULTS, "consentAudit.result"),
                 row.reason(),

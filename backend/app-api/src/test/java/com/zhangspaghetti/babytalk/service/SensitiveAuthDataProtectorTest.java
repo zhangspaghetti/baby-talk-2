@@ -43,6 +43,33 @@ class SensitiveAuthDataProtectorTest {
     }
 
     @Test
+    void interactionEventKeyReferenceUsesIndependentDomainAndDoesNotExposeWireKey() {
+        var protector = protector("jwt-secret-0123456789abcdef0123456789", "stable-auth-pepper-0123456789abcdef");
+
+        var reference = protector.interactionEventKeyLookupRef("install-alpha:event-1");
+
+        assertThat(reference)
+                .startsWith("e1:")
+                .doesNotContain("install-alpha:event-1")
+                .isNotEqualTo(protector.installationLookupRef("install-alpha:event-1"));
+        assertThat(protector.isInteractionEventKeyReference(reference)).isTrue();
+        assertThat(protector.isInteractionEventKeyReference("install-alpha:event-1")).isFalse();
+    }
+
+    @Test
+    void safeInstallationReferenceProjectsLegacyValuesAndPreservesProtectedReferences() {
+        var protector = protector("jwt-secret-0123456789abcdef0123456789", "stable-auth-pepper-0123456789abcdef");
+        var protectedReference = protector.installationLookupRef("install-alpha");
+
+        assertThat(protector.safeInstallationReference("install-alpha"))
+                .isEqualTo(protectedReference)
+                .doesNotContain("install-alpha");
+        assertThat(protector.safeInstallationReference(protectedReference)).isEqualTo(protectedReference);
+        assertThat(protector.safeInstallationReference("redacted")).isEqualTo("redacted");
+        assertThat(protector.safeInstallationReference(null)).isEqualTo("redacted");
+    }
+
+    @Test
     void inviteTokenLookupReferenceUsesIndependentDomainAndDoesNotExposeRawValue() {
         var protector = protector("jwt-secret-0123456789abcdef0123456789", "stable-auth-pepper-0123456789abcdef");
 

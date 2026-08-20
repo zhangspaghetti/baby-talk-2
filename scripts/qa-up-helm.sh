@@ -32,7 +32,7 @@ APP_RUNTIME_ARGS=(
 # Every QA run must name one immutable candidate. The same ID drives every
 # image tag, Helm candidate value, gateway check, and APK Dart define.
 QA_CANDIDATE_ID="${QA_CANDIDATE_ID:-}"
-QA_REQUIRED_MIGRATION_VERSION="${QA_REQUIRED_MIGRATION_VERSION:-35}"
+QA_REQUIRED_MIGRATION_VERSION="${QA_REQUIRED_MIGRATION_VERSION:-36}"
 export QA_CANDIDATE_ID QA_REQUIRED_MIGRATION_VERSION
 
 INFRA_VALUES="${REPO_ROOT}/deploy/helm/babytalk-infra/values-kind-qa.yaml"

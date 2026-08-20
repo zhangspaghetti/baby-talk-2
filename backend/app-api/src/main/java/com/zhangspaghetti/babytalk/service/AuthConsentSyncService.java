@@ -313,9 +313,9 @@ public class AuthConsentSyncService {
             var validated = validateSyncEvent(normalizedInstallationId, event, seenEventKeys);
             try {
                 if (repository.insertInteractionEvent(session.accountId(), session.sessionId(), validated, now)) {
-                    acceptedEventKeys.add(validated.eventKey());
+                    acceptedEventKeys.add(validated.wireEventKey());
                 } else {
-                    duplicateEventKeys.add(validated.eventKey());
+                    duplicateEventKeys.add(validated.wireEventKey());
                 }
             } catch (DataAccessException exception) {
                 throw new ContractException(
@@ -323,7 +323,7 @@ public class AuthConsentSyncService {
                         "sync_batch_rejected",
                         "同步 batch 被拒绝，整批已回滚。",
                         Map.of(
-                                "failedEventKey", validated.eventKey(),
+                                "failedEventKey", validated.wireEventKey(),
                                 "reason", simplifyDataAccessMessage(exception)
                         )
                 );
@@ -363,9 +363,9 @@ public class AuthConsentSyncService {
         var events = repository.listInteractionEventsForAccount(session.accountId(), contractProperties.bootstrapMaxEvents())
                 .stream()
                 .map(row -> new BootstrapEvent(
-                        row.eventKey(),
+                        wireBootstrapEventKey(row),
                         row.localEventId(),
-                        row.installationId(),
+                        safeInstallationReference(row.installationRef()),
                         row.spaceId(),
                         row.activityId(),
                         row.phraseId(),
@@ -426,7 +426,11 @@ public class AuthConsentSyncService {
 
     @Transactional(readOnly = true)
     public int countInteractionEvents(String accountId, String installationId) {
-        return repository.countInteractionEvents(accountId, installationId);
+        var normalizedInstallationId = normalizeInstallationId(installationId);
+        return repository.countInteractionEvents(
+                accountId,
+                sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -554,8 +558,9 @@ public class AuthConsentSyncService {
         }
         return new AuthConsentSyncRepository.SyncEventRecord(
                 eventKey,
+                sensitiveAuthDataProtector.interactionEventKeyLookupRef(eventKey),
                 localEventId,
-                installationId,
+                sensitiveAuthDataProtector.installationLookupRef(installationId),
                 requireTrimmed(event.spaceId(), "spaceId"),
                 requireTrimmed(event.activityId(), "activityId"),
                 requireTrimmed(event.phraseId(), "phraseId"),
@@ -757,17 +762,15 @@ public class AuthConsentSyncService {
     }
 
     private String safeInstallationReference(String storedReference) {
-        if (storedReference == null || storedReference.isBlank() || REDACTED_INSTALLATION_REFERENCE.equals(storedReference)) {
-            return REDACTED_INSTALLATION_REFERENCE;
-        }
-        if (isProtectedInstallationReference(storedReference)) {
-            return storedReference;
-        }
-        return sensitiveAuthDataProtector.installationLookupRef(storedReference);
+        return sensitiveAuthDataProtector.safeInstallationReference(storedReference);
     }
 
     private boolean isProtectedInstallationReference(String value) {
-        return value != null && value.matches("v1:[A-Za-z0-9_-]{43}");
+        return sensitiveAuthDataProtector.isInstallationReference(value);
+    }
+
+    private String wireBootstrapEventKey(AuthConsentSyncRepository.StoredInteractionEvent row) {
+        return safeInstallationReference(row.installationRef()) + ":" + row.localEventId();
     }
 
     private String normalizeSessionId(String sessionId) {

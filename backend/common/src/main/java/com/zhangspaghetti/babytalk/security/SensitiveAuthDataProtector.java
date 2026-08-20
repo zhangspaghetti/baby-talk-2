@@ -11,6 +11,8 @@ import javax.crypto.spec.SecretKeySpec;
 public class SensitiveAuthDataProtector {
 
     private static final String HMAC_ALGORITHM = "HmacSHA256";
+    private static final String REDACTED_INSTALLATION_REFERENCE = "redacted";
+    private static final String INTERACTION_EVENT_KEY_REFERENCE_PREFIX = "e1:";
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final byte[] pepper;
@@ -28,6 +30,34 @@ public class SensitiveAuthDataProtector {
 
     public String installationLookupRef(String normalizedInstallationId) {
         return "v1:" + encode(hmac("installation-lookup-v1\u0000" + normalizedInstallationId));
+    }
+
+    /**
+     * Projects a stored installation identifier before exposing it to an API or admin view.
+     * Legacy raw identifiers are read-only compatible and never leave the trust boundary.
+     */
+    public String safeInstallationReference(String storedInstallationId) {
+        if (storedInstallationId == null || storedInstallationId.isBlank()) {
+            return REDACTED_INSTALLATION_REFERENCE;
+        }
+        var normalized = storedInstallationId.trim();
+        if (REDACTED_INSTALLATION_REFERENCE.equals(normalized) || isInstallationReference(normalized)) {
+            return normalized;
+        }
+        return installationLookupRef(normalized);
+    }
+
+    public boolean isInstallationReference(String value) {
+        return value != null && value.matches("v1:[A-Za-z0-9_-]{43}");
+    }
+
+    public String interactionEventKeyLookupRef(String normalizedEventKey) {
+        return INTERACTION_EVENT_KEY_REFERENCE_PREFIX
+                + encode(hmac("interaction-event-key-lookup-v1\u0000" + normalizedEventKey));
+    }
+
+    public boolean isInteractionEventKeyReference(String value) {
+        return value != null && value.matches("e1:[A-Za-z0-9_-]{43}");
     }
 
     public String inviteTokenLookupRef(String normalizedInviteToken) {

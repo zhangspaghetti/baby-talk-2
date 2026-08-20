@@ -201,9 +201,9 @@ public class AuthConsentSyncRepository {
     }
 
     public record StoredInteractionEvent(
-            String eventKey,
+            String eventKeyRef,
             String localEventId,
-            String installationId,
+            String installationRef,
             String spaceId,
             String activityId,
             String phraseId,
@@ -214,9 +214,10 @@ public class AuthConsentSyncRepository {
     }
 
     public record SyncEventRecord(
-            String eventKey,
+            String wireEventKey,
+            String eventKeyRef,
             String localEventId,
-            String installationId,
+            String installationRef,
             String spaceId,
             String activityId,
             String phraseId,

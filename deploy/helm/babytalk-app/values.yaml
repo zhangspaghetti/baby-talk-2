@@ -52,7 +52,7 @@ generatedAudio:
 
 candidate:
   id: "1.0.0"
-  requiredMigrationVersion: "35"
+  requiredMigrationVersion: "36"
 
 appApi:
   replicaCount: 1

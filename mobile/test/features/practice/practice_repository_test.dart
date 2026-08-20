@@ -618,9 +618,11 @@ void main() {
           lastSyncAt: DateTime.utc(2026, 4, 7, 12, 6),
         ),
         InteractionEventPayload.fromWire(
-          eventKey: 'install_test:evt_remote',
+          eventKey:
+              'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:evt_remote',
           localEventId: 'evt_remote',
-          installationId: 'install_test',
+          installationId:
+              'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_all_clean',
@@ -651,7 +653,10 @@ void main() {
       expect(events[1].syncState, InteractionSyncState.failed);
       expect(events[1].lastSyncPhase, 'batch_upload_failed');
       expect(events[1].lastSyncError, 'server 500 while syncing');
-      expect(events[2].eventKey, 'install_test:evt_remote');
+      expect(
+        events[2].eventKey,
+        'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:evt_remote',
+      );
       expect(events[2].syncState, InteractionSyncState.synced);
       expect(events[2].lastSyncPhase, 'bootstrap_import');
 

@@ -19,7 +19,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
         properties = {
                 "app.gateway.admin-jwt-secret=babytalk-gateway-context-test-secret-1234567890",
                 "babytalk.candidate.id=btqa-context-test",
-                "babytalk.candidate.required-migration-version=35",
+                "babytalk.candidate.required-migration-version=36",
                 "spring.data.redis.host=127.0.0.1",
                 "spring.data.redis.port=1"
         }
