@@ -249,7 +249,7 @@ class _MentorSharedContextBanner extends StatelessWidget {
           const SizedBox(height: 10),
           Chip(
             key: const Key('mentor-shared-context-chip'),
-            label: Text('shared · ${status.code}'),
+            label: Text('状态：${status.headline}'),
           ),
         ],
       ),
@@ -317,7 +317,11 @@ class _SuggestionCard extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      Chip(label: Text('reason · ${suggestion.reasonCode}')),
+                      Chip(
+                        label: Text(
+                          '来源：${_suggestionReasonLabel(suggestion.reasonCode!)}',
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -327,6 +331,30 @@ class _SuggestionCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String _suggestionReasonLabel(String reasonCode) {
+  switch (reasonCode) {
+    case 'recent_result':
+      return '刚刚的回应';
+    case 'stage_reinforcement':
+      return '阶段巩固';
+    case 'stage_guide':
+      return '阶段引导';
+    case 'stage_only':
+      return '阶段建议';
+    case 'starter_phrase':
+      return '熟悉短句';
+    case 'shared_context_adopted_newer':
+    case 'shared_context_adopted_local_gap':
+      return '家庭共享';
+    case 'fallback':
+    case 'safe_small_step':
+    case 'context_fallback_used':
+      return '安全建议';
+    default:
+      return '建议';
   }
 }
 

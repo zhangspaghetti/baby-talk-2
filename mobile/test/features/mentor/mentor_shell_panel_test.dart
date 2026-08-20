@@ -193,6 +193,8 @@ void main() {
     );
     expect(find.byKey(const Key('mentor-shared-context-chip')), findsOneWidget);
     expect(find.text('已采用家庭共享建议'), findsOneWidget);
+    expect(find.text('状态：已采用家庭共享建议'), findsOneWidget);
+    expect(find.textContaining('shared_context_adopted_newer'), findsNothing);
     expect(find.textContaining('喂饭时间'), findsWidgets);
   });
 

@@ -1850,6 +1850,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsLanguageEn => 'English';
 
   @override
+  String get settingsLanguageBilingual => '双语';
+
+  @override
   String get mentorBubbleCaption => '禾';
 
   @override

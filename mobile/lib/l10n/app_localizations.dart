@@ -3458,6 +3458,12 @@ abstract class AppLocalizations {
   /// **'English'**
   String get settingsLanguageEn;
 
+  /// No description provided for @settingsLanguageBilingual.
+  ///
+  /// In zh, this message translates to:
+  /// **'双语'**
+  String get settingsLanguageBilingual;
+
   /// No description provided for @mentorBubbleCaption.
   ///
   /// In zh, this message translates to:

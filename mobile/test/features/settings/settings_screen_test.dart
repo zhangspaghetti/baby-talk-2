@@ -103,6 +103,22 @@ void main() {
       expect(find.textContaining('中文'), findsOneWidget);
     });
 
+    testWidgets('localizes bilingual caregiver language in subtitle', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(
+        tester,
+        snapshot: const SettingsSnapshot(
+          caregiverRole: '妈妈',
+          preferredLanguage: 'bilingual',
+        ),
+      );
+
+      expect(find.textContaining('妈妈'), findsOneWidget);
+      expect(find.textContaining('双语'), findsOneWidget);
+      expect(find.textContaining('bilingual'), findsNothing);
+    });
+
     testWidgets('shows playback auto-play and speed in subtitle', (
       tester,
     ) async {

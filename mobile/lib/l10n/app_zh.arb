@@ -651,6 +651,7 @@
   "@settingsMonthSuffix": {"placeholders": {"months": {}}},
   "settingsLanguageZh": "中文",
   "settingsLanguageEn": "English",
+  "settingsLanguageBilingual": "双语",
 
   "mentorBubbleCaption": "禾",
   "mentorBubbleMessageSemantics": "小禾老师引导消息：{message}",

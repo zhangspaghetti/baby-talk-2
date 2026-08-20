@@ -148,6 +148,8 @@ class SettingsScreen extends ConsumerWidget {
         return l.settingsLanguageZh;
       case 'en':
         return l.settingsLanguageEn;
+      case 'bilingual':
+        return l.settingsLanguageBilingual;
       default:
         return code;
     }
