@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -752,10 +753,17 @@ final gardenFertilizerNotifierProvider =
 /// stats / trend buckets from the remote API with local cache fallback.
 final growthInsightsNotifierProvider =
     ChangeNotifierProvider<GrowthInsightsNotifier>((ref) {
-      return GrowthInsightsNotifier(
+      final account = ref.read(accountNotifierProvider);
+      final notifier = GrowthInsightsNotifier(
         apiService: ref.watch(growthInsightsApiServiceProvider),
-      )..initialize();
-    });
+        accountContext: account.stableAccountContext,
+      );
+      ref.listen<AccountNotifier>(accountNotifierProvider, (_, next) {
+        notifier.bindAccountContext(next.stableAccountContext);
+        unawaited(notifier.initialize());
+      });
+      return notifier..initialize();
+    }, dependencies: [accountNotifierProvider]);
 
 // ---------------------------------------------------------------------------
 // Share services & repository

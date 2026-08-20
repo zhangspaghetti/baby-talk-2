@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
 import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
@@ -21,6 +24,7 @@ void main() {
     final notifier = GrowthInsightsNotifier(
       apiService: api,
       prefs: _FakePrefs(),
+      accountContext: 'test-account',
     );
     addTearDown(notifier.dispose);
 
@@ -37,12 +41,16 @@ void main() {
     final prefs = _FakePrefs();
     // Pre-populate cache with stale data.
     await prefs.setString(
-      'growth_insights_reaction_v2_week',
+      _scopedCacheKey('week'),
       _cacheEntry(totalEvents: 42, uniquePhrases: 5, uniqueActivities: 3),
     );
 
     final api = _FakeApiService(throwOnFetch: true);
-    final notifier = GrowthInsightsNotifier(apiService: api, prefs: prefs);
+    final notifier = GrowthInsightsNotifier(
+      apiService: api,
+      prefs: prefs,
+      accountContext: 'test-account',
+    );
     addTearDown(notifier.dispose);
 
     await notifier.initialize();
@@ -58,6 +66,7 @@ void main() {
     final notifier = GrowthInsightsNotifier(
       apiService: api,
       prefs: _FakePrefs(),
+      accountContext: 'test-account',
     );
     addTearDown(notifier.dispose);
 
@@ -68,21 +77,30 @@ void main() {
     expect(week.hasError, isTrue);
   });
 
-  test('keeps a failed period as an error instead of zero-value data', () async {
-    final api = _FakeApiService(failedPeriods: {'month'});
-    final notifier = GrowthInsightsNotifier(
-      apiService: api,
-      prefs: _FakePrefs(),
-    );
-    addTearDown(notifier.dispose);
+  test(
+    'keeps a failed period as an error instead of zero-value data',
+    () async {
+      final api = _FakeApiService(failedPeriods: {'month'});
+      final notifier = GrowthInsightsNotifier(
+        apiService: api,
+        prefs: _FakePrefs(),
+        accountContext: 'test-account',
+      );
+      addTearDown(notifier.dispose);
 
-    await notifier.initialize();
+      await notifier.initialize();
 
-    expect(notifier.viewFor(GrowthPeriod.week).hasError, isFalse);
-    expect(notifier.viewFor(GrowthPeriod.month).hasError, isTrue);
-    expect(notifier.viewFor(GrowthPeriod.month).stats.totalEvents, 0);
-    expect(notifier.viewFor(GrowthPeriod.month).isEmpty, isFalse);
-  });
+      expect(notifier.viewFor(GrowthPeriod.week).hasError, isFalse);
+      expect(notifier.viewFor(GrowthPeriod.month).hasError, isTrue);
+      expect(notifier.viewFor(GrowthPeriod.month).stats.totalEvents, 0);
+      expect(notifier.viewFor(GrowthPeriod.month).isEmpty, isFalse);
+    },
+  );
+}
+
+String _scopedCacheKey(String period) {
+  final fingerprint = sha256.convert(utf8.encode('test-account'));
+  return 'growth_insights_reaction_v2_${fingerprint}_$period';
 }
 
 GrowthInsightsPayload _makePayload({
