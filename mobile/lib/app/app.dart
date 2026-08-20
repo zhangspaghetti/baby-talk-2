@@ -766,20 +766,28 @@ class _ReentryOverlay extends ConsumerWidget {
                                 ),
                           ),
                         ),
-                        IconButton(
-                          tooltip: '关闭提示',
-                          icon: Icon(
-                            Icons.close,
-                            size: 18,
-                            color: colors.warning,
+                        Semantics(
+                          button: true,
+                          label: '关闭提示',
+                          child: IconButton(
+                            // This overlay is composed above the router's
+                            // Navigator. That builder context has no
+                            // Overlay ancestor, so IconButton's tooltip
+                            // would assert during startup/test composition.
+                            tooltip: null,
+                            icon: Icon(
+                              Icons.close,
+                              size: 18,
+                              color: colors.warning,
+                            ),
+                            onPressed: () {
+                              if (hasInviteMessage) {
+                                inviteCoordinator.clearMessage();
+                              } else {
+                                shareCoordinator.clearMessage();
+                              }
+                            },
                           ),
-                          onPressed: () {
-                            if (hasInviteMessage) {
-                              inviteCoordinator.clearMessage();
-                            } else {
-                              shareCoordinator.clearMessage();
-                            }
-                          },
                         ),
                       ],
                     ),

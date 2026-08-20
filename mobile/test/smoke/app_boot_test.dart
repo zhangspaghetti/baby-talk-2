@@ -325,11 +325,11 @@ void main() {
     GoRouter.of(
       tester.element(find.byKey(const Key('boot-route-onboarding'))),
     ).go(AppRouteNames.account);
-    await _pumpUntilFound(tester, find.byKey(const Key('auth-contact-field')));
+    await _pumpUntilFound(tester, find.byKey(const Key('account-phone-field')));
 
-    expect(find.byKey(const Key('auth-contact-field')), findsOneWidget);
-    expect(find.text('获取验证码'), findsOneWidget);
-    expect(find.byKey(const Key('account-entry-surface')), findsNothing);
+    expect(find.byKey(const Key('account-phone-field')), findsOneWidget);
+    expect(find.byKey(const Key('account-submit-button')), findsOneWidget);
+    expect(find.byKey(const Key('account-entry-surface')), findsOneWidget);
   });
 
   testWidgets('runtime router opens the custom scene input screen', (
