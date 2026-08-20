@@ -129,6 +129,15 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.text(l.mentorCurrentTabLabel(l.mentorSuggestionTab)),
+      findsOneWidget,
+    );
+    expect(find.text(l.mentorStatusLabel(l.mentorStatusReady)), findsOneWidget);
+    expect(find.text(l.mentorChatStatusLabel('当前离线')), findsOneWidget);
+    expect(find.text('状态：ready'), findsNothing);
+    expect(find.text('当前：suggestions'), findsNothing);
+    expect(find.text('聊天：offline'), findsNothing);
     expect(find.text('Warm water.'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('mentor-tab-chat-button')));

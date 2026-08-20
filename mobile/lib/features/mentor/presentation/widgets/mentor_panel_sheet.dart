@@ -187,6 +187,8 @@ class _MentorChatTab extends ConsumerWidget {
     final accountNotifier = ref.watch(accountNotifierProvider);
     final notifier = ref.watch(mentorNotifierProvider);
     final availability = notifier.chatAvailability;
+    final availabilityTitle = mentorChatAvailabilityTitle(l, availability);
+    final availabilityDetail = mentorChatAvailabilityDetail(l, availability);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -195,8 +197,8 @@ class _MentorChatTab extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppMentorBubble(
-            caption: availability.title,
-            message: availability.detail,
+            caption: availabilityTitle,
+            message: availabilityDetail,
             trailing: Text(
               l.mentorChatNote,
               key: const Key('mentor-chat-text-first-note'),
@@ -206,7 +208,7 @@ class _MentorChatTab extends ConsumerWidget {
           const SizedBox(height: 16),
           AppBanner(
             key: const Key('mentor-chat-banner'),
-            message: notifier.bannerMessage ?? availability.detail,
+            message: notifier.bannerMessage ?? availabilityDetail,
             backgroundColor: colors.warningSoft,
             foregroundColor: colors.warning,
           ),
@@ -228,13 +230,17 @@ class _MentorChatTab extends ConsumerWidget {
                 key: const Key('mentor-chat-phase-chip'),
                 label: Text(
                   notifier.chatResponsePhase == null
-                      ? availability.title
+                      ? availabilityTitle
                       : l.mentorChatResponseUpdated,
                 ),
               ),
               Chip(
                 key: const Key('mentor-chat-status-chip'),
-                label: Text(notifier.statusChipLabel),
+                label: Text(
+                  l.mentorStatusLabel(
+                    mentorPanelStatusLabel(l, notifier.panelStatus),
+                  ),
+                ),
               ),
               if (accountNotifier.snapshot.lastSyncPhase.trim().isNotEmpty)
                 Chip(

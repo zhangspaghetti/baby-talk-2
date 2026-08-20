@@ -1101,6 +1101,70 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String mentorCurrentTabLabel(Object tab) {
+    return '当前：$tab';
+  }
+
+  @override
+  String mentorChatStatusLabel(Object status) {
+    return '聊天：$status';
+  }
+
+  @override
+  String get mentorStatusPreparing => '准备中';
+
+  @override
+  String get mentorStatusOrganizing => '正在整理';
+
+  @override
+  String get mentorStatusReady => '建议已准备';
+
+  @override
+  String get mentorStatusLocalFallback => '使用本地建议';
+
+  @override
+  String get mentorStatusSafeFallback => '已保留安全建议';
+
+  @override
+  String get mentorChatAvailabilityLoadingTitle => '正在读取聊天状态';
+
+  @override
+  String get mentorChatAvailabilityReadyTitle => '可以发起一次受控聊天';
+
+  @override
+  String get mentorChatAvailabilityOfflineTitle => '当前离线';
+
+  @override
+  String get mentorChatAvailabilityLoginTitle => '需要登录';
+
+  @override
+  String get mentorChatAvailabilityReloginTitle => '需要重新登录';
+
+  @override
+  String get mentorChatAvailabilityConsentTitle => '需要重新同意';
+
+  @override
+  String get mentorChatAvailabilityLoadingDetail => '账号状态还在加载中，先看本地建议。';
+
+  @override
+  String get mentorChatAvailabilityReadyDetail =>
+      '你可以直接描述当下卡住的场景，Mentor 会返回一条安全文本回应。';
+
+  @override
+  String get mentorChatAvailabilityOfflineDetail => '离线时不会发聊天请求，先用本地建议继续。';
+
+  @override
+  String get mentorChatAvailabilityLoginDetail =>
+      '登录并同意后才能使用在线 Mentor 聊天；本地建议仍可继续。';
+
+  @override
+  String get mentorChatAvailabilityReloginDetail =>
+      '登录状态已经失效；重新登录并同意后再试一次受控聊天。';
+
+  @override
+  String get mentorChatAvailabilityConsentDetail => '当前账号同意状态不可用；重新登录并再次同意后再试。';
+
+  @override
   String mentorSuggestionSource(Object reason) {
     return '来源：$reason';
   }

@@ -43,34 +43,6 @@ class ChatBubbleData {
   final DateTime timestamp;
 }
 
-extension MentorPanelTabLabel on MentorPanelTab {
-  String get label {
-    switch (this) {
-      case MentorPanelTab.suggestions:
-        return '建议';
-      case MentorPanelTab.chat:
-        return '聊天';
-    }
-  }
-}
-
-extension MentorPanelStatusLabel on MentorPanelStatus {
-  String get label {
-    switch (this) {
-      case MentorPanelStatus.idle:
-        return '准备中';
-      case MentorPanelStatus.loading:
-        return '正在整理';
-      case MentorPanelStatus.ready:
-        return '建议已准备';
-      case MentorPanelStatus.fallback:
-        return '使用本地建议';
-      case MentorPanelStatus.error:
-        return '已保留安全建议';
-    }
-  }
-}
-
 extension MentorChatAvailabilityCodeWire on MentorChatAvailabilityCode {
   String get wireValue {
     switch (this) {
@@ -104,8 +76,6 @@ class MentorChatAvailability {
   final String phase;
   final bool retryable;
   final bool canSubmit;
-
-  String get chipLabel => '聊天：$title';
 }
 
 class MentorChatFailureSurface {
@@ -195,8 +165,6 @@ class MentorNotifier extends ChangeNotifier {
   bool get isPanelVisible => _isPanelVisible;
   bool get isLoading => _panelStatus == MentorPanelStatus.loading;
   bool get isRefreshingSuggestions => _isRefreshingSuggestions;
-  String get statusChipLabel => '状态：${_panelStatus.label}';
-  String get selectedTabChipLabel => '当前：${_selectedTab.label}';
 
   String get chatDraft => _chatDraft;
   bool get isSubmittingChat => _isSubmittingChat;

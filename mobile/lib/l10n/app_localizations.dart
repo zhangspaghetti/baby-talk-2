@@ -2064,6 +2064,120 @@ abstract class AppLocalizations {
   /// **'状态：{status}'**
   String mentorStatusLabel(Object status);
 
+  /// No description provided for @mentorCurrentTabLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：{tab}'**
+  String mentorCurrentTabLabel(Object tab);
+
+  /// No description provided for @mentorChatStatusLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'聊天：{status}'**
+  String mentorChatStatusLabel(Object status);
+
+  /// No description provided for @mentorStatusPreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'准备中'**
+  String get mentorStatusPreparing;
+
+  /// No description provided for @mentorStatusOrganizing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在整理'**
+  String get mentorStatusOrganizing;
+
+  /// No description provided for @mentorStatusReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议已准备'**
+  String get mentorStatusReady;
+
+  /// No description provided for @mentorStatusLocalFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用本地建议'**
+  String get mentorStatusLocalFallback;
+
+  /// No description provided for @mentorStatusSafeFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保留安全建议'**
+  String get mentorStatusSafeFallback;
+
+  /// No description provided for @mentorChatAvailabilityLoadingTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取聊天状态'**
+  String get mentorChatAvailabilityLoadingTitle;
+
+  /// No description provided for @mentorChatAvailabilityReadyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'可以发起一次受控聊天'**
+  String get mentorChatAvailabilityReadyTitle;
+
+  /// No description provided for @mentorChatAvailabilityOfflineTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前离线'**
+  String get mentorChatAvailabilityOfflineTitle;
+
+  /// No description provided for @mentorChatAvailabilityLoginTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要登录'**
+  String get mentorChatAvailabilityLoginTitle;
+
+  /// No description provided for @mentorChatAvailabilityReloginTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要重新登录'**
+  String get mentorChatAvailabilityReloginTitle;
+
+  /// No description provided for @mentorChatAvailabilityConsentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要重新同意'**
+  String get mentorChatAvailabilityConsentTitle;
+
+  /// No description provided for @mentorChatAvailabilityLoadingDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号状态还在加载中，先看本地建议。'**
+  String get mentorChatAvailabilityLoadingDetail;
+
+  /// No description provided for @mentorChatAvailabilityReadyDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'你可以直接描述当下卡住的场景，Mentor 会返回一条安全文本回应。'**
+  String get mentorChatAvailabilityReadyDetail;
+
+  /// No description provided for @mentorChatAvailabilityOfflineDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'离线时不会发聊天请求，先用本地建议继续。'**
+  String get mentorChatAvailabilityOfflineDetail;
+
+  /// No description provided for @mentorChatAvailabilityLoginDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录并同意后才能使用在线 Mentor 聊天；本地建议仍可继续。'**
+  String get mentorChatAvailabilityLoginDetail;
+
+  /// No description provided for @mentorChatAvailabilityReloginDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录状态已经失效；重新登录并同意后再试一次受控聊天。'**
+  String get mentorChatAvailabilityReloginDetail;
+
+  /// No description provided for @mentorChatAvailabilityConsentDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号同意状态不可用；重新登录并再次同意后再试。'**
+  String get mentorChatAvailabilityConsentDetail;
+
   /// No description provided for @mentorSuggestionSource.
   ///
   /// In zh, this message translates to:

@@ -9,6 +9,70 @@ import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
+String mentorPanelStatusLabel(AppLocalizations l, MentorPanelStatus status) {
+  switch (status) {
+    case MentorPanelStatus.idle:
+      return l.mentorStatusPreparing;
+    case MentorPanelStatus.loading:
+      return l.mentorStatusOrganizing;
+    case MentorPanelStatus.ready:
+      return l.mentorStatusReady;
+    case MentorPanelStatus.fallback:
+      return l.mentorStatusLocalFallback;
+    case MentorPanelStatus.error:
+      return l.mentorStatusSafeFallback;
+  }
+}
+
+String mentorPanelTabLabel(AppLocalizations l, MentorPanelTab tab) {
+  switch (tab) {
+    case MentorPanelTab.suggestions:
+      return l.mentorSuggestionTab;
+    case MentorPanelTab.chat:
+      return l.mentorChatTab;
+  }
+}
+
+String mentorChatAvailabilityTitle(
+  AppLocalizations l,
+  MentorChatAvailability availability,
+) {
+  switch (availability.code) {
+    case MentorChatAvailabilityCode.accountLoading:
+      return l.mentorChatAvailabilityLoadingTitle;
+    case MentorChatAvailabilityCode.ready:
+      return l.mentorChatAvailabilityReadyTitle;
+    case MentorChatAvailabilityCode.offline:
+      return l.mentorChatAvailabilityOfflineTitle;
+    case MentorChatAvailabilityCode.loginRequired:
+      return availability.phase == 'mentor_session_required'
+          ? l.mentorChatAvailabilityReloginTitle
+          : l.mentorChatAvailabilityLoginTitle;
+    case MentorChatAvailabilityCode.consentRequired:
+      return l.mentorChatAvailabilityConsentTitle;
+  }
+}
+
+String mentorChatAvailabilityDetail(
+  AppLocalizations l,
+  MentorChatAvailability availability,
+) {
+  switch (availability.code) {
+    case MentorChatAvailabilityCode.accountLoading:
+      return l.mentorChatAvailabilityLoadingDetail;
+    case MentorChatAvailabilityCode.ready:
+      return l.mentorChatAvailabilityReadyDetail;
+    case MentorChatAvailabilityCode.offline:
+      return l.mentorChatAvailabilityOfflineDetail;
+    case MentorChatAvailabilityCode.loginRequired:
+      return availability.phase == 'mentor_session_required'
+          ? l.mentorChatAvailabilityReloginDetail
+          : l.mentorChatAvailabilityLoginDetail;
+    case MentorChatAvailabilityCode.consentRequired:
+      return l.mentorChatAvailabilityConsentDetail;
+  }
+}
+
 class MentorSuggestionTab extends ConsumerWidget {
   const MentorSuggestionTab({super.key});
 
@@ -69,15 +133,27 @@ class MentorSuggestionTab extends ConsumerWidget {
           children: [
             Chip(
               key: const Key('mentor-selected-tab-chip'),
-              label: Text(notifier.selectedTabChipLabel),
+              label: Text(
+                l.mentorCurrentTabLabel(
+                  mentorPanelTabLabel(l, notifier.selectedTab),
+                ),
+              ),
             ),
             Chip(
               key: const Key('mentor-status-chip'),
-              label: Text(notifier.statusChipLabel),
+              label: Text(
+                l.mentorStatusLabel(
+                  mentorPanelStatusLabel(l, notifier.panelStatus),
+                ),
+              ),
             ),
             Chip(
               key: const Key('mentor-chat-chip'),
-              label: Text(notifier.chatAvailability.chipLabel),
+              label: Text(
+                l.mentorChatStatusLabel(
+                  mentorChatAvailabilityTitle(l, notifier.chatAvailability),
+                ),
+              ),
             ),
           ],
         ),
