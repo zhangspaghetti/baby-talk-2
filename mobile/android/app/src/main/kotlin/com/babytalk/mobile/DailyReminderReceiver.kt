@@ -10,7 +10,30 @@ import androidx.core.app.NotificationCompat
 
 class DailyReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val reminder = readReminderPreferences(context) ?: run {
+            disableDailyReminderSafely(context)
+            return
+        }
+        if (!reminder.enabled) {
+            return
+        }
+        if (!isValidReminderTime(reminder.hour, reminder.minute)) {
+            disableDailyReminderSafely(context)
+            return
+        }
         createChannel(context)
+        // Cancellation clears the preference after cancelling the PendingIntent.
+        // Re-read immediately before publishing so a stale alarm does not notify.
+        val current = readReminderPreferences(context) ?: run {
+            disableDailyReminderSafely(context)
+            return
+        }
+        if (!current.enabled || !isValidReminderTime(current.hour, current.minute)) {
+            if (current.enabled) {
+                disableDailyReminderSafely(context)
+            }
+            return
+        }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(com.babytalk.mobile.R.mipmap.ic_launcher)
             .setContentTitle("Baby Talk")

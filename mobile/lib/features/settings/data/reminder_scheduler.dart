@@ -42,13 +42,5 @@ class PlatformReminderScheduler implements ReminderScheduler {
   }
 
   @override
-  Future<void> cancel() async {
-    try {
-      await _channel.invokeMethod<void>('cancel');
-    } on MissingPluginException {
-      // The scheduler is optional on platforms without the native capability.
-    } on PlatformException {
-      // The persisted setting still remains the source of truth on failure.
-    }
-  }
+  Future<void> cancel() => _channel.invokeMethod<void>('cancel');
 }

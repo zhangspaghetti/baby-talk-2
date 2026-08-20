@@ -48,21 +48,18 @@ void main() {
     },
   );
 
-  test(
-    'maps unavailable native capability and tolerates cancel failure',
-    () async {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            throw PlatformException(code: 'unavailable');
-          });
+  test('maps unavailable schedule and propagates cancel failure', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          throw PlatformException(code: 'unavailable');
+        });
 
-      const scheduler = PlatformReminderScheduler();
+    const scheduler = PlatformReminderScheduler();
 
-      expect(
-        await scheduler.scheduleDaily(hour: 8, minute: 30),
-        ReminderScheduleResult.unavailable,
-      );
-      await expectLater(scheduler.cancel(), completes);
-    },
-  );
+    expect(
+      await scheduler.scheduleDaily(hour: 8, minute: 30),
+      ReminderScheduleResult.unavailable,
+    );
+    await expectLater(scheduler.cancel(), throwsA(isA<PlatformException>()));
+  });
 }
