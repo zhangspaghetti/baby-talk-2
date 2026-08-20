@@ -7,7 +7,7 @@
     <resultMap id="adminUserRowMap" type="com.zhangspaghetti.babytalk.admin.users.AdminUserReadRepository$AdminUserRow">
         <constructor>
             <arg column="account_id" javaType="java.lang.String"/>
-            <arg column="phone_number" javaType="java.lang.String"/>
+            <arg column="phone_mask" javaType="java.lang.String"/>
             <arg column="status" javaType="java.lang.String"/>
             <arg column="latest_consent_status" javaType="java.lang.String"/>
             <arg column="created_at" javaType="java.time.Instant"/>
@@ -49,7 +49,7 @@
             and status = #{status}
         </if>
         <if test="query != null">
-            and (account_id like concat(#{query}, '%') or phone_number like concat(#{query}, '%'))
+            and (account_id like concat(#{query}, '%') or phone_mask like concat(#{query}, '%'))
         </if>
     </sql>
 
@@ -61,7 +61,7 @@
     </select>
 
     <select id="listUsers" resultMap="adminUserRowMap">
-        select account_id, phone_number, status, latest_consent_status, created_at, deleted_at
+        select account_id, phone_mask, status, latest_consent_status, created_at, deleted_at
         from accounts
         where 1 = 1
         <include refid="userListFilters"/>
@@ -70,13 +70,13 @@
     </select>
 
     <select id="findAccount" resultMap="adminUserRowMap">
-        select account_id, phone_number, status, latest_consent_status, created_at, deleted_at
+        select account_id, phone_mask, status, latest_consent_status, created_at, deleted_at
         from accounts
         where account_id = #{accountId}
     </select>
 
     <select id="lockAccount" resultMap="adminUserRowMap">
-        select account_id, phone_number, status, latest_consent_status, created_at, deleted_at
+        select account_id, phone_mask, status, latest_consent_status, created_at, deleted_at
         from accounts
         where account_id = #{accountId}
         for update
@@ -121,7 +121,8 @@
     <update id="tombstoneAccount">
         update accounts
         set status = 'deleted',
-            phone_number = #{tombstonePhone},
+            phone_lookup_ref = concat('deleted:', account_id),
+            phone_mask = '账号已删除',
             latest_consent_status = 'deleted',
             deleted_at = #{deletedAt}
         where account_id = #{accountId}

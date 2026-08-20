@@ -96,7 +96,7 @@ class AdminUsersWebTest {
         var oldSessionCreatedAt = Instant.parse("2026-04-20T00:00:00Z");
         var oldSessionRevokedAt = Instant.parse("2026-04-20T12:00:00Z");
         var refreshIssuedAt = Instant.parse("2026-04-22T00:00:00Z");
-        seedAccount("acct_001", "13900000001", "active", "accepted", accountCreatedAt, null);
+        seedAccount("acct_001", "139****0001", "active", "accepted", accountCreatedAt, null);
         seedSession("sess_live", "acct_001", "install-alpha", "active", liveSessionCreatedAt, null);
         seedSession("sess_old", "acct_001", "install-beta", "revoked", oldSessionCreatedAt, oldSessionRevokedAt);
         seedRefreshToken(
@@ -123,27 +123,37 @@ class AdminUsersWebTest {
                         .param("page", "1")
                         .param("pageSize", "10")
                         .param("status", "active")
-                        .param("query", "13900000001"))
+                        .param("query", "139****0001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.page").value(1))
                 .andExpect(jsonPath("$.pageSize").value(10))
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.totalPages").value(1))
                 .andExpect(jsonPath("$.filters.status").value("active"))
-                .andExpect(jsonPath("$.filters.query").value("13900000001"))
+                .andExpect(jsonPath("$.filters.query").value("139****0001"))
                 .andExpect(jsonPath("$.items", hasSize(1)))
                 .andExpect(jsonPath("$.items[0].accountId").value("acct_001"))
-                .andExpect(jsonPath("$.items[0].phoneNumber").value("13900000001"))
+                .andExpect(jsonPath("$.items[0].phoneNumber").value("139****0001"))
                 .andExpect(jsonPath("$.items[0].status").value("active"))
                 .andExpect(jsonPath("$.items[0].latestConsentStatus").value("accepted"))
                 .andExpect(jsonPath("$.items[0].createdAt").value("2026-04-21T00:00:00Z"))
                 .andExpect(jsonPath("$.items[0].deletedAt").value(nullValue()));
 
+        mockMvc.perform(get("/api/admin/users")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .param("page", "1")
+                        .param("pageSize", "10")
+                        .param("status", "active")
+                        .param("query", "13900000001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.items", hasSize(0)));
+
         mockMvc.perform(get("/api/admin/users/{accountId}", "acct_001")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.account.accountId").value("acct_001"))
-                .andExpect(jsonPath("$.account.phoneNumber").value("13900000001"))
+                .andExpect(jsonPath("$.account.phoneNumber").value("139****0001"))
                 .andExpect(jsonPath("$.account.status").value("active"))
                 .andExpect(jsonPath("$.recentSessions", hasSize(2)))
                 .andExpect(jsonPath("$.recentSessions[0].sessionId").value("sess_live"))
@@ -186,10 +196,15 @@ class AdminUsersWebTest {
                 "acct_001"
         )).isEqualTo("deleted");
         assertThat(jdbcTemplate.queryForObject(
-                "select phone_number from accounts where account_id = ?",
+                "select phone_lookup_ref from accounts where account_id = ?",
                 String.class,
                 "acct_001"
         )).isEqualTo("deleted:acct_001");
+        assertThat(jdbcTemplate.queryForObject(
+                "select phone_mask from accounts where account_id = ?",
+                String.class,
+                "acct_001"
+        )).isEqualTo("账号已删除");
         assertThat(jdbcTemplate.queryForObject(
                 "select latest_consent_status from accounts where account_id = ?",
                 String.class,
@@ -240,7 +255,7 @@ class AdminUsersWebTest {
 
     @Test
     void disableRejectsMissingReasonAndReadOnlyAdminsCannotWrite() throws Exception {
-        seedAccount("acct_101", "13900000101", "active", "accepted", Instant.parse("2026-04-10T00:00:00Z"), null);
+        seedAccount("acct_101", "139****0101", "active", "accepted", Instant.parse("2026-04-10T00:00:00Z"), null);
 
         var superAdmin = login("super_admin", "SuperAdmin123!");
         createRole(superAdmin.accessToken(), "users_reader_only", "Users read only", List.of("users:read"));
@@ -286,8 +301,8 @@ class AdminUsersWebTest {
     @Test
     void duplicateDisableEmptyHistoriesAndNegativeContractsStayStable() throws Exception {
         var deletedAt = Instant.parse("2026-04-12T00:00:00Z");
-        seedAccount("acct_empty", "13900000999", "active", "signed_out", Instant.parse("2026-04-09T00:00:00Z"), null);
-        seedAccount("acct_dup", "deleted:acct_dup", "deleted", "deleted", Instant.parse("2026-04-08T00:00:00Z"), deletedAt);
+        seedAccount("acct_empty", "139****0999", "active", "signed_out", Instant.parse("2026-04-09T00:00:00Z"), null);
+        seedAccount("acct_dup", "账号已删除", "deleted", "deleted", Instant.parse("2026-04-08T00:00:00Z"), deletedAt);
         seedSession("sess_dup", "acct_dup", "install-dup", "deleted", Instant.parse("2026-04-08T02:00:00Z"), deletedAt);
         seedConsentAudit("acct_dup", "sess_dup", "install-dup", "delete", "applied", "first_delete", deletedAt);
 
@@ -409,7 +424,7 @@ class AdminUsersWebTest {
 
     private void seedAccount(
             String accountId,
-            String phoneNumber,
+            String phoneMask,
             String status,
             String consentStatus,
             Instant createdAt,
@@ -417,11 +432,12 @@ class AdminUsersWebTest {
     ) {
         jdbcTemplate.update(
                 """
-                insert into accounts (account_id, phone_number, status, latest_consent_status, created_at, deleted_at)
-                values (?, ?, ?, ?, ?, ?)
+                insert into accounts (account_id, phone_lookup_ref, phone_mask, status, latest_consent_status, created_at, deleted_at)
+                values (?, ?, ?, ?, ?, ?, ?)
                 """,
                 accountId,
-                phoneNumber,
+                "v1:test-" + accountId,
+                phoneMask,
                 status,
                 consentStatus,
                 Timestamp.from(createdAt),

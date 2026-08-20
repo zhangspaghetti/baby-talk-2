@@ -46,7 +46,6 @@ public interface AdminUserReadMapper {
 
     int tombstoneAccount(
             @Param("accountId") String accountId,
-            @Param("tombstonePhone") String tombstonePhone,
             @Param("deletedAt") Instant deletedAt
     );
 

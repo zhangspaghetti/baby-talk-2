@@ -55,8 +55,8 @@ public class AdminUserReadRepository {
         return adminUserReadMapper.updateSessionsStatus(accountId, newStatus, changedAt);
     }
 
-    public int tombstoneAccount(String accountId, String tombstonePhone, Instant deletedAt) {
-        return adminUserReadMapper.tombstoneAccount(accountId, tombstonePhone, deletedAt);
+    public int tombstoneAccount(String accountId, Instant deletedAt) {
+        return adminUserReadMapper.tombstoneAccount(accountId, deletedAt);
     }
 
     public void insertConsentAudit(AuditWriteRow auditRow) {
@@ -83,7 +83,7 @@ public class AdminUserReadRepository {
 
     public record AdminUserRow(
             String accountId,
-            String phoneNumber,
+            String phoneMask,
             String status,
             String latestConsentStatus,
             Instant createdAt,

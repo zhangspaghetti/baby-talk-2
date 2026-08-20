@@ -133,7 +133,7 @@ public class AdminUsersService {
 
             var deletedEventCount = adminUserReadRepository.deleteInteractionEvents(normalizedAccountId);
             var revokedSessionCount = adminUserReadRepository.updateSessionsStatus(normalizedAccountId, STATUS_DELETED, now);
-            adminUserReadRepository.tombstoneAccount(normalizedAccountId, "deleted:" + normalizedAccountId, now);
+            adminUserReadRepository.tombstoneAccount(normalizedAccountId, now);
             adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                     normalizedAccountId,
                     auditContext.sessionId(),
@@ -166,7 +166,7 @@ public class AdminUsersService {
     private UserSummaryView toUserSummary(AdminUserReadRepository.AdminUserRow row) {
         return new UserSummaryView(
                 row.accountId(),
-                row.phoneNumber(),
+                row.phoneMask(),
                 requireAllowed(row.status(), ALLOWED_ACCOUNT_STATUSES, "account.status"),
                 requireAllowed(row.latestConsentStatus(), ALLOWED_CONSENT_STATUSES, "account.latestConsentStatus"),
                 row.createdAt(),
