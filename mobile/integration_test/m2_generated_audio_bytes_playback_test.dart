@@ -42,6 +42,7 @@ void main() {
             bytes,
             'audio/mpeg',
             sessionId: expectedSessionId,
+            playbackRate: 1.0,
           );
           expect((await completed).sessionId, expectedSessionId);
         }
