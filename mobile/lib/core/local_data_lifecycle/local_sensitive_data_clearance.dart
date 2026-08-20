@@ -388,8 +388,10 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
                   target != LocalSensitiveDataTarget.accountLocalSnapshot,
             ) ||
             request.authorization is StaffPlusDestructiveAuthorization,
-      LocalSensitiveDataClearanceTrigger.logoutSessionOnly ||
-      LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly => true,
+      LocalSensitiveDataClearanceTrigger.logoutSessionOnly =>
+        request.authorization is ReportOnlyAuthorization,
+      LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly =>
+        request.authorization is StaffPlusDestructiveAuthorization,
     };
   }
 }

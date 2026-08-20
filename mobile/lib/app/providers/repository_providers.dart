@@ -459,14 +459,19 @@ final accountNotifierProvider = ChangeNotifierProvider<AccountNotifier>((ref) {
           return orchestrator.clear(
             LocalSensitiveDataClearanceRequest(
               trigger: trigger,
-              authorization:
-                  trigger ==
-                      LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed
-                  ? CaregiverConfirmedAuthorization(
-                      confirmedAt: requestedAt,
-                      confirmationText: '清除本机数据',
-                    )
-                  : ref.read(accountDestructiveClearanceAuthorizationProvider),
+              authorization: switch (trigger) {
+                LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed =>
+                  CaregiverConfirmedAuthorization(
+                    confirmedAt: requestedAt,
+                    confirmationText: '清除本机数据',
+                  ),
+                LocalSensitiveDataClearanceTrigger.logoutSessionOnly =>
+                  const ReportOnlyAuthorization(reason: 'session logout'),
+                LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed ||
+                LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed ||
+                LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly =>
+                  ref.read(accountDestructiveClearanceAuthorizationProvider),
+              },
               correlationId: correlationId,
               requestedAt: requestedAt,
             ),
