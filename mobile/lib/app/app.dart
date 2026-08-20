@@ -18,6 +18,7 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 import 'package:mobile/features/care_entry/presentation/care_entry_providers.dart';
@@ -201,6 +202,9 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       householdNotifierLookup: _lookupNotifier<HouseholdNotifier>,
       continuityNotifierLookup: _lookupNotifier<PracticeContinuityNotifier>,
       gardenGrowthNotifierLookup: _lookupNotifier<GardenGrowthNotifier>,
+      isInviteAuthenticationReady: () =>
+          _lookupNotifier<AccountNotifier>()?.isSignedIn ?? false,
+      inviteAuthenticationNotifierLookup: _lookupNotifier<AccountNotifier>,
     );
     _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     _launchStateFuture = _buildLaunchStateFuture();
@@ -367,6 +371,9 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       // Match by runtime type since Riverpod providers are typed.
       if (T == HouseholdNotifier) {
         return container.read(householdNotifierProvider) as T;
+      }
+      if (T == AccountNotifier) {
+        return container.read(accountNotifierProvider) as T;
       }
       if (T == PracticeContinuityNotifier) {
         return container.read(practiceContinuityNotifierProvider) as T;

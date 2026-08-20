@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
@@ -26,6 +27,9 @@ typedef SeedContentProvider = SeedContentBundle? Function();
 typedef HouseholdNotifierLookup = HouseholdNotifier? Function();
 typedef ContinuityNotifierLookup = PracticeContinuityNotifier? Function();
 typedef GardenGrowthNotifierLookup = GardenGrowthNotifier? Function();
+typedef InitialUriLoader = Future<Uri?> Function();
+typedef InviteAuthenticationReady = bool Function();
+typedef InviteAuthenticationNotifierLookup = Listenable? Function();
 
 /// 重入状态机所用的启动目标枚举（与 app.dart 中 AppLaunchDestination 对齐）
 enum AppLaunchDestination { onboarding, shell }
@@ -45,6 +49,9 @@ class AppReentryOrchestrator {
     required HouseholdNotifierLookup householdNotifierLookup,
     required ContinuityNotifierLookup continuityNotifierLookup,
     required GardenGrowthNotifierLookup gardenGrowthNotifierLookup,
+    InitialUriLoader? initialUriLoader,
+    InviteAuthenticationReady? isInviteAuthenticationReady,
+    InviteAuthenticationNotifierLookup? inviteAuthenticationNotifierLookup,
   }) : _shareReentryCoordinator = shareReentryCoordinator,
        _inviteReentryCoordinator = inviteReentryCoordinator,
        _goRouterProvider = goRouterProvider,
@@ -53,7 +60,11 @@ class AppReentryOrchestrator {
        _seedContentProvider = seedContentProvider,
        _householdNotifierLookup = householdNotifierLookup,
        _continuityNotifierLookup = continuityNotifierLookup,
-       _gardenGrowthNotifierLookup = gardenGrowthNotifierLookup;
+       _gardenGrowthNotifierLookup = gardenGrowthNotifierLookup,
+       _initialUriLoader = initialUriLoader,
+       _isInviteAuthenticationReady =
+           isInviteAuthenticationReady ?? _alwaysInviteAuthenticationReady,
+       _inviteAuthenticationNotifierLookup = inviteAuthenticationNotifierLookup;
 
   final ShareReentryCoordinator _shareReentryCoordinator;
   final InviteReentryCoordinator _inviteReentryCoordinator;
@@ -64,14 +75,32 @@ class AppReentryOrchestrator {
   final HouseholdNotifierLookup _householdNotifierLookup;
   final ContinuityNotifierLookup _continuityNotifierLookup;
   final GardenGrowthNotifierLookup _gardenGrowthNotifierLookup;
+  final InitialUriLoader? _initialUriLoader;
+  final InviteAuthenticationReady _isInviteAuthenticationReady;
+  final InviteAuthenticationNotifierLookup? _inviteAuthenticationNotifierLookup;
 
   StreamSubscription<Uri>? _shareUriSubscription;
   Future<void>? _inviteDrainFuture;
   bool _inviteDrainQueued = false;
+  Listenable? _inviteAuthenticationNotifier;
+
+  static bool _alwaysInviteAuthenticationReady() => true;
 
   /// 配置 share URI 监听流。重新调用时会取消前一次订阅。
   Future<void> configureShareUriSubscription([Stream<Uri>? stream]) async {
     await _shareUriSubscription?.cancel();
+    if (stream == null || _initialUriLoader != null) {
+      try {
+        final initialUri = await (_initialUriLoader ?? AppLinks().getInitialLink)();
+        if (initialUri != null) {
+          handleIncomingUri(initialUri);
+        }
+      } on Object {
+        _inviteReentryCoordinator.markFallback(
+          message: '邀请回流启动异常，已停留在首页安全入口。',
+        );
+      }
+    }
     final effectiveStream = stream ?? AppLinks().uriLinkStream;
     _shareUriSubscription = effectiveStream.listen(
       handleIncomingUri,
@@ -173,6 +202,11 @@ class AppReentryOrchestrator {
   }
 
   Future<void> _drainPendingInviteReentryInternal() async {
+    _observeInviteAuthentication();
+    if (!_isInviteAuthenticationReady()) {
+      _inviteReentryCoordinator.markAwaitingAuthentication();
+      return;
+    }
     final destination = _launchDestinationProvider();
     final router = _goRouterProvider();
     if (!_mountedCheck() || destination == null || router == null) {
@@ -249,8 +283,28 @@ class AppReentryOrchestrator {
     _inviteReentryCoordinator.markHandled(args: practiceArgs);
   }
 
+  void _observeInviteAuthentication() {
+    final next = _inviteAuthenticationNotifierLookup?.call();
+    if (identical(next, _inviteAuthenticationNotifier)) {
+      return;
+    }
+    _inviteAuthenticationNotifier?.removeListener(_onInviteAuthenticationChanged);
+    _inviteAuthenticationNotifier = next;
+    next?.addListener(_onInviteAuthenticationChanged);
+  }
+
+  void _onInviteAuthenticationChanged() {
+    if (_isInviteAuthenticationReady() &&
+        _inviteReentryCoordinator.pendingTarget ==
+            InviteReentryDispatchTarget.acceptInvite) {
+      unawaited(drainPendingInviteReentry());
+    }
+  }
+
   /// 释放 URI 订阅资源。
   void dispose() {
     unawaited(_shareUriSubscription?.cancel() ?? Future<void>.value());
+    _inviteAuthenticationNotifier?.removeListener(_onInviteAuthenticationChanged);
+    _inviteAuthenticationNotifier = null;
   }
 }

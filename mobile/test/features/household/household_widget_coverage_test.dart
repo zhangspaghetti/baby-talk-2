@@ -6,6 +6,7 @@ import 'package:mobile/features/household/domain/models/household_invite_link.da
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
+import 'package:mobile/features/household/presentation/household_invite_link_actions.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -231,6 +232,35 @@ void main() {
       expect(find.textContaining('次照护者可查看共享宝宝档案摘要'), findsOneWidget);
       expect(find.textContaining('不会包含手机号、设备标识'), findsOneWidget);
       expect(find.textContaining('有效期至'), findsOneWidget);
+
+      final inviteActions = _RecordingInviteLinkActions();
+      await _pumpApp(
+        tester,
+        HouseholdInviteCard(
+          surfaceKeyPrefix: 'invite-actions',
+          notifier: primaryNotifier,
+          inviteLinkActions: inviteActions,
+        ),
+      );
+      await tester.tap(
+        find.byKey(const Key('invite-actions-household-invite-copy')),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const Key('invite-actions-household-invite-share')),
+      );
+      await tester.pump();
+      expect(inviteActions.copiedUrls, ['https://invite.example.com/invite/invite_token_123']);
+      expect(inviteActions.sharedUrls, ['https://invite.example.com/invite/invite_token_123']);
+
+      await _pumpApp(
+        tester,
+        HouseholdInviteCard(
+          surfaceKeyPrefix: 'invite-primary',
+          notifier: primaryNotifier,
+          inviteSource: 'coverage_test',
+        ),
+      );
       await tester.tap(
         find.byKey(const Key('invite-primary-household-create-invite')),
       );
@@ -385,4 +415,15 @@ class _HouseholdNotifierStub {
     lastRefreshReason = reason;
     return snapshot;
   }
+}
+
+class _RecordingInviteLinkActions implements HouseholdInviteLinkActions {
+  final List<String> copiedUrls = [];
+  final List<String> sharedUrls = [];
+
+  @override
+  Future<void> copy(String inviteUrl) async => copiedUrls.add(inviteUrl);
+
+  @override
+  Future<void> share(String inviteUrl) async => sharedUrls.add(inviteUrl);
 }

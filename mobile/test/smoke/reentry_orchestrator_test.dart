@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/app_reentry_orchestrator.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
@@ -22,6 +23,9 @@ void main() {
     AppReentryOrchestrator createOrchestrator({
       AppLaunchDestination? overrideDestination,
       bool? overrideMounted,
+      Future<Uri?> Function()? initialUriLoader,
+      bool Function()? inviteAuthenticationReady,
+      Listenable? Function()? inviteAuthenticationNotifierLookup,
     }) {
       return AppReentryOrchestrator(
         shareReentryCoordinator: shareCoordinator,
@@ -35,6 +39,9 @@ void main() {
         householdNotifierLookup: () => null,
         continuityNotifierLookup: () => null,
         gardenGrowthNotifierLookup: () => null,
+        initialUriLoader: initialUriLoader,
+        isInviteAuthenticationReady: inviteAuthenticationReady,
+        inviteAuthenticationNotifierLookup: inviteAuthenticationNotifierLookup,
       );
     }
 
@@ -202,6 +209,58 @@ void main() {
       );
 
       orchestrator.dispose();
+    });
+
+    test('冷启动邀请链接会进入一次待接受流程', () async {
+      final orchestrator = createOrchestrator(
+        initialUriLoader: () async => Uri.parse(
+          'babytalk://invite/open?token=cold_start_12345678&source=invite_link&role=caregiver',
+        ),
+      );
+
+      await orchestrator.configureShareUriSubscription(Stream<Uri>.empty());
+
+      expect(
+        inviteCoordinator.pendingTarget,
+        InviteReentryDispatchTarget.acceptInvite,
+      );
+      expect(
+        inviteCoordinator.takePendingAcceptCommand()!.token,
+        'cold_start_12345678',
+      );
+      orchestrator.dispose();
+    });
+
+    test('未登录邀请在认证完成前保留，并只由认证监听恢复 drain', () async {
+      final authentication = ValueNotifier(false);
+      final orchestrator = createOrchestrator(
+        inviteAuthenticationReady: () => authentication.value,
+        inviteAuthenticationNotifierLookup: () => authentication,
+      );
+      orchestrator.handleIncomingUri(
+        Uri.parse(
+          'babytalk://invite/open?token=auth_resume_12345678&source=invite_link&role=caregiver',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        inviteCoordinator.pendingTarget,
+        InviteReentryDispatchTarget.acceptInvite,
+      );
+      expect(inviteCoordinator.displayMessage, contains('登录'));
+
+      authentication.value = true;
+      await Future<void>.delayed(Duration.zero);
+
+      // 当前 harness 不提供 router；认证监听只能尝试恢复，不能提前消费。
+      expect(
+        inviteCoordinator.pendingTarget,
+        InviteReentryDispatchTarget.acceptInvite,
+      );
+      expect(inviteCoordinator.shellFallbackCount, 0);
+      orchestrator.dispose();
+      authentication.dispose();
     });
   });
 }
