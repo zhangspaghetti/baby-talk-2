@@ -229,7 +229,7 @@ class AdminUsersWebTest {
                 "select status from account_refresh_tokens where refresh_token_id = ?",
                 String.class,
                 "crt_live"
-        )).isEqualTo("active");
+        )).isEqualTo("revoked");
 
         var latestAudit = jdbcTemplate.queryForMap(
                 "select action, result, reason, session_id, installation_id from consent_audit_logs where account_id = ? order by audit_id desc limit 1",

@@ -1,8 +1,11 @@
 package com.zhangspaghetti.babytalk.admin.users;
 
+import com.zhangspaghetti.babytalk.account.AccountDataPurgeService;
 import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,10 +46,16 @@ public class AdminUsersService {
     private static final Set<String> ALLOWED_AUDIT_RESULTS = Set.of(AUDIT_RESULT_APPLIED, AUDIT_RESULT_DUPLICATE);
 
     private final AdminUserReadRepository adminUserReadRepository;
+    private final AccountDataPurgeService accountDataPurgeService;
     private final Clock clock;
 
-    public AdminUsersService(AdminUserReadRepository adminUserReadRepository, Clock clock) {
+    public AdminUsersService(
+            AdminUserReadRepository adminUserReadRepository,
+            AccountDataPurgeService accountDataPurgeService,
+            Clock clock
+    ) {
         this.adminUserReadRepository = adminUserReadRepository;
+        this.accountDataPurgeService = accountDataPurgeService;
         this.clock = clock;
     }
 
@@ -131,9 +140,30 @@ public class AdminUsersService {
                 );
             }
 
-            var deletedEventCount = adminUserReadRepository.deleteInteractionEvents(normalizedAccountId);
-            var revokedSessionCount = adminUserReadRepository.updateSessionsStatus(normalizedAccountId, STATUS_DELETED, now);
-            adminUserReadRepository.tombstoneAccount(normalizedAccountId, now);
+            var purge = accountDataPurgeService.purge(
+                    normalizedAccountId,
+                    OffsetDateTime.ofInstant(now, ZoneOffset.UTC)
+            );
+            if (!purge.applied()) {
+                adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
+                        normalizedAccountId,
+                        auditContext.sessionId(),
+                        auditContext.installationId(),
+                        AUDIT_ACTION_DELETE,
+                        AUDIT_RESULT_DUPLICATE,
+                        normalizedReason,
+                        now
+                ));
+                return new DisableUserView(
+                        normalizedAccountId,
+                        STATUS_DELETED,
+                        false,
+                        AUDIT_RESULT_DUPLICATE,
+                        now,
+                        0,
+                        0
+                );
+            }
             adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                     normalizedAccountId,
                     auditContext.sessionId(),
@@ -146,8 +176,8 @@ public class AdminUsersService {
             log.info(
                     "admin-users disable applied. accountId={} revokedSessions={} deletedEvents={}",
                     normalizedAccountId,
-                    revokedSessionCount,
-                    deletedEventCount
+                    purge.deletedSessionCount(),
+                    purge.deletedInteractionEventCount()
             );
             return new DisableUserView(
                     normalizedAccountId,
@@ -155,8 +185,8 @@ public class AdminUsersService {
                     true,
                     AUDIT_RESULT_APPLIED,
                     now,
-                    revokedSessionCount,
-                    deletedEventCount
+                    purge.deletedSessionCount(),
+                    purge.deletedInteractionEventCount()
             );
         } catch (DataAccessException exception) {
             throw storageFailure("disable_user", exception);

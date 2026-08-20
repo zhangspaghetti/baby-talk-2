@@ -1,13 +1,14 @@
 package com.zhangspaghetti.babytalk.service;
 
+import com.zhangspaghetti.babytalk.account.AccountDataPurgeService;
 import com.zhangspaghetti.babytalk.config.ApiContractProperties;
 import com.zhangspaghetti.babytalk.config.ConsumerAuthProperties;
-import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
-import com.zhangspaghetti.babytalk.profile.BabyProfileMapper;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -30,8 +31,7 @@ public class AuthConsentSyncService {
             Set.of("cooperating", "hesitant", "resisting", "no_response", "other");
 
     private final AuthConsentSyncRepository repository;
-    private final BabyProfileMapper babyProfileMapper;
-    private final PracticeGeneratedContentService practiceGeneratedContentService;
+    private final AccountDataPurgeService accountDataPurgeService;
     private final SmsVerificationProvider smsVerificationProvider;
     private final HouseholdSharedContextProjector householdSharedContextProjector;
     private final ApiContractProperties contractProperties;
@@ -42,8 +42,7 @@ public class AuthConsentSyncService {
 
     public AuthConsentSyncService(
             AuthConsentSyncRepository repository,
-            BabyProfileMapper babyProfileMapper,
-            PracticeGeneratedContentService practiceGeneratedContentService,
+            AccountDataPurgeService accountDataPurgeService,
             SmsVerificationProvider smsVerificationProvider,
             HouseholdSharedContextProjector householdSharedContextProjector,
             ApiContractProperties contractProperties,
@@ -52,8 +51,7 @@ public class AuthConsentSyncService {
             SensitiveAuthDataProtector sensitiveAuthDataProtector
     ) {
         this.repository = repository;
-        this.babyProfileMapper = babyProfileMapper;
-        this.practiceGeneratedContentService = practiceGeneratedContentService;
+        this.accountDataPurgeService = accountDataPurgeService;
         this.smsVerificationProvider = smsVerificationProvider;
         this.householdSharedContextProjector = householdSharedContextProjector;
         this.contractProperties = contractProperties;
@@ -268,13 +266,20 @@ public class AuthConsentSyncService {
             return new DeleteResponse(false, "duplicate", session.accountId(), session.sessionId(), 0, now);
         }
 
-        var deletedEvents = repository.deleteInteractionEvents(session.accountId());
-        practiceGeneratedContentService.deleteAccountOwned(session.accountId());
-        babyProfileMapper.deleteByAccountId(session.accountId());
-        repository.updateSessionsStatus(session.accountId(), "deleted", now);
-        repository.tombstoneAccount(session.accountId(), "deleted:" + session.accountId(), now);
+        var purge = accountDataPurgeService.purge(session.accountId(), OffsetDateTime.ofInstant(now, ZoneOffset.UTC));
+        if (!purge.applied()) {
+            repository.insertConsentAudit(audit(session, "delete", "duplicate", "account_owned_server_data_deleted", now));
+            return new DeleteResponse(false, "duplicate", session.accountId(), session.sessionId(), 0, now);
+        }
         repository.insertConsentAudit(audit(session, "delete", "applied", "account_owned_server_data_deleted", now));
-        return new DeleteResponse(true, "applied", session.accountId(), session.sessionId(), deletedEvents, now);
+        return new DeleteResponse(
+                true,
+                "applied",
+                session.accountId(),
+                session.sessionId(),
+                purge.deletedInteractionEventCount(),
+                now
+        );
     }
 
     @Transactional
