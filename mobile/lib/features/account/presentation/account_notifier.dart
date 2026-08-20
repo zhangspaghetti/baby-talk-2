@@ -19,23 +19,28 @@ typedef AccountLocalSensitiveDataClearanceRunner =
       required DateTime requestedAt,
     });
 
+typedef AccountSessionEndedHandler = Future<void> Function();
+
 class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   AccountNotifier({
     required AccountRepositoryContract repository,
     AccountExternalLinkOpener? linkOpener,
     AccountChallengeRepositoryContract? challengeRepository,
     AccountLocalSensitiveDataClearanceRunner? localDataClearanceRunner,
+    AccountSessionEndedHandler? onAccountSessionEnded,
     LocalSensitiveDataClock? clearanceClock,
   }) : _repository = repository,
        _linkOpener = linkOpener ?? const UrlLauncherAccountExternalLinkOpener(),
        _challengeRepository = challengeRepository,
        _localDataClearanceRunner = localDataClearanceRunner,
+       _onAccountSessionEnded = onAccountSessionEnded,
        _clearanceClock = clearanceClock ?? DateTime.now;
 
   final AccountRepositoryContract _repository;
   final AccountExternalLinkOpener _linkOpener;
   final AccountChallengeRepositoryContract? _challengeRepository;
   final AccountLocalSensitiveDataClearanceRunner? _localDataClearanceRunner;
+  final AccountSessionEndedHandler? _onAccountSessionEnded;
   final LocalSensitiveDataClock _clearanceClock;
 
   bool _isLoading = false;
@@ -624,6 +629,9 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _snapshot = await _repository.clearPlaceholderSession(
         revertToLocalOnly: revertToLocalOnly,
       );
+      if (revertToLocalOnly) {
+        await _cancelReminderAfterAccountExit();
+      }
       _bumpRuntimeToken();
       _submissionMessage =
           clearanceFailed || clearanceReport?.hasFailures == true
@@ -677,6 +685,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _snapshot = signedOutSnapshot;
       _bumpRuntimeToken();
       _clearTransientAuthenticationInput();
+      await _cancelReminderAfterAccountExit();
 
       LocalSensitiveDataClearanceReport? clearanceReport;
       var clearanceFailed = false;
@@ -724,6 +733,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       _snapshot = await _repository.revokeConsent();
+      await _cancelReminderAfterAccountExit();
       final clearanceReport =
           await _clearLocalSensitiveDataForConsentWithdrawal();
       _bumpRuntimeToken();
@@ -748,6 +758,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       _snapshot = await _repository.deleteAccount();
+      await _cancelReminderAfterAccountExit();
       LocalSensitiveDataClearanceReport? clearanceReport;
       try {
         clearanceReport = await _clearLocalSensitiveDataForAccountDeletion();
@@ -766,6 +777,14 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _cancelReminderAfterAccountExit() async {
+    try {
+      await _onAccountSessionEnded?.call();
+    } on Object {
+      // Account exit succeeds even when native reminder cleanup is unavailable.
+    }
+  }
+
   Future<void> clearRetainedLocalData() async {
     if (isBusy) {
       return;
@@ -774,6 +793,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     _submissionMessage = '正在清除本机保留数据…';
     notifyListeners();
     try {
+      await _cancelReminderAfterAccountExit();
       final runner = _localDataClearanceRunner;
       if (runner == null) {
         throw StateError('本机数据清理服务不可用。');

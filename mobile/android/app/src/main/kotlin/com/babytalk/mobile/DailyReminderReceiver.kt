@@ -1,0 +1,41 @@
+package com.babytalk.mobile
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+
+class DailyReminderReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        createChannel(context)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(com.babytalk.mobile.R.mipmap.ic_launcher)
+            .setContentTitle("Baby Talk")
+            .setContentText("今天也和宝宝说一句英文吧。")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+        try {
+            context.getSystemService(NotificationManager::class.java)
+                .notify(NOTIFICATION_ID, notification)
+        } catch (_: SecurityException) {
+            // Notification permission can be revoked after scheduling.
+        }
+    }
+
+    companion object {
+        private const val CHANNEL_ID = "daily_reminder"
+        private const val NOTIFICATION_ID = 7020
+        fun intent(context: Context) = Intent(context, DailyReminderReceiver::class.java)
+        fun createChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                return
+            }
+            val manager = context.getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "每日提醒", NotificationManager.IMPORTANCE_DEFAULT))
+        }
+    }
+}

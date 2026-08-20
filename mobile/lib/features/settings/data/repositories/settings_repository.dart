@@ -23,6 +23,7 @@ class SettingsSnapshot {
     this.autoPlayEnabled = true,
     this.audioSpeed = 1.0,
     this.appVersion = '',
+    this.profileAccountId,
     this.lastModifiedAt,
   });
 
@@ -41,6 +42,7 @@ class SettingsSnapshot {
       autoPlayEnabled: json['autoPlayEnabled'] as bool? ?? true,
       audioSpeed: (json['audioSpeed'] as num?)?.toDouble() ?? 1.0,
       appVersion: json['appVersion'] as String? ?? '',
+      profileAccountId: json['profileAccountId'] as String?,
       lastModifiedAt: _readOptionalDateTime(json, 'lastModifiedAt'),
     );
   }
@@ -60,6 +62,7 @@ class SettingsSnapshot {
       'autoPlayEnabled': autoPlayEnabled,
       'audioSpeed': audioSpeed,
       'appVersion': appVersion,
+      'profileAccountId': profileAccountId,
       'lastModifiedAt': lastModifiedAt?.toUtc().toIso8601String(),
     };
   }
@@ -90,6 +93,11 @@ class SettingsSnapshot {
   final bool autoPlayEnabled;
   final double audioSpeed;
   final String appVersion;
+
+  /// Account scope of the last remotely confirmed baby profile projection.
+  /// Null means this snapshot is local-only and must not be treated as a
+  /// server authority.
+  final String? profileAccountId;
   final DateTime? lastModifiedAt;
 
   /// Returns a new copy with the given fields overridden.
@@ -107,6 +115,9 @@ class SettingsSnapshot {
     bool? autoPlayEnabled,
     double? audioSpeed,
     String? appVersion,
+    String? profileAccountId,
+    bool clearProfileAccountId = false,
+    bool clearChildAgeMonths = false,
     DateTime? lastModifiedAt,
   }) {
     return SettingsSnapshot(
@@ -117,13 +128,18 @@ class SettingsSnapshot {
       childBirthDate: clearChildBirthDate
           ? null
           : (childBirthDate ?? this.childBirthDate),
-      childAgeMonths: childAgeMonths ?? this.childAgeMonths,
+      childAgeMonths: clearChildAgeMonths
+          ? null
+          : (childAgeMonths ?? this.childAgeMonths),
       childStage: childStage ?? this.childStage,
       caregiverRole: caregiverRole ?? this.caregiverRole,
       preferredLanguage: preferredLanguage ?? this.preferredLanguage,
       autoPlayEnabled: autoPlayEnabled ?? this.autoPlayEnabled,
       audioSpeed: audioSpeed ?? this.audioSpeed,
       appVersion: appVersion ?? this.appVersion,
+      profileAccountId: clearProfileAccountId
+          ? null
+          : (profileAccountId ?? this.profileAccountId),
       lastModifiedAt: lastModifiedAt ?? this.lastModifiedAt,
     );
   }

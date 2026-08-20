@@ -165,6 +165,30 @@ class BootstrapResponse {
   final DateTime bootstrapAt;
 }
 
+class AccountBabyProfileResponse {
+  const AccountBabyProfileResponse({
+    required this.babyProfileId,
+    required this.babyName,
+    required this.ageRange,
+    required this.parentGoal,
+    required this.onboardingState,
+    required this.onboardingCompletedAt,
+    required this.version,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String babyProfileId;
+  final String? babyName;
+  final String ageRange;
+  final String? parentGoal;
+  final String onboardingState;
+  final DateTime? onboardingCompletedAt;
+  final int version;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+}
+
 class AccountLogoutResponse {
   const AccountLogoutResponse({
     required this.loggedOut,
@@ -380,6 +404,44 @@ class AccountApiService {
     );
   }
 
+  Future<AccountBabyProfileResponse> getBabyProfile({
+    required String accessToken,
+  }) async {
+    final json = await _requestJson(
+      'GET',
+      '/api/v1/onboarding/profile',
+      accessToken: accessToken,
+    );
+    return _readBabyProfileResponse(json);
+  }
+
+  Future<AccountBabyProfileResponse> putBabyProfile({
+    required String accessToken,
+    required String ageRange,
+    required String onboardingState,
+    String? babyName,
+    String? parentGoal,
+    int? expectedVersion,
+    DateTime? completedAt,
+    String? clientTraceId,
+  }) async {
+    final json = await _requestJson(
+      'PUT',
+      '/api/v1/onboarding/profile',
+      accessToken: accessToken,
+      body: <String, Object?>{
+        'expectedVersion': ?expectedVersion,
+        'babyName': babyName,
+        'ageRange': ageRange,
+        'parentGoal': parentGoal,
+        'onboardingState': onboardingState,
+        'completedAt': completedAt?.toUtc().toIso8601String(),
+        'clientTraceId': clientTraceId,
+      },
+    );
+    return _readBabyProfileResponse(json);
+  }
+
   void close() {
     if (_ownsDio) {
       _dio.close();
@@ -459,6 +521,25 @@ class AccountApiService {
         json,
         'refreshTokenExpiresAt',
       ),
+    );
+  }
+
+  AccountBabyProfileResponse _readBabyProfileResponse(
+    Map<String, dynamic> json,
+  ) {
+    return AccountBabyProfileResponse(
+      babyProfileId: _readRequiredString(json, 'babyProfileId'),
+      babyName: _readOptionalString(json, 'babyName'),
+      ageRange: _readRequiredString(json, 'ageRange'),
+      parentGoal: _readOptionalString(json, 'parentGoal'),
+      onboardingState: _readRequiredString(json, 'onboardingState'),
+      onboardingCompletedAt: _readOptionalDateTime(
+        json,
+        'onboardingCompletedAt',
+      ),
+      version: _readRequiredInt(json, 'version'),
+      createdAt: _readRequiredDateTime(json, 'createdAt'),
+      updatedAt: _readRequiredDateTime(json, 'updatedAt'),
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/settings/data/repositories/settings_repository.dart';
+import 'package:mobile/features/settings/data/reminder_scheduler.dart';
 import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 
 void main() {
@@ -90,6 +91,82 @@ void main() {
       expect(notifier.reminderHour, 8);
       expect(notifier.reminderMinute, 30);
       expect(notifier.saveStatus, SettingsSaveStatus.success);
+    });
+
+    test('daily reminder schedules then persists selected time', () async {
+      final scheduler = _FakeReminderScheduler();
+      final notifier = SettingsNotifier(
+        repository: _FakeSettingsRepository(),
+        reminderScheduler: scheduler,
+      );
+      await notifier.initialize();
+
+      await notifier.updateReminder(enabled: true, hour: 8, minute: 30);
+
+      expect(scheduler.scheduleCalls, [(8, 30)]);
+      expect(notifier.reminderEnabled, isTrue);
+    });
+
+    test('changing reminder time reschedules the native daily alarm', () async {
+      final scheduler = _FakeReminderScheduler();
+      final notifier = SettingsNotifier(
+        repository: _FakeSettingsRepository(),
+        reminderScheduler: scheduler,
+      );
+      await notifier.initialize();
+
+      await notifier.updateReminder(enabled: true, hour: 8, minute: 30);
+      await notifier.updateReminder(enabled: true, hour: 21, minute: 15);
+
+      expect(scheduler.scheduleCalls, [(8, 30), (21, 15)]);
+      expect(notifier.snapshot.reminderHour, 21);
+      expect(notifier.snapshot.reminderMinute, 15);
+    });
+
+    test(
+      'permission denial leaves reminder disabled with Chinese action copy',
+      () async {
+        final notifier = SettingsNotifier(
+          repository: _FakeSettingsRepository(),
+          reminderScheduler: _FakeReminderScheduler(
+            result: ReminderScheduleResult.permissionDenied,
+          ),
+        );
+        await notifier.initialize();
+
+        await notifier.updateReminder(enabled: true, hour: 8, minute: 30);
+
+        expect(notifier.reminderEnabled, isFalse);
+        expect(notifier.errorMessage, '未获得通知权限，无法开启每日提醒。');
+      },
+    );
+
+    test('unavailable native scheduler leaves reminder disabled', () async {
+      final notifier = SettingsNotifier(
+        repository: _FakeSettingsRepository(),
+        reminderScheduler: _FakeReminderScheduler(
+          result: ReminderScheduleResult.unavailable,
+        ),
+      );
+      await notifier.initialize();
+
+      await notifier.updateReminder(enabled: true, hour: 8, minute: 30);
+
+      expect(notifier.reminderEnabled, isFalse);
+      expect(notifier.errorMessage, '当前设备暂时无法设置每日提醒。');
+    });
+
+    test('disabling reminder cancels native schedule', () async {
+      final scheduler = _FakeReminderScheduler();
+      final notifier = SettingsNotifier(
+        repository: _FakeSettingsRepository(),
+        reminderScheduler: scheduler,
+      );
+      await notifier.initialize();
+
+      await notifier.updateReminder(enabled: false, hour: 8, minute: 30);
+
+      expect(scheduler.cancelCalls, 1);
     });
 
     test('updateBabyProfile persists baby info', () async {
@@ -307,5 +384,27 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
   @override
   Future<void> clearSettings() async {
     _currentSnapshot = const SettingsSnapshot();
+  }
+}
+
+class _FakeReminderScheduler implements ReminderScheduler {
+  _FakeReminderScheduler({this.result = ReminderScheduleResult.scheduled});
+
+  final ReminderScheduleResult result;
+  final List<(int, int)> scheduleCalls = [];
+  int cancelCalls = 0;
+
+  @override
+  Future<void> cancel() async {
+    cancelCalls += 1;
+  }
+
+  @override
+  Future<ReminderScheduleResult> scheduleDaily({
+    required int hour,
+    required int minute,
+  }) async {
+    scheduleCalls.add((hour, minute));
+    return result;
   }
 }

@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 
 class BabyProfileScreen extends ConsumerStatefulWidget {
   const BabyProfileScreen({super.key});
@@ -242,16 +243,24 @@ class _BabyProfileScreenState extends ConsumerState<BabyProfileScreen> {
     }
   }
 
-  void _save() {
-    ref
-        .read(settingsNotifierProvider.notifier)
-        .updateBabyProfile(
-          name: _nameController.text.trim(),
-          birthDate: _selectedBirthDate,
-          clearBirthDate: _selectedBirthDate == null,
-          ageMonths: _selectedAgeMonths,
-          stage: _selectedStage,
-        );
+  Future<void> _save() async {
+    final notifier = ref.read(settingsNotifierProvider.notifier);
+    await notifier.updateBabyProfile(
+      name: _nameController.text.trim(),
+      birthDate: _selectedBirthDate,
+      clearBirthDate: _selectedBirthDate == null,
+      ageMonths: _selectedAgeMonths,
+      stage: _selectedStage,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (notifier.saveStatus == SettingsSaveStatus.error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(notifier.errorMessage ?? '宝宝档案保存失败，请稍后重试。')),
+      );
+      return;
+    }
     Navigator.of(context).pop();
   }
 

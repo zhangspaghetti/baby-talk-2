@@ -69,7 +69,9 @@ import 'package:mobile/features/account/presentation/auth_continuation_coordinat
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
+import 'package:mobile/features/settings/data/repositories/baby_profile_repository.dart';
 import 'package:mobile/features/settings/data/repositories/settings_repository.dart';
+import 'package:mobile/features/settings/data/reminder_scheduler.dart';
 import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
@@ -355,6 +357,21 @@ final accountRepositoryProvider = FutureProvider<AccountRepository>((
   );
 });
 
+final babyProfileRepositoryProvider = Provider<BabyProfileRepository>((ref) {
+  return BabyProfileRepository(
+    apiService: ref.watch(accountApiServiceProvider),
+    authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
+    accountSnapshotLoader: () async {
+      final repository = await ref.read(accountRepositoryProvider.future);
+      return repository.loadSnapshot();
+    },
+    persistRefreshedSession: (session) async {
+      final repository = await ref.read(accountRepositoryProvider.future);
+      return repository.persistRefreshedSession(session);
+    },
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Custom scene repository
 // ---------------------------------------------------------------------------
@@ -426,6 +443,7 @@ final accountNotifierProvider = ChangeNotifierProvider<AccountNotifier>((ref) {
   return AccountNotifier(
     repository: repository,
     challengeRepository: createAccountChallengeRepository(repository),
+    onAccountSessionEnded: () => const PlatformReminderScheduler().cancel(),
     localDataClearanceRunner:
         ({
           required trigger,
@@ -915,5 +933,12 @@ final settingsNotifierProvider = ChangeNotifierProvider<SettingsNotifier>((
   ref,
 ) {
   final repository = ref.watch(settingsRepositoryProvider).requireValue;
-  return SettingsNotifier(repository: repository)..initialize();
+  final accountNotifier = ref.watch(accountNotifierProvider);
+  final babyProfileRepository = ref.watch(babyProfileRepositoryProvider);
+  return SettingsNotifier(
+    repository: repository,
+    reminderScheduler: const PlatformReminderScheduler(),
+    babyProfileRepository: babyProfileRepository,
+    accountStateListenable: accountNotifier,
+  )..initialize();
 });

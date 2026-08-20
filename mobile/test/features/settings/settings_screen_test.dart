@@ -313,6 +313,9 @@ class _StubSettingsNotifier extends ChangeNotifier implements SettingsNotifier {
   Future<void> refresh() async {}
 
   @override
+  Future<void> refreshAccountProfile() async {}
+
+  @override
   Future<void> updateReminder({
     required bool enabled,
     required int hour,
