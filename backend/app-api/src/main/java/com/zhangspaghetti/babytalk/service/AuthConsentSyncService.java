@@ -792,6 +792,14 @@ public class AuthConsentSyncService {
         if (value == null || !value.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,79}")) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_consent_version", "协议版本格式不合法。");
         }
+        if (!contractProperties.consentVersion().equals(value)) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "unsupported_consent_version",
+                    "协议版本不是当前发布版本。",
+                    Map.of("currentConsentVersion", contractProperties.consentVersion())
+            );
+        }
         return "consent_version:" + value;
     }
 

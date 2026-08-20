@@ -18,6 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @SpringBootTest(properties = {
         "app.contract.min-supported-version=1.2.0",
         "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
+        "app.contract.consent-version=pipl-v1",
         "app.sms.provider-mode=dev",
         "app.sms.dev-code=246810"
 })
@@ -112,7 +113,7 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                     assertThat(contract.code()).isEqualTo("consent_revoked");
                 });
 
-        service.acceptConsent(reloginSession.sessionId(), "pipl-v2");
+        service.acceptConsent(reloginSession.sessionId(), "pipl-v1");
         var bootstrap = service.bootstrap(reloginSession.sessionId(), "install-alpha");
         assertThat(bootstrap.eventCount()).isEqualTo(1);
         assertThat(bootstrap.events()).extracting(AuthConsentSyncService.BootstrapEvent::eventKey)
@@ -244,7 +245,7 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                 var session = createAcceptedSession("13800138000", "install-alpha");
                 service.revokeConsent(session.sessionId(), "宝宝姓名和家庭地址不得写入审计");
                 var relogin = createSignedInSession("13800138000", "install-alpha");
-                service.acceptConsent(relogin.sessionId(), "pipl-v2");
+                service.acceptConsent(relogin.sessionId(), "pipl-v1");
                 service.deleteAccount(relogin.sessionId(), "删除原因包含私密内容");
 
                 assertThat(service.listAuditEntries(session.accountId()))
@@ -252,11 +253,36 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                 .containsExactly(
                                                 "consent_version:pipl-v1",
                                                 "server_sync_revoked",
-                                                "consent_version:pipl-v2",
+                                                "consent_version:pipl-v1",
                                                 "account_owned_server_data_deleted"
                                 )
                                 .noneMatch(reason -> reason.contains("宝宝") || reason.contains("私密"));
-        }
+            }
+
+            @Test
+            void rejectsUnpublishedConsentVersionWithoutChangingConsentOrAudit() {
+                var session = createSignedInSession("13800138000", "install-alpha");
+                var initialStatus = jdbcTemplate.queryForObject(
+                                "select latest_consent_status from accounts where account_id = ?",
+                                String.class,
+                                session.accountId()
+                );
+
+                assertThatThrownBy(() -> service.acceptConsent(session.sessionId(), "pipl-v2"))
+                                .isInstanceOf(ContractException.class)
+                                .satisfies(error -> {
+                                    var contract = (ContractException) error;
+                                    assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                                    assertThat(contract.code()).isEqualTo("unsupported_consent_version");
+                                });
+
+                assertThat(jdbcTemplate.queryForObject(
+                                "select latest_consent_status from accounts where account_id = ?",
+                                String.class,
+                                session.accountId()
+                )).isEqualTo(initialStatus);
+                assertThat(service.listAuditEntries(session.accountId())).isEmpty();
+            }
 
             @Test
             void ingestEventsRejectsInvalidReactionTypeBeforeAnyWrite() {

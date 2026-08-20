@@ -131,6 +131,7 @@ practiceAi:
     values: {}
 
 config:
+  BABY_TALK_CONSENT_VERSION: "pipl-v1"
   BABY_TALK_UPGRADE_URL: "https://babytalk.example.com/upgrade?channel=stable&source=version_gate"
   BABY_TALK_ANDROID_STABLE_URL: "https://download.babytalk.example.com/android/stable/babytalk.apk"
   BABY_TALK_IOS_STABLE_URL: "https://apps.apple.com/app/id0000000000"

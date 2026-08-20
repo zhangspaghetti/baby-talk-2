@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(properties = {
         "app.contract.min-supported-version=1.2.0",
         "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
+        "app.contract.consent-version=pipl-v1",
         "app.sms.provider-mode=dev",
         "app.sms.dev-code=246810"
 })
@@ -231,6 +232,33 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void unpublishedConsentVersionReturnsStable4xxWithoutWritingConsentOrAudit() throws Exception {
+        var challengeId = createChallenge("13800138000");
+        var session = verifyChallenge(challengeId, "install-alpha");
+
+        mockMvc.perform(post("/api/v1/consent/accept")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"consentVersion":"pipl-v2"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("unsupported_consent_version"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select latest_consent_status from accounts where account_id = ?",
+                String.class,
+                session.accountId()
+        )).isNotEqualTo("accepted");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from consent_audit_logs where account_id = ?",
+                Integer.class,
+                session.accountId()
+        )).isZero();
+    }
+
+    @Test
     void revokeAndDeleteLeaveAuditTrailAndDeleteIsIdempotent() throws Exception {
         var challengeId = createChallenge("13800138000");
         var session = verifyChallenge(challengeId, "install-alpha");
@@ -290,16 +318,16 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 {"reason":"forget_me_again"}
                                 """))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("account_deleted"))
-                .andExpect(jsonPath("$.details.reason").value("account_deleted"));
+                .andExpect(jsonPath("$.code").value("access_token_revoked"))
+                .andExpect(jsonPath("$.details.reason").value("revoked"));
 
         mockMvc.perform(get("/api/v1/bootstrap")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .header(HttpHeaders.AUTHORIZATION, bearer(reloginSession.accessToken()))
                         .param("installationId", "install-alpha"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("account_deleted"))
-                .andExpect(jsonPath("$.details.reason").value("account_deleted"));
+                .andExpect(jsonPath("$.code").value("access_token_revoked"))
+                .andExpect(jsonPath("$.details.reason").value("revoked"));
 
         var auditRows = jdbcTemplate.queryForList(
                 "select action, result from consent_audit_logs order by audit_id asc"

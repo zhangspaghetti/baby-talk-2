@@ -127,6 +127,7 @@ app:
   contract:
     min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.2.0}
     upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/upgrade?channel=stable&source=version_gate}
+    consent-version: ${BABY_TALK_CONSENT_VERSION:pipl-v1}
     sync-max-batch-size: ${BABY_TALK_SYNC_MAX_BATCH_SIZE:100}
     bootstrap-max-events: ${BABY_TALK_BOOTSTRAP_MAX_EVENTS:200}
   distribution:
