@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.service;
 
+import java.time.OffsetDateTime;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -28,14 +29,14 @@ public interface CaregiverInviteMapper {
     int markInviteAccepted(
             @Param("token") String token,
             @Param("acceptedByAccountId") String acceptedByAccountId,
-            @Param("acceptedAt") java.time.Instant acceptedAt
+            @Param("acceptedAt") OffsetDateTime acceptedAt
     );
 
     int markInviteExpired(@Param("token") String token, @Param("failureReason") String failureReason);
 
     int markInviteRevoked(
             @Param("token") String token,
-            @Param("revokedAt") java.time.Instant revokedAt,
+            @Param("revokedAt") OffsetDateTime revokedAt,
             @Param("failureReason") String failureReason
     );
 

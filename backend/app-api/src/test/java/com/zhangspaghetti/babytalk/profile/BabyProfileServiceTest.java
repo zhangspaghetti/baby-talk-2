@@ -16,7 +16,6 @@ import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,7 +48,7 @@ class BabyProfileServiceTest {
                 authConsentSyncService,
                 repository,
                 householdRepository,
-                Clock.fixed(NOW.toInstant(), ZoneOffset.UTC)
+                Clock.fixed(NOW.toInstant(), ZoneOffset.ofHours(8))
         );
         when(authConsentSyncService.requireAcceptedConsumerSession(eq("sess_1"), any()))
                 .thenReturn(new AuthConsentSyncService.ConsumerSessionView(
@@ -80,10 +79,9 @@ class BabyProfileServiceTest {
 
         service.putProfile("sess_1", draftRequest(null, "小满"));
 
-        verify(householdRepository).ensurePrimaryHousehold(
-                eq("acct_session"),
-                any(Instant.class)
-        );
+        var householdNow = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(householdRepository).ensurePrimaryHousehold(eq("acct_session"), householdNow.capture());
+        assertThat(householdNow.getValue()).isEqualTo(NOW_DB);
     }
 
     @Test

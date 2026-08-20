@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.service;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Repository;
@@ -22,7 +22,7 @@ public class CaregiverInviteRepository {
      * Creates the account's primary household only when it has no membership.
      * The database uniqueness constraint remains the final cross-request guard.
      */
-    public HouseholdMemberRow ensurePrimaryHousehold(String accountId, Instant now) {
+    public HouseholdMemberRow ensurePrimaryHousehold(String accountId, OffsetDateTime now) {
         var existing = findActiveMembershipByAccount(accountId);
         if (existing.isPresent()) {
             return existing.get();
@@ -68,7 +68,7 @@ public class CaregiverInviteRepository {
         return Optional.ofNullable(mapper.findInviteByToken(token));
     }
 
-    void markInviteAccepted(String token, String acceptedByAccountId, Instant acceptedAt) {
+    void markInviteAccepted(String token, String acceptedByAccountId, OffsetDateTime acceptedAt) {
         mapper.markInviteAccepted(token, acceptedByAccountId, acceptedAt);
     }
 
@@ -76,7 +76,7 @@ public class CaregiverInviteRepository {
         mapper.markInviteExpired(token, failureReason);
     }
 
-    void markInviteRevoked(String token, Instant revokedAt, String failureReason) {
+    void markInviteRevoked(String token, OffsetDateTime revokedAt, String failureReason) {
         mapper.markInviteRevoked(token, revokedAt, failureReason);
     }
 
@@ -119,8 +119,8 @@ public class CaregiverInviteRepository {
             String householdId,
             String ownerAccountId,
             String status,
-            Instant createdAt,
-            Instant revokedAt
+            OffsetDateTime createdAt,
+            OffsetDateTime revokedAt
     ) {
     }
 
@@ -131,8 +131,8 @@ public class CaregiverInviteRepository {
             String role,
             String status,
             String invitedByAccountId,
-            Instant joinedAt,
-            Instant lastAcceptedAt
+            OffsetDateTime joinedAt,
+            OffsetDateTime lastAcceptedAt
     ) {
     }
 
@@ -144,10 +144,10 @@ public class CaregiverInviteRepository {
             String targetRole,
             String source,
             String status,
-            Instant createdAt,
-            Instant expiresAt,
-            Instant acceptedAt,
-            Instant revokedAt,
+            OffsetDateTime createdAt,
+            OffsetDateTime expiresAt,
+            OffsetDateTime acceptedAt,
+            OffsetDateTime revokedAt,
             String acceptedByAccountId,
             String failureReason
     ) {
@@ -160,8 +160,8 @@ public class CaregiverInviteRepository {
             String gardenSummary,
             String spaceId,
             String activityId,
-            Instant latestInteractionAt,
-            Instant updatedAt,
+            OffsetDateTime latestInteractionAt,
+            OffsetDateTime updatedAt,
             String latestActorRole,
             String latestActorSource,
             String latestActorResult,
@@ -174,14 +174,14 @@ public class CaregiverInviteRepository {
     public record SharedContextViewRow(
             String householdId,
             String role,
-            Instant lastAcceptedAt,
+            OffsetDateTime lastAcceptedAt,
             String babyProfileSummary,
             String continuitySummary,
             String gardenSummary,
             String spaceId,
             String activityId,
-            Instant latestInteractionAt,
-            Instant updatedAt,
+            OffsetDateTime latestInteractionAt,
+            OffsetDateTime updatedAt,
             String latestActorRole,
             String latestActorSource,
             String latestActorResult,
@@ -195,7 +195,7 @@ public class CaregiverInviteRepository {
             String latestSpaceId,
             String latestActivityId,
             String latestActorResult,
-            Instant latestInteractionAt,
+            OffsetDateTime latestInteractionAt,
             String latestActorRole,
             int totalEvents,
             int activeMemberCount,
@@ -209,7 +209,7 @@ public class CaregiverInviteRepository {
             String spaceId,
             String activityId,
             String reactionType,
-            Instant clientTimestamp,
+            OffsetDateTime clientTimestamp,
             String sourceAccountId
     ) {
     }
@@ -218,7 +218,7 @@ public class CaregiverInviteRepository {
             String spaceId,
             String activityId,
             int eventCount,
-            Instant latestInteractionAt
+            OffsetDateTime latestInteractionAt
     ) {
     }
 
@@ -232,7 +232,7 @@ public class CaregiverInviteRepository {
             String platform,
             String result,
             String failureReason,
-            Instant createdAt
+            OffsetDateTime createdAt
     ) {
     }
 }

@@ -62,7 +62,7 @@ class HouseholdSharedContextProjector {
                 latestSpaceId,
                 latestActivityId,
                 projection.latestInteractionAt(),
-                now,
+                now.atOffset(ZoneOffset.UTC),
                 projection.latestActorRole(),
                 ACTOR_SOURCE_SYNC_EVENT,
                 projection.latestActorResult(),

@@ -5,6 +5,7 @@ import com.zhangspaghetti.babytalk.web.ContractException;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -88,8 +89,8 @@ public class CaregiverInviteService {
                     requestedRole,
                     source,
                     "pending",
-                    now,
-                    expiresAt,
+                    dbTime(now),
+                    dbTime(expiresAt),
                     null,
                     null,
                     null,
@@ -144,8 +145,8 @@ public class CaregiverInviteService {
                     invite.targetRole(),
                     "active",
                     invite.inviterAccountId(),
-                    now,
-                    now
+                    dbTime(now),
+                    dbTime(now)
             ));
             refreshSharedContextProjectionOrThrow(
                     invite.householdId(),
@@ -156,7 +157,7 @@ public class CaregiverInviteService {
                     source,
                     invite.targetRole()
             );
-            repository.markInviteAccepted(token, session.accountId(), now);
+            repository.markInviteAccepted(token, session.accountId(), dbTime(now));
             repository.insertEvent(eventRow(token, invite.householdId(), session.accountId(), "accept", source, invite.targetRole(),
                     "accept", null, now));
             var sharedContext = requireSharedContextResponse(session.accountId());
@@ -203,7 +204,7 @@ public class CaregiverInviteService {
             if ("revoked".equals(invite.status())) {
                 return new RevokeInviteResponse(false, "duplicate", token, now);
             }
-            repository.markInviteRevoked(token, now, "invite_revoked");
+            repository.markInviteRevoked(token, dbTime(now), "invite_revoked");
             repository.insertEvent(eventRow(token, invite.householdId(), session.accountId(), "revoke", invite.source(), invite.targetRole(),
                     "revoked", "invite_revoked", now));
             return new RevokeInviteResponse(true, "revoked", token, now);
@@ -405,7 +406,7 @@ public class CaregiverInviteService {
             String source,
             String requestedRole
     ) {
-        var membership = repository.ensurePrimaryHousehold(session.accountId(), now);
+        var membership = repository.ensurePrimaryHousehold(session.accountId(), dbTime(now));
         if (!"primary_caregiver".equals(membership.role())) {
             recordEventSafely(eventRow(null, membership.householdId(), session.accountId(), entrypoint, source, requestedRole,
                     "role_not_allowed", "current_role_" + membership.role(), now));
@@ -484,7 +485,7 @@ public class CaregiverInviteService {
     }
 
     private boolean isExpired(CaregiverInviteRepository.InviteRow invite, Instant now) {
-        return "expired".equals(invite.status()) || invite.expiresAt().isBefore(now);
+        return "expired".equals(invite.status()) || invite.expiresAt().isBefore(dbTime(now));
     }
 
     private void persistInviteExpired(String token) {
@@ -523,14 +524,14 @@ public class CaregiverInviteService {
         return new SharedContextResponse(
                 response.householdId(),
                 response.role(),
-                response.lastAcceptedAt(),
+                apiTime(response.lastAcceptedAt()),
                 new SharedContextSnapshot(
                         response.babyProfileSummary(),
                         response.continuitySummary(),
                         response.gardenSummary(),
                         new PracticeRouteArgs(response.spaceId(), response.activityId()),
-                        response.latestInteractionAt(),
-                        response.updatedAt(),
+                        apiTime(response.latestInteractionAt()),
+                        apiTime(response.updatedAt()),
                         toLatestActor(response.latestActorRole(), response.latestActorSource(), response.latestActorResult()),
                         toNextStep(response.nextStepSpaceId(), response.nextStepActivityId(), response.nextStepReason())
                 )
@@ -645,7 +646,7 @@ public class CaregiverInviteService {
                 sanitizePlatform(platform),
                 result,
                 sanitizeFailureReason(failureReason),
-                Instant.now(clock)
+                dbTime(Instant.now(clock))
         ));
     }
 
@@ -1288,8 +1289,16 @@ public class CaregiverInviteService {
                 sanitizePlatform(platform),
                 result,
                 sanitizeFailureReason(failureReason),
-                createdAt
+                dbTime(createdAt)
         );
+    }
+
+    private OffsetDateTime dbTime(Instant time) {
+        return time == null ? null : time.atOffset(ZoneOffset.UTC);
+    }
+
+    private Instant apiTime(OffsetDateTime time) {
+        return time == null ? null : time.toInstant();
     }
 
     private String sanitizePlatform(String platform) {

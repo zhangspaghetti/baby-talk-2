@@ -141,7 +141,7 @@ public class BabyProfileService extends ServiceImpl<BabyProfileMapper, BabyProfi
             var currentVersion = babyProfileMapper.findVersionByAccountId(accountId);
             throw versionConflict(profile.expectedVersion(), currentVersion);
         }
-        householdRepository.ensurePrimaryHousehold(accountId, now.toInstant());
+        householdRepository.ensurePrimaryHousehold(accountId, now.withOffsetSameInstant(ZoneOffset.UTC));
         return toResponse(row);
     }
 

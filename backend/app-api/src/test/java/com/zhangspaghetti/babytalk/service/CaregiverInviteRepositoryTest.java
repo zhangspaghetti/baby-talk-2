@@ -6,7 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,7 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class CaregiverInviteRepositoryTest {
 
-    private static final Instant NOW = Instant.parse("2026-08-16T03:00:00Z");
+    private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-08-16T03:00:00Z");
 
     @Mock
     private CaregiverInviteMapper mapper;
