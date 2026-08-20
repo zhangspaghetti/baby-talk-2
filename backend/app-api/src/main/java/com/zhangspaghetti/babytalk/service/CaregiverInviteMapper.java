@@ -17,6 +17,10 @@ public interface CaregiverInviteMapper {
 
     void insertMember(@Param("row") CaregiverInviteRepository.HouseholdMemberRow row);
 
+    int insertMemberIfAbsent(@Param("row") CaregiverInviteRepository.HouseholdMemberRow row);
+
+    int deleteHouseholdIfUnassigned(@Param("householdId") String householdId);
+
     void insertInvite(@Param("row") CaregiverInviteRepository.InviteRow row);
 
     CaregiverInviteRepository.InviteRow findInviteByToken(@Param("token") String token);

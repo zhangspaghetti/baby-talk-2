@@ -154,6 +154,36 @@
         )
     </insert>
 
+    <insert id="insertMemberIfAbsent">
+        insert into household_members (
+            household_id,
+            account_id,
+            role,
+            status,
+            invited_by_account_id,
+            joined_at,
+            last_accepted_at
+        ) values (
+            #{row.householdId},
+            #{row.accountId},
+            #{row.role},
+            #{row.status},
+            #{row.invitedByAccountId},
+            #{row.joinedAt},
+            #{row.lastAcceptedAt}
+        ) on conflict (account_id) do nothing
+    </insert>
+
+    <delete id="deleteHouseholdIfUnassigned">
+        delete from households h
+        where h.household_id = #{householdId}
+          and not exists (
+              select 1
+              from household_members hm
+              where hm.household_id = h.household_id
+          )
+    </delete>
+
     <insert id="insertInvite">
         insert into caregiver_invites (
             token,

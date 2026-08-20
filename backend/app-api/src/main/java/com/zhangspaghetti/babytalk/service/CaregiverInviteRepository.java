@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.service;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -15,6 +16,34 @@ public class CaregiverInviteRepository {
 
     Optional<HouseholdMemberRow> findActiveMembershipByAccount(String accountId) {
         return Optional.ofNullable(mapper.findActiveMembershipByAccount(accountId));
+    }
+
+    /**
+     * Creates the account's primary household only when it has no membership.
+     * The database uniqueness constraint remains the final cross-request guard.
+     */
+    public HouseholdMemberRow ensurePrimaryHousehold(String accountId, Instant now) {
+        var existing = findActiveMembershipByAccount(accountId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        var householdId = "household_" + UUID.randomUUID();
+        insertHousehold(new HouseholdRow(householdId, accountId, "active", now, null));
+        var inserted = mapper.insertMemberIfAbsent(new HouseholdMemberRow(
+                0,
+                householdId,
+                accountId,
+                "primary_caregiver",
+                "active",
+                null,
+                now,
+                null
+        ));
+        if (inserted == 0) {
+            mapper.deleteHouseholdIfUnassigned(householdId);
+        }
+        return findActiveMembershipByAccount(accountId).orElseThrow(() ->
+                new IllegalStateException("primary household membership was not persisted"));
     }
 
     Optional<HouseholdMemberRow> findMembershipByHouseholdAndAccount(String householdId, String accountId) {

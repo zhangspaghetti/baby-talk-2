@@ -11,10 +11,12 @@ import com.zhangspaghetti.babytalk.profile.model.BabyProfileRow;
 import com.zhangspaghetti.babytalk.profile.dto.PutBabyProfileRequest;
 import com.zhangspaghetti.babytalk.profile.dto.StarterRequest;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
+import com.zhangspaghetti.babytalk.service.CaregiverInviteRepository;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +38,9 @@ class BabyProfileServiceTest {
     @Mock
     private BabyProfileMapper repository;
 
+    @Mock
+    private CaregiverInviteRepository householdRepository;
+
     private BabyProfileService service;
 
     @BeforeEach
@@ -43,6 +48,7 @@ class BabyProfileServiceTest {
         service = new BabyProfileService(
                 authConsentSyncService,
                 repository,
+                householdRepository,
                 Clock.fixed(NOW.toInstant(), ZoneOffset.UTC)
         );
         when(authConsentSyncService.requireAcceptedConsumerSession(eq("sess_1"), any()))
@@ -66,6 +72,18 @@ class BabyProfileServiceTest {
         assertThat(row.version()).isEqualTo(1);
         assertThat(response.babyProfileId()).isEqualTo(row.profileId());
         verify(repository).findByAccountId("acct_session");
+    }
+
+    @Test
+    void firstProfileInitializesTheAccountPrimaryHouseholdExactlyOnce() {
+        when(repository.findByAccountId("acct_session")).thenReturn(null);
+
+        service.putProfile("sess_1", draftRequest(null, "小满"));
+
+        verify(householdRepository).ensurePrimaryHousehold(
+                eq("acct_session"),
+                any(Instant.class)
+        );
     }
 
     @Test

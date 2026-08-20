@@ -405,8 +405,7 @@ public class CaregiverInviteService {
             String source,
             String requestedRole
     ) {
-        var membership = repository.findActiveMembershipByAccount(session.accountId())
-                .orElseGet(() -> createPrimaryHousehold(session.accountId(), now));
+        var membership = repository.ensurePrimaryHousehold(session.accountId(), now);
         if (!"primary_caregiver".equals(membership.role())) {
             recordEventSafely(eventRow(null, membership.householdId(), session.accountId(), entrypoint, source, requestedRole,
                     "role_not_allowed", "current_role_" + membership.role(), now));
@@ -418,27 +417,6 @@ public class CaregiverInviteService {
             );
         }
         return membership;
-    }
-
-    private CaregiverInviteRepository.HouseholdMemberRow createPrimaryHousehold(String accountId, Instant now) {
-        var householdId = "household_" + UUID.randomUUID();
-        repository.insertHousehold(new CaregiverInviteRepository.HouseholdRow(
-                householdId,
-                accountId,
-                "active",
-                now,
-                null
-        ));
-        return repository.insertMember(new CaregiverInviteRepository.HouseholdMemberRow(
-                0,
-                householdId,
-                accountId,
-                "primary_caregiver",
-                "active",
-                null,
-                now,
-                null
-        ));
     }
 
     private void ensureInviteAcceptable(

@@ -9,6 +9,7 @@ import com.zhangspaghetti.babytalk.profile.dto.StarterResponse;
 import com.zhangspaghetti.babytalk.profile.model.BabyProfilePatch;
 import com.zhangspaghetti.babytalk.profile.model.BabyProfileRow;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
+import com.zhangspaghetti.babytalk.service.CaregiverInviteRepository;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -37,23 +38,27 @@ public class BabyProfileService extends ServiceImpl<BabyProfileMapper, BabyProfi
 
     private final AuthConsentSyncService authConsentSyncService;
     private final BabyProfileMapper babyProfileMapper;
+    private final CaregiverInviteRepository householdRepository;
     private final Clock clock;
 
     @Autowired
     public BabyProfileService(
             AuthConsentSyncService authConsentSyncService,
-            BabyProfileMapper babyProfileMapper
+            BabyProfileMapper babyProfileMapper,
+            CaregiverInviteRepository householdRepository
     ) {
-        this(authConsentSyncService, babyProfileMapper, Clock.systemUTC());
+        this(authConsentSyncService, babyProfileMapper, householdRepository, Clock.systemUTC());
     }
 
     BabyProfileService(
             AuthConsentSyncService authConsentSyncService,
             BabyProfileMapper babyProfileMapper,
+            CaregiverInviteRepository householdRepository,
             Clock clock
     ) {
         this.authConsentSyncService = authConsentSyncService;
         this.babyProfileMapper = babyProfileMapper;
+        this.householdRepository = householdRepository;
         this.clock = clock;
     }
 
@@ -136,6 +141,7 @@ public class BabyProfileService extends ServiceImpl<BabyProfileMapper, BabyProfi
             var currentVersion = babyProfileMapper.findVersionByAccountId(accountId);
             throw versionConflict(profile.expectedVersion(), currentVersion);
         }
+        householdRepository.ensurePrimaryHousehold(accountId, now.toInstant());
         return toResponse(row);
     }
 
