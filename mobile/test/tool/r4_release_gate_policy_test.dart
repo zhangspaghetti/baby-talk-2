@@ -87,9 +87,10 @@ void main() {
         offenders,
         isEmpty,
         reason:
-            'HDR-R4-003 approves only account deletion and consent-withdrawal '
-            'product-flow entries; additional destructive local-data wiring needs '
-            'a new approval.\n'
+            'HDR-R4-003 explicitly covers account deletion and device erasure '
+            'local sensitive-data clearance. Consent withdrawal remains scoped '
+            'to the existing account lifecycle entry. Additional destructive '
+            'local-data wiring needs a new approval.\n'
             '${offenders.join('\n')}',
       );
     });
@@ -150,8 +151,13 @@ List<String> _findOutOfScopeDestructiveProductFlowWiring(String repoRoot) {
       text: 'LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed',
       allowedPaths: <String>{approvedAccountLifecyclePath},
     ),
+    // HDR-R4-003's production authorization evidence explicitly includes
+    // device erasure. Story15 narrows this to the account settings entry;
+    // CaregiverConfirmedAuthorization is still required by the lifecycle
+    // policy and never authorizes server-side account deletion.
     _DestructiveMarker(
       text: 'LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed',
+      allowedPaths: <String>{approvedAccountLifecyclePath},
     ),
     _DestructiveMarker(
       text: 'LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed',
