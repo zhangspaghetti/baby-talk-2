@@ -73,6 +73,72 @@ String mentorChatAvailabilityDetail(
   }
 }
 
+String mentorBannerLabel(AppLocalizations l, MentorBannerState banner) {
+  switch (banner.code) {
+    case 'account-loading':
+      return l.mentorBannerAccountLoading;
+    case 'ready':
+      return l.mentorBannerReady;
+    case 'offline':
+      return l.mentorBannerOffline;
+    case 'login-required':
+      return l.mentorBannerLoginRequired;
+    case 'consent-required':
+      return l.mentorBannerConsentRequired;
+    case 'onboarding_missing':
+      return l.mentorBannerOnboardingMissing;
+    case 'onboarding_malformed':
+    case 'onboarding_unavailable':
+      return l.mentorBannerOnboardingUnavailable;
+    case 'starter_seed_missing':
+    case 'practice_restore_failed':
+    case 'practice_restore_timeout':
+    case 'practice_restore_malformed':
+      return l.mentorBannerContextRestore;
+    case 'suggestion_render_fallback':
+      return l.mentorBannerSuggestionRenderFallback;
+    case 'context_fallback_used':
+      return l.mentorBannerGenericFallback;
+    case 'missing_prompt':
+      return l.mentorBannerMissingPrompt;
+    case 'prompt_too_long':
+      return l.mentorBannerPromptTooLong(banner.maxLength ?? 0);
+    case 'chat_requesting':
+      return l.mentorBannerChatRequesting;
+    case 'chat_fallback':
+      return l.mentorBannerChatFallback;
+    case 'timeout':
+      return l.mentorBannerChatTimeout;
+    case '401':
+      return l.mentorBannerChatUnauthorized;
+    case '403':
+      return l.mentorBannerChatConsentRevoked;
+    case '426':
+      return l.mentorBannerChatVersionBlocked;
+    case 'rate-limited':
+      return l.mentorBannerChatRateLimited;
+    case 'malformed':
+      return l.mentorBannerChatMalformed;
+    case 'blocked-fallback':
+      return l.mentorBannerChatBlockedFallback;
+    case 'server-error':
+      return l.mentorBannerChatServerError;
+    default:
+      return l.mentorBannerGenericError;
+  }
+}
+
+String mentorAudioStatusLabel(AppLocalizations l, String code) {
+  switch (code) {
+    case 'tts_unavailable':
+      return l.mentorAudioUnavailable;
+    case 'tts_failed':
+      return l.mentorAudioFailed;
+    default:
+      return l.mentorAudioFailed;
+  }
+}
+
 class MentorSuggestionTab extends ConsumerWidget {
   const MentorSuggestionTab({super.key});
 
@@ -92,10 +158,10 @@ class MentorSuggestionTab extends ConsumerWidget {
           caption: l.mentorName,
         ),
         const SizedBox(height: 16),
-        if (notifier.bannerMessage != null)
+        if (notifier.banner != null)
           _MentorAlertBanner(
             key: const Key('mentor-panel-banner'),
-            message: notifier.bannerMessage!,
+            message: mentorBannerLabel(l, notifier.banner!),
             foregroundColor: _foregroundColorForStatus(
               notifier.panelStatus,
               colors,
@@ -106,25 +172,24 @@ class MentorSuggestionTab extends ConsumerWidget {
             ),
           ),
         if (notifier.sharedContextStatus != null) ...[
-          if (notifier.bannerMessage != null) const SizedBox(height: 12),
+          if (notifier.banner != null) const SizedBox(height: 12),
           _MentorSharedContextBanner(
             key: const Key('mentor-shared-context-banner'),
             status: notifier.sharedContextStatus!,
           ),
         ],
-        if (notifier.audioStatusMessage != null) ...[
-          if (notifier.bannerMessage != null ||
-              notifier.sharedContextStatus != null)
+        if (notifier.audioStatusCode != null) ...[
+          if (notifier.banner != null || notifier.sharedContextStatus != null)
             const SizedBox(height: 12),
           _MentorAlertBanner(
             key: const Key('mentor-audio-banner'),
-            message: notifier.audioStatusMessage!,
+            message: mentorAudioStatusLabel(l, notifier.audioStatusCode!),
             foregroundColor: colors.warning,
             backgroundColor: colors.warningSoft,
           ),
         ],
-        if (notifier.bannerMessage != null ||
-            notifier.audioStatusMessage != null ||
+        if (notifier.banner != null ||
+            notifier.audioStatusCode != null ||
             notifier.sharedContextStatus != null)
           const SizedBox(height: 16),
         Wrap(

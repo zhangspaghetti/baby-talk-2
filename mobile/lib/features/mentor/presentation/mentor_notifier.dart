@@ -63,32 +63,33 @@ extension MentorChatAvailabilityCodeWire on MentorChatAvailabilityCode {
 class MentorChatAvailability {
   const MentorChatAvailability({
     required this.code,
-    required this.title,
-    required this.detail,
     required this.phase,
     required this.retryable,
     required this.canSubmit,
   });
 
   final MentorChatAvailabilityCode code;
-  final String title;
-  final String detail;
   final String phase;
   final bool retryable;
   final bool canSubmit;
+}
+
+class MentorBannerState {
+  const MentorBannerState({required this.code, this.maxLength});
+
+  final String code;
+  final int? maxLength;
 }
 
 class MentorChatFailureSurface {
   const MentorChatFailureSurface({
     required this.code,
     required this.phase,
-    required this.message,
     required this.retryable,
   });
 
   final String code;
   final String phase;
-  final String message;
   final bool retryable;
 }
 
@@ -123,9 +124,8 @@ class MentorNotifier extends ChangeNotifier {
   MentorChatAvailability _chatAvailability;
   List<LocalMentorSuggestion> _suggestions = const <LocalMentorSuggestion>[];
   MentorSharedContextStatus? _sharedContextStatus;
-  String? _bannerMessage;
+  MentorBannerState? _banner;
   String? _bannerCode;
-  String? _lastVisibleBanner;
   String? _lastErrorPhase;
   bool _lastRetryable = false;
   bool _isPanelVisible = false;
@@ -149,7 +149,6 @@ class MentorNotifier extends ChangeNotifier {
   List<ChatBubbleData> _messages = <ChatBubbleData>[];
 
   bool _isSpeaking = false;
-  String? _audioStatusMessage;
   String? _audioStatusCode;
 
   MentorPanelTab get selectedTab => _selectedTab;
@@ -157,9 +156,8 @@ class MentorNotifier extends ChangeNotifier {
   MentorChatAvailability get chatAvailability => _chatAvailability;
   List<LocalMentorSuggestion> get suggestions => _suggestions;
   MentorSharedContextStatus? get sharedContextStatus => _sharedContextStatus;
-  String? get bannerMessage => _bannerMessage;
+  MentorBannerState? get banner => _banner;
   String? get bannerCode => _bannerCode;
-  String? get lastVisibleBanner => _lastVisibleBanner;
   String? get lastErrorPhase => _lastErrorPhase;
   bool get lastRetryable => _lastRetryable;
   bool get isPanelVisible => _isPanelVisible;
@@ -185,7 +183,6 @@ class MentorNotifier extends ChangeNotifier {
       List<ChatBubbleData>.unmodifiable(_messages);
 
   bool get isSpeaking => _isSpeaking;
-  String? get audioStatusMessage => _audioStatusMessage;
   String? get audioStatusCode => _audioStatusCode;
 
   Future<List<MentorFactEvent>> listFactHistory({
@@ -220,7 +217,6 @@ class MentorNotifier extends ChangeNotifier {
     _chatRateLimit = null;
     _conversationId = null;
     _messages = <ChatBubbleData>[];
-    _audioStatusMessage = null;
     _audioStatusCode = null;
     _syncChatAvailability(notify: false);
     _applyBanner(
@@ -252,7 +248,7 @@ class MentorNotifier extends ChangeNotifier {
     _selectedTab = tab;
     if (tab == MentorPanelTab.chat && _chatResponseText == null) {
       _applyBanner(
-        _chatAvailability.detail,
+        MentorBannerState(code: _chatAvailability.code.wireValue),
         code: _chatAvailability.code.wireValue,
         retryable: _chatAvailability.retryable,
         errorPhase: _chatAvailability.phase,
@@ -298,7 +294,7 @@ class MentorNotifier extends ChangeNotifier {
     final prompt = _chatDraft.trim();
     if (prompt.isEmpty) {
       _applyBanner(
-        '先写下你现在卡住的那一句，Mentor 才能给出受控回应。',
+        const MentorBannerState(code: 'missing_prompt'),
         code: 'missing_prompt',
         retryable: false,
         errorPhase: 'missing_prompt',
@@ -308,7 +304,10 @@ class MentorNotifier extends ChangeNotifier {
     }
     if (prompt.length > mentorPromptMaxLength) {
       _applyBanner(
-        '这次求助请控制在 $mentorPromptMaxLength 个字以内，避免把不必要的细节发出去。',
+        const MentorBannerState(
+          code: 'prompt_too_long',
+          maxLength: mentorPromptMaxLength,
+        ),
         code: 'prompt_too_long',
         retryable: false,
         errorPhase: 'prompt_too_long',
@@ -349,7 +348,7 @@ class MentorNotifier extends ChangeNotifier {
         ),
       );
     _applyBanner(
-      '正在向小禾老师请求一次受控回应…',
+      const MentorBannerState(code: 'chat_requesting'),
       code: 'chat_requesting',
       retryable: false,
       errorPhase: 'chat_requesting',
@@ -366,7 +365,7 @@ class MentorNotifier extends ChangeNotifier {
       correlationId: correlationId,
       redactedSummary: 'surface:$_lastSurface;len:${prompt.length};auth:bearer',
       visibleStatus: 'chat-requested',
-      visibleDetail: '正在请求一次受控回应',
+      visibleDetail: 'chat_requested',
     );
 
     try {
@@ -406,7 +405,9 @@ class MentorNotifier extends ChangeNotifier {
           ? MentorPanelStatus.fallback
           : MentorPanelStatus.ready;
       _applyBanner(
-        response.fallbackUsed ? '这次回应已被安全降级成可直接读出的文字建议。' : null,
+        response.fallbackUsed
+            ? const MentorBannerState(code: 'chat_fallback')
+            : null,
         code: response.code,
         retryable: response.retryable,
         errorPhase: response.phase,
@@ -419,7 +420,7 @@ class MentorNotifier extends ChangeNotifier {
         redactedSummary:
             'code:${response.code};len:${response.responseText.length};auth:${response.authenticated}',
         visibleStatus: response.code,
-        visibleDetail: response.fallbackUsed ? '已展示安全降级回应' : '已展示受控回应',
+        visibleDetail: response.fallbackUsed ? 'chat_fallback' : response.code,
         retryable: response.retryable,
       );
     } on MentorApiException catch (error) {
@@ -433,7 +434,7 @@ class MentorNotifier extends ChangeNotifier {
       _chatAuthenticated = true;
       _chatRateLimit = null;
       _applyBanner(
-        surface.message,
+        MentorBannerState(code: surface.code),
         code: surface.code,
         retryable: surface.retryable,
         errorPhase: surface.phase,
@@ -446,7 +447,7 @@ class MentorNotifier extends ChangeNotifier {
         redactedSummary:
             'code:${surface.code};status:${error.statusCode ?? 'none'}',
         visibleStatus: surface.code,
-        visibleDetail: surface.message,
+        visibleDetail: surface.code,
         retryable: surface.retryable,
       );
     } finally {
@@ -463,7 +464,7 @@ class MentorNotifier extends ChangeNotifier {
       text: text,
       correlationId: null,
       summary: 'suggestion:${suggestion.suggestionId};len:${text.length}',
-      visibleDetail: '正在朗读建议「${suggestion.title}」',
+      visibleDetail: 'suggestion:${suggestion.suggestionId}',
     );
   }
 
@@ -477,7 +478,7 @@ class MentorNotifier extends ChangeNotifier {
       correlationId: _chatCorrelationId,
       summary:
           'chat_response:${_chatResponseCode ?? 'unknown'};len:${text.length}',
-      visibleDetail: '正在朗读受控聊天回应',
+      visibleDetail: 'chat_response:${_chatResponseCode ?? 'unknown'}',
     );
   }
 
@@ -491,7 +492,6 @@ class MentorNotifier extends ChangeNotifier {
       return;
     }
     _isSpeaking = true;
-    _audioStatusMessage = null;
     _audioStatusCode = null;
     notifyListeners();
 
@@ -507,7 +507,6 @@ class MentorNotifier extends ChangeNotifier {
       );
     } on MentorAudioException catch (error) {
       final phase = error.isUnavailable ? 'tts_unavailable' : 'tts_failed';
-      _audioStatusMessage = error.message;
       _audioStatusCode = phase;
       await _appendFactSafely(
         eventType: MentorFactType.ttsUnavailable,
@@ -515,7 +514,7 @@ class MentorNotifier extends ChangeNotifier {
         correlationId: correlationId,
         redactedSummary: summary,
         visibleStatus: phase,
-        visibleDetail: error.message,
+        visibleDetail: error.code,
         retryable: !error.isUnavailable,
       );
     } finally {
@@ -538,14 +537,16 @@ class MentorNotifier extends ChangeNotifier {
       correlationId: correlationId,
       redactedSummary: 'launcher:$launcher;surface:$_lastSurface',
       visibleStatus: 'panel-opened',
-      visibleDetail: 'Mentor 面板已打开',
+      visibleDetail: 'panel_opened',
     );
 
     LocalMentorSuggestionResult result;
     var effectiveStatus = MentorPanelStatus.ready;
     var effectiveErrorPhase = _chatAvailability.phase;
     var effectiveRetryable = _chatAvailability.retryable;
-    var effectiveBanner = _suggestionBannerForAvailability(_chatAvailability);
+    MentorBannerState effectiveBanner = _suggestionBannerForAvailability(
+      _chatAvailability,
+    );
     var effectiveBannerCode = _chatAvailability.code.wireValue;
 
     try {
@@ -566,7 +567,7 @@ class MentorNotifier extends ChangeNotifier {
           correlationId: correlationId,
           redactedSummary: result.redactedContextSummary,
           visibleStatus: 'suggestion-fallback',
-          visibleDetail: '本地上下文不足，已回退到通用建议',
+          visibleDetail: result.fallbackReasonCode ?? 'context_fallback_used',
           retryable: true,
           contextFallbackUsed: true,
         );
@@ -581,9 +582,19 @@ class MentorNotifier extends ChangeNotifier {
       effectiveStatus = MentorPanelStatus.error;
       effectiveErrorPhase = 'suggestion_render_fallback';
       effectiveRetryable = true;
-      effectiveBanner = '本地上下文暂时没读出来，先给你一条稳妥的通用建议。';
+      effectiveBanner = const MentorBannerState(
+        code: 'suggestion_render_fallback',
+      );
       effectiveBannerCode = 'suggestion_render_fallback';
     }
+
+    final suggestionDetailCode = result.contextFallbackUsed
+        ? result.fallbackReasonCode ?? 'context_fallback_used'
+        : result.sharedContextStatus?.adopted ?? false
+        ? 'shared_context_adopted'
+        : result.suggestions.isEmpty
+        ? 'no_suggestions'
+        : 'suggestion_served';
 
     await _appendFactSafely(
       eventType: MentorFactType.suggestionServed,
@@ -595,7 +606,7 @@ class MentorNotifier extends ChangeNotifier {
       visibleStatus: effectiveStatus == MentorPanelStatus.ready
           ? 'suggestion-ready'
           : 'suggestion-fallback',
-      visibleDetail: _visibleDetailForSuggestions(result),
+      visibleDetail: suggestionDetailCode,
       retryable: effectiveRetryable,
       contextFallbackUsed: result.contextFallbackUsed,
     );
@@ -607,7 +618,7 @@ class MentorNotifier extends ChangeNotifier {
         correlationId: correlationId,
         redactedSummary: 'chat_unavailable:${_chatAvailability.code.wireValue}',
         visibleStatus: _chatAvailability.code.wireValue,
-        visibleDetail: _chatAvailability.detail,
+        visibleDetail: _chatAvailability.code.wireValue,
         retryable: _chatAvailability.retryable,
         contextFallbackUsed: result.contextFallbackUsed,
       );
@@ -657,7 +668,7 @@ class MentorNotifier extends ChangeNotifier {
 
   Future<void> _recordChatPreflightFailure() async {
     _applyBanner(
-      _chatAvailability.detail,
+      MentorBannerState(code: _chatAvailability.code.wireValue),
       code: _chatAvailability.code.wireValue,
       retryable: _chatAvailability.retryable,
       errorPhase: _chatAvailability.phase,
@@ -667,7 +678,7 @@ class MentorNotifier extends ChangeNotifier {
       phase: _chatAvailability.phase,
       redactedSummary: 'preflight:${_chatAvailability.code.wireValue}',
       visibleStatus: _chatAvailability.code.wireValue,
-      visibleDetail: _chatAvailability.detail,
+      visibleDetail: _chatAvailability.code.wireValue,
       retryable: _chatAvailability.retryable,
     );
     notifyListeners();
@@ -680,7 +691,6 @@ class MentorNotifier extends ChangeNotifier {
   void _syncChatAvailability({bool notify = true}) {
     final next = _deriveChatAvailability(_accountNotifier);
     if (_chatAvailability.code == next.code &&
-        _chatAvailability.detail == next.detail &&
         _chatAvailability.phase == next.phase &&
         _chatAvailability.retryable == next.retryable &&
         _chatAvailability.canSubmit == next.canSubmit) {
@@ -689,7 +699,7 @@ class MentorNotifier extends ChangeNotifier {
     _chatAvailability = next;
     if (_selectedTab == MentorPanelTab.chat && _chatResponseText == null) {
       _applyBanner(
-        next.detail,
+        MentorBannerState(code: next.code.wireValue),
         code: next.code.wireValue,
         retryable: next.retryable,
         errorPhase: next.phase,
@@ -709,64 +719,25 @@ class MentorNotifier extends ChangeNotifier {
   }
 
   void _applyBanner(
-    String? message, {
+    MentorBannerState? banner, {
     required String code,
     required bool retryable,
     required String errorPhase,
   }) {
-    _bannerMessage = message;
+    _banner = banner;
     _bannerCode = code;
-    _lastVisibleBanner = message;
     _lastRetryable = retryable;
     _lastErrorPhase = errorPhase;
   }
 
-  String _suggestionBannerForAvailability(MentorChatAvailability availability) {
-    switch (availability.code) {
-      case MentorChatAvailabilityCode.accountLoading:
-        return '账号状态还在读取中，先把可离线使用的本地建议给你。';
-      case MentorChatAvailabilityCode.ready:
-        return '先给你离线也能用的本地建议；网络稳定时你也可以直接切到聊天。';
-      case MentorChatAvailabilityCode.offline:
-        return '你现在离线中，聊天不会发请求；先用下面的本地建议继续。';
-      case MentorChatAvailabilityCode.loginRequired:
-        return '先给你本地建议；在线聊天需要登录并同意后再发起。';
-      case MentorChatAvailabilityCode.consentRequired:
-        return '先给你本地建议；同意状态恢复前不会发起在线聊天。';
-    }
+  MentorBannerState _suggestionBannerForAvailability(
+    MentorChatAvailability availability,
+  ) {
+    return MentorBannerState(code: availability.code.wireValue);
   }
 
-  String _buildFallbackBanner(String reasonCode) {
-    switch (reasonCode) {
-      case 'onboarding_missing':
-        return '还没读到本地档案，先给你一条通用建议，不影响继续开口。';
-      case 'onboarding_malformed':
-      case 'onboarding_unavailable':
-        return '本地档案暂时不可读，先给你一条通用建议，避免面板空白。';
-      case 'starter_seed_missing':
-      case 'practice_restore_failed':
-      case 'practice_restore_timeout':
-      case 'practice_restore_malformed':
-        return '最近上下文没有完整恢复，先给你一条通用建议，稍后再试也可以。';
-      case 'suggestion_render_fallback':
-        return '本地上下文暂时没读出来，先给你一条稳妥的通用建议。';
-      default:
-        return '本地上下文暂时不完整，先给你一条稳妥的通用建议。';
-    }
-  }
-
-  String _visibleDetailForSuggestions(LocalMentorSuggestionResult result) {
-    if (result.sharedContextStatus?.adopted ?? false) {
-      return '当前展示共享继续练习建议';
-    }
-    if (result.contextFallbackUsed) {
-      return '当前展示通用本地建议';
-    }
-    if (result.suggestions.isEmpty) {
-      return '当前没有可展示建议';
-    }
-    final primary = result.suggestions.first;
-    return '当前展示 ${primary.title}';
+  MentorBannerState _buildFallbackBanner(String reasonCode) {
+    return MentorBannerState(code: reasonCode);
   }
 
   bool _isCurrentSequence(int sequence) {
@@ -799,7 +770,6 @@ class MentorNotifier extends ChangeNotifier {
       return const MentorChatFailureSurface(
         code: 'offline',
         phase: 'offline',
-        message: '当前离线，暂时发不出 Mentor 求助。先用本地建议继续。',
         retryable: true,
       );
     }
@@ -807,7 +777,6 @@ class MentorNotifier extends ChangeNotifier {
       return MentorChatFailureSurface(
         code: 'timeout',
         phase: error.phase ?? 'provider_timeout',
-        message: '小禾老师这次回应超时了，先别等，继续用本地建议，稍后可重试。',
         retryable: true,
       );
     }
@@ -815,7 +784,6 @@ class MentorNotifier extends ChangeNotifier {
       return MentorChatFailureSurface(
         code: '401',
         phase: error.phase ?? 'invalid_session',
-        message: '登录状态已经失效；重新登录后再试一次受控聊天。',
         retryable: true,
       );
     }
@@ -823,7 +791,6 @@ class MentorNotifier extends ChangeNotifier {
       return MentorChatFailureSurface(
         code: '403',
         phase: error.phase ?? 'consent_revoked',
-        message: '当前账号同意状态不可用；重新登录并再次同意后再试。',
         retryable: true,
       );
     }
@@ -831,7 +798,6 @@ class MentorNotifier extends ChangeNotifier {
       return MentorChatFailureSurface(
         code: '426',
         phase: error.phase ?? 'app_version_unsupported',
-        message: '当前版本过旧，升级后才能继续使用在线聊天。',
         retryable: false,
       );
     }
@@ -839,7 +805,6 @@ class MentorNotifier extends ChangeNotifier {
       return MentorChatFailureSurface(
         code: 'rate-limited',
         phase: error.phase ?? 'rate_limited',
-        message: '刚刚已经求助过一次了，先用当前建议继续，稍后再试。',
         retryable: true,
       );
     }
@@ -847,7 +812,6 @@ class MentorNotifier extends ChangeNotifier {
       return MentorChatFailureSurface(
         code: 'malformed',
         phase: error.phase ?? 'provider_malformed_response',
-        message: '这次返回内容不可信，已拦下不展示；你可以稍后重试。',
         retryable: true,
       );
     }
@@ -855,14 +819,12 @@ class MentorNotifier extends ChangeNotifier {
       return MentorChatFailureSurface(
         code: 'blocked-fallback',
         phase: error.phase ?? 'blocked_fallback',
-        message: '这次问题触发了安全边界，系统已改用更稳妥的回应方式。',
         retryable: false,
       );
     }
     return MentorChatFailureSurface(
       code: 'server-error',
       phase: error.phase ?? 'server_error',
-      message: '聊天服务暂时不可用，先保留文字建议，稍后再试。',
       retryable: error.isRetryable || error.isServerFailure,
     );
   }
@@ -877,8 +839,6 @@ class MentorNotifier extends ChangeNotifier {
         (accountNotifier.isLoading && !accountNotifier.hasLoaded)) {
       return const MentorChatAvailability(
         code: MentorChatAvailabilityCode.accountLoading,
-        title: '正在读取聊天状态',
-        detail: '账号状态还在加载中，先看本地建议。',
         phase: 'account_state_loading',
         retryable: false,
         canSubmit: false,
@@ -888,8 +848,6 @@ class MentorNotifier extends ChangeNotifier {
     if (phase.contains('offline')) {
       return const MentorChatAvailability(
         code: MentorChatAvailabilityCode.offline,
-        title: '当前离线',
-        detail: '离线时不会发聊天请求，先用本地建议继续。',
         phase: 'offline',
         retryable: true,
         canSubmit: false,
@@ -901,8 +859,6 @@ class MentorNotifier extends ChangeNotifier {
       case AccountConsentState.signedOut:
         return const MentorChatAvailability(
           code: MentorChatAvailabilityCode.loginRequired,
-          title: '需要登录',
-          detail: '登录并同意后才能使用在线 Mentor 聊天；本地建议仍可继续。',
           phase: 'mentor_login_required',
           retryable: false,
           canSubmit: false,
@@ -911,8 +867,6 @@ class MentorNotifier extends ChangeNotifier {
       case AccountConsentState.deleted:
         return const MentorChatAvailability(
           code: MentorChatAvailabilityCode.consentRequired,
-          title: '需要重新同意',
-          detail: '当前账号同意状态不可用；重新登录并再次同意后再试。',
           phase: 'mentor_consent_required',
           retryable: true,
           canSubmit: false,
@@ -925,8 +879,6 @@ class MentorNotifier extends ChangeNotifier {
     if (session == null || !session.hasJwtTokens) {
       return const MentorChatAvailability(
         code: MentorChatAvailabilityCode.loginRequired,
-        title: '需要重新登录',
-        detail: '登录状态已经失效；重新登录并同意后再试一次受控聊天。',
         phase: 'mentor_session_required',
         retryable: true,
         canSubmit: false,
@@ -935,8 +887,6 @@ class MentorNotifier extends ChangeNotifier {
 
     return const MentorChatAvailability(
       code: MentorChatAvailabilityCode.ready,
-      title: '可以发起一次受控聊天',
-      detail: '你可以直接描述当下卡住的场景，Mentor 会返回一条安全文本回应。',
       phase: 'ready',
       retryable: false,
       canSubmit: true,

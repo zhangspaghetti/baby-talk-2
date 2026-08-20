@@ -71,7 +71,7 @@ void main() {
         MentorChatAvailabilityCode.offline,
       );
       expect(notifier.suggestions, isNotEmpty);
-      expect(notifier.bannerMessage, contains('离线'));
+      expect(notifier.banner?.code, 'offline');
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         containsAll([
@@ -80,6 +80,7 @@ void main() {
           MentorFactType.offlineFallbackServed,
         ]),
       );
+      _expectStructuredVisibleDetails(repository.appendedFacts);
     });
 
     test('共享建议 adopted/skipped 状态会暴露给面板层', () async {
@@ -161,7 +162,7 @@ void main() {
         notifier.suggestions.every((suggestion) => suggestion.isSafeFallback),
         isTrue,
       );
-      expect(notifier.bannerMessage, contains('通用建议'));
+      expect(notifier.banner?.code, 'suggestion_render_fallback');
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         contains(MentorFactType.suggestionServed),
@@ -188,7 +189,35 @@ void main() {
         notifier.chatAvailability.code,
         MentorChatAvailabilityCode.accountLoading,
       );
-      expect(notifier.chatAvailability.detail, contains('账号状态还在加载中'));
+      expect(
+        notifier.chatAvailability.code,
+        MentorChatAvailabilityCode.accountLoading,
+      );
+    });
+
+    test('输入错误只暴露 banner code 与必要长度参数', () async {
+      final accountNotifier = AccountNotifier(
+        repository: _StaticAccountRepository(
+          seedSnapshot: AccountLocalSnapshot.signedOut,
+        ),
+      );
+      await accountNotifier.initialize();
+      final notifier = MentorNotifier(
+        repository: _RecordingMentorRepository(),
+        accountNotifier: accountNotifier,
+        apiService: _FakeMentorApiService(),
+        audioController: _SilentMentorAudioController(),
+      );
+      addTearDown(notifier.dispose);
+      addTearDown(accountNotifier.dispose);
+
+      await notifier.submitChat();
+      expect(notifier.banner?.code, 'missing_prompt');
+
+      notifier.updateChatDraft('x' * (mentorPromptMaxLength + 1));
+      await notifier.submitChat();
+      expect(notifier.banner?.code, 'prompt_too_long');
+      expect(notifier.banner?.maxLength, mentorPromptMaxLength);
     });
 
     test('已登录且已同意的在线聊天成功时会保留受控回应并记录请求/响应 facts', () async {
@@ -265,6 +294,7 @@ void main() {
           MentorFactType.chatResponseDelivered,
         ]),
       );
+      _expectStructuredVisibleDetails(repository.appendedFacts);
     });
 
     test('REFACTOR-007: 未登录或未同意状态会 fail closed 且不调用 Mentor API', () async {
@@ -509,7 +539,7 @@ void main() {
 
       expect(notifier.chatAuthenticated, isTrue);
       expect(notifier.chatResponseCode, '401');
-      expect(notifier.bannerMessage, contains('重新登录'));
+      expect(notifier.banner?.code, '401');
       expect(
         apiService.receivedSessions.single?.sessionId,
         'session_signed_in',
@@ -558,11 +588,12 @@ void main() {
       expect(notifier.chatResponseText, isNull);
       expect(notifier.chatResponseCode, 'timeout');
       expect(notifier.chatResponsePhase, 'provider_timeout');
-      expect(notifier.bannerMessage, contains('超时'));
+      expect(notifier.banner?.code, 'timeout');
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         containsAll([MentorFactType.chatRequested, MentorFactType.chatFailed]),
       );
+      _expectStructuredVisibleDetails(repository.appendedFacts);
     });
 
     test('TTS 不可用时会暴露诊断并记录 tts_unavailable fact', () async {
@@ -604,11 +635,11 @@ void main() {
       await notifier.replaySuggestion(notifier.suggestions.first);
 
       expect(notifier.audioStatusCode, 'tts_unavailable');
-      expect(notifier.audioStatusMessage, contains('当前设备不支持朗读'));
       expect(
         repository.appendedFacts.map((fact) => fact.eventType),
         contains(MentorFactType.ttsUnavailable),
       );
+      _expectStructuredVisibleDetails(repository.appendedFacts);
     });
 
     test('多轮聊天：发送两次后 messages 累积 4 条，conversationId 从响应穿透保持', () async {
@@ -699,6 +730,16 @@ void main() {
       expect(notifier.conversationId, isNull);
     });
   });
+}
+
+void _expectStructuredVisibleDetails(Iterable<MentorFactEvent> facts) {
+  final details = facts
+      .map((fact) => fact.visibleDetail)
+      .whereType<String>()
+      .toList();
+  expect(details, isNotEmpty);
+  expect(details, everyElement(matches(RegExp(r'^[a-z0-9_:-]+$'))));
+  expect(details, everyElement(isNot(contains('先回到熟悉短句'))));
 }
 
 class _ConsentChatScenario {
@@ -972,7 +1013,7 @@ class _UnavailableMentorAudioController implements MentorAudioController {
   Future<void> speakText(String text) async {
     throw const MentorAudioException(
       kind: MentorAudioFailureKind.unavailable,
-      message: '当前设备不支持朗读。',
+      code: 'unavailable',
     );
   }
 

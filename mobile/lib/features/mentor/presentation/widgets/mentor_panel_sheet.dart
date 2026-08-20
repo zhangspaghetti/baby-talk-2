@@ -208,15 +208,17 @@ class _MentorChatTab extends ConsumerWidget {
           const SizedBox(height: 16),
           AppBanner(
             key: const Key('mentor-chat-banner'),
-            message: notifier.bannerMessage ?? availabilityDetail,
+            message: notifier.banner == null
+                ? availabilityDetail
+                : mentorBannerLabel(l, notifier.banner!),
             backgroundColor: colors.warningSoft,
             foregroundColor: colors.warning,
           ),
-          if (notifier.audioStatusMessage != null) ...[
+          if (notifier.audioStatusCode != null) ...[
             const SizedBox(height: 12),
             AppBanner(
               key: const Key('mentor-chat-audio-banner'),
-              message: notifier.audioStatusMessage!,
+              message: mentorAudioStatusLabel(l, notifier.audioStatusCode!),
               backgroundColor: colors.warningSoft,
               foregroundColor: colors.warning,
             ),

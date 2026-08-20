@@ -4,16 +4,21 @@ import 'package:flutter_tts/flutter_tts.dart';
 enum MentorAudioFailureKind { unavailable, failed }
 
 class MentorAudioException implements Exception {
-  const MentorAudioException({required this.kind, required this.message});
+  const MentorAudioException({
+    required this.kind,
+    required this.code,
+    this.cause,
+  });
 
   final MentorAudioFailureKind kind;
-  final String message;
+  final String code;
+  final Object? cause;
 
   bool get isUnavailable => kind == MentorAudioFailureKind.unavailable;
 
   @override
   String toString() {
-    return 'MentorAudioException(kind: $kind, message: $message)';
+    return 'MentorAudioException(kind: $kind, code: $code)';
   }
 }
 
@@ -65,13 +70,13 @@ class FlutterTtsMentorAudioController implements MentorAudioController {
     if (normalized.isEmpty) {
       throw const MentorAudioException(
         kind: MentorAudioFailureKind.failed,
-        message: '朗读文本为空。',
+        code: 'empty_text',
       );
     }
     if (!await ensureAvailable()) {
       throw const MentorAudioException(
         kind: MentorAudioFailureKind.unavailable,
-        message: '当前设备不支持朗读。',
+        code: 'unavailable',
       );
     }
     try {
@@ -80,21 +85,22 @@ class FlutterTtsMentorAudioController implements MentorAudioController {
       if (result is int && result != 1) {
         throw const MentorAudioException(
           kind: MentorAudioFailureKind.failed,
-          message: '设备拒绝开始朗读。',
+          code: 'rejected',
         );
       }
     } on MissingPluginException {
       _available = false;
       throw const MentorAudioException(
         kind: MentorAudioFailureKind.unavailable,
-        message: '当前设备不支持朗读。',
+        code: 'unavailable',
       );
     } on MentorAudioException {
       rethrow;
     } catch (error) {
       throw MentorAudioException(
         kind: MentorAudioFailureKind.failed,
-        message: '朗读失败：$error',
+        code: 'failed',
+        cause: error,
       );
     }
   }

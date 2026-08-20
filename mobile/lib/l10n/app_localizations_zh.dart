@@ -1165,6 +1165,84 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mentorChatAvailabilityConsentDetail => '当前账号同意状态不可用；重新登录并再次同意后再试。';
 
   @override
+  String get mentorBannerAccountLoading => '账号状态还在读取中，先把可离线使用的本地建议给你。';
+
+  @override
+  String get mentorBannerReady => '先给你离线也能用的本地建议；网络稳定时你也可以直接切到聊天。';
+
+  @override
+  String get mentorBannerOffline => '你现在离线中，聊天不会发请求；先用下面的本地建议继续。';
+
+  @override
+  String get mentorBannerLoginRequired => '先给你本地建议；在线聊天需要登录并同意后再发起。';
+
+  @override
+  String get mentorBannerConsentRequired => '先给你本地建议；同意状态恢复前不会发起在线聊天。';
+
+  @override
+  String get mentorBannerOnboardingMissing => '还没读到本地档案，先给你一条通用建议，不影响继续开口。';
+
+  @override
+  String get mentorBannerOnboardingUnavailable => '本地档案暂时不可读，先给你一条通用建议，避免面板空白。';
+
+  @override
+  String get mentorBannerContextRestore => '最近上下文没有完整恢复，先给你一条通用建议，稍后再试也可以。';
+
+  @override
+  String get mentorBannerSuggestionRenderFallback =>
+      '本地上下文暂时没读出来，先给你一条稳妥的通用建议。';
+
+  @override
+  String get mentorBannerGenericFallback => '本地上下文暂时不完整，先给你一条稳妥的通用建议。';
+
+  @override
+  String get mentorBannerMissingPrompt => '先写下你现在卡住的那一句，Mentor 才能给出受控回应。';
+
+  @override
+  String mentorBannerPromptTooLong(Object maxLength) {
+    return '这次求助请控制在 $maxLength 个字以内，避免把不必要的细节发出去。';
+  }
+
+  @override
+  String get mentorBannerChatRequesting => '正在向小禾老师请求一次受控回应…';
+
+  @override
+  String get mentorBannerChatFallback => '这次回应已被安全降级成可直接读出的文字建议。';
+
+  @override
+  String get mentorBannerChatTimeout => '小禾老师这次回应超时了，先别等，继续用本地建议，稍后可重试。';
+
+  @override
+  String get mentorBannerChatUnauthorized => '登录状态已经失效；重新登录后再试一次受控聊天。';
+
+  @override
+  String get mentorBannerChatConsentRevoked => '当前账号同意状态不可用；重新登录并再次同意后再试。';
+
+  @override
+  String get mentorBannerChatVersionBlocked => '当前版本过旧，升级后才能继续使用在线聊天。';
+
+  @override
+  String get mentorBannerChatRateLimited => '刚刚已经求助过一次了，先用当前建议继续，稍后再试。';
+
+  @override
+  String get mentorBannerChatMalformed => '这次返回内容不可信，已拦下不展示；你可以稍后重试。';
+
+  @override
+  String get mentorBannerChatBlockedFallback => '这次问题触发了安全边界，系统已改用更稳妥的回应方式。';
+
+  @override
+  String get mentorBannerChatServerError => '聊天服务暂时不可用，先保留文字建议，稍后再试。';
+
+  @override
+  String get mentorBannerGenericError => '这次操作暂时不可用，请稍后重试。';
+
+  @override
+  String get mentorAudioUnavailable => '当前设备不支持朗读。';
+
+  @override
+  String get mentorAudioFailed => '朗读暂时不可用，请稍后重试。';
+
+  @override
   String mentorSuggestionSource(Object reason) {
     return '来源：$reason';
   }

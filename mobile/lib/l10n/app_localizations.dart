@@ -2178,6 +2178,156 @@ abstract class AppLocalizations {
   /// **'当前账号同意状态不可用；重新登录并再次同意后再试。'**
   String get mentorChatAvailabilityConsentDetail;
 
+  /// No description provided for @mentorBannerAccountLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号状态还在读取中，先把可离线使用的本地建议给你。'**
+  String get mentorBannerAccountLoading;
+
+  /// No description provided for @mentorBannerReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'先给你离线也能用的本地建议；网络稳定时你也可以直接切到聊天。'**
+  String get mentorBannerReady;
+
+  /// No description provided for @mentorBannerOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'你现在离线中，聊天不会发请求；先用下面的本地建议继续。'**
+  String get mentorBannerOffline;
+
+  /// No description provided for @mentorBannerLoginRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'先给你本地建议；在线聊天需要登录并同意后再发起。'**
+  String get mentorBannerLoginRequired;
+
+  /// No description provided for @mentorBannerConsentRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'先给你本地建议；同意状态恢复前不会发起在线聊天。'**
+  String get mentorBannerConsentRequired;
+
+  /// No description provided for @mentorBannerOnboardingMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没读到本地档案，先给你一条通用建议，不影响继续开口。'**
+  String get mentorBannerOnboardingMissing;
+
+  /// No description provided for @mentorBannerOnboardingUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地档案暂时不可读，先给你一条通用建议，避免面板空白。'**
+  String get mentorBannerOnboardingUnavailable;
+
+  /// No description provided for @mentorBannerContextRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近上下文没有完整恢复，先给你一条通用建议，稍后再试也可以。'**
+  String get mentorBannerContextRestore;
+
+  /// No description provided for @mentorBannerSuggestionRenderFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地上下文暂时没读出来，先给你一条稳妥的通用建议。'**
+  String get mentorBannerSuggestionRenderFallback;
+
+  /// No description provided for @mentorBannerGenericFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地上下文暂时不完整，先给你一条稳妥的通用建议。'**
+  String get mentorBannerGenericFallback;
+
+  /// No description provided for @mentorBannerMissingPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'先写下你现在卡住的那一句，Mentor 才能给出受控回应。'**
+  String get mentorBannerMissingPrompt;
+
+  /// No description provided for @mentorBannerPromptTooLong.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次求助请控制在 {maxLength} 个字以内，避免把不必要的细节发出去。'**
+  String mentorBannerPromptTooLong(Object maxLength);
+
+  /// No description provided for @mentorBannerChatRequesting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在向小禾老师请求一次受控回应…'**
+  String get mentorBannerChatRequesting;
+
+  /// No description provided for @mentorBannerChatFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次回应已被安全降级成可直接读出的文字建议。'**
+  String get mentorBannerChatFallback;
+
+  /// No description provided for @mentorBannerChatTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'小禾老师这次回应超时了，先别等，继续用本地建议，稍后可重试。'**
+  String get mentorBannerChatTimeout;
+
+  /// No description provided for @mentorBannerChatUnauthorized.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录状态已经失效；重新登录后再试一次受控聊天。'**
+  String get mentorBannerChatUnauthorized;
+
+  /// No description provided for @mentorBannerChatConsentRevoked.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号同意状态不可用；重新登录并再次同意后再试。'**
+  String get mentorBannerChatConsentRevoked;
+
+  /// No description provided for @mentorBannerChatVersionBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前版本过旧，升级后才能继续使用在线聊天。'**
+  String get mentorBannerChatVersionBlocked;
+
+  /// No description provided for @mentorBannerChatRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚刚已经求助过一次了，先用当前建议继续，稍后再试。'**
+  String get mentorBannerChatRateLimited;
+
+  /// No description provided for @mentorBannerChatMalformed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次返回内容不可信，已拦下不展示；你可以稍后重试。'**
+  String get mentorBannerChatMalformed;
+
+  /// No description provided for @mentorBannerChatBlockedFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次问题触发了安全边界，系统已改用更稳妥的回应方式。'**
+  String get mentorBannerChatBlockedFallback;
+
+  /// No description provided for @mentorBannerChatServerError.
+  ///
+  /// In zh, this message translates to:
+  /// **'聊天服务暂时不可用，先保留文字建议，稍后再试。'**
+  String get mentorBannerChatServerError;
+
+  /// No description provided for @mentorBannerGenericError.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次操作暂时不可用，请稍后重试。'**
+  String get mentorBannerGenericError;
+
+  /// No description provided for @mentorAudioUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前设备不支持朗读。'**
+  String get mentorAudioUnavailable;
+
+  /// No description provided for @mentorAudioFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读暂时不可用，请稍后重试。'**
+  String get mentorAudioFailed;
+
   /// No description provided for @mentorSuggestionSource.
   ///
   /// In zh, this message translates to:

@@ -349,7 +349,7 @@ class FullChainTestHarness {
         'Mentor chat submit is disabled: '
         'phase=${notifier.chatAvailability.phase}; '
         'code=${notifier.chatAvailability.code}; '
-        'detail=${notifier.chatAvailability.detail}',
+        'code=${notifier.chatAvailability.code.wireValue}',
       );
     }
     submitChat();
