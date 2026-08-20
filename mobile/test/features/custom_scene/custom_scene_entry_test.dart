@@ -79,6 +79,8 @@ void main() {
       tester.getTopLeft(entry).dy,
       greaterThan(tester.getTopLeft(card).dy),
     );
+    await tester.ensureVisible(entry);
+    await tester.pumpAndSettle();
     await tester.tap(entry);
     await tester.pump();
     expect(opened, <CustomSceneEntrySource>[CustomSceneEntrySource.scene]);

@@ -217,15 +217,26 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
       _scheduleHandoffConfirmation(generatedContentId);
     }
 
-    final playbackSettings = ref.watch(settingsNotifierProvider).snapshot;
+    final playbackPolicy = ref
+        .watch(settingsRepositoryProvider)
+        .when(
+          data: (_) {
+            final playbackSettings = ref
+                .watch(settingsNotifierProvider)
+                .snapshot;
+            return CareTurnAudioPlaybackPolicy(
+              autoPlayEnabled: playbackSettings.autoPlayEnabled,
+              playbackRate: playbackSettings.audioSpeed,
+            );
+          },
+          loading: () => CareTurnAudioPlaybackPolicy.disabled,
+          error: (_, _) => CareTurnAudioPlaybackPolicy.disabled,
+        );
 
     return CareTurnSurface(
       notifier: notifier,
       audioControllerFactory: widget.audioControllerFactory,
-      playbackPolicy: CareTurnAudioPlaybackPolicy(
-        autoPlayEnabled: playbackSettings.autoPlayEnabled,
-        playbackRate: playbackSettings.audioSpeed,
-      ),
+      playbackPolicy: playbackPolicy,
       careAudioControllerFactory: widget.audioControllerFactory == null
           ? () => SourceNeutralCareAudioPlaybackController(
               generatedAudioRepository: ref.read(

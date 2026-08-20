@@ -80,6 +80,8 @@ class AppReentryOrchestrator {
   final InviteAuthenticationNotifierLookup? _inviteAuthenticationNotifierLookup;
 
   StreamSubscription<Uri>? _shareUriSubscription;
+  int _shareUriConfigurationGeneration = 0;
+  bool _disposed = false;
   Future<void>? _inviteDrainFuture;
   bool _inviteDrainQueued = false;
   Listenable? _inviteAuthenticationNotifier;
@@ -88,18 +90,36 @@ class AppReentryOrchestrator {
 
   /// 配置 share URI 监听流。重新调用时会取消前一次订阅。
   Future<void> configureShareUriSubscription([Stream<Uri>? stream]) async {
-    await _shareUriSubscription?.cancel();
+    final configurationGeneration = ++_shareUriConfigurationGeneration;
+    final previousSubscription = _shareUriSubscription;
+    _shareUriSubscription = null;
+    await previousSubscription?.cancel();
+    if (_disposed ||
+        configurationGeneration != _shareUriConfigurationGeneration) {
+      return;
+    }
     if (stream == null || _initialUriLoader != null) {
       try {
-        final initialUri = await (_initialUriLoader ?? AppLinks().getInitialLink)();
+        final initialUri =
+            await (_initialUriLoader ?? AppLinks().getInitialLink)();
+        if (_disposed ||
+            configurationGeneration != _shareUriConfigurationGeneration) {
+          return;
+        }
         if (initialUri != null) {
           handleIncomingUri(initialUri);
         }
       } on Object {
-        _inviteReentryCoordinator.markFallback(
-          message: '邀请回流启动异常，已停留在首页安全入口。',
-        );
+        if (_disposed ||
+            configurationGeneration != _shareUriConfigurationGeneration) {
+          return;
+        }
+        _inviteReentryCoordinator.markFallback(message: '邀请回流启动异常，已停留在首页安全入口。');
       }
+    }
+    if (_disposed ||
+        configurationGeneration != _shareUriConfigurationGeneration) {
+      return;
     }
     final effectiveStream = stream ?? AppLinks().uriLinkStream;
     _shareUriSubscription = effectiveStream.listen(
@@ -288,7 +308,9 @@ class AppReentryOrchestrator {
     if (identical(next, _inviteAuthenticationNotifier)) {
       return;
     }
-    _inviteAuthenticationNotifier?.removeListener(_onInviteAuthenticationChanged);
+    _inviteAuthenticationNotifier?.removeListener(
+      _onInviteAuthenticationChanged,
+    );
     _inviteAuthenticationNotifier = next;
     next?.addListener(_onInviteAuthenticationChanged);
   }
@@ -303,8 +325,13 @@ class AppReentryOrchestrator {
 
   /// 释放 URI 订阅资源。
   void dispose() {
+    _disposed = true;
+    _shareUriConfigurationGeneration++;
     unawaited(_shareUriSubscription?.cancel() ?? Future<void>.value());
-    _inviteAuthenticationNotifier?.removeListener(_onInviteAuthenticationChanged);
+    _shareUriSubscription = null;
+    _inviteAuthenticationNotifier?.removeListener(
+      _onInviteAuthenticationChanged,
+    );
     _inviteAuthenticationNotifier = null;
   }
 }

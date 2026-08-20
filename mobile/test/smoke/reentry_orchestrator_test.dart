@@ -231,6 +231,25 @@ void main() {
       orchestrator.dispose();
     });
 
+    test('dispose 后忽略尚未完成的冷启动 URI loader', () async {
+      final loader = Completer<Uri?>();
+      unawaited(loader.future.catchError((Object _) => null));
+      final orchestrator = createOrchestrator(
+        initialUriLoader: () => loader.future,
+      );
+
+      final configuration = orchestrator.configureShareUriSubscription(
+        Stream<Uri>.empty(),
+      );
+      orchestrator.dispose();
+      await Future<void>.delayed(Duration.zero);
+      loader.completeError(StateError('late initial URI failure'));
+
+      await configuration;
+
+      expect(inviteCoordinator.shellFallbackCount, equals(0));
+    });
+
     test('未登录邀请在认证完成前保留，并只由认证监听恢复 drain', () async {
       final authentication = ValueNotifier(false);
       final orchestrator = createOrchestrator(
