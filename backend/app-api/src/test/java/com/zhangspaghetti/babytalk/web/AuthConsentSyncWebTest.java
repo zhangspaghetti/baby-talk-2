@@ -70,6 +70,12 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.applied").value(true))
                 .andExpect(jsonPath("$.consentStatus").value("accepted"));
 
+        var storedSessionInstallationReference = jdbcTemplate.queryForObject(
+                "select installation_id from account_sessions where session_id = ?",
+                String.class,
+                session.sessionId()
+        );
+
         mockMvc.perform(post("/api/v1/sync/events")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
@@ -102,6 +108,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.installationId").value(storedSessionInstallationReference))
                 .andExpect(jsonPath("$.acceptedCount").value(2))
                 .andExpect(jsonPath("$.duplicateCount").value(0));
 
@@ -137,6 +144,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.installationId").value(storedSessionInstallationReference))
                 .andExpect(jsonPath("$.acceptedCount").value(0))
                 .andExpect(jsonPath("$.duplicateCount").value(2));
 

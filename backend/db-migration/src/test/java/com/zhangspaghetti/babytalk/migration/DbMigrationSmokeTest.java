@@ -39,6 +39,7 @@ class DbMigrationSmokeTest {
     private static final String V34_AUTH_PRIVACY_UPGRADE_SCHEMA = "flyway_v34_auth_privacy_upgrade";
     private static final String V35_INVITE_TOKEN_PRIVACY_SCHEMA = "flyway_v35_invite_token_privacy";
     private static final String V36_INTERACTION_EVENT_PRIVACY_SCHEMA = "flyway_v36_interaction_event_privacy";
+    private static final String V36_DUPLICATE_GUARD_SCHEMA = "flyway_v36_duplicate_guard";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -1229,6 +1230,55 @@ class DbMigrationSmokeTest {
                 "e1:" + "C".repeat(43), "acct_legacy_event_a", "sess_legacy_event_a",
                 "v1:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "new-event-a", now, now))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void flywayV36FailsClosedWhenHistoricalBusinessIdentityDuplicates() {
+        Flyway v35 = flywayFor(V36_DUPLICATE_GUARD_SCHEMA, "35");
+        v35.migrate();
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-20T03:00:00Z"));
+        jdbcTemplate.update("""
+                        insert into %s.accounts (
+                            account_id, phone_lookup_ref, phone_mask, status, latest_consent_status, created_at, deleted_at
+                        ) values (?, ?, ?, 'active', 'accepted', ?, null)
+                        """.formatted(V36_DUPLICATE_GUARD_SCHEMA),
+                "acct_v36_duplicate", "v1:v36-duplicate-phone", "已保护号码", now);
+        jdbcTemplate.update("""
+                        insert into %s.account_sessions (
+                            session_id, account_id, installation_id, status, created_at, revoked_at
+                        ) values (?, ?, ?, 'active', ?, null)
+                        """.formatted(V36_DUPLICATE_GUARD_SCHEMA),
+                "sess_v36_duplicate", "acct_v36_duplicate", "raw-installation-a", now);
+        for (var suffix : List.of("a", "b")) {
+            jdbcTemplate.update("""
+                            insert into %s.interaction_events (
+                                event_key, account_id, session_id, installation_id, local_event_id,
+                                space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                            ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                            """.formatted(V36_DUPLICATE_GUARD_SCHEMA),
+                    "raw-event-" + suffix,
+                    "acct_v36_duplicate",
+                    "sess_v36_duplicate",
+                    "raw-installation-" + suffix,
+                    "duplicate-local",
+                    now,
+                    now);
+        }
+
+        var failure = org.assertj.core.api.Assertions.catchThrowable(
+                () -> flywayFor(V36_DUPLICATE_GUARD_SCHEMA, "36").migrate());
+
+        assertThat(failure)
+                .isNotNull()
+                .hasStackTraceContaining("V36 requires manual intervention")
+                .hasStackTraceContaining("duplicate interaction_events (account_id, local_event_id)");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from " + V36_DUPLICATE_GUARD_SCHEMA + ".interaction_events",
+                Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from " + V36_DUPLICATE_GUARD_SCHEMA + ".interaction_events "
+                        + "where event_key like 'raw-event-%' and installation_id like 'raw-installation-%'",
+                Integer.class)).isEqualTo(2);
     }
 
     @Test

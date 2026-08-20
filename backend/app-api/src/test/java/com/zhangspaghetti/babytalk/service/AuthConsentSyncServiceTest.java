@@ -565,6 +565,13 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                 assertThat(first.acceptedCount()).isEqualTo(1);
                 assertThat(second.acceptedCount()).isEqualTo(1);
                 assertThat(second.duplicateCount()).isZero();
+                var storedInstallationReference = jdbcTemplate.queryForObject(
+                                "select installation_id from account_sessions where session_id = ?",
+                                String.class,
+                                firstAccount.sessionId()
+                );
+                assertThat(first.installationId()).isEqualTo(storedInstallationReference);
+                assertThat(second.installationId()).isEqualTo(storedInstallationReference);
                 assertThat(service.countAllInteractionEvents()).isEqualTo(2);
                 var firstStoredEventKey = jdbcTemplate.queryForObject(
                                 "select event_key from interaction_events where account_id = ? and local_event_id = ?",

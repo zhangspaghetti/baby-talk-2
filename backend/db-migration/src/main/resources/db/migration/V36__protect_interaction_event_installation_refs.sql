@@ -4,6 +4,22 @@
 -- values that merely imitate the protected prefixes, with unique,
 -- non-reversible tombstones. PostgreSQL 17 exposes gen_random_uuid() without
 -- requiring the application HMAC pepper or a reversible derivation.
+do $$
+begin
+    if exists (
+        select 1
+        from interaction_events
+        group by account_id, local_event_id
+        having count(*) > 1
+    ) then
+        raise exception using
+            message = 'V36 requires manual intervention: duplicate interaction_events (account_id, local_event_id) exist before unique constraint',
+            detail = 'Migration stopped before disposing identity values; resolve duplicate business identities without deleting facts, then rerun V36.',
+            hint = 'Review duplicate rows grouped by account_id and local_event_id and choose an explicit business reconciliation.';
+    end if;
+end
+$$;
+
 update interaction_events
 set event_key = 'legacy-disposed:' || gen_random_uuid()::text,
     installation_id = 'legacy-disposed:' || gen_random_uuid()::text;

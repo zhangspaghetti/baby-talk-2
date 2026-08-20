@@ -343,7 +343,7 @@ public class AuthConsentSyncService {
         return new SyncBatchResponse(
                 session.accountId(),
                 session.sessionId(),
-                normalizedInstallationId,
+                safeInstallationReference(session.installationId()),
                 events.size(),
                 acceptedEventKeys.size(),
                 duplicateEventKeys.size(),
