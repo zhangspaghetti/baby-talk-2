@@ -56,6 +56,13 @@ _SCENARIO_TIMEOUT_SECONDS = 30
 _QA_VERIFICATION_CODE = "246810"
 _QA_CONSENT_VERSION = "pipl-v1"
 _QA_PHONE_PREFIX = "139"
+_TRUSTED_QA_GATEWAY_HOSTS = frozenset(
+    {"127.0.0.1", "localhost", "::1", "api.babytalk.example.com"}
+)
+_SECRET_RESPONSE_KEY = re.compile(
+    r"(?:access|refresh)?token|password|phone|authorization|sessionid|challengeid",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -231,6 +238,18 @@ def run_acceptance(manifest_path: Path) -> AcceptanceReport:
         device_evidence=device_evidence,
         identity_fingerprints=identity_fingerprints,
     )
+    try:
+        installed_identity_matches = _verify_installed_candidate_identity(context)
+    except _ScenarioBlocked:
+        return AcceptanceReport(
+            ["apk_candidate_identity_blocked"],
+            _base_evidence(candidate, compatibility, synthetic_identities, device_evidence),
+        )
+    if not installed_identity_matches:
+        return AcceptanceReport(
+            ["apk_candidate_identity_mismatch"],
+            _base_evidence(candidate, compatibility, synthetic_identities, device_evidence),
+        )
     for case in cases:
         try:
             result = run_case_command(case["runner"], context=context)
@@ -245,6 +264,7 @@ def run_acceptance(manifest_path: Path) -> AcceptanceReport:
                     device_evidence=device_evidence,
                     case_id=case["id"],
                     compatibility=compatibility,
+                    context=context,
                 )
                 if status == "PASS"
                 else None
@@ -358,6 +378,7 @@ def collect_case_evidence(
     device_evidence: AndroidDeviceEvidence,
     case_id: str,
     compatibility: dict[str, object],
+    context: CaseExecutionContext,
 ) -> CaseEvidence | None:
     """Collect independent server, ADB, and user-visible evidence.
 
@@ -369,6 +390,10 @@ def collect_case_evidence(
     except Exception:
         return None
     if observed_compatibility != compatibility:
+        return None
+    try:
+        business_result = _collect_case_business_result(context, case_id)
+    except _ScenarioBlocked:
         return None
 
     serial = device["serial"]
@@ -400,13 +425,20 @@ def collect_case_evidence(
             candidate["apk_sha256"],
         )
     )
-    user_visible = ui_dump.stdout.encode("utf-8") + b"\0" + screenshot.stdout
+    try:
+        user_visible = _case_user_visible_projection(case_id, ui_dump.stdout)
+    except _ScenarioBlocked:
+        return None
     return CaseEvidence(
         server_response_sha256=_canonical_json_sha256(
-            {"case_id": case_id, "compatibility": observed_compatibility}
+            {
+                "case_id": case_id,
+                "compatibility": observed_compatibility,
+                "business_result": _redact_business_payload(business_result),
+            }
         ),
         adb_state_sha256=_text_sha256(adb_state),
-        user_visible_sha256=_bytes_sha256(user_visible),
+        user_visible_sha256=_canonical_json_sha256(user_visible),
     )
 
 
@@ -429,6 +461,188 @@ class _QaSession:
     installation_id: str
 
 
+def _redact_business_payload(value: object) -> object:
+    """Canonical secret-safe projection used for receipt hashing."""
+    if isinstance(value, dict):
+        return {
+            str(key): (
+                "[REDACTED]"
+                if _SECRET_RESPONSE_KEY.search(str(key))
+                else _redact_business_payload(item)
+            )
+            for key, item in sorted(value.items(), key=lambda entry: str(entry[0]))
+        }
+    if isinstance(value, list):
+        return [_redact_business_payload(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    raise _ScenarioBlocked("business result is not canonical JSON")
+
+
+def _collect_case_business_result(
+    context: CaseExecutionContext,
+    case_id: str,
+) -> dict[str, object]:
+    """Re-observe the case result without trusting receipt observations."""
+    if case_id == "idempotent_account_sync":
+        session: _QaSession | None = None
+        try:
+            session = _authenticate_fixed_identity(context, "primary_account_ref")
+            event_key = _stable_event_key(context, session.installation_id)
+            bootstrap = _require_json_object(
+                _scenario_json_request(
+                    context=context,
+                    method="GET",
+                    path="/api/v1/bootstrap",
+                    query={"installationId": session.installation_id},
+                    access_token=session.access_token,
+                ),
+                statuses=(200,),
+            )
+            events = bootstrap.get("events")
+            matching = [
+                event
+                for event in events
+                if isinstance(event, dict) and event.get("eventKey") == event_key
+            ] if isinstance(events, list) else []
+            if bootstrap.get("eventCount") != 1 or len(matching) != 1:
+                raise _ScenarioBlocked("independent sync projection is unavailable")
+            return {
+                "projection": "idempotent_sync_v1",
+                "eventCount": 1,
+                "eventKeySha256": _text_sha256(event_key),
+            }
+        finally:
+            _logout_fixed_identity(context, session)
+
+    if case_id == "two_account_household":
+        primary: _QaSession | None = None
+        caregiver: _QaSession | None = None
+        try:
+            primary = _authenticate_fixed_identity(context, "primary_account_ref")
+            caregiver = _authenticate_fixed_identity(context, "caregiver_account_ref")
+            probe_invite = _require_json_object(
+                _scenario_json_request(
+                    context=context,
+                    method="POST",
+                    path="/api/v1/caregiver-invites",
+                    payload={"role": "caregiver", "source": "household_settings"},
+                    access_token=primary.access_token,
+                ),
+                statuses=(201,),
+            )
+            probe_token = _required_string(probe_invite, "token")
+            revoke = _require_json_object(
+                _scenario_json_request(
+                    context=context,
+                    method="POST",
+                    path=f"/api/v1/caregiver-invites/{quote(probe_token, safe='')}/revoke",
+                    access_token=primary.access_token,
+                ),
+                statuses=(200,),
+            )
+            rejected = _scenario_json_request(
+                context=context,
+                method="POST",
+                path="/api/v1/caregiver-invites/accept",
+                payload={"token": probe_token, "source": "household_settings"},
+                access_token=caregiver.access_token,
+            )
+            if (
+                revoke.get("applied") is not True
+                or revoke.get("result") != "revoked"
+                or rejected.status_code not in (400, 404, 409)
+            ):
+                raise _ScenarioBlocked("independent invite revoke projection is unavailable")
+            shared = _require_json_object(
+                _scenario_json_request(
+                    context=context,
+                    method="GET",
+                    path="/api/v1/household/shared-context",
+                    access_token=caregiver.access_token,
+                ),
+                statuses=(200,),
+            )
+            household_id = _required_string(shared, "householdId")
+            return {
+                "projection": "household_shared_context_v1",
+                "householdIdSha256": _text_sha256(household_id),
+                "role": shared.get("role"),
+                "hasBabyProfile": isinstance(shared.get("babyProfile"), dict)
+                or bool(shared.get("babyProfileId")),
+                "revokedInviteRejectedStatus": rejected.status_code,
+            }
+        finally:
+            _logout_fixed_identity(context, caregiver)
+            _logout_fixed_identity(context, primary)
+
+    if case_id == "android_notification":
+        alarm = _dumpsys(context, "alarm")
+        notification = _dumpsys(context, "notification", "--noredact")
+        if not _alarm_proves_daily_reminder_delivery(alarm, context.package_id):
+            raise _ScenarioBlocked("independent alarm delivery evidence is unavailable")
+        if not _notification_is_posted(notification, context.package_id):
+            raise _ScenarioBlocked("independent posted notification evidence is unavailable")
+        return {
+            "projection": "android_notification_v1",
+            "alarmManagerDelivered": True,
+            "notificationId": 7020,
+            "channel": "daily_reminder",
+        }
+
+    if case_id == "android_audio":
+        media = _dumpsys(context, "media_session")
+        ui = _dump_ui(context)
+        if context.package_id.lower() not in media.lower() or not re.search(
+            r"state\s*=|state_?(?:playing|paused|stopped)", media, re.IGNORECASE
+        ):
+            raise _ScenarioBlocked("independent audio session evidence is unavailable")
+        if not any(marker in ui for marker in ("暂停", "重播", "Pause", "Replay")):
+            raise _ScenarioBlocked("independent audio control evidence is unavailable")
+        return {
+            "projection": "android_audio_v1",
+            "mediaSessionObserved": True,
+            "controlsVisible": True,
+        }
+
+    if case_id == "android_deep_link":
+        session: _QaSession | None = None
+        try:
+            session = _authenticate_fixed_identity(context, "primary_account_ref")
+            invite = _require_json_object(
+                _scenario_json_request(
+                    context=context,
+                    method="POST",
+                    path="/api/v1/caregiver-invites",
+                    payload={"role": "caregiver", "source": "household_settings"},
+                    access_token=session.access_token,
+                ),
+                statuses=(201,),
+            )
+            invite_url = _safe_invite_url(_required_string(invite, "inviteUrl"))
+            invite_business_result = {
+                "inviteUrlHost": (urlsplit(invite_url).hostname or "").lower(),
+                "householdIdSha256": _text_sha256(_required_string(invite, "householdId")),
+                "tokenPresent": bool(_required_string(invite, "token")),
+            }
+        finally:
+            _logout_fixed_identity(context, session)
+        activity = _dumpsys(context, "activity", "activities")
+        ui = _dump_ui(context)
+        if not _deep_link_intent_is_active(activity, context.package_id):
+            raise _ScenarioBlocked("independent deep-link intent evidence is unavailable")
+        if not _deep_link_invalid_fallback_is_visible(ui):
+            raise _ScenarioBlocked("independent deep-link fallback evidence is unavailable")
+        return {
+            "projection": "android_deep_link_v1",
+            "route": "invite/open",
+            "invalidFallback": "safe_shell",
+            **invite_business_result,
+        }
+
+    raise _ScenarioBlocked("case business evidence collector is not allow-listed")
+
+
 def _scenario_json_request(
     *,
     context: CaseExecutionContext,
@@ -441,8 +655,8 @@ def _scenario_json_request(
     """Call a fixed public QA API; never accept URLs or commands from a manifest."""
     if not path.startswith("/") or "?" in path or "#" in path:
         raise _ScenarioBlocked("fixed scenario path is invalid")
-    if not context.gateway_url or not context.gateway_url.startswith(("http://", "https://")):
-        raise _ScenarioBlocked("gateway unavailable")
+    if not _is_trusted_gateway_url(context.gateway_url):
+        raise _ScenarioBlocked("gateway is not in the fixed QA trust boundary")
     body = None if payload is None else json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     headers = {"Accept": "application/json"}
     if body is not None:
@@ -636,6 +850,47 @@ def _parse_ui_nodes(xml: str) -> list[dict[str, str]]:
     return nodes
 
 
+def _normalized_user_visible_surface(xml: str) -> list[dict[str, str]]:
+    """Stable semantic UI projection; screenshot pixels are existence-only proof."""
+    surface: list[dict[str, str]] = []
+    for node in _parse_ui_nodes(xml):
+        semantic = {
+            key: node[key].strip()
+            for key in ("text", "content-desc", "class", "package")
+            if node.get(key, "").strip()
+        }
+        if semantic:
+            surface.append(semantic)
+    return surface
+
+
+def _case_user_visible_projection(case_id: str, xml: str) -> dict[str, object]:
+    surface = _normalized_user_visible_surface(xml)
+    visible = {
+        value
+        for node in surface
+        for key, value in node.items()
+        if key in {"text", "content-desc"}
+    }
+    if case_id in {"idempotent_account_sync", "two_account_household"}:
+        if not visible:
+            raise _ScenarioBlocked("case user-visible surface is unavailable")
+        return {"caseId": case_id, "appSurfaceVisible": True}
+    if case_id == "android_notification":
+        if not any("每日提醒" in value or "提醒设置" in value for value in visible):
+            raise _ScenarioBlocked("reminder surface is unavailable")
+        return {"caseId": case_id, "reminderSurfaceVisible": True}
+    if case_id == "android_audio":
+        if not any(marker in value for value in visible for marker in ("暂停", "重播", "Pause", "Replay")):
+            raise _ScenarioBlocked("audio controls surface is unavailable")
+        return {"caseId": case_id, "audioControlsVisible": True}
+    if case_id == "android_deep_link":
+        if not _deep_link_invalid_fallback_is_visible(xml):
+            raise _ScenarioBlocked("deep-link fallback surface is unavailable")
+        return {"caseId": case_id, "invalidFallbackVisible": True}
+    raise _ScenarioBlocked("case user-visible projection is not allow-listed")
+
+
 def _tap_ui_label(context: CaseExecutionContext, labels: tuple[str, ...]) -> str:
     xml = _dump_ui(context)
     for node in _parse_ui_nodes(xml):
@@ -669,16 +924,92 @@ def _tap_ui_class(context: CaseExecutionContext, class_suffix: str) -> None:
     raise _ScenarioBlocked("fixed scenario switch/control is unavailable")
 
 
+def _verify_installed_candidate_identity(context: CaseExecutionContext) -> bool:
+    """Read the immutable candidate ID from the installed APK's About UI."""
+    _launch_app(context)
+    try:
+        _tap_ui_label(context, ("我的", "Me"))
+    except _ScenarioBlocked:
+        # The app may already be inside the settings subtree.
+        pass
+    try:
+        _tap_ui_label(context, ("设置", "Settings"))
+    except _ScenarioBlocked:
+        pass
+    _tap_ui_label(context, ("关于 BabyTalk",))
+    nodes = _parse_ui_nodes(_dump_ui(context))
+    visible = [
+        (node.get("text", "") + " " + node.get("content-desc", "")).strip()
+        for node in nodes
+    ]
+    if "关于 BabyTalk" not in visible or "候选 ID" not in visible:
+        raise _ScenarioBlocked("installed APK About identity is unavailable")
+    label_index = visible.index("候选 ID")
+    values = [value for value in visible[label_index + 1 : label_index + 4] if value]
+    if not values:
+        raise _ScenarioBlocked("installed APK candidate ID value is unavailable")
+    return values[0] == context.candidate_id
+
+
 def _dumpsys(context: CaseExecutionContext, service: str, *arguments: str) -> str:
     return _run_device_step(context, ["shell", "dumpsys", service, *arguments])
 
 
-def _alarm_has_daily_reminder(output: str) -> bool:
+def _alarm_has_daily_reminder(output: str, package_id: str) -> bool:
     normalized = output.lower()
-    return (
-        "dailyreminderreceiver" in normalized
+    component = re.escape("dailyreminderreceiver".lower())
+    package = re.escape(package_id.lower())
+    return bool(
+        re.search(package + r"[^\n]{0,180}" + component, normalized)
+        and re.search(r"pendingintentrecord|broadcastintent|type=.?broadcast", normalized)
         and "no scheduled dailyreminderreceiver" not in normalized
         and "not scheduled dailyreminderreceiver" not in normalized
+    )
+
+
+def _alarm_proves_daily_reminder_delivery(output: str, package_id: str) -> bool:
+    normalized = output.lower()
+    return bool(
+        package_id.lower() in normalized
+        and "dailyreminderreceiver" in normalized
+        and re.search(r"(?:deliverycount|count|delivered)\s*[=:]\s*[1-9]\d*", normalized)
+        and any(marker in normalized for marker in ("recent", "history", "wakeup"))
+    )
+
+
+def _notification_post_time_epoch_ms(output: str) -> int | None:
+    match = re.search(r"\bposttime\s*=\s*([^\s,)]+)", output, re.IGNORECASE)
+    if match is None:
+        return None
+    raw = match.group(1)
+    if raw.isdigit():
+        value = int(raw)
+        return value if value >= 1_000_000_000_000 else value * 1000
+    try:
+        return int(datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp() * 1000)
+    except ValueError:
+        return None
+
+
+def _notification_is_posted(
+    output: str,
+    package_id: str,
+    *,
+    not_before_epoch_ms: int | None = None,
+) -> bool:
+    normalized = output.lower()
+    structurally_posted = bool(
+        "notificationrecord(" in normalized
+        and f"pkg={package_id.lower()}" in normalized
+        and re.search(r"\bid\s*=\s*7020\b", normalized)
+        and re.search(r"\bchannel\s*=\s*daily_reminder\b", normalized)
+        and re.search(r"\bposttime\s*=\s*\S+", normalized)
+    )
+    if not structurally_posted:
+        return False
+    post_time = _notification_post_time_epoch_ms(output)
+    return post_time is not None and (
+        not_before_epoch_ms is None or post_time >= not_before_epoch_ms
     )
 
 
@@ -707,6 +1038,7 @@ def _runner_case_evidence(context: CaseExecutionContext, case_id: str) -> CaseEv
         device_evidence=device_evidence,
         case_id=case_id,
         compatibility=compatibility,
+        context=context,
     )
     if evidence is None:
         raise _ScenarioBlocked("fixed scenario evidence is unavailable")
@@ -955,6 +1287,7 @@ def _run_two_account_household(context: CaseExecutionContext) -> CaseCommandResu
 
 def _run_android_notification(context: CaseExecutionContext) -> CaseCommandResult:
     _launch_app(context)
+    scenario_started_epoch_ms = int(time.time() * 1000)
     try:
         _tap_ui_label(context, ("提醒设置", "每日提醒"))
     except _ScenarioBlocked:
@@ -967,33 +1300,21 @@ def _run_android_notification(context: CaseExecutionContext) -> CaseCommandResul
         # Android < 13, or an already-granted permission, has no dialog.
         pass
     alarm_state = _dumpsys(context, "alarm")
-    if context.package_id not in alarm_state or not _alarm_has_daily_reminder(alarm_state):
+    if not _alarm_has_daily_reminder(alarm_state, context.package_id):
         raise _ScenarioBlocked("Android scheduler did not expose daily reminder")
-    # Exercise the receiver and the wall-clock restore path, then disable and
-    # require the PendingIntent to disappear. These are fixed explicit intents;
-    # no manifest-provided command is ever executed.
-    _run_device_step(
-        context,
-        [
-            "shell",
-            "am",
-            "broadcast",
-            "-a",
-            "android.intent.action.TIME_SET",
-            "-n",
-            f"{context.package_id}/.DailyReminderTimeChangeReceiver",
-        ],
-    )
-    _run_device_step(
-        context,
-        ["shell", "am", "broadcast", "-n", f"{context.package_id}/.DailyReminderReceiver"],
-    )
+    delivery_state = _dumpsys(context, "alarm")
+    if not _alarm_proves_daily_reminder_delivery(delivery_state, context.package_id):
+        raise _ScenarioBlocked("AlarmManager has not actually delivered the reminder")
     notification_state = _dumpsys(context, "notification", "--noredact")
-    if context.package_id not in notification_state and "daily_reminder" not in notification_state:
+    if not _notification_is_posted(
+        notification_state,
+        context.package_id,
+        not_before_epoch_ms=scenario_started_epoch_ms,
+    ):
         raise _ScenarioBlocked("Android notification was not observable")
     _tap_ui_class(context, "Switch")
     cancelled_state = _dumpsys(context, "alarm")
-    if _alarm_has_daily_reminder(cancelled_state):
+    if _alarm_has_daily_reminder(cancelled_state, context.package_id):
         raise _ScenarioBlocked("disabling reminder left a stale schedule")
     visible = _dump_ui(context)
     if "每日提醒" not in visible and "提醒" not in visible:
@@ -1087,7 +1408,10 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
         )
         _safe_invite_url(_required_string(invite, "inviteUrl"))
         invite_token = quote(_required_string(invite, "token"), safe="")
-        invite_uri = f"babytalk://invite/open?token={invite_token}"
+        invite_uri = (
+            f"babytalk://invite/open?token={invite_token}"
+            "&source=invite_link&role=caregiver"
+        )
         _run_device_step(context, ["shell", "am", "force-stop", context.package_id])
         _run_device_step(
             context,
@@ -1105,7 +1429,10 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
             ],
         )
         cold_ui = _dump_ui(context)
-        if not any(label in cold_ui for label in ("邀请", "接受", "家庭", "登录")):
+        cold_activity = _dumpsys(context, "activity", "activities")
+        if not _deep_link_intent_is_active(cold_activity, context.package_id):
+            raise _ScenarioBlocked("cold-start invite intent delivery was not observable")
+        if not _deep_link_valid_destination_is_visible(cold_ui, foreground=False):
             raise _ScenarioBlocked("cold-start invite destination was not visible")
         _launch_app(context)
         _run_device_step(
@@ -1124,9 +1451,15 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
             ],
         )
         foreground_ui = _dump_ui(context)
-        if not any(label in foreground_ui for label in ("邀请", "接受", "家庭", "登录")):
+        foreground_activity = _dumpsys(context, "activity", "activities")
+        if not _deep_link_intent_is_active(foreground_activity, context.package_id):
+            raise _ScenarioBlocked("foreground invite intent delivery was not observable")
+        if not _deep_link_valid_destination_is_visible(foreground_ui, foreground=True):
             raise _ScenarioBlocked("foreground invite destination was not visible")
-        invalid_uri = "babytalk://invite/open?token=qa-invalid-deep-link"
+        invalid_uri = (
+            "babytalk://invite/open?token=bad*"
+            "&source=invite_link&role=caregiver"
+        )
         _run_device_step(context, ["shell", "am", "force-stop", context.package_id])
         _run_device_step(
             context,
@@ -1144,7 +1477,10 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
             ],
         )
         invalid_ui = _dump_ui(context)
-        if not any(label in invalid_ui for label in ("无效", "不可用", "链接", "邀请", "无法")):
+        invalid_activity = _dumpsys(context, "activity", "activities")
+        if not _deep_link_intent_is_active(invalid_activity, context.package_id):
+            raise _ScenarioBlocked("invalid invite intent delivery was not observable")
+        if not _deep_link_invalid_fallback_is_visible(invalid_ui):
             raise _ScenarioBlocked("invalid invite did not produce a safe message")
         return _receipt_result(
             context,
@@ -1159,6 +1495,38 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
         )
     finally:
         _logout_fixed_identity(context, primary)
+
+
+def _deep_link_intent_is_active(output: str, package_id: str) -> bool:
+    normalized = output.lower()
+    return bool(
+        f"{package_id.lower()}/.mainactivity" in normalized
+        and "android.intent.action.view" in normalized
+        and "babytalk://invite/open" in normalized
+    )
+
+
+def _deep_link_valid_destination_is_visible(xml: str, *, foreground: bool) -> bool:
+    exact_markers = {"邀请已接受，正在进入共享练习。"}
+    if foreground:
+        exact_markers.add("重复照护邀请链接已忽略。")
+    visible = {
+        (node.get("text", "") + " " + node.get("content-desc", "")).strip()
+        for node in _parse_ui_nodes(xml)
+    }
+    return bool(exact_markers & visible)
+
+
+def _deep_link_invalid_fallback_is_visible(xml: str) -> bool:
+    exact_markers = {
+        "邀请链接缺少有效 token，已停留在首页安全入口。",
+        "邀请链接不可用，已停留在首页安全入口。",
+    }
+    visible = {
+        (node.get("text", "") + " " + node.get("content-desc", "")).strip()
+        for node in _parse_ui_nodes(xml)
+    }
+    return bool(exact_markers & visible)
 
 
 def _safe_case_runner(
@@ -1258,8 +1626,7 @@ def _validate_candidate(manifest: dict[str, object]) -> dict[str, str] | None:
         return None
     gateway_url = urlsplit(candidate["gateway_url"])
     if (
-        gateway_url.scheme not in {"http", "https"}
-        or not gateway_url.hostname
+        not _is_trusted_gateway_url(candidate["gateway_url"])
         or gateway_url.username
         or gateway_url.password
         or gateway_url.query
@@ -1268,6 +1635,23 @@ def _validate_candidate(manifest: dict[str, object]) -> dict[str, str] | None:
     ):
         return None
     return candidate
+
+
+def _is_trusted_gateway_url(value: str) -> bool:
+    parsed = urlsplit(value)
+    hostname = (parsed.hostname or "").lower()
+    if (
+        hostname not in _TRUSTED_QA_GATEWAY_HOSTS
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in ("", "/")
+    ):
+        return False
+    if hostname in {"127.0.0.1", "localhost", "::1"}:
+        return parsed.scheme in {"http", "https"}
+    return parsed.scheme == "https" and parsed.port in (None, 443)
 
 
 def _validate_android_device(manifest: dict[str, object]) -> dict[str, str] | None:

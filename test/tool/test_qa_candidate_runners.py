@@ -121,11 +121,15 @@ class QaCandidateRunnerTest(unittest.TestCase):
             harness,
             "_dumpsys",
             side_effect=(
-                "package:com.babytalk.mobile DailyReminderReceiver",
-                "package:com.babytalk.mobile daily_reminder",
+                "RTC_WAKEUP com.babytalk.mobile/.DailyReminderReceiver\n"
+                "PendingIntentRecord{abc com.babytalk.mobile broadcastIntent}",
+                "Recent wakeup history: com.babytalk.mobile/.DailyReminderReceiver\n"
+                "deliveryCount=1",
+                "NotificationRecord(pkg=com.babytalk.mobile id=7020 "
+                "channel=daily_reminder postTime=9999999999999)",
                 "no scheduled DailyReminderReceiver",
             ),
-        ), patch.object(harness, "_run_device_step"), patch.object(
+        ), patch.object(harness, "_run_device_step") as device_step, patch.object(
             harness, "_dump_ui", return_value="<hierarchy>每日提醒</hierarchy>"
         ), patch.object(harness, "_runner_case_evidence", return_value=_evidence()):
             result = harness.run_case_command(
@@ -134,6 +138,24 @@ class QaCandidateRunnerTest(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(json.loads(result.stdout)["observations"]["notification_delivered"])
+        self.assertFalse(
+            any("broadcast" in call.args[1] for call in device_step.call_args_list)
+        )
+
+    def test_notification_runner_blocks_generic_receiver_and_channel_text(self) -> None:
+        with patch.object(harness, "_launch_app"), patch.object(
+            harness, "_tap_ui_label"
+        ), patch.object(harness, "_tap_ui_class"), patch.object(
+            harness,
+            "_dumpsys",
+            side_effect=(
+                "package:com.babytalk.mobile DailyReminderReceiver",
+                "package:com.babytalk.mobile daily_reminder",
+            ),
+        ):
+            result = harness.run_case_command("android_notification", context=_context())
+
+        self.assertEqual(result.exit_code, 77)
 
     def test_audio_runner_requires_output_speed_and_controls(self) -> None:
         with patch.object(harness, "_launch_app"), patch.object(
@@ -184,9 +206,17 @@ class QaCandidateRunnerTest(unittest.TestCase):
             harness,
             "_dump_ui",
             side_effect=(
-                "<hierarchy>接受邀请</hierarchy>",
-                "<hierarchy>家庭邀请</hierarchy>",
-                "<hierarchy>邀请链接无效</hierarchy>",
+                "<hierarchy><node text=\"邀请已接受，正在进入共享练习。\"/></hierarchy>",
+                "<hierarchy><node text=\"重复照护邀请链接已忽略。\"/></hierarchy>",
+                "<hierarchy><node text=\"邀请链接缺少有效 token，已停留在首页安全入口。\"/></hierarchy>",
+            ),
+        ), patch.object(
+            harness,
+            "_dumpsys",
+            side_effect=(
+                "mIntent=Intent { act=android.intent.action.VIEW dat=babytalk://invite/open cmp=com.babytalk.mobile/.MainActivity }",
+                "mIntent=Intent { act=android.intent.action.VIEW dat=babytalk://invite/open cmp=com.babytalk.mobile/.MainActivity }",
+                "mIntent=Intent { act=android.intent.action.VIEW dat=babytalk://invite/open cmp=com.babytalk.mobile/.MainActivity }",
             ),
         ), patch.object(harness, "_logout_fixed_identity"), patch.object(
             harness, "_runner_case_evidence", return_value=_evidence()
@@ -196,6 +226,34 @@ class QaCandidateRunnerTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(json.loads(result.stdout)["observations"]["cold_start_destination_observed"])
         self.assertTrue(json.loads(result.stdout)["observations"]["invalid_link_message_observed"])
+
+    def test_deep_link_runner_blocks_generic_invite_words(self) -> None:
+        primary = _session("primary")
+        responses = iter(
+            (
+                harness._ScenarioHttpResponse(200, {"babyProfileId": "profile-qa"}),
+                harness._ScenarioHttpResponse(
+                    201,
+                    {
+                        "householdId": "household-qa",
+                        "token": "invite-qa",
+                        "inviteUrl": "https://babytalk.example.com/invite/qa",
+                    },
+                ),
+            )
+        )
+        with patch.object(harness, "_authenticate_fixed_identity", return_value=primary), patch.object(
+            harness, "_scenario_json_request", side_effect=lambda **_: next(responses)
+        ), patch.object(harness, "_run_device_step"), patch.object(
+            harness, "_launch_app"
+        ), patch.object(
+            harness, "_dump_ui", return_value="<hierarchy>邀请 家庭 登录</hierarchy>"
+        ), patch.object(harness, "_dumpsys", return_value="MainActivity invite/open"), patch.object(
+            harness, "_logout_fixed_identity"
+        ):
+            result = harness.run_case_command("android_deep_link", context=_context())
+
+        self.assertEqual(result.exit_code, 77)
 
     def test_environment_or_public_api_block_is_77_for_every_runner(self) -> None:
         context = _context(device_serial="")

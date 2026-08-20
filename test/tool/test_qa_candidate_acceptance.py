@@ -169,6 +169,174 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "redirect rejected"):
                 harness.read_gateway_compatibility("http://127.0.0.1:19091")
 
+    def test_manifest_rejects_untrusted_gateway_hosts_and_plaintext_remote(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            apk = Path(temporary) / "candidate.apk"
+            apk.write_bytes(b"frozen-apk")
+            for gateway_url in (
+                "http://attacker.invalid:19091",
+                "https://attacker.invalid",
+                "http://api.babytalk.example.com",
+            ):
+                candidate = _manifest(apk)
+                candidate["candidate"]["gateway_url"] = gateway_url
+                self.assertIsNone(harness._validate_candidate(candidate))
+            self.assertIsNotNone(harness._validate_candidate(_manifest(apk)))
+
+    def test_installed_candidate_identity_requires_exact_about_row(self) -> None:
+        context = harness.CaseExecutionContext(
+            candidate_id="btqa-2026-08-15",
+            apk_sha256="a" * 64,
+            gateway_url="http://127.0.0.1:19091",
+            package_id="com.zhangspaghetti.babytalk",
+            device_identity_sha256="b" * 64,
+            android_version="14",
+            identity_fingerprints={},
+            device_serial="emulator-5554",
+        )
+        with patch.object(harness, "_launch_app"), patch.object(
+            harness, "_tap_ui_label"
+        ), patch.object(
+            harness,
+            "_dump_ui",
+            return_value=(
+                '<hierarchy><node text="候选 ID"/><node text="btqa-2026-08-15"/>'
+                '<node text="关于 BabyTalk"/></hierarchy>'
+            ),
+        ):
+            self.assertTrue(harness._verify_installed_candidate_identity(context))
+
+        with patch.object(harness, "_launch_app"), patch.object(
+            harness, "_tap_ui_label"
+        ), patch.object(
+            harness,
+            "_dump_ui",
+            return_value=(
+                '<hierarchy><node text="候选 ID"/><node text="other-candidate"/>'
+                '<node text="关于 BabyTalk"/></hierarchy>'
+            ),
+        ):
+            self.assertFalse(harness._verify_installed_candidate_identity(context))
+
+    def test_acceptance_rejects_installed_apk_candidate_id_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            apk = root / "candidate.apk"
+            apk.write_bytes(b"frozen-apk")
+            candidate = _manifest(apk)
+            manifest = root / "candidate.json"
+            manifest.write_text(json.dumps(candidate), encoding="utf-8")
+
+            with _passing_harness(candidate), patch.object(
+                harness, "_verify_installed_candidate_identity", return_value=False
+            ), patch.object(harness, "run_case_command") as runner:
+                report = harness.run_acceptance(manifest)
+
+        self.assertEqual(report.violations, ["apk_candidate_identity_mismatch"])
+        runner.assert_not_called()
+
+    def test_case_server_hash_binds_redacted_business_result(self) -> None:
+        candidate = {
+            "id": "btqa-2026-08-15",
+            "apk_sha256": "a" * 64,
+            "gateway_url": "http://127.0.0.1:19091",
+        }
+        device = {"serial": "emulator-5554", "package_id": "com.zhangspaghetti.babytalk"}
+        device_evidence = harness.AndroidDeviceEvidence.passing(
+            serial="emulator-5554", android_version="14", package_id=device["package_id"]
+        )
+        compatibility = {
+            "candidateId": candidate["id"],
+            "requiredMigrationVersion": "34",
+            "status": "compatible",
+        }
+        commands = (
+            harness.CaseCommandResult(0, "device", ""),
+            harness.CaseCommandResult(0, "14", ""),
+            harness.CaseCommandResult(0, "package:/data/app/base.apk", ""),
+            harness.CaseCommandResult(
+                0,
+                '<hierarchy><node text="重播" class="android.widget.TextView"/></hierarchy>',
+                "",
+            ),
+        )
+        screenshot = harness._BinaryCommandResult(0, b"png", b"")
+        with patch.object(harness, "read_gateway_compatibility", return_value=compatibility), patch.object(
+            harness, "run_device_command", side_effect=commands
+        ), patch.object(harness, "_run_binary_command", return_value=screenshot), patch.object(
+            harness,
+            "_collect_case_business_result",
+            return_value={"eventCount": 1, "accessToken": "must-not-hash"},
+        ):
+            first = harness.collect_case_evidence(
+                candidate=candidate,
+                device=device,
+                device_evidence=device_evidence,
+                case_id="idempotent_account_sync",
+                compatibility=compatibility,
+                context=context_for(candidate, device, device_evidence),
+            )
+        self.assertIsNotNone(first)
+        expected = harness._canonical_json_sha256(
+            {
+                "case_id": "idempotent_account_sync",
+                "compatibility": compatibility,
+                "business_result": {"eventCount": 1, "accessToken": "[REDACTED]"},
+            }
+        )
+        self.assertEqual(first.server_response_sha256, expected)
+
+    def test_user_visible_receipt_hash_ignores_unstable_screenshot_pixels(self) -> None:
+        candidate = {
+            "id": "btqa-2026-08-15",
+            "apk_sha256": "a" * 64,
+            "gateway_url": "http://127.0.0.1:19091",
+        }
+        device = {"serial": "emulator-5554", "package_id": "com.zhangspaghetti.babytalk"}
+        evidence = harness.AndroidDeviceEvidence.passing(
+            serial=device["serial"], android_version="14", package_id=device["package_id"]
+        )
+        compatibility = {
+            "candidateId": candidate["id"],
+            "requiredMigrationVersion": "34",
+            "status": "compatible",
+        }
+        one_read = (
+            harness.CaseCommandResult(0, "device", ""),
+            harness.CaseCommandResult(0, "14", ""),
+            harness.CaseCommandResult(0, "package:/data/app/base.apk", ""),
+            harness.CaseCommandResult(
+                0,
+                '<hierarchy><node text="重播" class="android.widget.TextView"/></hierarchy>',
+                "",
+            ),
+        )
+        with patch.object(harness, "read_gateway_compatibility", return_value=compatibility), patch.object(
+            harness, "run_device_command", side_effect=one_read + one_read
+        ), patch.object(
+            harness,
+            "_run_binary_command",
+            side_effect=(
+                harness._BinaryCommandResult(0, b"png-frame-1", b""),
+                harness._BinaryCommandResult(0, b"png-frame-2", b""),
+            ),
+        ), patch.object(harness, "_collect_case_business_result", return_value={"state": "same"}):
+            reads = [
+                harness.collect_case_evidence(
+                    candidate=candidate,
+                    device=device,
+                    device_evidence=evidence,
+                    case_id="android_audio",
+                    compatibility=compatibility,
+                    context=context_for(candidate, device, evidence),
+                )
+                for _ in range(2)
+            ]
+
+        self.assertIsNotNone(reads[0])
+        self.assertIsNotNone(reads[1])
+        self.assertEqual(reads[0].user_visible_sha256, reads[1].user_visible_sha256)
+
 
 def _passing_harness(candidate: dict[str, object], *, receipts: dict[str, dict[str, object]] | None = None):
     resolved_receipts = receipts or _receipts(candidate)
@@ -193,6 +361,7 @@ def _passing_harness(candidate: dict[str, object], *, receipts: dict[str, dict[s
         ),
         patch.object(harness, "run_case_command", side_effect=run_case),
         patch.object(harness, "collect_case_evidence", side_effect=collect_case_evidence),
+        patch.object(harness, "_verify_installed_candidate_identity", return_value=True),
     )
 
 
@@ -217,6 +386,29 @@ def _compatibility(manifest: dict[str, object]) -> dict[str, str]:
         "requiredMigrationVersion": str(candidate["required_migration_version"]),
         "status": "compatible",
     }
+
+
+def context_for(
+    candidate: dict[str, str],
+    device: dict[str, str],
+    device_evidence: harness.AndroidDeviceEvidence,
+) -> harness.CaseExecutionContext:
+    assert device_evidence.device_identity_sha256 is not None
+    assert device_evidence.android_version is not None
+    return harness.CaseExecutionContext(
+        candidate_id=candidate["id"],
+        apk_sha256=candidate["apk_sha256"],
+        gateway_url=candidate["gateway_url"],
+        package_id=device["package_id"],
+        device_identity_sha256=device_evidence.device_identity_sha256,
+        android_version=device_evidence.android_version,
+        identity_fingerprints={
+            "primary_account_ref": "c" * 64,
+            "caregiver_account_ref": "d" * 64,
+            "idempotent_event_id": "e" * 64,
+        },
+        device_serial=device["serial"],
+    )
 
 
 def _manifest(apk: Path) -> dict[str, object]:
