@@ -270,7 +270,7 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
         }
 
         @Test
-        void historicalRawEventReplayIsAcceptedUnderFreshReferenceAfterV36Disposal() {
+        void historicalRawEventReplayRemainsDuplicateAfterV36Disposal() {
                 var session = createAcceptedSession("13800138000", "install-alpha");
                 var historicalEventKey = "legacy-disposed:00000000-0000-0000-0000-000000000001";
                 var historicalInstallationReference = "legacy-disposed:00000000-0000-0000-0000-000000000002";
@@ -305,9 +305,9 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                 ))
                 );
 
-                assertThat(replay.acceptedEventKeys()).containsExactly("install-alpha:historical-event");
-                assertThat(replay.duplicateEventKeys()).isEmpty();
-                assertThat(service.countAllInteractionEvents()).isEqualTo(2);
+                assertThat(replay.acceptedEventKeys()).isEmpty();
+                assertThat(replay.duplicateEventKeys()).containsExactly("install-alpha:historical-event");
+                assertThat(service.countAllInteractionEvents()).isEqualTo(1);
                 assertThat(jdbcTemplate.queryForObject(
                                 "select count(*) from interaction_events where event_key = ?",
                                 Integer.class,
@@ -317,7 +317,7 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                                 "select event_key from interaction_events where local_event_id = ? order by received_at desc limit 1",
                                 String.class,
                                 "historical-event"
-                )).startsWith("e1:");
+                )).isEqualTo(historicalEventKey);
         }
 
         @Test
@@ -566,6 +566,19 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
                 assertThat(second.acceptedCount()).isEqualTo(1);
                 assertThat(second.duplicateCount()).isZero();
                 assertThat(service.countAllInteractionEvents()).isEqualTo(2);
+                var firstStoredEventKey = jdbcTemplate.queryForObject(
+                                "select event_key from interaction_events where account_id = ? and local_event_id = ?",
+                                String.class,
+                                firstAccount.accountId(),
+                                "shared-event-1"
+                );
+                var secondStoredEventKey = jdbcTemplate.queryForObject(
+                                "select event_key from interaction_events where account_id = ? and local_event_id = ?",
+                                String.class,
+                                secondAccount.accountId(),
+                                "shared-event-1"
+                );
+                assertThat(firstStoredEventKey).startsWith("e1:").isNotEqualTo(secondStoredEventKey);
         }
 
             @Test

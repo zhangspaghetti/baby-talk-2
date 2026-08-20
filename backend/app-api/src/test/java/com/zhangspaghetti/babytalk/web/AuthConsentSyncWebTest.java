@@ -152,7 +152,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                         .param("installationId", "install-alpha"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.eventCount").value(2))
-                .andExpect(jsonPath("$.installationId").value("install-alpha"))
+                .andExpect(jsonPath("$.installationId").value(storedInstallationReference))
                 .andExpect(jsonPath("$.events[0].eventKey").value(storedInstallationReference + ":evt_1"))
                 .andExpect(jsonPath("$.events[0].installationId").value(storedInstallationReference))
                 .andExpect(jsonPath("$.events[1].phraseId").value("bath_time_splash_splash"));

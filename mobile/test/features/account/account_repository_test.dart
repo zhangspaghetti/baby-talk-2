@@ -697,6 +697,55 @@ void main() {
       );
       expect(history.single.syncState, InteractionSyncState.synced);
     });
+
+    test('sync ACK 后再次 bootstrap 保留本地 raw identity', () async {
+      final local = await harness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.cooperating,
+        clientTimestamp: DateTime.utc(2026, 4, 10, 3),
+        localEventId: 'evt_ack_then_bootstrap',
+      );
+      await harness.seedSignedInSnapshot();
+      final repository = harness.buildRepository();
+
+      final afterAck = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+      expect(afterAck.pendingSyncCount, 0);
+      expect(afterAck.syncedCount, 1);
+
+      final opaqueInstallation = 'v1:${'B' * 43}';
+      harness.api.bootstrapEvents = [
+        InteractionEventPayload.fromWire(
+          eventKey: '$opaqueInstallation:evt_ack_then_bootstrap',
+          localEventId: 'evt_ack_then_bootstrap',
+          installationId: opaqueInstallation,
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: 'cooperating',
+          clientTimestamp: DateTime.utc(2026, 4, 10, 3),
+          syncState: 'synced',
+          lastSyncPhase: 'bootstrap_import',
+          lastSyncAt: DateTime.utc(2026, 4, 10, 3, 1),
+        ),
+      ];
+
+      final afterBootstrap = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.foregroundResume,
+      );
+      final history = await harness.practiceRepository.listEventHistory(
+        activityId: 'bath_time',
+      );
+      expect(afterBootstrap.pendingSyncCount, 0);
+      expect(history, hasLength(1));
+      expect(history.single.eventKey, local.eventKey);
+      expect(history.single.installationId, local.installationId);
+      expect(history.single.syncState, InteractionSyncState.synced);
+      expect(history.single.lastSyncPhase, 'bootstrap_import');
+    });
   });
 }
 

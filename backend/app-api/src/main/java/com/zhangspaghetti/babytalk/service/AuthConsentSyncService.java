@@ -310,7 +310,7 @@ public class AuthConsentSyncService {
         var now = Instant.now(clock);
 
         for (var event : events) {
-            var validated = validateSyncEvent(normalizedInstallationId, event, seenEventKeys);
+            var validated = validateSyncEvent(session.accountId(), normalizedInstallationId, event, seenEventKeys);
             try {
                 if (repository.insertInteractionEvent(session.accountId(), session.sessionId(), validated, now)) {
                     acceptedEventKeys.add(validated.wireEventKey());
@@ -377,7 +377,7 @@ public class AuthConsentSyncService {
         return new BootstrapResponse(
                 session.accountId(),
                 session.sessionId(),
-                normalizedInstallationId,
+                safeInstallationReference(session.installationId()),
                 session.latestConsentStatus(),
                 events.size(),
                 events,
@@ -532,6 +532,7 @@ public class AuthConsentSyncService {
     }
 
     private AuthConsentSyncRepository.SyncEventRecord validateSyncEvent(
+            String accountId,
             String requestInstallationId,
             SyncEventRequest event,
             Set<String> seenEventKeys
@@ -558,7 +559,7 @@ public class AuthConsentSyncService {
         }
         return new AuthConsentSyncRepository.SyncEventRecord(
                 eventKey,
-                sensitiveAuthDataProtector.interactionEventKeyLookupRef(eventKey),
+                sensitiveAuthDataProtector.interactionEventKeyLookupRef(accountId, eventKey),
                 localEventId,
                 sensitiveAuthDataProtector.installationLookupRef(installationId),
                 requireTrimmed(event.spaceId(), "spaceId"),

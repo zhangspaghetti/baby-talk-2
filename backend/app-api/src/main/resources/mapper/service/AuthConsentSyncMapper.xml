@@ -433,7 +433,7 @@
             #{event.clientTimestamp},
             #{receivedAt}
         )
-        on conflict (account_id, event_key) do nothing
+        on conflict do nothing
     </insert>
 
     <select id="listInteractionEvents" resultMap="storedInteractionEventMap">

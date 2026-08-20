@@ -51,9 +51,9 @@ public class SensitiveAuthDataProtector {
         return value != null && value.matches("v1:[A-Za-z0-9_-]{43}");
     }
 
-    public String interactionEventKeyLookupRef(String normalizedEventKey) {
+    public String interactionEventKeyLookupRef(String accountId, String normalizedEventKey) {
         return INTERACTION_EVENT_KEY_REFERENCE_PREFIX
-                + encode(hmac("interaction-event-key-lookup-v1\u0000" + normalizedEventKey));
+                + encode(hmac("interaction-event-key-lookup-v1\u0000" + accountId + "\u0000" + normalizedEventKey));
     }
 
     public boolean isInteractionEventKeyReference(String value) {

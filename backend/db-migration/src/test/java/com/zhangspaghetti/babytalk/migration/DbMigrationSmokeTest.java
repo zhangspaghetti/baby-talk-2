@@ -1117,8 +1117,8 @@ class DbMigrationSmokeTest {
                             space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
                         ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
                         """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
-                "raw-installation-a:replayed-event", "acct_legacy_event_a", "sess_legacy_event_a",
-                "raw-installation-a", "replayed-event", now, now);
+                "e1:" + "A".repeat(43), "acct_legacy_event_a", "sess_legacy_event_a",
+                "v1:" + "B".repeat(43), "replayed-event", now, now);
         jdbcTemplate.update("""
                         insert into %s.interaction_events (
                             event_key, account_id, session_id, installation_id, local_event_id,
@@ -1172,6 +1172,13 @@ class DbMigrationSmokeTest {
                 Integer.class,
                 V36_INTERACTION_EVENT_PRIVACY_SCHEMA,
                 "pk_interaction_events_account_event_key")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.table_constraints "
+                        + "where table_schema = ? and table_name = 'interaction_events' "
+                        + "and constraint_name = ?",
+                Integer.class,
+                V36_INTERACTION_EVENT_PRIVACY_SCHEMA,
+                "uq_interaction_events_account_local_event_id")).isEqualTo(1);
 
         jdbcTemplate.update("""
                         insert into %s.interaction_events (
@@ -1212,6 +1219,15 @@ class DbMigrationSmokeTest {
                         """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
                 "e1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "acct_legacy_event_a", "sess_legacy_event_a",
                 "v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "duplicate-event", now, now))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbcTemplate.update("""
+                        insert into %s.interaction_events (
+                            event_key, account_id, session_id, installation_id, local_event_id,
+                            space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                        ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                        """.formatted(V36_INTERACTION_EVENT_PRIVACY_SCHEMA),
+                "e1:" + "C".repeat(43), "acct_legacy_event_a", "sess_legacy_event_a",
+                "v1:CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "new-event-a", now, now))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 

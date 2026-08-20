@@ -46,12 +46,13 @@ class SensitiveAuthDataProtectorTest {
     void interactionEventKeyReferenceUsesIndependentDomainAndDoesNotExposeWireKey() {
         var protector = protector("jwt-secret-0123456789abcdef0123456789", "stable-auth-pepper-0123456789abcdef");
 
-        var reference = protector.interactionEventKeyLookupRef("install-alpha:event-1");
+        var reference = protector.interactionEventKeyLookupRef("acct-a", "install-alpha:event-1");
 
         assertThat(reference)
                 .startsWith("e1:")
                 .doesNotContain("install-alpha:event-1")
-                .isNotEqualTo(protector.installationLookupRef("install-alpha:event-1"));
+                .isNotEqualTo(protector.installationLookupRef("install-alpha:event-1"))
+                .isNotEqualTo(protector.interactionEventKeyLookupRef("acct-b", "install-alpha:event-1"));
         assertThat(protector.isInteractionEventKeyReference(reference)).isTrue();
         assertThat(protector.isInteractionEventKeyReference("install-alpha:event-1")).isFalse();
     }
@@ -67,6 +68,16 @@ class SensitiveAuthDataProtectorTest {
         assertThat(protector.safeInstallationReference(protectedReference)).isEqualTo(protectedReference);
         assertThat(protector.safeInstallationReference("redacted")).isEqualTo("redacted");
         assertThat(protector.safeInstallationReference(null)).isEqualTo("redacted");
+    }
+
+    @Test
+    void safeInstallationReferenceKeepsOpaquePrefixShapedValuesStable() {
+        var protector = protector("jwt-secret-0123456789abcdef0123456789", "stable-auth-pepper-0123456789abcdef");
+        var prefixSpoof = "v1:" + "A".repeat(43);
+
+        assertThat(protector.safeInstallationReference(prefixSpoof)).isEqualTo(prefixSpoof);
+        assertThat(protector.safeInstallationReference(prefixSpoof))
+                .isNotEqualTo(protector.installationLookupRef(prefixSpoof));
     }
 
     @Test
