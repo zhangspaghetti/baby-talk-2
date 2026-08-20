@@ -134,6 +134,10 @@ class MainActivity : FlutterActivity() {
  * capability available on Android 10 and later without a special-access gate.
  */
 fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) {
+    if (!isValidReminderTime(hour, minute)) {
+        return
+    }
+
     val calendar = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, hour)
         set(Calendar.MINUTE, minute)
@@ -147,7 +151,7 @@ fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) {
         context,
         PendingIntent.FLAG_UPDATE_CURRENT,
     ) ?: error("无法创建每日提醒 PendingIntent。")
-    val alarmManager = context.getSystemService(AlarmManager::class.java)
+    val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
     alarmManager.cancel(pending)
     alarmManager.setInexactRepeating(
         AlarmManager.RTC_WAKEUP,
@@ -163,10 +167,13 @@ fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) {
         .apply()
 }
 
+internal fun isValidReminderTime(hour: Int, minute: Int): Boolean =
+    hour in 0..23 && minute in 0..59
+
 fun cancelDailyReminder(context: Context) {
     val pending = reminderPendingIntent(context, PendingIntent.FLAG_NO_CREATE)
     if (pending != null) {
-        context.getSystemService(AlarmManager::class.java).cancel(pending)
+        context.getSystemService(AlarmManager::class.java)?.cancel(pending)
         pending.cancel()
     }
     context.getSharedPreferences(REMINDER_PREFS_NAME, Context.MODE_PRIVATE)

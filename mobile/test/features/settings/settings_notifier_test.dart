@@ -95,8 +95,11 @@ void main() {
 
     test('daily reminder schedules then persists selected time', () async {
       final scheduler = _FakeReminderScheduler();
+      final events = <String>[];
+      final repository = _FakeSettingsRepository(events: events);
+      scheduler.events = events;
       final notifier = SettingsNotifier(
-        repository: _FakeSettingsRepository(),
+        repository: repository,
         reminderScheduler: scheduler,
       );
       await notifier.initialize();
@@ -105,6 +108,7 @@ void main() {
 
       expect(scheduler.scheduleCalls, [(8, 30)]);
       expect(notifier.reminderEnabled, isTrue);
+      expect(events, ['persist', 'native:schedule']);
     });
 
     test('changing reminder time reschedules the native daily alarm', () async {
@@ -142,8 +146,9 @@ void main() {
     );
 
     test('unavailable native scheduler leaves reminder disabled', () async {
+      final repository = _FakeSettingsRepository();
       final notifier = SettingsNotifier(
-        repository: _FakeSettingsRepository(),
+        repository: repository,
         reminderScheduler: _FakeReminderScheduler(
           result: ReminderScheduleResult.unavailable,
         ),
@@ -154,12 +159,23 @@ void main() {
 
       expect(notifier.reminderEnabled, isFalse);
       expect(notifier.errorMessage, '当前设备暂时无法设置每日提醒。');
+      expect(repository.writeCount, 2);
     });
 
-    test('disabling reminder cancels native schedule', () async {
+    test('disabling reminder persists then cancels native schedule', () async {
       final scheduler = _FakeReminderScheduler();
+      final events = <String>[];
+      final repository = _FakeSettingsRepository(
+        initialSnapshot: const SettingsSnapshot(
+          reminderEnabled: true,
+          reminderHour: 8,
+          reminderMinute: 30,
+        ),
+        events: events,
+      );
+      scheduler.events = events;
       final notifier = SettingsNotifier(
-        repository: _FakeSettingsRepository(),
+        repository: repository,
         reminderScheduler: scheduler,
       );
       await notifier.initialize();
@@ -167,6 +183,78 @@ void main() {
       await notifier.updateReminder(enabled: false, hour: 8, minute: 30);
 
       expect(scheduler.cancelCalls, 1);
+      expect(notifier.reminderEnabled, isFalse);
+      expect(events, ['persist', 'native:cancel']);
+    });
+
+    test(
+      'rejects an invalid reminder time before persistence or native call',
+      () async {
+        final repository = _FakeSettingsRepository();
+        final scheduler = _FakeReminderScheduler();
+        final notifier = SettingsNotifier(
+          repository: repository,
+          reminderScheduler: scheduler,
+        );
+        await notifier.initialize();
+
+        await notifier.updateReminder(enabled: true, hour: 24, minute: 60);
+
+        expect(notifier.saveStatus, SettingsSaveStatus.error);
+        expect(notifier.errorMessage, '提醒时间不合法。');
+        expect(repository.writeCount, 0);
+        expect(scheduler.scheduleCalls, isEmpty);
+        expect(notifier.snapshot, const SettingsSnapshot());
+      },
+    );
+
+    test('native schedule failure rolls local settings back', () async {
+      final repository = _FakeSettingsRepository();
+      final notifier = SettingsNotifier(
+        repository: repository,
+        reminderScheduler: _FakeReminderScheduler(
+          scheduleError: StateError('native unavailable'),
+        ),
+      );
+      await notifier.initialize();
+
+      await notifier.updateReminder(enabled: true, hour: 8, minute: 30);
+
+      expect(notifier.saveStatus, SettingsSaveStatus.error);
+      expect(notifier.errorMessage, '当前设备暂时无法设置每日提醒。');
+      expect(notifier.reminderEnabled, isFalse);
+      expect(notifier.reminderHour, 9);
+      expect(notifier.reminderMinute, 0);
+      final restored = await repository.readSettings();
+      expect(restored.reminderEnabled, isFalse);
+      expect(restored.reminderHour, 9);
+      expect(restored.reminderMinute, 0);
+      expect(repository.writeCount, 2);
+    });
+
+    test('native cancel failure rolls local settings back', () async {
+      final original = const SettingsSnapshot(
+        reminderEnabled: true,
+        reminderHour: 8,
+        reminderMinute: 30,
+      );
+      final repository = _FakeSettingsRepository(initialSnapshot: original);
+      final notifier = SettingsNotifier(
+        repository: repository,
+        reminderScheduler: _FakeReminderScheduler(
+          cancelError: StateError('native unavailable'),
+        ),
+      );
+      await notifier.initialize();
+
+      await notifier.updateReminder(enabled: false, hour: 8, minute: 30);
+
+      expect(notifier.saveStatus, SettingsSaveStatus.error);
+      expect(notifier.errorMessage, '当前设备暂时无法设置每日提醒。');
+      expect(notifier.snapshot.reminderEnabled, isTrue);
+      expect(notifier.snapshot.reminderHour, 8);
+      expect(notifier.snapshot.reminderMinute, 30);
+      expect((await repository.readSettings()).reminderEnabled, isTrue);
     });
 
     test('updateBabyProfile persists baby info', () async {
@@ -235,7 +323,11 @@ void main() {
 
     test('update handles save error gracefully', () async {
       final repository = _FakeSettingsRepository(shouldFailOnWrite: true);
-      final notifier = SettingsNotifier(repository: repository);
+      final scheduler = _FakeReminderScheduler();
+      final notifier = SettingsNotifier(
+        repository: repository,
+        reminderScheduler: scheduler,
+      );
 
       await notifier.initialize();
 
@@ -245,6 +337,7 @@ void main() {
       expect(notifier.errorMessage, contains('保存设置失败'));
       // Snapshot should remain unchanged on error
       expect(notifier.reminderEnabled, isFalse);
+      expect(scheduler.scheduleCalls, isEmpty);
     });
 
     test('concurrent update calls are deduplicated', () async {
@@ -334,6 +427,7 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
     SettingsSnapshot? initialSnapshot,
     this.shouldFailOnRead = false,
     this.shouldFailOnWrite = false,
+    this.events,
   }) : _currentSnapshot = initialSnapshot ?? const SettingsSnapshot();
 
   SettingsSnapshot _currentSnapshot;
@@ -341,6 +435,7 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
   bool shouldFailOnWrite;
   int readCount = 0;
   int writeCount = 0;
+  final List<String>? events;
 
   void updateDirectly(SettingsSnapshot snapshot) {
     _currentSnapshot = snapshot;
@@ -371,6 +466,7 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
     SettingsSnapshot Function(SettingsSnapshot current) updater,
   ) async {
     writeCount += 1;
+    events?.add('persist');
     if (shouldFailOnWrite) {
       throw StateError('磁盘写入失败。');
     }
@@ -388,15 +484,26 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
 }
 
 class _FakeReminderScheduler implements ReminderScheduler {
-  _FakeReminderScheduler({this.result = ReminderScheduleResult.scheduled});
+  _FakeReminderScheduler({
+    this.result = ReminderScheduleResult.scheduled,
+    this.scheduleError,
+    this.cancelError,
+  });
 
   final ReminderScheduleResult result;
+  final Object? scheduleError;
+  final Object? cancelError;
   final List<(int, int)> scheduleCalls = [];
   int cancelCalls = 0;
+  List<String>? events;
 
   @override
   Future<void> cancel() async {
     cancelCalls += 1;
+    events?.add('native:cancel');
+    if (cancelError != null) {
+      throw cancelError!;
+    }
   }
 
   @override
@@ -405,6 +512,10 @@ class _FakeReminderScheduler implements ReminderScheduler {
     required int minute,
   }) async {
     scheduleCalls.add((hour, minute));
+    events?.add('native:schedule');
+    if (scheduleError != null) {
+      throw scheduleError!;
+    }
     return result;
   }
 }

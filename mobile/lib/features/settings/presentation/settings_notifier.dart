@@ -117,6 +117,37 @@ class SettingsNotifier extends ChangeNotifier {
     required int hour,
     required int minute,
   }) async {
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      _saveStatus = SettingsSaveStatus.error;
+      _errorMessage = '提醒时间不合法。';
+      _notifySafely();
+      return;
+    }
+
+    if (_saveStatus == SettingsSaveStatus.saving) return;
+
+    final previous = _snapshot;
+    _saveStatus = SettingsSaveStatus.saving;
+    _errorMessage = null;
+    _notifySafely();
+
+    SettingsSnapshot persisted;
+    try {
+      persisted = await _repository.updateSettings(
+        (s) => s.copyWith(
+          reminderEnabled: enabled,
+          reminderHour: hour,
+          reminderMinute: minute,
+        ),
+      );
+      _snapshot = persisted;
+    } catch (error) {
+      _saveStatus = SettingsSaveStatus.error;
+      _errorMessage = '保存设置失败：${_stripErrorPrefix(error)}';
+      _notifySafely();
+      return;
+    }
+
     final scheduler = _reminderScheduler;
     if (scheduler != null) {
       try {
@@ -128,6 +159,7 @@ class SettingsNotifier extends ChangeNotifier {
             minute: minute,
           );
           if (result != ReminderScheduleResult.scheduled) {
+            await _rollbackReminder(previous);
             _saveStatus = SettingsSaveStatus.error;
             _errorMessage = result == ReminderScheduleResult.permissionDenied
                 ? '未获得通知权限，无法开启每日提醒。'
@@ -137,19 +169,17 @@ class SettingsNotifier extends ChangeNotifier {
           }
         }
       } on Object {
+        await _rollbackReminder(previous);
         _saveStatus = SettingsSaveStatus.error;
         _errorMessage = '当前设备暂时无法设置每日提醒。';
         _notifySafely();
         return;
       }
     }
-    await _update(
-      (s) => s.copyWith(
-        reminderEnabled: enabled,
-        reminderHour: hour,
-        reminderMinute: minute,
-      ),
-    );
+
+    _saveStatus = SettingsSaveStatus.success;
+    _errorMessage = null;
+    _notifySafely();
   }
 
   /// Updates baby profile fields.
@@ -352,6 +382,17 @@ class SettingsNotifier extends ChangeNotifier {
       _saveStatus = SettingsSaveStatus.error;
       _errorMessage = '保存设置失败：${_stripErrorPrefix(error)}';
       _notifySafely();
+    }
+  }
+
+  /// Restores the local snapshot when the native reminder operation did not
+  /// complete. The best-effort write keeps the in-memory state truthful even
+  /// if the rollback write itself is unavailable.
+  Future<void> _rollbackReminder(SettingsSnapshot previous) async {
+    try {
+      _snapshot = await _repository.writeSettings(previous);
+    } catch (_) {
+      _snapshot = previous;
     }
   }
 
