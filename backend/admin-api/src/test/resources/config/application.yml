@@ -1,0 +1,3 @@
+app:
+  auth:
+    sensitive-data-pepper: test-auth-sensitive-data-pepper-0123456789abcdef

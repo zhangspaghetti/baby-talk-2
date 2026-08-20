@@ -50,7 +50,7 @@ where result in ('invalid', 'expired', 'already_used', 'revoked', 'unavailable',
 group by result, coalesce(failure_reason, 'none')
 order by total desc, result, failure_reason;
 
--- 6) 单 token 时间线（将 :token 替换成真实 invite token）
+-- 6) 单 token 时间线（将 :token_lookup_ref 替换成应用生成的 HMAC lookup ref；禁止填 raw token）
 select event_id,
        created_at,
        entrypoint,
@@ -60,10 +60,10 @@ select event_id,
        result,
        failure_reason
 from caregiver_invite_events
-where token = :token
+where token = :token_lookup_ref
 order by event_id asc;
 
--- 7) 当前 invite 状态快照（将 :token 替换成真实 invite token）
+-- 7) 当前 invite 状态快照（将 :token_lookup_ref 替换成应用生成的 HMAC lookup ref；禁止填 raw token）
 select token,
        household_id,
        source,
@@ -75,7 +75,7 @@ select token,
        revoked_at,
        failure_reason
 from caregiver_invites
-where token = :token;
+where token = :token_lookup_ref;
 
 -- 8) household shared context 当前投影（确认 shared baby profile / continuity / garden 摘要与安全 route args）
 select household_id,

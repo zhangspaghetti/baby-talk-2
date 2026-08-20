@@ -10,6 +10,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
+import com.zhangspaghetti.babytalk.service.SensitiveAuthDataProtector;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -48,6 +49,9 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private SensitiveAuthDataProtector sensitiveAuthDataProtector;
 
     @BeforeEach
     void resetTables() {
@@ -124,8 +128,14 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select status from caregiver_invites where token = ?",
                 String.class,
-                invite.token()
+                inviteLookupRef(invite.token())
         )).isEqualTo("accepted");
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select token from caregiver_invites where token = ?",
+                String.class,
+                inviteLookupRef(invite.token())
+        )).isEqualTo(inviteLookupRef(invite.token())).doesNotContain(invite.token());
 
         var projectionColumns = jdbcTemplate.queryForMap(
                 "select * from household_shared_context where household_id = ?",
@@ -140,6 +150,8 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
         assertThat(auditRows)
                 .extracting(row -> row.get("entrypoint") + ":" + row.get("result"))
                 .contains("create:create", "accept:accept");
+        assertThat(jdbcTemplate.queryForList("select token from caregiver_invite_events"))
+                .allSatisfy(row -> assertThat(row.get("token").toString()).doesNotContain(invite.token()));
     }
 
     @Test
@@ -193,7 +205,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
         jdbcTemplate.update(
                 "update caregiver_invites set expires_at = ? where token = ?",
                 Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)),
-                invite.token()
+                inviteLookupRef(invite.token())
         );
 
         var secondary = createAcceptedSession("13900139000", "install-secondary");
@@ -298,7 +310,7 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select status from caregiver_invites where token = ?",
                 String.class,
-                pendingInvite.token()
+                inviteLookupRef(pendingInvite.token())
         )).isEqualTo("pending");
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from household_members where account_id = ?",
@@ -473,6 +485,10 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
 
     private String bearer(String accessToken) {
         return "Bearer " + accessToken;
+    }
+
+    private String inviteLookupRef(String rawToken) {
+        return sensitiveAuthDataProtector.inviteTokenLookupRef(rawToken);
     }
 
     private record TokenView(String accountId, String sessionId, String accessToken) {

@@ -64,20 +64,20 @@ public class CaregiverInviteRepository {
         mapper.insertInvite(invite);
     }
 
-    Optional<InviteRow> findInviteByToken(String token) {
-        return Optional.ofNullable(mapper.findInviteByToken(token));
+    Optional<InviteRow> findInviteByTokenLookupRef(String tokenLookupRef) {
+        return Optional.ofNullable(mapper.findInviteByTokenLookupRef(tokenLookupRef));
     }
 
-    void markInviteAccepted(String token, String acceptedByAccountId, OffsetDateTime acceptedAt) {
-        mapper.markInviteAccepted(token, acceptedByAccountId, acceptedAt);
+    void markInviteAccepted(String tokenLookupRef, String acceptedByAccountId, OffsetDateTime acceptedAt) {
+        mapper.markInviteAccepted(tokenLookupRef, acceptedByAccountId, acceptedAt);
     }
 
-    void markInviteExpired(String token, String failureReason) {
-        mapper.markInviteExpired(token, failureReason);
+    void markInviteExpired(String tokenLookupRef, String failureReason) {
+        mapper.markInviteExpired(tokenLookupRef, failureReason);
     }
 
-    void markInviteRevoked(String token, OffsetDateTime revokedAt, String failureReason) {
-        mapper.markInviteRevoked(token, revokedAt, failureReason);
+    void markInviteRevoked(String tokenLookupRef, OffsetDateTime revokedAt, String failureReason) {
+        mapper.markInviteRevoked(tokenLookupRef, revokedAt, failureReason);
     }
 
     void upsertSharedContext(SharedContextRow row) {
@@ -138,7 +138,7 @@ public class CaregiverInviteRepository {
 
     public record InviteRow(
             long inviteId,
-            String token,
+            String tokenLookupRef,
             String householdId,
             String inviterAccountId,
             String targetRole,
@@ -223,7 +223,7 @@ public class CaregiverInviteRepository {
     }
 
     public record EventRow(
-            String token,
+            String tokenLookupRef,
             String householdId,
             String actorAccountId,
             String entrypoint,

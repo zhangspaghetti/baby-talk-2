@@ -199,7 +199,7 @@
             accepted_by_account_id,
             failure_reason
         ) values (
-            #{row.token},
+            #{row.tokenLookupRef},
             #{row.householdId},
             #{row.inviterAccountId},
             #{row.targetRole},
@@ -214,7 +214,7 @@
         )
     </insert>
 
-    <select id="findInviteByToken" resultMap="inviteRowMap">
+    <select id="findInviteByTokenLookupRef" resultMap="inviteRowMap">
         select invite_id,
                token,
                household_id,
@@ -229,7 +229,7 @@
                accepted_by_account_id,
                failure_reason
         from caregiver_invites
-        where token = #{token}
+        where token = #{tokenLookupRef}
     </select>
 
     <update id="markInviteAccepted">
@@ -238,7 +238,7 @@
             accepted_at = #{acceptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
             accepted_by_account_id = #{acceptedByAccountId},
             failure_reason = null
-        where token = #{token}
+        where token = #{tokenLookupRef}
           and status = 'pending'
     </update>
 
@@ -246,7 +246,7 @@
         update caregiver_invites
         set status = 'expired',
             failure_reason = #{failureReason}
-        where token = #{token}
+        where token = #{tokenLookupRef}
           and status = 'pending'
     </update>
 
@@ -255,7 +255,7 @@
         set status = 'revoked',
             revoked_at = #{revokedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
             failure_reason = #{failureReason}
-        where token = #{token}
+        where token = #{tokenLookupRef}
           and status = 'pending'
     </update>
 
@@ -449,7 +449,7 @@
             failure_reason,
             created_at
         ) values (
-            #{row.token},
+            #{row.tokenLookupRef},
             #{row.householdId},
             #{row.actorAccountId},
             #{row.entrypoint},

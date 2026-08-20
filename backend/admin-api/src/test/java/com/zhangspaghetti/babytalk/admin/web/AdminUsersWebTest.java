@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
+import com.zhangspaghetti.babytalk.security.SensitiveAuthDataProtector;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -80,6 +81,9 @@ class AdminUsersWebTest {
 
     @Autowired
     private AdminAuthService adminAuthService;
+
+    @Autowired
+    private SensitiveAuthDataProtector sensitiveAuthDataProtector;
 
     @BeforeEach
     void resetTables() {
@@ -240,7 +244,8 @@ class AdminUsersWebTest {
                 .containsEntry("result", "applied")
                 .containsEntry("reason", "admin_review")
                 .containsEntry("session_id", "sess_live")
-                .containsEntry("installation_id", "install-alpha");
+                .containsEntry("installation_id", sensitiveAuthDataProtector.installationLookupRef("install-alpha"))
+                .doesNotContainValue("install-alpha");
 
         mockMvc.perform(get("/api/admin/users/{accountId}", "acct_001")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))

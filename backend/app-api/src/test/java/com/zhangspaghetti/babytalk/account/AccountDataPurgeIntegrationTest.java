@@ -172,7 +172,7 @@ class AccountDataPurgeIntegrationTest extends AbstractIntegrationTest {
         );
         jdbcTemplate.update(
                 "insert into caregiver_invite_events (token, household_id, actor_account_id, entrypoint, result, created_at) values (?, ?, ?, 'create', 'create', ?)",
-                "alone-token", "household-alone", "acct_alone", timestamp(CREATED_AT)
+                "legacy-disposed:alone-event", "household-alone", "acct_alone", timestamp(CREATED_AT)
         );
 
         var result = purgeService.purge("acct_alone", DELETED_AT);
@@ -408,12 +408,12 @@ class AccountDataPurgeIntegrationTest extends AbstractIntegrationTest {
                 timestamp(CREATED_AT)
         );
         jdbcTemplate.update(
-                "insert into caregiver_invites (token, household_id, inviter_account_id, target_role, source, status, created_at, expires_at) values ('invite-deleted', 'household-shared', 'acct_deleted', 'caregiver', 'share', 'pending', ?, ?)",
+                "insert into caregiver_invites (token, household_id, inviter_account_id, target_role, source, status, created_at, expires_at) values ('legacy-disposed:invite-deleted', 'household-shared', 'acct_deleted', 'caregiver', 'share', 'pending', ?, ?)",
                 timestamp(CREATED_AT),
                 timestamp(CREATED_AT.plusSeconds(3600))
         );
         jdbcTemplate.update(
-                "insert into caregiver_invite_events (token, household_id, actor_account_id, entrypoint, result, created_at) values ('invite-deleted', 'household-shared', 'acct_deleted', 'create', 'create', ?)",
+                "insert into caregiver_invite_events (token, household_id, actor_account_id, entrypoint, result, created_at) values ('legacy-disposed:invite-deleted-event', 'household-shared', 'acct_deleted', 'create', 'create', ?)",
                 timestamp(CREATED_AT)
         );
         jdbcTemplate.update(

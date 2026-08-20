@@ -13,8 +13,17 @@ public class AdminMentorAuditReadRepository {
         this.adminMentorAuditReadMapper = adminMentorAuditReadMapper;
     }
 
-    public List<QueueIncidentRow> listFlaggedIncidents(String installationId, String flagCode, int limit) {
-        return adminMentorAuditReadMapper.listFlaggedIncidents(installationId, flagCode, limit);
+    public List<QueueIncidentRow> listFlaggedIncidents(
+            String installationReference,
+            String legacyInstallationId,
+            String flagCode,
+            int limit
+    ) {
+        return adminMentorAuditReadMapper.listFlaggedIncidents(
+                installationReference,
+                legacyInstallationId,
+                flagCode,
+                limit);
     }
 
     public Optional<IncidentSnapshotRow> findIncidentSnapshot(String correlationId) {
@@ -29,8 +38,15 @@ public class AdminMentorAuditReadRepository {
         return Optional.ofNullable(adminMentorAuditReadMapper.findDeliveredTurn(correlationId));
     }
 
-    public int countCurrentWindowRequests(String installationId, Instant windowStart) {
-        return adminMentorAuditReadMapper.countCurrentWindowRequests(installationId, windowStart);
+    public int countCurrentWindowRequests(
+            String installationReference,
+            String legacyInstallationId,
+            Instant windowStart
+    ) {
+        return adminMentorAuditReadMapper.countCurrentWindowRequests(
+                installationReference,
+                legacyInstallationId,
+                windowStart);
     }
 
     @Transactional(readOnly = true)

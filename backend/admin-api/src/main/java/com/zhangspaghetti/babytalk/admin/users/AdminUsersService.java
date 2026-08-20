@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.admin.users;
 
 import com.zhangspaghetti.babytalk.account.AccountDataPurgeService;
 import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
+import com.zhangspaghetti.babytalk.security.SensitiveAuthDataProtector;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -47,15 +48,18 @@ public class AdminUsersService {
 
     private final AdminUserReadRepository adminUserReadRepository;
     private final AccountDataPurgeService accountDataPurgeService;
+    private final SensitiveAuthDataProtector sensitiveAuthDataProtector;
     private final Clock clock;
 
     public AdminUsersService(
             AdminUserReadRepository adminUserReadRepository,
             AccountDataPurgeService accountDataPurgeService,
+            SensitiveAuthDataProtector sensitiveAuthDataProtector,
             Clock clock
     ) {
         this.adminUserReadRepository = adminUserReadRepository;
         this.accountDataPurgeService = accountDataPurgeService;
+        this.sensitiveAuthDataProtector = sensitiveAuthDataProtector;
         this.clock = clock;
     }
 
@@ -122,7 +126,7 @@ public class AdminUsersService {
                 adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                         normalizedAccountId,
                         auditContext.sessionId(),
-                        auditContext.installationId(),
+                        installationReference(auditContext.installationId()),
                         AUDIT_ACTION_DELETE,
                         AUDIT_RESULT_DUPLICATE,
                         normalizedReason,
@@ -148,7 +152,7 @@ public class AdminUsersService {
                 adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                         normalizedAccountId,
                         auditContext.sessionId(),
-                        auditContext.installationId(),
+                        installationReference(auditContext.installationId()),
                         AUDIT_ACTION_DELETE,
                         AUDIT_RESULT_DUPLICATE,
                         normalizedReason,
@@ -167,7 +171,7 @@ public class AdminUsersService {
             adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                     normalizedAccountId,
                     auditContext.sessionId(),
-                    auditContext.installationId(),
+                    installationReference(auditContext.installationId()),
                     AUDIT_ACTION_DELETE,
                     AUDIT_RESULT_APPLIED,
                     normalizedReason,
@@ -202,6 +206,17 @@ public class AdminUsersService {
                 row.createdAt(),
                 row.deletedAt()
         );
+    }
+
+    private String installationReference(String installationId) {
+        if (installationId == null || installationId.isBlank()) {
+            return "redacted";
+        }
+        var normalized = installationId.trim();
+        if (normalized.matches("v1:[A-Za-z0-9_-]{43}")) {
+            return normalized;
+        }
+        return sensitiveAuthDataProtector.installationLookupRef(normalized);
     }
 
     private UserSessionView toSessionView(AdminUserReadRepository.UserSessionRow row) {

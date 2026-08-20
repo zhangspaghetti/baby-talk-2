@@ -115,7 +115,7 @@ where entrypoint in ('create', 'accept', 'shared_context', 'download')
 group by entrypoint, coalesce(source, 'unknown'), coalesce(platform, 'unknown'), result, coalesce(failure_reason, 'none')
 order by latest_seen_at desc, entrypoint, result;
 
--- 8) 单 token 时间线（将 :token 替换成真实 invite token）
+-- 8) 单 token 时间线（将 :token_lookup_ref 替换成应用生成的 HMAC lookup ref；禁止填 raw token）
 select created_at,
        entrypoint,
        source,
@@ -124,10 +124,10 @@ select created_at,
        result,
        failure_reason
 from caregiver_invite_events
-where token = :token
+where token = :token_lookup_ref
 order by created_at asc;
 
--- 9) 单 token 当前 invite 状态（将 :token 替换成真实 invite token）
+-- 9) 单 token 当前 invite 状态（将 :token_lookup_ref 替换成应用生成的 HMAC lookup ref；禁止填 raw token）
 select token,
        status,
        target_role,
@@ -138,7 +138,7 @@ select token,
        revoked_at,
        failure_reason
 from caregiver_invites
-where token = :token;
+where token = :token_lookup_ref;
 
 -- 10) invite download fallback 是否继续承接到 S01 public distribution surface
 select event_id,

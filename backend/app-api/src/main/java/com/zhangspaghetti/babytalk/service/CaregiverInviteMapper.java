@@ -24,18 +24,18 @@ public interface CaregiverInviteMapper {
 
     void insertInvite(@Param("row") CaregiverInviteRepository.InviteRow row);
 
-    CaregiverInviteRepository.InviteRow findInviteByToken(@Param("token") String token);
+    CaregiverInviteRepository.InviteRow findInviteByTokenLookupRef(@Param("tokenLookupRef") String tokenLookupRef);
 
     int markInviteAccepted(
-            @Param("token") String token,
+            @Param("tokenLookupRef") String tokenLookupRef,
             @Param("acceptedByAccountId") String acceptedByAccountId,
             @Param("acceptedAt") OffsetDateTime acceptedAt
     );
 
-    int markInviteExpired(@Param("token") String token, @Param("failureReason") String failureReason);
+    int markInviteExpired(@Param("tokenLookupRef") String tokenLookupRef, @Param("failureReason") String failureReason);
 
     int markInviteRevoked(
-            @Param("token") String token,
+            @Param("tokenLookupRef") String tokenLookupRef,
             @Param("revokedAt") OffsetDateTime revokedAt,
             @Param("failureReason") String failureReason
     );

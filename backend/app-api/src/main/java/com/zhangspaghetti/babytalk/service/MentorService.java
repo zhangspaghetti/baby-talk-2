@@ -283,6 +283,7 @@ public class MentorService {
                         false,
                         now
                 ),
+                installationId,
                 now.minus(properties.rateLimitWindow())
         );
         if (currentCount > properties.rateLimitMaxRequests()) {
@@ -435,6 +436,7 @@ public class MentorService {
                         false,
                         now
                 ),
+                installationId,
                 now.minus(properties.rateLimitWindow())
         );
         if (currentCount > properties.rateLimitMaxRequests()) {
@@ -880,7 +882,7 @@ public class MentorService {
         return new MentorRepository.TurnRow(
                 "mentor_turn_" + UUID.randomUUID(),
                 correlationId,
-                installationId,
+                sensitiveAuthDataProtector.installationLookupRef(installationId),
                 association.sessionIdHint(),
                 association.accountIdHint(),
                 surface,
@@ -914,7 +916,7 @@ public class MentorService {
     ) {
         return new MentorRepository.AuditRow(
                 correlationId,
-                installationId,
+                sensitiveAuthDataProtector.installationLookupRef(installationId),
                 association.sessionIdHint(),
                 association.accountIdHint(),
                 eventType,

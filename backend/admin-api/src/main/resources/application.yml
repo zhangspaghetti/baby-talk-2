@@ -35,6 +35,8 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 app:
+  auth:
+    sensitive-data-pepper: ${BABY_TALK_AUTH_SENSITIVE_DATA_PEPPER}
   embedding:
     mode: ${BABY_TALK_EMBEDDING_MODE:openai}
     base-url: ${BABY_TALK_EMBEDDING_BASE_URL:https://models.inference.ai.azure.com}

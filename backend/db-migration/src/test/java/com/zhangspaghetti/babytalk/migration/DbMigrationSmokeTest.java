@@ -24,13 +24,20 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.NONE,
+        properties = {
+                "babytalk.candidate.id=btqa-migration-test",
+                "babytalk.candidate.required-migration-version=35"
+        }
+)
 class DbMigrationSmokeTest {
 
     private static final String V13_UPGRADE_SCHEMA = "flyway_v13_chat_memory_upgrade";
     private static final String V22_1_REACTION_UPGRADE_SCHEMA = "flyway_v22_1_reaction_upgrade";
     private static final String V26_GENERATED_CONTENT_UPGRADE_SCHEMA = "flyway_v26_generated_content_upgrade";
     private static final String V34_AUTH_PRIVACY_UPGRADE_SCHEMA = "flyway_v34_auth_privacy_upgrade";
+    private static final String V35_INVITE_TOKEN_PRIVACY_SCHEMA = "flyway_v35_invite_token_privacy";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -1026,6 +1033,59 @@ class DbMigrationSmokeTest {
                 "select verification_verifier from " + V34_AUTH_PRIVACY_UPGRADE_SCHEMA + ".sms_challenges where challenge_id = ?",
                 String.class,
                 "challenge_legacy_privacy")).isEqualTo("legacy-disposed");
+    }
+
+    @Test
+    void flywayUpgradeToV35DisposesHistoricalRawInviteTokensAndInvalidatesPendingInvites() {
+        Flyway v34 = flywayFor(V35_INVITE_TOKEN_PRIVACY_SCHEMA, "34");
+        v34.migrate();
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-20T02:00:00Z"));
+        jdbcTemplate.update("""
+                        insert into %s.accounts (
+                            account_id, phone_lookup_ref, phone_mask, status, latest_consent_status, created_at, deleted_at
+                        ) values (?, ?, ?, 'active', 'accepted', ?, null)
+                        """.formatted(V35_INVITE_TOKEN_PRIVACY_SCHEMA),
+                "acct_legacy_invite", "legacy-disposed:acct_legacy_invite", "已保护号码", now);
+        jdbcTemplate.update("""
+                        insert into %s.households (household_id, owner_account_id, status, created_at, revoked_at)
+                        values (?, ?, 'active', ?, null)
+                        """.formatted(V35_INVITE_TOKEN_PRIVACY_SCHEMA),
+                "household_legacy_invite", "acct_legacy_invite", now);
+        jdbcTemplate.update("""
+                        insert into %s.caregiver_invites (
+                            token, household_id, inviter_account_id, target_role, source, status,
+                            created_at, expires_at, accepted_at, revoked_at, accepted_by_account_id, failure_reason
+                        ) values (?, ?, ?, 'caregiver', 'invite_link', 'pending', ?, ?, null, null, null, null)
+                        """.formatted(V35_INVITE_TOKEN_PRIVACY_SCHEMA),
+                "raw-legacy-invite-token", "household_legacy_invite", "acct_legacy_invite", now,
+                Timestamp.from(now.toInstant().plusSeconds(3600)));
+        jdbcTemplate.update("""
+                        insert into %s.caregiver_invite_events (
+                            token, household_id, actor_account_id, entrypoint, source, requested_role,
+                            platform, result, failure_reason, created_at
+                        ) values (?, ?, ?, 'create', 'invite_link', 'caregiver', null, 'create', null, ?)
+                        """.formatted(V35_INVITE_TOKEN_PRIVACY_SCHEMA),
+                "raw-legacy-invite-token", "household_legacy_invite", "acct_legacy_invite", now);
+
+        Flyway v35 = flywayFor(V35_INVITE_TOKEN_PRIVACY_SCHEMA, "35");
+        v35.migrate();
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select status from " + V35_INVITE_TOKEN_PRIVACY_SCHEMA + ".caregiver_invites where household_id = ?",
+                String.class,
+                "household_legacy_invite")).isEqualTo("revoked");
+        assertThat(jdbcTemplate.queryForObject(
+                "select token from " + V35_INVITE_TOKEN_PRIVACY_SCHEMA + ".caregiver_invites where household_id = ?",
+                String.class,
+                "household_legacy_invite"))
+                .startsWith("legacy-disposed:")
+                .doesNotContain("raw-legacy-invite-token");
+        assertThat(jdbcTemplate.queryForObject(
+                "select token from " + V35_INVITE_TOKEN_PRIVACY_SCHEMA + ".caregiver_invite_events where household_id = ?",
+                String.class,
+                "household_legacy_invite"))
+                .startsWith("legacy-disposed:")
+                .doesNotContain("raw-legacy-invite-token");
     }
 
     @Test
