@@ -33,7 +33,7 @@ class QaUpHelmContractTest(unittest.TestCase):
             with self.subTest(mapping=mapping):
                 self.assertIn(f'"{mapping}"', self.script)
         self.assertIn(
-            'APP_IMAGE_TAG_ARGS+=(--set-string "${value_key}.image.tag=$QA_IMAGE_TAG")',
+            'APP_IMAGE_TAG_ARGS+=(--set-string "${value_key}.image.tag=$QA_CANDIDATE_ID")',
             self.script,
         )
 

@@ -1,0 +1,10 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+# Explicit non-production defaults. Production/QA must inject BABYTALK_* from Helm.
+babytalk:
+  candidate:
+    id: local-dev
+    required-migration-version: "34"

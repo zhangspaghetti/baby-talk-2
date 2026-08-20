@@ -29,10 +29,9 @@ ADMIN_WEB_LOCAL_PORT="${QA_ADMIN_WEB_LOCAL_PORT:-3001}"
 APP_RUNTIME_ARGS=(
   --set-string "config.BABY_TALK_ADMIN_WEB_ORIGIN=http://127.0.0.1:${ADMIN_WEB_LOCAL_PORT}"
 )
-# Every QA run must name one immutable candidate. The tag remains accepted for
-# compatibility, but it must name exactly the same candidate.
+# Every QA run must name one immutable candidate. The same ID drives every
+# image tag, Helm candidate value, gateway check, and APK Dart define.
 QA_CANDIDATE_ID="${QA_CANDIDATE_ID:-}"
-QA_IMAGE_TAG="${QA_IMAGE_TAG:-$QA_CANDIDATE_ID}"
 QA_REQUIRED_MIGRATION_VERSION="${QA_REQUIRED_MIGRATION_VERSION:-34}"
 export QA_CANDIDATE_ID QA_REQUIRED_MIGRATION_VERSION
 
@@ -51,13 +50,9 @@ if [[ -z "$QA_CANDIDATE_ID" ]]; then
   echo "ERROR: QA_CANDIDATE_ID is required for a frozen QA candidate."
   exit 1
 fi
-if [[ "$QA_IMAGE_TAG" != "$QA_CANDIDATE_ID" ]]; then
-  echo "ERROR: QA_IMAGE_TAG must equal QA_CANDIDATE_ID."
-  exit 1
-fi
 for image_mapping in "${CANDIDATE_IMAGES[@]}"; do
   value_key="${image_mapping#*=}"
-  APP_IMAGE_TAG_ARGS+=(--set-string "${value_key}.image.tag=$QA_IMAGE_TAG")
+  APP_IMAGE_TAG_ARGS+=(--set-string "${value_key}.image.tag=$QA_CANDIDATE_ID")
 done
 APP_RUNTIME_ARGS+=(
   --set-string "candidate.id=$QA_CANDIDATE_ID"
@@ -85,8 +80,8 @@ fi
 
 echo "    deps: ok"
 
-# Resolve the effective images from Helm's merged values. This supports both
-# QA_IMAGE_TAG overrides and tags written directly in values-kind-qa.yaml.
+# Resolve effective images from Helm's merged values. The immutable candidate
+# ID overrides tags written directly in values-kind-qa.yaml.
 echo "==> [images] resolving effective application images..."
 if ! rendered_app_manifest="$(
   helm template "$APP_RELEASE" deploy/helm/babytalk-app \
@@ -226,9 +221,7 @@ echo "    infra: ok"
 
 # ── App ────────────────────────────────────────────────────────────────────────
 echo "==> [app] deploying $APP_RELEASE to namespace $QA_NS..."
-if [[ -n "$QA_IMAGE_TAG" ]]; then
-  echo "    candidate image tag: $QA_IMAGE_TAG"
-fi
+echo "    candidate image tag: $QA_CANDIDATE_ID"
 
 helm upgrade --install "$APP_RELEASE" deploy/helm/babytalk-app \
   -n "$QA_NS" \

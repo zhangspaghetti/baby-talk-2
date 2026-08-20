@@ -24,8 +24,12 @@ class CandidateIdentityContractTest(unittest.TestCase):
         config_map = CONFIG_MAP.read_text(encoding="utf-8")
         deployment = DEPLOYMENT.read_text(encoding="utf-8")
 
-        self.assertIn("BABY_TALK_CANDIDATE_ID:", config_map)
-        self.assertIn("BABY_TALK_CANDIDATE_REQUIRED_MIGRATION_VERSION:", config_map)
+        self.assertIn("BABYTALK_CANDIDATE_ID:", config_map)
+        self.assertIn("BABYTALK_CANDIDATE_REQUIRED_MIGRATION_VERSION:", config_map)
+        self.assertNotIn("BABY_TALK_CANDIDATE_ID:", config_map)
+        self.assertNotIn("BABY_TALK_CANDIDATE_REQUIRED_MIGRATION_VERSION:", config_map)
+        gateway = deployment[deployment.index("- name: gateway") :]
+        self.assertIn("configMapRef:", gateway)
         db_migration = deployment[deployment.index("- name: db-migration") :]
         self.assertIn("configMapRef:", db_migration)
 
@@ -35,6 +39,8 @@ class CandidateIdentityContractTest(unittest.TestCase):
 
         self.assertIn('QA_CANDIDATE_ID="${QA_CANDIDATE_ID:-}"', script)
         self.assertIn('candidate.id=$QA_CANDIDATE_ID', script)
+        self.assertIn('--dart-define=BABY_TALK_CANDIDATE_ID="$QA_CANDIDATE_ID"', script)
+        self.assertNotIn('QA_IMAGE_TAG="${QA_IMAGE_TAG:-$QA_CANDIDATE_ID}"', script)
         self.assertIn("candidate:", qa_values)
 
     def test_candidate_migration_contract_tracks_current_v34(self) -> None:
