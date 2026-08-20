@@ -58,6 +58,8 @@ public interface AuthConsentSyncMapper {
             @Param("changedAt") Instant changedAt
     );
 
+    int redactConsentAuditInstallationReferences(@Param("accountId") String accountId);
+
     void insertConsentAudit(@Param("row") AuthConsentSyncRepository.AuditRow row);
 
     List<AuthConsentSyncRepository.AuditRow> listAuditEntries(@Param("accountId") String accountId);

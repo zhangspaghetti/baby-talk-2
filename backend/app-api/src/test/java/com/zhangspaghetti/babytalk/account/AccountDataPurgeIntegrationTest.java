@@ -87,6 +87,14 @@ class AccountDataPurgeIntegrationTest extends AbstractIntegrationTest {
         )).isEqualTo("deleted");
         assertThat(count("select count(*) from consent_audit_logs where account_id = 'acct_deleted'"))
                 .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select installation_id from account_sessions where session_id = 'sess_deleted'",
+                String.class
+        )).isEqualTo("redacted");
+        assertThat(jdbcTemplate.queryForObject(
+                "select installation_id from consent_audit_logs where account_id = 'acct_deleted'",
+                String.class
+        )).isEqualTo("redacted");
 
         assertThat(jdbcTemplate.queryForObject(
                 "select owner_account_id from households where household_id = 'household-shared'",
@@ -126,6 +134,22 @@ class AccountDataPurgeIntegrationTest extends AbstractIntegrationTest {
 
         var duplicate = purgeService.purge("acct_deleted", DELETED_AT.plusSeconds(1));
         assertThat(duplicate.applied()).isFalse();
+        jdbcTemplate.update(
+                "update account_sessions set installation_id = 'legacy-deleted-session' where session_id = 'sess_deleted'"
+        );
+        jdbcTemplate.update(
+                "update consent_audit_logs set installation_id = 'legacy-deleted-audit' where account_id = 'acct_deleted'"
+        );
+        var duplicateAfterLegacyRows = purgeService.purge("acct_deleted", DELETED_AT.plusSeconds(2));
+        assertThat(duplicateAfterLegacyRows.applied()).isFalse();
+        assertThat(jdbcTemplate.queryForObject(
+                "select installation_id from account_sessions where session_id = 'sess_deleted'",
+                String.class
+        )).isEqualTo("redacted");
+        assertThat(jdbcTemplate.queryForObject(
+                "select installation_id from consent_audit_logs where account_id = 'acct_deleted'",
+                String.class
+        )).isEqualTo("redacted");
         assertThat(count("select count(*) from account_refresh_tokens where account_id = 'acct_other' and status = 'active'"))
                 .isEqualTo(1);
     }

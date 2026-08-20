@@ -30,6 +30,10 @@ public class SensitiveAuthDataProtector {
         return "v1:" + encode(hmac("phone-lookup-v1\u0000" + normalizedPhoneNumber));
     }
 
+    public String installationLookupRef(String normalizedInstallationId) {
+        return "v1:" + encode(hmac("installation-lookup-v1\u0000" + normalizedInstallationId));
+    }
+
     public String createVerificationVerifier(String verificationCode) {
         byte[] salt = new byte[16];
         RANDOM.nextBytes(salt);

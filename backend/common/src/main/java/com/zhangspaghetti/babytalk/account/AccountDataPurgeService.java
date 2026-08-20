@@ -21,7 +21,12 @@ public class AccountDataPurgeService {
     @Transactional
     public PurgeResult purge(String accountId, OffsetDateTime deletedAt) {
         var state = mapper.lockAccount(accountId);
-        if (state == null || "deleted".equals(state.status())) {
+        if (state == null) {
+            return PurgeResult.duplicate(accountId);
+        }
+        if ("deleted".equals(state.status())) {
+            mapper.redactSessionInstallationReferences(accountId);
+            mapper.redactConsentAuditInstallationReferences(accountId);
             return PurgeResult.duplicate(accountId);
         }
 
@@ -38,6 +43,8 @@ public class AccountDataPurgeService {
 
         var revokedRefreshTokens = mapper.revokeRefreshTokens(accountId, deletedAt);
         var deletedSessions = mapper.updateSessions(accountId, deletedAt);
+        mapper.redactSessionInstallationReferences(accountId);
+        mapper.redactConsentAuditInstallationReferences(accountId);
 
         // A deleted owner loses the shared projection; a deleted caregiver must
         // not remove context still owned by another active household member.

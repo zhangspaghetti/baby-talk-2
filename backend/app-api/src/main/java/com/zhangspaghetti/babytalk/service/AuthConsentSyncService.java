@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthConsentSyncService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthConsentSyncService.class);
+    private static final String REDACTED_INSTALLATION_REFERENCE = "redacted";
 
     private static final Set<String> ALLOWED_REACTION_TYPES =
             Set.of("cooperating", "hesitant", "resisting", "no_response", "other");
@@ -150,7 +151,7 @@ public class AuthConsentSyncService {
         var session = new AuthConsentSyncRepository.SessionContextRow(
                 sessionId,
                 account.accountId(),
-                normalizedInstallationId,
+                sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId),
                 "active",
                 now,
                 null,
@@ -220,6 +221,7 @@ public class AuthConsentSyncService {
             throw refreshTokenException(status);
         }
 
+        repository.redactConsentAuditInstallationReferences(refreshToken.accountId());
         repository.revokeRefreshToken(refreshToken.refreshTokenId(), loggedOutAt);
         repository.revokeSession(refreshToken.sessionId(), loggedOutAt);
         log.info("consumer-auth logout success. accountId={}", refreshToken.accountId());
@@ -247,6 +249,7 @@ public class AuthConsentSyncService {
             throw new ContractException(HttpStatus.GONE, "account_deleted", "账号已删除。请重新注册。");
         }
         var now = Instant.now(clock);
+        repository.redactConsentAuditInstallationReferences(session.accountId());
         if ("revoked".equals(session.latestConsentStatus())) {
             repository.insertConsentAudit(audit(session, "revoke", "duplicate", "server_sync_revoked", now));
             return new ConsentResponse(false, "duplicate", "revoked", session.accountId(), session.sessionId(), now);
@@ -286,7 +289,7 @@ public class AuthConsentSyncService {
     public SyncBatchResponse ingestEvents(String sessionId, String installationId, List<SyncEventRequest> events) {
         var session = requireSessionForSync(sessionId);
         var normalizedInstallationId = normalizeInstallationId(installationId);
-        if (!normalizedInstallationId.equals(session.installationId())) {
+        if (!matchesInstallationReference(session.installationId(), normalizedInstallationId)) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "installation_mismatch", "请求 installationId 与当前 session 不一致。");
         }
         if (events == null || events.isEmpty()) {
@@ -354,7 +357,7 @@ public class AuthConsentSyncService {
     public BootstrapResponse bootstrap(String sessionId, String installationId) {
         var session = requireSessionForSync(sessionId);
         var normalizedInstallationId = normalizeInstallationId(installationId);
-        if (!normalizedInstallationId.equals(session.installationId())) {
+        if (!matchesInstallationReference(session.installationId(), normalizedInstallationId)) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "installation_mismatch", "请求 installationId 与当前 session 不一致。");
         }
         var events = repository.listInteractionEventsForAccount(session.accountId(), contractProperties.bootstrapMaxEvents())
@@ -460,7 +463,7 @@ public class AuthConsentSyncService {
                 .map(row -> new AuditEntry(
                         row.accountId(),
                         row.sessionId(),
-                        row.installationId(),
+                        safeInstallationReference(row.installationId()),
                         row.action(),
                         row.result(),
                         row.reason(),
@@ -571,7 +574,7 @@ public class AuthConsentSyncService {
         return new AuthConsentSyncRepository.AuditRow(
                 session.accountId(),
                 session.sessionId(),
-                session.installationId(),
+                safeInstallationReference(session.installationId()),
                 action,
                 result,
                 reason,
@@ -740,6 +743,31 @@ public class AuthConsentSyncService {
             throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_installation_id", "installationId 过长。");
         }
         return normalized;
+    }
+
+    private boolean matchesInstallationReference(String storedReference, String normalizedInstallationId) {
+        if (storedReference == null || storedReference.isBlank() || REDACTED_INSTALLATION_REFERENCE.equals(storedReference)) {
+            return false;
+        }
+        if (isProtectedInstallationReference(storedReference)) {
+            return sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId).equals(storedReference);
+        }
+        // Read-only compatibility for sessions written before installation IDs were protected.
+        return normalizedInstallationId.equals(storedReference);
+    }
+
+    private String safeInstallationReference(String storedReference) {
+        if (storedReference == null || storedReference.isBlank() || REDACTED_INSTALLATION_REFERENCE.equals(storedReference)) {
+            return REDACTED_INSTALLATION_REFERENCE;
+        }
+        if (isProtectedInstallationReference(storedReference)) {
+            return storedReference;
+        }
+        return sensitiveAuthDataProtector.installationLookupRef(storedReference);
+    }
+
+    private boolean isProtectedInstallationReference(String value) {
+        return value != null && value.matches("v1:[A-Za-z0-9_-]{43}");
     }
 
     private String normalizeSessionId(String sessionId) {

@@ -241,7 +241,7 @@
         ) values (
             #{row.sessionId},
             #{row.accountId},
-            #{row.installationId},
+            case when #{row.installationId} ~ '^v1:[A-Za-z0-9_-]{43}$' then #{row.installationId} else 'redacted' end,
             #{row.sessionStatus},
             #{row.createdAt},
             #{row.revokedAt}
@@ -335,7 +335,8 @@
     <update id="revokeSession">
         update account_sessions
         set status = 'revoked',
-            revoked_at = #{revokedAt}
+            revoked_at = #{revokedAt},
+            installation_id = case when installation_id ~ '^v1:[A-Za-z0-9_-]{43}$' then installation_id else 'redacted' end
         where session_id = #{sessionId}
           and status = 'active'
     </update>
@@ -360,9 +361,17 @@
     <update id="updateSessionsStatus">
         update account_sessions
         set status = #{newStatus},
-            revoked_at = #{changedAt}
+            revoked_at = #{changedAt},
+            installation_id = case when installation_id ~ '^v1:[A-Za-z0-9_-]{43}$' then installation_id else 'redacted' end
         where account_id = #{accountId}
           and status &lt;&gt; #{newStatus}
+    </update>
+
+    <update id="redactConsentAuditInstallationReferences">
+        update consent_audit_logs
+        set installation_id = 'redacted'
+        where account_id = #{accountId}
+          and installation_id !~ '^v1:[A-Za-z0-9_-]{43}$'
     </update>
 
     <insert id="insertConsentAudit">
@@ -377,7 +386,7 @@
         ) values (
             #{row.accountId},
             #{row.sessionId},
-            #{row.installationId},
+            case when #{row.installationId} ~ '^v1:[A-Za-z0-9_-]{43}$' then #{row.installationId} else 'redacted' end,
             #{row.action},
             #{row.result},
             #{row.reason},

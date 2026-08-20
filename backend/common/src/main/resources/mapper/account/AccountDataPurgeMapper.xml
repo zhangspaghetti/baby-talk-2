@@ -104,9 +104,24 @@
     <update id="updateSessions">
         update account_sessions
         set status = 'deleted',
-            revoked_at = #{updatedAt}
+            revoked_at = #{updatedAt},
+            installation_id = case when installation_id ~ '^v1:[A-Za-z0-9_-]{43}$' then installation_id else 'redacted' end
         where account_id = #{accountId}
           and status &lt;&gt; 'deleted'
+    </update>
+
+    <update id="redactSessionInstallationReferences">
+        update account_sessions
+        set installation_id = 'redacted'
+        where account_id = #{accountId}
+          and installation_id !~ '^v1:[A-Za-z0-9_-]{43}$'
+    </update>
+
+    <update id="redactConsentAuditInstallationReferences">
+        update consent_audit_logs
+        set installation_id = 'redacted'
+        where account_id = #{accountId}
+          and installation_id !~ '^v1:[A-Za-z0-9_-]{43}$'
     </update>
 
     <!-- Shared context is an owner-derived projection. Preserve it when the

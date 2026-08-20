@@ -37,6 +37,7 @@ public class MentorService {
 
     private final MentorRepository repository;
     private final AuthConsentSyncRepository authConsentSyncRepository;
+    private final SensitiveAuthDataProtector sensitiveAuthDataProtector;
     private final MentorProvider mentorProvider;
     private final MentorProperties properties;
     private final ConversationSessionService conversationSessionService;
@@ -49,6 +50,7 @@ public class MentorService {
     public MentorService(
             MentorRepository repository,
             AuthConsentSyncRepository authConsentSyncRepository,
+            SensitiveAuthDataProtector sensitiveAuthDataProtector,
             MentorProvider mentorProvider,
             MentorProperties properties,
             ConversationSessionService conversationSessionService,
@@ -59,6 +61,7 @@ public class MentorService {
     ) {
         this.repository = repository;
         this.authConsentSyncRepository = authConsentSyncRepository;
+        this.sensitiveAuthDataProtector = sensitiveAuthDataProtector;
         this.mentorProvider = mentorProvider;
         this.properties = properties;
         this.conversationSessionService = conversationSessionService;
@@ -742,7 +745,7 @@ public class MentorService {
             );
         }
         var association = new SessionAssociation(session.accountId(), session.sessionId(), true);
-        if (!installationId.equals(session.installationId())) {
+        if (!matchesInstallationReference(session.installationId(), installationId)) {
             repository.insertAudit(auditRow(
                     correlationId,
                     installationId,
@@ -852,6 +855,11 @@ public class MentorService {
             );
         }
         return association;
+    }
+
+    private boolean matchesInstallationReference(String storedReference, String normalizedInstallationId) {
+        return normalizedInstallationId.equals(storedReference)
+                || sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId).equals(storedReference);
     }
 
     private MentorRepository.TurnRow turnRow(

@@ -100,6 +100,10 @@ public class AuthConsentSyncRepository {
         mapper.updateSessionsStatus(accountId, newStatus, changedAt);
     }
 
+    void redactConsentAuditInstallationReferences(String accountId) {
+        mapper.redactConsentAuditInstallationReferences(accountId);
+    }
+
     void insertConsentAudit(AuditRow auditRow) {
         mapper.insertConsentAudit(auditRow);
     }

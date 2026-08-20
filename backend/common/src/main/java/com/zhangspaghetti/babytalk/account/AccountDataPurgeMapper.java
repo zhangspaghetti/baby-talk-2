@@ -39,6 +39,10 @@ public interface AccountDataPurgeMapper {
 
     int updateSessions(@Param("accountId") String accountId, @Param("updatedAt") OffsetDateTime updatedAt);
 
+    int redactSessionInstallationReferences(@Param("accountId") String accountId);
+
+    int redactConsentAuditInstallationReferences(@Param("accountId") String accountId);
+
     int deleteSharedContextOwnedByAccount(@Param("accountId") String accountId);
 
     int redactInviteEventReferences(@Param("accountId") String accountId);

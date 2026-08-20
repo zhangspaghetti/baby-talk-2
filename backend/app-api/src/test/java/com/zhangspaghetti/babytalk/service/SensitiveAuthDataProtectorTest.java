@@ -29,6 +29,19 @@ class SensitiveAuthDataProtectorTest {
         assertThat(protector.matchesVerificationVerifier(verifier, "111111")).isFalse();
     }
 
+    @Test
+    void installationLookupReferenceUsesSeparateDomainAndDoesNotExposeRawValue() {
+        var protector = protector("jwt-secret-0123456789abcdef0123456789", "stable-auth-pepper-0123456789abcdef");
+
+        var reference = protector.installationLookupRef("install-alpha");
+
+        assertThat(reference)
+                .startsWith("v1:")
+                .doesNotContain("install-alpha")
+                .isNotEqualTo(protector.phoneLookupRef("install-alpha"));
+        assertThat(reference).isEqualTo(protector.installationLookupRef("install-alpha"));
+    }
+
     private SensitiveAuthDataProtector protector(String jwtSecret, String sensitiveDataPepper) {
         return new SensitiveAuthDataProtector(new ConsumerAuthProperties(
                 "test-issuer",

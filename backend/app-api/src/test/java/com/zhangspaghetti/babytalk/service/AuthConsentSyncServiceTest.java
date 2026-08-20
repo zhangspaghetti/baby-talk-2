@@ -187,6 +187,59 @@ class AuthConsentSyncServiceTest extends AbstractIntegrationTest {
 	                assertThat(accountLookupRef).isEqualTo(row.get("phone_lookup_ref"));
 	        }
 
+        @Test
+        void persistsOnlyProtectedInstallationReferencesInSessionAndConsentAudit() {
+                var session = createAcceptedSession("13800138000", "install-alpha");
+
+                var storedSessionInstallationId = jdbcTemplate.queryForObject(
+                                "select installation_id from account_sessions where session_id = ?",
+                                String.class,
+                                session.sessionId()
+                );
+                var storedAuditInstallationId = jdbcTemplate.queryForObject(
+                                "select installation_id from consent_audit_logs where account_id = ?",
+                                String.class,
+                                session.accountId()
+                );
+
+                assertThat(storedSessionInstallationId)
+                                .startsWith("v1:")
+                                .doesNotContain("install-alpha");
+                assertThat(storedAuditInstallationId).isEqualTo(storedSessionInstallationId);
+                assertThat(service.listAuditEntries(session.accountId()))
+                                .extracting(AuthConsentSyncService.AuditEntry::installationId)
+                                .containsExactly(storedAuditInstallationId);
+        }
+
+        @Test
+        void revokeRedactsLegacyRawInstallationReferencesAndKeepsAuditReadable() {
+                var session = createAcceptedSession("13800138000", "install-alpha");
+                jdbcTemplate.update(
+                                "update account_sessions set installation_id = 'legacy-session-install' where session_id = ?",
+                                session.sessionId()
+                );
+                jdbcTemplate.update(
+                                "update consent_audit_logs set installation_id = 'legacy-audit-install' where account_id = ?",
+                                session.accountId()
+                );
+
+                service.revokeConsent(session.sessionId(), "user_requested");
+
+                assertThat(jdbcTemplate.queryForObject(
+                                "select installation_id from account_sessions where session_id = ?",
+                                String.class,
+                                session.sessionId()
+                )).isEqualTo("redacted");
+                assertThat(jdbcTemplate.queryForObject(
+                                "select count(*) from consent_audit_logs where account_id = ? and installation_id in ('legacy-session-install', 'legacy-audit-install')",
+                                Integer.class,
+                                session.accountId()
+                )).isZero();
+                assertThat(service.listAuditEntries(session.accountId()))
+                                .extracting(AuthConsentSyncService.AuditEntry::reason)
+                                .containsExactly("consent_version:pipl-v1", "server_sync_revoked");
+        }
+
 	        @Test
 	        void wrongOtpExpiresChallengeAfterFiveAttempts() {
 	                var challenge = service.createChallenge("13800138000");
