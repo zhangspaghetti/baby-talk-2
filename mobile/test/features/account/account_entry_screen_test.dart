@@ -196,6 +196,51 @@ void main() {
     expect(find.byKey(const Key('account-status-signed-out')), findsOneWidget);
   });
 
+  testWidgets('登录前必须能查看并显式勾选当前协议版本', (WidgetTester tester) async {
+    final repository = FakeAccountRepository(
+      currentSnapshot: AccountLocalSnapshot.localOnly,
+    );
+
+    await _pumpEntryScreen(tester, repository: repository);
+    await tester.enterText(
+      find.byKey(const Key('account-phone-field')),
+      '13800138000',
+    );
+    await tester.enterText(
+      find.byKey(const Key('account-code-field')),
+      '123456',
+    );
+    await tester.dragUntilVisible(
+      find.byKey(const Key('account-submit-button')),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+
+    await tester.tap(find.byKey(const Key('account-terms-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('account-terms-dialog')), findsOneWidget);
+    expect(find.textContaining('服务条款版本 pipl-v1'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('account-terms-dialog-close')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('account-privacy-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('account-privacy-dialog')), findsOneWidget);
+    expect(find.textContaining('隐私协议版本 pipl-v1'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('account-privacy-dialog-close')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('account-submit-button')));
+    await tester.pumpAndSettle();
+    expect(repository.saveCalls, 0);
+    expect(find.textContaining('请先阅读并同意服务条款和隐私协议（版本 pipl-v1）'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('account-consent-checkbox')));
+    await tester.tap(find.byKey(const Key('account-submit-button')));
+    await tester.pumpAndSettle();
+    expect(repository.saveCalls, 1);
+  });
+
   testWidgets('占位登录成功后会进入 signed-in-pending-sync 状态并显示脱敏手机号', (
     WidgetTester tester,
   ) async {
@@ -215,6 +260,12 @@ void main() {
       find.byKey(const Key('account-code-field')),
       '123456',
     );
+    await tester.dragUntilVisible(
+      find.byKey(const Key('account-consent-checkbox')),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(find.byKey(const Key('account-consent-checkbox')));
     final submitButton = find.byKey(const Key('account-submit-button'));
     await tester.dragUntilVisible(
       submitButton,
@@ -274,6 +325,12 @@ void main() {
       find.byKey(const Key('account-code-field')),
       '123456',
     );
+    await tester.dragUntilVisible(
+      find.byKey(const Key('account-consent-checkbox')),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(find.byKey(const Key('account-consent-checkbox')));
     final submitButton = find.byKey(const Key('account-submit-button'));
     await tester.dragUntilVisible(
       submitButton,

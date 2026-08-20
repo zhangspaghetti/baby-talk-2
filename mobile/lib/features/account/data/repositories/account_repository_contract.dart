@@ -1,5 +1,8 @@
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 
+/// Current user-facing terms/privacy version required before remote sync.
+const String currentAccountConsentVersion = 'pipl-v1';
+
 enum AccountRuntimeTrigger {
   appBoot,
   loginSuccess,

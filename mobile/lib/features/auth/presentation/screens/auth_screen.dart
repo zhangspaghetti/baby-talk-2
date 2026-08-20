@@ -10,6 +10,7 @@ import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
+import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:pinput/pinput.dart';
 import 'package:go_router/go_router.dart';
@@ -41,7 +42,7 @@ class AuthScreen extends HookConsumerWidget {
     useEffect(() {
       captchaPassed.value = false;
       resendSeconds.value = 0;
-      acceptedTerms.value = mode.value != AuthMode.register;
+      acceptedTerms.value = false;
       codeController.clear();
       errorMessage.value = null;
       infoMessage.value = null;
@@ -122,6 +123,7 @@ class AuthScreen extends HookConsumerWidget {
           ..updateVerificationCode(codeController.text);
         final succeeded = await account.submitChallengeSignIn(
           purpose: _purposeForMode(mode.value),
+          acceptedConsent: acceptedTerms.value,
         );
         if (!succeeded) {
           errorMessage.value = account.submissionMessage ?? '验证失败，请稍后重试。';
@@ -308,28 +310,16 @@ class AuthScreen extends HookConsumerWidget {
                       onSendCode: requestCode,
                     ),
 
-                    // --- Terms (register only) ---
-                    if (mode.value == AuthMode.register) ...[
-                      const SizedBox(height: AppLayoutConstants.spacingMd),
-                      _TermsRow(
-                        accepted: acceptedTerms.value,
-                        onChanged: (v) => acceptedTerms.value = v,
-                      ),
-                    ],
-
-                    // --- Privacy note (code login, pre-submit) ---
-                    if (mode.value == AuthMode.codeLogin && !codeSent) ...[
-                      const SizedBox(height: AppLayoutConstants.spacingSm),
-                      Semantics(
-                        label: l.discoverPrivacyNote,
-                        child: Text(
-                          l.discoverPrivacyNote,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colors.textMuted),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
+                    // --- Terms/privacy (all authentication modes) ---
+                    const SizedBox(height: AppLayoutConstants.spacingMd),
+                    _TermsRow(
+                      accepted: acceptedTerms.value,
+                      onChanged: (v) => acceptedTerms.value = v,
+                      onOpenTerms: () =>
+                          _showAuthPolicy(context, privacy: false),
+                      onOpenPrivacy: () =>
+                          _showAuthPolicy(context, privacy: true),
+                    ),
 
                     // --- Status messages ---
                     if (errorMessage.value != null) ...[
@@ -470,7 +460,7 @@ class AuthScreen extends HookConsumerWidget {
       return '请输入 6 位短信验证码。';
     }
 
-    if (mode == AuthMode.register && !acceptedTerms) {
+    if (!acceptedTerms) {
       return '请先阅读并同意服务条款和隐私协议。';
     }
 
@@ -1018,10 +1008,17 @@ class _VerificationCodeStep extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────
 
 class _TermsRow extends StatelessWidget {
-  const _TermsRow({required this.accepted, required this.onChanged});
+  const _TermsRow({
+    required this.accepted,
+    required this.onChanged,
+    required this.onOpenTerms,
+    required this.onOpenPrivacy,
+  });
 
   final bool accepted;
   final ValueChanged<bool> onChanged;
+  final VoidCallback onOpenTerms;
+  final VoidCallback onOpenPrivacy;
 
   @override
   Widget build(BuildContext context) {
@@ -1041,21 +1038,47 @@ class _TermsRow extends StatelessWidget {
               onChanged: (value) => onChanged(value ?? false),
             ),
             Expanded(
-              child: RichText(
-                text: TextSpan(
-                  style: Theme.of(context).textTheme.bodySmall,
-                  children: [
-                    TextSpan(text: l.discoverTermsPrefix),
-                    TextSpan(
-                      text: l.discoverTermsOfService,
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(l.discoverTermsPrefix),
+                  TextButton(
+                    key: const Key('auth-terms-button'),
+                    onPressed: onOpenTerms,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      l.discoverTermsOfService,
                       style: TextStyle(
                         color: colors.accent,
                         fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
                       ),
                     ),
-                    TextSpan(text: l.discoverPrivacyPolicy),
-                  ],
-                ),
+                  ),
+                  const Text('和'),
+                  TextButton(
+                    key: const Key('auth-privacy-button'),
+                    onPressed: onOpenPrivacy,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      l.discoverPrivacyPolicy,
+                      style: TextStyle(
+                        color: colors.accent,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  Text('（版本 $currentAccountConsentVersion）'),
+                ],
               ),
             ),
           ],
@@ -1063,6 +1086,36 @@ class _TermsRow extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _showAuthPolicy(
+  BuildContext context, {
+  required bool privacy,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final title = privacy ? l.discoverPrivacyPolicy : l.discoverTermsOfService;
+  final body = privacy
+      ? '隐私协议版本 $currentAccountConsentVersion\n\n'
+            '只有在你明确勾选当前版本后，账号同步才会发送最小必要资料。你可以随时在账号页撤回同意或清除本机数据。'
+      : '服务条款版本 $currentAccountConsentVersion\n\n'
+            '登录前请阅读并确认账号同步、家庭照护和跨设备恢复的使用边界。';
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      key: Key(privacy ? 'auth-privacy-dialog' : 'auth-terms-dialog'),
+      title: Text(title),
+      content: SingleChildScrollView(child: Text(body)),
+      actions: [
+        TextButton(
+          key: Key(
+            privacy ? 'auth-privacy-dialog-close' : 'auth-terms-dialog-close',
+          ),
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: Text(l.close),
+        ),
+      ],
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────

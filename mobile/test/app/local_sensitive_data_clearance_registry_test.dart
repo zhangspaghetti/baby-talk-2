@@ -36,6 +36,7 @@ import 'package:mobile/features/practice/data/generated/generated_practice_conte
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
 import '../support/isar_test_library.dart';
 
 void main() {
@@ -74,6 +75,7 @@ void main() {
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          settingsLocalDataSource: harness.settingsLocalDataSource,
           onboardingCareTurnContinuationClearance:
               harness.clearOnboardingCareTurnContinuation,
         );
@@ -104,6 +106,7 @@ void main() {
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          settingsLocalDataSource: harness.settingsLocalDataSource,
           onboardingCareTurnContinuationClearance:
               harness.clearOnboardingCareTurnContinuation,
         );
@@ -125,6 +128,10 @@ void main() {
           LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance,
         );
         expect(await harness.accountSnapshotIsStored(), isTrue);
+        expect(
+          await harness.settingsLocalDataSource.readSnapshotJson(),
+          isNotNull,
+        );
         expect(await harness.onboardingSnapshotStore.read(), isNotNull);
         expect(await harness.legacyOnboardingFlowFile.exists(), isTrue);
         expect(
@@ -184,6 +191,7 @@ void main() {
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          settingsLocalDataSource: harness.settingsLocalDataSource,
           onboardingCareTurnContinuationClearance:
               harness.clearOnboardingCareTurnContinuation,
         );
@@ -215,6 +223,10 @@ void main() {
         );
         expect(harness.onboardingCareTurnContinuationClearCount, 1);
         expect(await harness.accountSnapshotIsStored(), isFalse);
+        expect(
+          await harness.settingsLocalDataSource.readSnapshotJson(),
+          isNull,
+        );
         expect(await harness.onboardingSnapshotStore.read(), isNull);
         expect(await harness.legacyOnboardingFlowFile.exists(), isFalse);
         expect(
@@ -270,6 +282,7 @@ void main() {
         generatedPracticeContentRegistry:
             harness.generatedPracticeContentRegistry,
         generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+        settingsLocalDataSource: harness.settingsLocalDataSource,
         onboardingCareTurnContinuationClearance:
             harness.clearOnboardingCareTurnContinuation,
       );
@@ -308,6 +321,12 @@ void main() {
         clearedTargets,
       );
       expect(await harness.accountSnapshotIsStored(), isFalse);
+      // Session-only logout deliberately retains the local profile and
+      // reminder preferences; device erase/account deletion clear them.
+      expect(
+        await harness.settingsLocalDataSource.readSnapshotJson(),
+        isNotNull,
+      );
       expect(
         File('${harness.tempDir.path}/auth_continuation.json').existsSync(),
         isFalse,
@@ -340,6 +359,7 @@ class _LifecycleHarness {
     required this.tempDir,
     required this.practiceDbName,
     required this.mentorDbName,
+    required this.settingsDbName,
     required this.secureStorage,
     required this.accountLocalStore,
     required this.onboardingSnapshotStore,
@@ -357,11 +377,13 @@ class _LifecycleHarness {
     required this.accountRepository,
     required this.householdRepository,
     required this.mentorRepository,
+    required this.settingsLocalDataSource,
   });
 
   final Directory tempDir;
   final String practiceDbName;
   final String mentorDbName;
+  final String settingsDbName;
   final _InMemorySecureStorage secureStorage;
   final AccountLocalStore accountLocalStore;
   final OnboardingSnapshotStore onboardingSnapshotStore;
@@ -380,6 +402,7 @@ class _LifecycleHarness {
   final AccountRepository accountRepository;
   final HouseholdRepository householdRepository;
   final MentorRepository mentorRepository;
+  final SettingsLocalDataSource settingsLocalDataSource;
   int onboardingCareTurnContinuationClearCount = 0;
 
   Future<void> clearOnboardingCareTurnContinuation() async {
@@ -392,6 +415,7 @@ class _LifecycleHarness {
     );
     final practiceDbName = 'practice_${DateTime.now().microsecondsSinceEpoch}';
     final mentorDbName = 'mentor_${DateTime.now().microsecondsSinceEpoch}';
+    final settingsDbName = 'settings_${DateTime.now().microsecondsSinceEpoch}';
     final installationIdService = InstallationIdService(
       directoryResolver: () async => tempDir,
       idGenerator: () => 'install_lifecycle',
@@ -443,6 +467,10 @@ class _LifecycleHarness {
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
     );
+    final settingsLocalDataSource = await SettingsLocalDataSource.open(
+      directory: tempDir.path,
+      name: settingsDbName,
+    );
     final secureStorage = _InMemorySecureStorage();
     final accountLocalStore = AccountLocalStore(
       secureStorage: secureStorage,
@@ -474,6 +502,7 @@ class _LifecycleHarness {
       tempDir: tempDir,
       practiceDbName: practiceDbName,
       mentorDbName: mentorDbName,
+      settingsDbName: settingsDbName,
       secureStorage: secureStorage,
       accountLocalStore: accountLocalStore,
       onboardingSnapshotStore: onboardingSnapshotStore,
@@ -492,11 +521,16 @@ class _LifecycleHarness {
       accountRepository: accountRepository,
       householdRepository: householdRepository,
       mentorRepository: mentorRepository,
+      settingsLocalDataSource: settingsLocalDataSource,
     );
   }
 
   Future<void> seedSensitiveData() async {
     await accountLocalStore.write(AccountLocalSnapshot.localOnly);
+    await settingsLocalDataSource.writeSnapshotJson(
+      '{"childName":"米米","childAgeMonths":15,"reminderEnabled":true,"reminderHour":8,"reminderMinute":30}',
+      version: 1,
+    );
     await onboardingSnapshotStore.write(_completedSnapshot());
     await legacyOnboardingFlowFile.writeAsString(
       '{"schemaVersion":1,"step":"age"}',
@@ -594,6 +628,7 @@ class _LifecycleHarness {
   }
 
   Future<void> dispose() async {
+    await settingsLocalDataSource.close(deleteFromDisk: true);
     await accountRepository.close();
     await householdRepository.close();
     await mentorRepository.close(deleteFromDisk: true);

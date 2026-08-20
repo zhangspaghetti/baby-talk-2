@@ -20,6 +20,7 @@ enum LocalSensitiveDataTarget {
   householdSnapshot,
   practiceInteractionEvents,
   mentorFactEvents,
+  settingsSnapshot,
   installationId,
 }
 

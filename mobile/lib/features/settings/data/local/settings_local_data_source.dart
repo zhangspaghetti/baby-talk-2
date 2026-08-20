@@ -92,6 +92,11 @@ class SettingsLocalDataSource {
     });
   }
 
+  /// Clears settings owned only by this installation during an approved
+  /// device-local erase. This intentionally does not touch account consent or
+  /// any server-side account state.
+  Future<void> clearForLifecycle() => deleteSnapshotIfExists();
+
   /// Closes the Isar instance. Call on app shutdown or in tests.
   Future<void> close({bool deleteFromDisk = false}) async {
     await _isar.close(deleteFromDisk: deleteFromDisk);

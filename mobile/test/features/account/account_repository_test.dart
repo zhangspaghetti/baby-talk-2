@@ -64,10 +64,16 @@ void main() {
       ];
 
       final repository = harness.buildRepository();
-      final snapshot = await repository.signIn(
+      final verified = await repository.signIn(
         phoneNumber: '13800138000',
         verificationCode: '246810',
       );
+
+      expect(verified.session, isNotNull);
+      expect(harness.api.acceptedConsentAccessTokens, isEmpty);
+      expect(harness.api.syncedBatches, isEmpty);
+
+      final snapshot = await repository.acceptConsent();
 
       expect(snapshot.consentState, AccountConsentState.acceptedPendingSync);
       expect(snapshot.session?.maskedPhoneNumber, '138****8000');

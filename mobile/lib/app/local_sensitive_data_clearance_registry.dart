@@ -8,6 +8,7 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
 
 RegistryLocalSensitiveDataClearanceOrchestrator
 createLocalSensitiveDataClearanceOrchestrator({
@@ -21,6 +22,7 @@ createLocalSensitiveDataClearanceOrchestrator({
   customSceneDraftContinuationCoordinator,
   required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
   required GeneratedAudioMemoryCache generatedAudioMemoryCache,
+  required SettingsLocalDataSource settingsLocalDataSource,
   required LocalSensitiveDataClearanceCallback
   onboardingCareTurnContinuationClearance,
 }) {
@@ -36,6 +38,7 @@ createLocalSensitiveDataClearanceOrchestrator({
           customSceneDraftContinuationCoordinator,
       generatedPracticeContentRegistry: generatedPracticeContentRegistry,
       generatedAudioMemoryCache: generatedAudioMemoryCache,
+      settingsLocalDataSource: settingsLocalDataSource,
       onboardingCareTurnContinuationClearance:
           onboardingCareTurnContinuationClearance,
     ),
@@ -53,6 +56,7 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
   customSceneDraftContinuationCoordinator,
   required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
   required GeneratedAudioMemoryCache generatedAudioMemoryCache,
+  required SettingsLocalDataSource settingsLocalDataSource,
   required LocalSensitiveDataClearanceCallback
   onboardingCareTurnContinuationClearance,
 }) {
@@ -108,6 +112,11 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       target: LocalSensitiveDataTarget.mentorFactEvents,
       primitiveName: 'MentorRepository.close(deleteFromDisk: true)',
       clear: () => mentorRepository.close(deleteFromDisk: true),
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.settingsSnapshot,
+      primitiveName: 'SettingsLocalDataSource.clearForLifecycle',
+      clear: settingsLocalDataSource.clearForLifecycle,
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.installationId,

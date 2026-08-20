@@ -20,18 +20,22 @@ typedef AccountLocalSensitiveDataClearanceRunner =
     });
 
 typedef AccountSessionEndedHandler = Future<void> Function();
+typedef AccountConsentAcceptanceHandler =
+    Future<AccountLocalSnapshot> Function({required String consentVersion});
 
 class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   AccountNotifier({
     required AccountRepositoryContract repository,
     AccountExternalLinkOpener? linkOpener,
     AccountChallengeRepositoryContract? challengeRepository,
+    AccountConsentAcceptanceHandler? acceptConsent,
     AccountLocalSensitiveDataClearanceRunner? localDataClearanceRunner,
     AccountSessionEndedHandler? onAccountSessionEnded,
     LocalSensitiveDataClock? clearanceClock,
   }) : _repository = repository,
        _linkOpener = linkOpener ?? const UrlLauncherAccountExternalLinkOpener(),
        _challengeRepository = challengeRepository,
+       _acceptConsent = acceptConsent,
        _localDataClearanceRunner = localDataClearanceRunner,
        _onAccountSessionEnded = onAccountSessionEnded,
        _clearanceClock = clearanceClock ?? DateTime.now;
@@ -39,6 +43,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   final AccountRepositoryContract _repository;
   final AccountExternalLinkOpener _linkOpener;
   final AccountChallengeRepositoryContract? _challengeRepository;
+  final AccountConsentAcceptanceHandler? _acceptConsent;
   final AccountLocalSensitiveDataClearanceRunner? _localDataClearanceRunner;
   final AccountSessionEndedHandler? _onAccountSessionEnded;
   final LocalSensitiveDataClock _clearanceClock;
@@ -354,6 +359,8 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<bool> submitChallengeSignIn({
     required AccountChallengePurpose purpose,
+    bool acceptedConsent = false,
+    String consentVersion = currentAccountConsentVersion,
   }) async {
     final normalizedPhone = _normalizePhone(_phoneNumber);
     final normalizedCode = _verificationCode.trim();
@@ -387,13 +394,18 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return false;
     }
+    if (!acceptedConsent) {
+      _submissionMessage = '请先阅读并同意服务条款和隐私协议（版本 $consentVersion）。';
+      notifyListeners();
+      return false;
+    }
     if (isBusy) {
       return false;
     }
 
     final operationEpoch = ++_challengeOperationEpoch;
     _activeChallengeOperationEpoch = operationEpoch;
-    _submissionMessage = '正在登录、同意并同步最近结果…';
+    _submissionMessage = '正在登录并同步最近结果…';
     notifyListeners();
     try {
       final challengeRepository = _challengeRepository;
@@ -412,7 +424,11 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
         _submissionMessage = completion.userMessage ?? '验证失败，请稍后重试。';
         return false;
       }
-      final nextSnapshot = await _repository.loadSnapshot();
+      var nextSnapshot = await _repository.loadSnapshot();
+      final acceptConsent = _acceptConsent;
+      if (acceptConsent != null) {
+        nextSnapshot = await acceptConsent(consentVersion: consentVersion);
+      }
       if (_disposed || operationEpoch != _challengeOperationEpoch) {
         return false;
       }
@@ -459,7 +475,10 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<bool> submitSignIn() async {
+  Future<bool> submitSignIn({
+    bool acceptedConsent = false,
+    String consentVersion = currentAccountConsentVersion,
+  }) async {
     final normalizedPhone = _normalizePhone(_phoneNumber);
     final normalizedCode = _verificationCode.trim();
     var hasError = false;
@@ -483,13 +502,18 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return false;
     }
+    if (!acceptedConsent) {
+      _submissionMessage = '请先阅读并同意服务条款和隐私协议（版本 $consentVersion）。';
+      notifyListeners();
+      return false;
+    }
 
     if (isBusy) {
       return false;
     }
 
     _isGlobalOperationBusy = true;
-    _submissionMessage = '正在登录、同意并同步最近结果…';
+    _submissionMessage = '正在登录并同步最近结果…';
     notifyListeners();
 
     try {
@@ -497,6 +521,10 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
         phoneNumber: normalizedPhone,
         verificationCode: normalizedCode,
       );
+      final acceptConsent = _acceptConsent;
+      if (acceptConsent != null) {
+        _snapshot = await acceptConsent(consentVersion: consentVersion);
+      }
       _phoneError = null;
       _verificationCodeError = null;
       _phoneNumber = normalizedPhone;

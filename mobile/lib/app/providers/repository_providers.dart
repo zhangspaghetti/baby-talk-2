@@ -443,6 +443,8 @@ final accountNotifierProvider = ChangeNotifierProvider<AccountNotifier>((ref) {
   return AccountNotifier(
     repository: repository,
     challengeRepository: createAccountChallengeRepository(repository),
+    acceptConsent: ({required consentVersion}) =>
+        repository.acceptConsent(version: consentVersion),
     onAccountSessionEnded: () => const PlatformReminderScheduler().cancel(),
     localDataClearanceRunner:
         ({
@@ -586,6 +588,9 @@ final localSensitiveDataClearanceOrchestratorProvider =
       final generatedAudioMemoryCache = ref.watch(
         generatedAudioMemoryCacheProvider,
       );
+      final settingsRepository = await ref.watch(
+        settingsRepositoryProvider.future,
+      );
       final onboardingCareTurnContinuationStore = ref.watch(
         onboardingCareTurnContinuationStoreProvider,
       );
@@ -601,6 +606,7 @@ final localSensitiveDataClearanceOrchestratorProvider =
             customSceneDraftContinuationCoordinator,
         generatedPracticeContentRegistry: generatedPracticeContentRegistry,
         generatedAudioMemoryCache: generatedAudioMemoryCache,
+        settingsLocalDataSource: settingsRepository.localDataSource,
         onboardingCareTurnContinuationClearance:
             onboardingCareTurnContinuationStore.clearForLifecycle,
       );

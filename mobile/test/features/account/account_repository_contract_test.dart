@@ -26,7 +26,7 @@ void main() {
       notifier.updatePhoneNumber('138 0013 8000');
       notifier.updateVerificationCode('123456');
 
-      final signedIn = await notifier.submitSignIn();
+      final signedIn = await notifier.submitSignIn(acceptedConsent: true);
 
       expect(signedIn, isTrue);
       expect(repository.signInCalls, 1);

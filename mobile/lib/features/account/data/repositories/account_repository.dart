@@ -15,7 +15,8 @@ export 'package:mobile/features/account/data/repositories/account_repository_con
     show
         AccountRepositoryContract,
         AccountRuntimeTrigger,
-        AccountRuntimeTriggerWire;
+        AccountRuntimeTriggerWire,
+        currentAccountConsentVersion;
 export 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
 
 typedef AccountConnectivityChecker = Future<bool> Function();
@@ -27,7 +28,7 @@ class AccountRepository implements AccountRepositoryContract {
     AccountApiService? apiService,
     AuthenticatedApiClient? authenticatedApiClient,
     AccountConnectivityChecker? connectivityChecker,
-    this.consentVersion = 'pipl-v1',
+    this.consentVersion = currentAccountConsentVersion,
   }) : _localStore = localStore,
        _practiceRepository = practiceRepository,
        _apiService = apiService,
@@ -151,26 +152,9 @@ class AccountRepository implements AccountRepositoryContract {
       );
       await _localStore.write(snapshot);
 
-      final accepted = await _runAuthenticated(
-        session: snapshot.session!,
-        send: (accessToken) => api.acceptConsent(
-          accessToken: accessToken,
-          consentVersion: consentVersion,
-        ),
-      );
-      snapshot = snapshot.copyWith(
-        session: accepted.session,
-        clearLastVisibleError: true,
-        clearUpgradeUrl: true,
-        lastSyncAt: accepted.value.updatedAt,
-      );
-      await _localStore.write(snapshot);
-
-      await refreshRuntimeState(
-        trigger: AccountRuntimeTrigger.loginSuccess,
-        seedSnapshot: snapshot,
-        forceBootstrap: true,
-      );
+      // Consent is a user action, not an authentication side effect. The
+      // caller must invoke [acceptConsent] after the current policy version
+      // has been shown and explicitly checked.
       return const AccountSignInCompletion.authenticated();
     } on AuthenticatedApiClientException catch (error) {
       final snapshot = await _handleAuthenticatedFailure(
@@ -1007,6 +991,76 @@ class AccountRepository implements AccountRepositoryContract {
     final prefix = digits.substring(0, 3);
     final suffix = digits.substring(digits.length - 4);
     return '$prefix****$suffix';
+  }
+}
+
+/// Explicit consent operation kept as an extension so test doubles that
+/// implement [AccountRepository] do not gain a new mandatory method.
+/// Production code obtains this method from the concrete repository instance
+/// after the user has checked the current policy version.
+extension AccountRepositoryConsent on AccountRepository {
+  /// Records explicit acceptance of the currently displayed policy version,
+  /// then resumes the authenticated bootstrap/sync path.
+  Future<AccountLocalSnapshot> acceptConsent({String? version}) async {
+    final requestedVersion = (version ?? consentVersion).trim();
+    if (requestedVersion.isEmpty || requestedVersion != consentVersion) {
+      throw ArgumentError.value(version, 'version', '必须接受当前账号同意版本。');
+    }
+
+    final current = await _readSnapshotSafely();
+    final session = current.session;
+    final api = _apiService;
+    if (session == null) {
+      throw StateError('接受账号同意前必须先完成验证码认证。');
+    }
+    if (api == null) {
+      // Placeholder/local repositories have no remote consent endpoint. The
+      // explicit UI action still gates this transition; there is simply no
+      // network call to make.
+      return current;
+    }
+
+    try {
+      final accepted = await _runAuthenticated(
+        session: session,
+        send: (accessToken) => api.acceptConsent(
+          accessToken: accessToken,
+          consentVersion: requestedVersion,
+        ),
+      );
+      var snapshot = current.copyWith(
+        session: accepted.session,
+        consentState: AccountConsentState.acceptedPendingSync,
+        clearLastVisibleError: true,
+        clearUpgradeUrl: true,
+        lastSyncPhase: 'consent_accepted',
+        lastSyncAt: accepted.value.updatedAt,
+      );
+      await _localStore.write(snapshot);
+      snapshot = await refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.loginSuccess,
+        seedSnapshot: snapshot,
+        forceBootstrap: true,
+      );
+      return snapshot;
+    } on AuthenticatedApiClientException catch (error) {
+      final snapshot = await _handleAuthenticatedFailure(
+        currentSnapshot: current,
+        error: error,
+        phasePrefix: 'consent_accept_failed',
+      );
+      await _localStore.write(snapshot);
+      rethrow;
+    } on AccountApiException catch (error) {
+      final snapshot = await _handleApiFailure(
+        currentSnapshot: current,
+        error: error,
+        phasePrefix: 'consent_accept_failed',
+        preserveSession: true,
+      );
+      await _localStore.write(snapshot);
+      rethrow;
+    }
   }
 }
 

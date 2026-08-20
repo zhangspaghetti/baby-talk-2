@@ -165,6 +165,10 @@ class SettingsRepository {
 
   final SettingsLocalDataSource _localDataSource;
 
+  /// Exposes the lifecycle-owned store so the app clearance registry can
+  /// delete it without creating a second Isar instance.
+  SettingsLocalDataSource get localDataSource => _localDataSource;
+
   /// Reads the persisted settings, falling back to defaults on first launch.
   Future<SettingsSnapshot> readSettings() async {
     try {

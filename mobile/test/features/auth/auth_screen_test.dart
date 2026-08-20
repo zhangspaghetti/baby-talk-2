@@ -328,6 +328,7 @@ void main() {
     expect(find.byKey(const Key('auth-code-field')), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('auth-code-field')), '246810');
+    await tester.tap(find.byType(Checkbox));
     await tester.tap(find.byKey(const Key('auth-submit-button')));
     await tester.pumpAndSettle();
 
@@ -627,6 +628,7 @@ void main() {
 
     final pending = notifier.submitChallengeSignIn(
       purpose: AccountChallengePurpose.login,
+      acceptedConsent: true,
     );
     await Future<void>.delayed(Duration.zero);
     notifier.clearSignInChallenge();
@@ -742,6 +744,7 @@ void main() {
         find.byKey(const Key('auth-code-field')),
         '000000',
       );
+      await tester.tap(find.byType(Checkbox));
       await tester.tap(find.byKey(const Key('auth-submit-button')));
       await tester.pump();
 

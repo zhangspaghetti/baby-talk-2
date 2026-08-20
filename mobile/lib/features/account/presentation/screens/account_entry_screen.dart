@@ -207,6 +207,42 @@ Future<void> _confirmReturnToLocalOnly(
       .clearSession(revertToLocalOnly: true);
 }
 
+Future<void> _showAccountPolicy(
+  BuildContext context, {
+  required bool privacy,
+}) async {
+  final l = AppLocalizations.of(context)!;
+  final title = privacy ? l.discoverPrivacyPolicy : l.discoverTermsOfService;
+  final key = Key(privacy ? 'account-privacy-dialog' : 'account-terms-dialog');
+  final body = privacy
+      ? '隐私协议版本 $currentAccountConsentVersion\n\n'
+            '我们只会在你明确同意后，把账号同步所需的资料和练习记录发送到服务端。'
+            '手机号、设备标识和练习内容会按最小必要范围处理；你可以在账号页撤回同意、'
+            '删除账号或清除本机保留数据。'
+      : '服务条款版本 $currentAccountConsentVersion\n\n'
+            '你可以先在本机使用 BabyTalk；登录并明确同意后，才会启用账号同步、家庭照护'
+            '和跨设备恢复。请在继续前阅读并确认你理解这些边界。';
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      key: key,
+      title: Text(title),
+      content: SingleChildScrollView(child: Text(body)),
+      actions: [
+        TextButton(
+          key: Key(
+            privacy
+                ? 'account-privacy-dialog-close'
+                : 'account-terms-dialog-close',
+          ),
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: Text(l.close),
+        ),
+      ],
+    ),
+  );
+}
+
 class AccountStatusCard extends ConsumerWidget {
   const AccountStatusCard({
     super.key,
@@ -547,6 +583,92 @@ class _AccountEntrySection extends StatelessWidget {
   }
 }
 
+class _AccountConsentSection extends StatelessWidget {
+  const _AccountConsentSection({
+    required this.accepted,
+    required this.onChanged,
+    required this.onOpenTerms,
+    required this.onOpenPrivacy,
+  });
+
+  final bool accepted;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onOpenTerms;
+  final VoidCallback onOpenPrivacy;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final colors = context.appColors;
+    final theme = Theme.of(context);
+    return Semantics(
+      container: true,
+      checked: accepted,
+      label: '登录前明确同意当前版本服务条款和隐私协议',
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Checkbox(
+            key: const Key('account-consent-checkbox'),
+            value: accepted,
+            onChanged: (value) => onChanged(value ?? false),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(l.discoverTermsPrefix, style: theme.textTheme.bodySmall),
+                  TextButton(
+                    key: const Key('account-terms-button'),
+                    onPressed: onOpenTerms,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      l.discoverTermsOfService,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.accent,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  Text('和', style: theme.textTheme.bodySmall),
+                  TextButton(
+                    key: const Key('account-privacy-button'),
+                    onPressed: onOpenPrivacy,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      l.discoverPrivacyPolicy,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.accent,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '（版本 $currentAccountConsentVersion）',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class AccountEntryScreen extends HookConsumerWidget {
   const AccountEntryScreen({
     super.key,
@@ -559,6 +681,7 @@ class AccountEntryScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final phoneController = useTextEditingController();
     final codeController = useTextEditingController();
+    final acceptedConsent = useState(false);
 
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
@@ -566,6 +689,12 @@ class AccountEntryScreen extends HookConsumerWidget {
     final notifier = ref.watch(accountNotifierProvider);
     final householdRepository = ref.watch(householdRepositoryProvider);
     final phase = resolveAccountPhase(notifier);
+    useEffect(() {
+      if (notifier.isRevoked || notifier.isSignedOut || notifier.isLocalOnly) {
+        acceptedConsent.value = false;
+      }
+      return null;
+    }, [notifier.snapshot.consentState]);
     final helperBody = _accountBodyForPhase(l, phase, null, notifier);
     final showSubmissionMessage =
         notifier.submissionMessage != null &&
@@ -750,6 +879,20 @@ class AccountEntryScreen extends HookConsumerWidget {
                                     style: theme.textTheme.bodySmall,
                                   ),
                                   const SizedBox(height: 16),
+                                  _AccountConsentSection(
+                                    accepted: acceptedConsent.value,
+                                    onChanged: (value) =>
+                                        acceptedConsent.value = value,
+                                    onOpenTerms: () => _showAccountPolicy(
+                                      context,
+                                      privacy: false,
+                                    ),
+                                    onOpenPrivacy: () => _showAccountPolicy(
+                                      context,
+                                      privacy: true,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
                                   FilledButton(
                                     key: const Key('account-submit-button'),
                                     onPressed: notifier.isBusy
@@ -761,7 +904,12 @@ class AccountEntryScreen extends HookConsumerWidget {
                                                   accountNotifierProvider
                                                       .notifier,
                                                 )
-                                                .submitSignIn();
+                                                .submitSignIn(
+                                                  acceptedConsent:
+                                                      acceptedConsent.value,
+                                                  consentVersion:
+                                                      currentAccountConsentVersion,
+                                                );
                                             if (!context.mounted ||
                                                 !succeeded) {
                                               return;
