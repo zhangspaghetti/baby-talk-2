@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from html import unescape
 import json
 import re
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ElementTree
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
 from urllib.error import HTTPError, URLError
@@ -36,6 +38,7 @@ _SYNTHETIC_REFERENCE = re.compile(r"^qa-[a-z0-9][a-z0-9-]{5,127}$")
 _ANDROID_SERIAL = re.compile(r"^[A-Za-z0-9._:-]{3,128}$")
 _ANDROID_PACKAGE = re.compile(r"^[a-zA-Z][A-Za-z0-9_]*(?:\.[a-zA-Z][A-Za-z0-9_]*)+$")
 _ANDROID_VERSION = re.compile(r"^[0-9]+(?:\.[0-9]+){0,3}$")
+_APP_VERSION = re.compile(r"^[0-9]+(?:\.[0-9]+){0,3}$")
 _TOP_LEVEL_KEYS = {"schema_version", "candidate", "android_device", "synthetic_identities", "cases"}
 _SYNTHETIC_KEYS = {"primary_account_ref", "caregiver_account_ref", "idempotent_event_id"}
 _CASE_KEYS = {"id", "runner"}
@@ -53,6 +56,9 @@ _RECEIPT_KEYS = {
 }
 _EVIDENCE_KEYS = {"server", "adb", "user_visible"}
 _SCENARIO_TIMEOUT_SECONDS = 30
+_UI_READY_TIMEOUT_SECONDS = 12
+_NOTIFICATION_DELIVERY_TIMEOUT_SECONDS = 210
+_ADB_VIEW_INTENT_ATTEMPTS = 2
 _QA_VERIFICATION_CODE = "246810"
 _QA_CONSENT_VERSION = "pipl-v1"
 _QA_PHONE_PREFIX = "139"
@@ -62,6 +68,11 @@ _TRUSTED_QA_GATEWAY_HOSTS = frozenset(
 _SECRET_RESPONSE_KEY = re.compile(
     r"(?:access|refresh)?token|password|phone|authorization|sessionid|challengeid",
     re.IGNORECASE,
+)
+_UI_DUMP_REMOTE_PATH = "/sdcard/babytalk_qa_uiautomator.xml"
+_INVALID_INVITE_URI = (
+    "babytalk://invite/open?token=bad*"
+    "&source=invite_link&role=caregiver"
 )
 
 
@@ -113,6 +124,9 @@ class CaseExecutionContext:
     # deliberately not read from the environment so a runner cannot drift to
     # another device halfway through a case.
     device_serial: str = ""
+    # Read from the installed manifest-bound package. Never sourced from the
+    # candidate manifest or environment.
+    app_version: str = ""
 
 
 @dataclass(frozen=True)
@@ -123,6 +137,7 @@ class AndroidDeviceEvidence:
     package_id: str | None
     install_stdout_sha256: str | None
     install_stderr_sha256: str | None
+    app_version: str | None = None
 
     @classmethod
     def passing(
@@ -131,6 +146,7 @@ class AndroidDeviceEvidence:
         serial: str,
         android_version: str,
         package_id: str,
+        app_version: str = "",
         install_stdout: str = "",
         install_stderr: str = "",
     ) -> AndroidDeviceEvidence:
@@ -141,6 +157,7 @@ class AndroidDeviceEvidence:
             package_id=package_id,
             install_stdout_sha256=_text_sha256(install_stdout),
             install_stderr_sha256=_text_sha256(install_stderr),
+            app_version=app_version,
         )
 
     @classmethod
@@ -166,6 +183,7 @@ class AndroidDeviceEvidence:
             "package_id": self.package_id,
             "install_stdout_sha256": self.install_stdout_sha256,
             "install_stderr_sha256": self.install_stderr_sha256,
+            "app_version": self.app_version,
         }
         return {key: value for key, value in values.items() if value is not None}
 
@@ -324,7 +342,11 @@ def collect_android_device_evidence(*, apk: Path, device: dict[str, str]) -> And
 
     android_version = run_device_command(["adb", "-s", serial, "shell", "getprop", "ro.build.version.release"])
     package_path = run_device_command(["adb", "-s", serial, "shell", "pm", "path", package_id])
+    installed_package = run_device_command(["adb", "-s", serial, "shell", "dumpsys", "package", package_id])
     version = android_version.stdout.strip()
+    app_version = _parse_installed_app_version(installed_package.stdout)
+    if installed_package.exit_code != 0 or app_version is None:
+        return AndroidDeviceEvidence.blocked()
     if (
         android_version.exit_code != 0
         or package_path.exit_code != 0
@@ -341,9 +363,18 @@ def collect_android_device_evidence(*, apk: Path, device: dict[str, str]) -> And
         serial=serial,
         android_version=version,
         package_id=package_id,
+        app_version=app_version,
         install_stdout=install.stdout,
         install_stderr=install.stderr,
     )
+
+
+def _parse_installed_app_version(output: str) -> str | None:
+    matches = re.findall(r"(?m)^\s*versionName=([^\s\r\n]+)\s*$", output)
+    if len(matches) != 1:
+        return None
+    version = matches[0]
+    return version if _APP_VERSION.fullmatch(version) else None
 
 
 def _case_execution_context(
@@ -357,6 +388,8 @@ def _case_execution_context(
         device_evidence.device_identity_sha256 is None
         or device_evidence.android_version is None
         or device_evidence.package_id is None
+        or device_evidence.app_version is None
+        or not _APP_VERSION.fullmatch(device_evidence.app_version)
     ):
         raise ValueError("passing device evidence is incomplete")
     return CaseExecutionContext(
@@ -368,6 +401,7 @@ def _case_execution_context(
         android_version=device_evidence.android_version,
         identity_fingerprints=identity_fingerprints,
         device_serial=device["serial"],
+        app_version=device_evidence.app_version,
     )
 
 
@@ -410,9 +444,9 @@ def collect_case_evidence(
     ):
         return None
 
-    ui_dump = run_device_command(["adb", "-s", serial, "shell", "uiautomator", "dump", "/dev/tty"])
+    ui_dump = _dump_ui(context)
     screenshot = _run_binary_command(["adb", "-s", serial, "exec-out", "screencap", "-p"])
-    if ui_dump.exit_code != 0 or screenshot.exit_code != 0 or not screenshot.stdout:
+    if screenshot.exit_code != 0 or not screenshot.stdout:
         return None
 
     adb_state = "\n".join(
@@ -426,7 +460,7 @@ def collect_case_evidence(
         )
     )
     try:
-        user_visible = _case_user_visible_projection(case_id, ui_dump.stdout)
+        user_visible = _case_user_visible_projection(case_id, ui_dump)
     except _ScenarioBlocked:
         return None
     return CaseEvidence(
@@ -488,7 +522,8 @@ def _collect_case_business_result(
         session: _QaSession | None = None
         try:
             session = _authenticate_fixed_identity(context, "primary_account_ref")
-            event_key = _stable_event_key(context, session.installation_id)
+            attempted_event_key = _stable_event_key(context, session.installation_id)
+            attempted_local_event_id = attempted_event_key.rsplit(":", 1)[-1]
             bootstrap = _require_json_object(
                 _scenario_json_request(
                     context=context,
@@ -499,18 +534,11 @@ def _collect_case_business_result(
                 ),
                 statuses=(200,),
             )
-            events = bootstrap.get("events")
-            matching = [
-                event
-                for event in events
-                if isinstance(event, dict) and event.get("eventKey") == event_key
-            ] if isinstance(events, list) else []
-            if bootstrap.get("eventCount") != 1 or len(matching) != 1:
-                raise _ScenarioBlocked("independent sync projection is unavailable")
+            event = _require_idempotent_bootstrap_event(bootstrap, attempted_local_event_id)
             return {
                 "projection": "idempotent_sync_v1",
                 "eventCount": 1,
-                "eventKeySha256": _text_sha256(event_key),
+                "eventKeySha256": _text_sha256(_required_string(event, "eventKey")),
             }
         finally:
             _logout_fixed_identity(context, session)
@@ -657,8 +685,13 @@ def _scenario_json_request(
         raise _ScenarioBlocked("fixed scenario path is invalid")
     if not _is_trusted_gateway_url(context.gateway_url):
         raise _ScenarioBlocked("gateway is not in the fixed QA trust boundary")
+    if not _APP_VERSION.fullmatch(context.app_version):
+        raise _ScenarioBlocked("installed app version is unavailable")
     body = None if payload is None else json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    headers = {"Accept": "application/json"}
+    headers = {
+        "Accept": "application/json",
+        "X-App-Version": context.app_version,
+    }
     if body is not None:
         headers["Content-Type"] = "application/json"
     if access_token:
@@ -720,6 +753,22 @@ def _safe_invite_url(value: str) -> str:
     return value
 
 
+def _server_invite_deep_link(invite_url: str, token: str) -> str:
+    """Convert one validated server invite into the app's fixed URI scheme."""
+    safe_url = _safe_invite_url(invite_url)
+    clean_token = token.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{12,64}", clean_token):
+        raise _ScenarioBlocked("server returned an unsafe invite token")
+    server_token = urlsplit(safe_url).path.rstrip("/").rsplit("/", 1)[-1]
+    if server_token != clean_token:
+        raise _ScenarioBlocked("server invite URL token mismatch")
+    return (
+        "babytalk://invite/open?token="
+        f"{quote(clean_token, safe='')}"
+        "&source=invite_link&role=caregiver"
+    )
+
+
 def _stable_synthetic_phone(fingerprint: str) -> str:
     if not _SHA256.fullmatch(fingerprint):
         raise _ScenarioBlocked("synthetic identity fingerprint is invalid")
@@ -743,6 +792,52 @@ def _stable_event_key(context: CaseExecutionContext, installation_id: str | None
     ).hexdigest()
     installation = installation_id or _stable_installation_id(context, event_fingerprint)
     return f"{installation}:evt-{digest[:40]}"
+
+
+def _require_idempotent_bootstrap_event(
+    bootstrap: dict[str, object],
+    attempted_local_event_id: str,
+) -> dict[str, object]:
+    """Require one server event with its projected installation reference."""
+    if bootstrap.get("eventCount") != 1:
+        raise _ScenarioBlocked("independent sync projection is unavailable")
+    events = bootstrap.get("events")
+    projected_installation_id = bootstrap.get("installationId")
+    if (
+        not isinstance(events, list)
+        or len(events) != 1
+        or not isinstance(projected_installation_id, str)
+        or not projected_installation_id.strip()
+    ):
+        raise _ScenarioBlocked("independent sync projection is unavailable")
+
+    matching: list[dict[str, object]] = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        event_key = event.get("eventKey")
+        event_local_event_id = event.get("localEventId")
+        event_installation_id = event.get("installationId")
+        if not all(
+            isinstance(value, str)
+            for value in (event_key, event_local_event_id, event_installation_id)
+        ):
+            continue
+        try:
+            wire_installation_id, wire_local_event_id = event_key.rsplit(":", 1)
+        except ValueError:
+            continue
+        if (
+            event_installation_id == projected_installation_id
+            and wire_installation_id == projected_installation_id
+            and event_local_event_id == attempted_local_event_id
+            and wire_local_event_id == attempted_local_event_id
+        ):
+            matching.append(event)
+
+    if len(matching) != 1:
+        raise _ScenarioBlocked("independent sync projection is unavailable")
+    return matching[0]
 
 
 def _authenticate_fixed_identity(
@@ -820,18 +915,129 @@ def _run_device_step(context: CaseExecutionContext, arguments: list[str]) -> str
     return result.stdout
 
 
+def _is_safe_invite_intent_uri(value: str) -> bool:
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme != "babytalk"
+        or parsed.hostname != "invite"
+        or parsed.path != "/open"
+        or parsed.username
+        or parsed.password
+        or parsed.fragment
+    ):
+        return False
+    query_parts = parsed.query.split("&") if parsed.query else []
+    if len(query_parts) != 3 or any("=" not in part for part in query_parts):
+        return False
+    query = dict(part.split("=", 1) for part in query_parts)
+    if set(query) != {"token", "source", "role"}:
+        return False
+    return (
+        bool(re.fullmatch(r"[A-Za-z0-9_-]{12,64}", query["token"]))
+        and query["source"] == "invite_link"
+        and query["role"] == "caregiver"
+    )
+
+
+def _run_view_intent(context: CaseExecutionContext, uri: str) -> str:
+    """Send one fixed VIEW intent, retrying only bounded ADB transport failures."""
+    if uri != _INVALID_INVITE_URI and not _is_safe_invite_intent_uri(uri):
+        raise _ScenarioBlocked("fixed invite intent is unsafe")
+    arguments = [
+        "shell",
+        "am",
+        "start",
+        "-W",
+        "-a",
+        "android.intent.action.VIEW",
+        "-d",
+        uri,
+    ]
+    last_error: _ScenarioBlocked | None = None
+    for _ in range(_ADB_VIEW_INTENT_ATTEMPTS):
+        try:
+            return _run_device_step(context, arguments)
+        except _ScenarioBlocked as error:
+            last_error = error
+    raise last_error or _ScenarioBlocked("fixed invite intent could not start")
+
+
 def _launch_app(context: CaseExecutionContext) -> None:
+    # Every fixed scenario starts from a cold MainActivity. This prevents a
+    # previous case's settings/about/practice route from changing which label
+    # the next allow-listed tap resolves.
+    _run_device_step(context, ["shell", "am", "force-stop", context.package_id])
     _run_device_step(
         context,
         ["shell", "am", "start", "-W", "-n", f"{context.package_id}/.MainActivity"],
     )
+def _require_ui_label(context: CaseExecutionContext, labels: tuple[str, ...]) -> str:
+    """Require one allow-listed semantic label on the current user surface."""
+    return _find_ui_label(context, labels, wait_seconds=_UI_READY_TIMEOUT_SECONDS)
+
+
+def _navigate_to_reminder_controls(context: CaseExecutionContext) -> None:
+    """Cold-start and enter reminder settings through fixed semantic labels."""
+    _launch_app(context)
+    _tap_ui_label(context, ("我", "我的", "Me"), wait_seconds=_UI_READY_TIMEOUT_SECONDS)
+    _tap_ui_label(
+        context,
+        ("提醒设置", "每日提醒", "Reminder settings", "Daily reminder"),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    )
+    _require_ui_label(
+        context,
+        ("每日提醒", "提醒设置", "Daily reminder", "Reminder settings"),
+    )
+
+
+def _navigate_to_care_controls(context: CaseExecutionContext) -> None:
+    """Cold-start and enter one care activity before audio assertions."""
+    _launch_app(context)
+    _tap_ui_label(context, ("场景", "Scenes", "练习", "Practice"))
+    _tap_ui_label(
+        context,
+        ("现在说一句", "Say one sentence", "Speak now", "Continue this activity"),
+    )
+    _require_ui_label(
+        context,
+        (
+            "暂停",
+            "暂停音频",
+            "播放音频",
+            "听一下",
+            "Pause",
+            "Play audio",
+        ),
+    )
 
 
 def _dump_ui(context: CaseExecutionContext) -> str:
-    output = _run_device_step(context, ["shell", "uiautomator", "dump", "/dev/tty"])
-    if "<hierarchy" not in output:
-        raise _ScenarioBlocked("fixed scenario did not expose user-visible UI")
-    return output
+    remote_path = _UI_DUMP_REMOTE_PATH
+    try:
+        _run_device_step(context, ["shell", "uiautomator", "dump", remote_path])
+        result = _run_binary_command(
+            ["adb", "-s", context.device_serial, "exec-out", "cat", remote_path]
+        )
+        if result.exit_code != 0 or not result.stdout:
+            raise _ScenarioBlocked("fixed scenario did not expose user-visible UI")
+        try:
+            xml = result.stdout.decode("utf-8")
+            root = ElementTree.fromstring(xml)
+        except (UnicodeDecodeError, ElementTree.ParseError):
+            raise _ScenarioBlocked("fixed scenario did not expose user-visible UI") from None
+        if root.tag != "hierarchy":
+            raise _ScenarioBlocked("fixed scenario did not expose user-visible UI")
+        return xml
+    finally:
+        if context.device_serial and _ANDROID_SERIAL.fullmatch(context.device_serial):
+            try:
+                run_device_command(
+                    ["adb", "-s", context.device_serial, "shell", "rm", "-f", remote_path]
+                )
+            except Exception:
+                # Cleanup is best effort and must not hide scenario evidence failures.
+                pass
 
 
 def _parse_ui_nodes(xml: str) -> list[dict[str, str]]:
@@ -839,7 +1045,7 @@ def _parse_ui_nodes(xml: str) -> list[dict[str, str]]:
     for match in re.finditer(r"<node\b([^>]*)>", xml):
         attributes = {
             key: value
-            for key, value in re.findall(r'(\w+)="([^"]*)"', match.group(1))
+            for key, value in re.findall(r'([\w-]+)="([^"]*)"', match.group(1))
         }
         bounds = attributes.get("bounds", "")
         coordinates = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
@@ -891,44 +1097,149 @@ def _case_user_visible_projection(case_id: str, xml: str) -> dict[str, object]:
     raise _ScenarioBlocked("case user-visible projection is not allow-listed")
 
 
-def _tap_ui_label(context: CaseExecutionContext, labels: tuple[str, ...]) -> str:
-    xml = _dump_ui(context)
-    for node in _parse_ui_nodes(xml):
-        visible = (node.get("text", "") + " " + node.get("content-desc", "")).strip()
-        if any(label == visible or label in visible for label in labels):
-            if "center_x" not in node or "center_y" not in node:
-                continue
-            _run_device_step(
-                context,
-                [
-                    "shell",
-                    "input",
-                    "tap",
-                    node["center_x"],
-                    node["center_y"],
-                ],
+def _find_ui_label(
+    context: CaseExecutionContext,
+    labels: tuple[str, ...],
+    *,
+    wait_seconds: float = 0,
+) -> str:
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        for node in _parse_ui_nodes(_dump_ui(context)):
+            visible = unescape(
+                (node.get("text", "") + " " + node.get("content-desc", "")).strip()
             )
-            return visible
-    raise _ScenarioBlocked("fixed scenario user control is unavailable")
+            if any(label == visible or label in visible for label in labels):
+                return visible
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("fixed scenario user control is unavailable")
+        time.sleep(0.5)
+
+
+def _tap_ui_label(
+    context: CaseExecutionContext,
+    labels: tuple[str, ...],
+    *,
+    wait_seconds: float = 0,
+) -> str:
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        for node in _parse_ui_nodes(_dump_ui(context)):
+            if node.get("clickable", "true").lower() == "false":
+                continue
+            visible = unescape(
+                (node.get("text", "") + " " + node.get("content-desc", "")).strip()
+            )
+            if (
+                any(label == visible or label in visible for label in labels)
+                and "center_x" in node
+                and "center_y" in node
+            ):
+                _run_device_step(
+                    context,
+                    ["shell", "input", "tap", node["center_x"], node["center_y"]],
+                )
+                return visible
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("fixed scenario user control is unavailable")
+        time.sleep(0.5)
 
 
 def _tap_ui_class(context: CaseExecutionContext, class_suffix: str) -> None:
     xml = _dump_ui(context)
     for node in _parse_ui_nodes(xml):
         if node.get("class", "").endswith(class_suffix) and "center_x" in node and "center_y" in node:
-            _run_device_step(
-                context,
-                ["shell", "input", "tap", node["center_x"], node["center_y"]],
-            )
+            _tap_ui_node(context, node)
             return
     raise _ScenarioBlocked("fixed scenario switch/control is unavailable")
+
+
+def _tap_ui_class_at(
+    context: CaseExecutionContext,
+    class_suffix: str,
+    index: int,
+    *,
+    wait_seconds: float = _UI_READY_TIMEOUT_SECONDS,
+) -> None:
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        matches = [
+            node
+            for node in _parse_ui_nodes(_dump_ui(context))
+            if node.get("class", "").endswith(class_suffix)
+            and node.get("clickable", "true").lower() != "false"
+        ]
+        if index < len(matches):
+            _tap_ui_node(context, matches[index])
+            return
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("fixed scenario user control is unavailable")
+        time.sleep(0.5)
+
+
+def _replace_focused_text(context: CaseExecutionContext, value: str) -> None:
+    if not re.fullmatch(r"[0-9]{1,16}", value):
+        raise _ScenarioBlocked("fixed scenario input is invalid")
+    _run_device_step(context, ["shell", "input", "keyevent", "123"])
+    for _ in range(16):
+        _run_device_step(context, ["shell", "input", "keyevent", "67"])
+    _run_device_step(context, ["shell", "input", "text", value])
+
+
+def _sign_in_apk_identity(context: CaseExecutionContext, identity_key: str) -> None:
+    """Create a persisted APK session through the same visible auth UI as a user."""
+    fingerprint = context.identity_fingerprints.get(identity_key)
+    if fingerprint is None:
+        raise _ScenarioBlocked("synthetic deep-link recipient is missing")
+
+    def run_stage(stage: str, action: Callable[[], object]) -> object:
+        try:
+            return action()
+        except _ScenarioBlocked as error:
+            raise _ScenarioBlocked(f"deep-link sign-in {stage}: {error}") from error
+
+    _launch_app(context)
+    run_stage(
+        "me",
+        lambda: _tap_ui_label(context, ("我", "我的", "Me"), wait_seconds=_UI_READY_TIMEOUT_SECONDS),
+    )
+    run_stage(
+        "account",
+        lambda: _tap_ui_label(
+            context,
+            ("登录后同步数据", "登录", "Sign in"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        ),
+    )
+    run_stage("phone_field", lambda: _tap_ui_class_at(context, "EditText", 0))
+    run_stage("phone_value", lambda: _replace_focused_text(context, _stable_synthetic_phone(fingerprint)))
+    run_stage("code_field", lambda: _tap_ui_class_at(context, "EditText", 1))
+    run_stage("code_value", lambda: _replace_focused_text(context, _QA_VERIFICATION_CODE))
+    run_stage("close_keyboard", lambda: _run_device_step(context, ["shell", "input", "keyevent", "4"]))
+    run_stage("consent", lambda: _tap_ui_class_at(context, "CheckBox", 0))
+    run_stage(
+        "submit",
+        lambda: _tap_ui_label(
+            context,
+            ("登录并同意", "Sign in and agree"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        ),
+    )
+    run_stage(
+        "confirmed",
+        lambda: _find_ui_label(
+            context,
+            ("已登录", "退出登录", "Account settings", "账号设置"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        ),
+    )
 
 
 def _verify_installed_candidate_identity(context: CaseExecutionContext) -> bool:
     """Read the immutable candidate ID from the installed APK's About UI."""
     _launch_app(context)
     try:
-        _tap_ui_label(context, ("我的", "Me"))
+        _tap_ui_label(context, ("我的", "我", "Me"))
     except _ScenarioBlocked:
         # The app may already be inside the settings subtree.
         pass
@@ -939,13 +1250,16 @@ def _verify_installed_candidate_identity(context: CaseExecutionContext) -> bool:
     _tap_ui_label(context, ("关于 BabyTalk",))
     nodes = _parse_ui_nodes(_dump_ui(context))
     visible = [
-        (node.get("text", "") + " " + node.get("content-desc", "")).strip()
+        unescape((node.get("text", "") + " " + node.get("content-desc", "")).strip())
         for node in nodes
     ]
-    if "关于 BabyTalk" not in visible or "候选 ID" not in visible:
+    if not any("关于 BabyTalk" in value for value in visible):
         raise _ScenarioBlocked("installed APK About identity is unavailable")
-    label_index = visible.index("候选 ID")
-    values = [value for value in visible[label_index + 1 : label_index + 4] if value]
+    flattened = [line.strip() for value in visible for line in value.splitlines() if line.strip()]
+    if "候选 ID" not in flattened:
+        raise _ScenarioBlocked("installed APK candidate ID value is unavailable")
+    label_index = flattened.index("候选 ID")
+    values = flattened[label_index + 1 : label_index + 4]
     if not values:
         raise _ScenarioBlocked("installed APK candidate ID value is unavailable")
     return values[0] == context.candidate_id
@@ -969,11 +1283,26 @@ def _alarm_has_daily_reminder(output: str, package_id: str) -> bool:
 
 def _alarm_proves_daily_reminder_delivery(output: str, package_id: str) -> bool:
     normalized = output.lower()
+    history_count = re.search(
+        r"(?:deliverycount|count|delivered)\s*[=:]\s*[1-9]\d*",
+        normalized,
+    )
+    # Android 15's `dumpsys alarm` does not expose a per-PendingIntent
+    # delivery counter. Once an inexact repeating RTC alarm has fired, it
+    # retains the scheduled `origWhen` while reporting a negative elapsed
+    # trigger; pair that system transition with an exact newly-posted
+    # NotificationRecord below before accepting the case.
+    due_repeating_alarm = re.search(
+        re.escape(package_id.lower())
+        + r"[\s\S]{0,360}dailyreminderreceiver[\s\S]{0,360}"
+        + r"type=rtc_wakeup[\s\S]{0,360}whenelapsed=-\d",
+        normalized,
+    )
     return bool(
         package_id.lower() in normalized
         and "dailyreminderreceiver" in normalized
-        and re.search(r"(?:deliverycount|count|delivered)\s*[=:]\s*[1-9]\d*", normalized)
-        and any(marker in normalized for marker in ("recent", "history", "wakeup"))
+        and (history_count or due_repeating_alarm)
+        and any(marker in normalized for marker in ("history", "wakeup"))
     )
 
 
@@ -1021,6 +1350,7 @@ def _runner_case_evidence(context: CaseExecutionContext, case_id: str) -> CaseEv
         serial=context.device_serial,
         android_version=context.android_version,
         package_id=context.package_id,
+        app_version=context.app_version,
     )
     if device_evidence.device_identity_sha256 != context.device_identity_sha256:
         raise _ScenarioBlocked("fixed scenario device identity changed")
@@ -1112,20 +1442,26 @@ def _run_idempotent_account_sync(context: CaseExecutionContext) -> CaseCommandRe
             ),
             statuses=(200,),
         )
-        events = bootstrap.get("events")
-        if (
-            first.get("acceptedCount") != 1
-            or first.get("duplicateCount") != 0
-            or retry.get("acceptedCount") != 0
-            or retry.get("duplicateCount") != 1
-            or first.get("acceptedEventKeys") != [event_key]
-            or retry.get("duplicateEventKeys") != [event_key]
-            or bootstrap.get("eventCount") != 1
-            or not isinstance(events, list)
-            or len(events) != 1
-            or not isinstance(events[0], dict)
-            or events[0].get("eventKey") != event_key
-        ):
+        _require_idempotent_bootstrap_event(bootstrap, local_event_id)
+        first_created = (
+            first.get("acceptedCount") == 1
+            and first.get("duplicateCount") == 0
+            and first.get("acceptedEventKeys") == [event_key]
+        )
+        first_already_persisted = (
+            first.get("acceptedCount") == 0
+            and first.get("duplicateCount") == 1
+            and first.get("duplicateEventKeys") == [event_key]
+        )
+        retry_is_duplicate = (
+            retry.get("acceptedCount") == 0
+            and retry.get("duplicateCount") == 1
+            and retry.get("duplicateEventKeys") == [event_key]
+        )
+        # A frozen manifest intentionally reuses one event identity. A second
+        # acceptance run must prove that exact persisted event remains a
+        # duplicate rather than failing merely because a prior run created it.
+        if not (first_created or first_already_persisted) or not retry_is_duplicate:
             raise _ScenarioBlocked("server did not prove idempotent sync")
         _launch_app(context)
         if not _dump_ui(context).strip():
@@ -1136,7 +1472,7 @@ def _run_idempotent_account_sync(context: CaseExecutionContext) -> CaseCommandRe
             {
                 "external_user_behavior_observed": True,
                 "server_observable_observed": True,
-                "first_write_status": "accepted",
+                "first_write_status": "accepted" if first_created else "already_persisted",
                 "retry_status": "duplicate",
                 "server_event_count": 1,
             },
@@ -1205,24 +1541,54 @@ def _run_two_account_household(context: CaseExecutionContext) -> CaseCommandResu
         household_id = _required_string(invite, "householdId")
         if profile.get("babyProfileId") is None:
             raise _ScenarioBlocked("profile did not initialize household context")
-        accepted = _require_json_object(
-            _scenario_json_request(
-                context=context,
-                method="POST",
-                path="/api/v1/caregiver-invites/accept",
-                payload={"token": token, "source": "household_settings"},
-                access_token=caregiver.access_token,
-            ),
-            statuses=(200,),
+        acceptance_response = _scenario_json_request(
+            context=context,
+            method="POST",
+            path="/api/v1/caregiver-invites/accept",
+            payload={"token": token, "source": "household_settings"},
+            access_token=caregiver.access_token,
         )
-        shared = accepted.get("sharedContext")
-        if (
-            accepted.get("householdId") != household_id
-            or accepted.get("role") != "caregiver"
-            or not isinstance(shared, dict)
-            or shared.get("householdId") != household_id
-        ):
-            raise _ScenarioBlocked("two-account invite acceptance was not shared safely")
+        if acceptance_response.status_code == 200:
+            accepted = _require_json_object(acceptance_response, statuses=(200,))
+            shared = accepted.get("sharedContext")
+            if (
+                accepted.get("householdId") != household_id
+                or accepted.get("role") != "caregiver"
+                or not isinstance(shared, dict)
+                or shared.get("householdId") != household_id
+            ):
+                raise _ScenarioBlocked("two-account invite acceptance was not shared safely")
+        elif acceptance_response.status_code == 409:
+            # A frozen synthetic recipient can already be a member after an
+            # earlier acceptance run. Prove it remains isolated to the same
+            # household, then remove this run's otherwise-unused invite.
+            existing_shared = _require_json_object(
+                _scenario_json_request(
+                    context=context,
+                    method="GET",
+                    path="/api/v1/household/shared-context",
+                    access_token=caregiver.access_token,
+                ),
+                statuses=(200,),
+            )
+            if (
+                existing_shared.get("householdId") != household_id
+                or existing_shared.get("role") != "caregiver"
+            ):
+                raise _ScenarioBlocked("existing caregiver membership was not isolated")
+            unused_invite = _require_json_object(
+                _scenario_json_request(
+                    context=context,
+                    method="POST",
+                    path=f"/api/v1/caregiver-invites/{quote(token, safe='')}/revoke",
+                    access_token=primary.access_token,
+                ),
+                statuses=(200,),
+            )
+            if unused_invite.get("applied") is not True:
+                raise _ScenarioBlocked("existing caregiver invite cleanup failed")
+        else:
+            raise _ScenarioBlocked(f"fixed scenario HTTP status {acceptance_response.status_code}")
         second_invite = _require_json_object(
             _scenario_json_request(
                 context=context,
@@ -1285,33 +1651,133 @@ def _run_two_account_household(context: CaseExecutionContext) -> CaseCommandResu
         _logout_fixed_identity(context, primary)
 
 
+def _tap_ui_node(context: CaseExecutionContext, node: dict[str, str]) -> None:
+    if "center_x" not in node or "center_y" not in node:
+        raise _ScenarioBlocked("fixed scenario user control is unavailable")
+    x = node["center_x"]
+    if node.get("class", "").endswith("Switch"):
+        bounds = node.get("bounds", "")
+        match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
+        if match is None:
+            raise _ScenarioBlocked("fixed scenario switch geometry is unavailable")
+        left, _, right, _ = (int(part) for part in match.groups())
+        if right - left < 48:
+            raise _ScenarioBlocked("fixed scenario switch geometry is unavailable")
+        # Flutter exposes a card-sized semantics bound for Switch. Its thumb is
+        # at the trailing edge; a card-center tap does not toggle it.
+        x = str(right - max(48, (right - left) // 10))
+    _run_device_step(
+        context,
+        ["shell", "input", "tap", x, node["center_y"]],
+    )
+
+
+def _device_clock_time(context: CaseExecutionContext) -> tuple[int, int]:
+    value = _run_device_step(context, ["shell", "date", "+%H:%M"]).strip()
+    match = re.fullmatch(r"([01]\d|2[0-3]):([0-5]\d)", value)
+    if match is None:
+        raise _ScenarioBlocked("Android clock is unavailable")
+    return int(match.group(1)), int(match.group(2))
+
+
+def _set_time_picker_value(context: CaseExecutionContext, index: int, value: int) -> None:
+    edit_fields = [
+        node
+        for node in _parse_ui_nodes(_dump_ui(context))
+        if node.get("class", "").endswith("EditText")
+        and node.get("clickable", "true").lower() != "false"
+    ]
+    if len(edit_fields) != 2 or index not in (0, 1):
+        raise _ScenarioBlocked("Android time picker fields are unavailable")
+    _tap_ui_node(context, edit_fields[index])
+    _run_device_step(context, ["shell", "input", "keyevent", "123"])
+    for _ in range(4):
+        _run_device_step(context, ["shell", "input", "keyevent", "67"])
+    _run_device_step(context, ["shell", "input", "text", str(value)])
+
+
+def _schedule_near_term_daily_reminder(context: CaseExecutionContext) -> None:
+    hour, minute = _device_clock_time(context)
+    target = datetime(2000, 1, 1, hour, minute) + timedelta(minutes=3)
+    target_hour = target.hour
+    target_minute = target.minute
+    hour_on_clock = target_hour % 12 or 12
+
+    switches = [
+        node
+        for node in _parse_ui_nodes(_dump_ui(context))
+        if node.get("class", "").endswith("Switch")
+    ]
+    if len(switches) != 1:
+        raise _ScenarioBlocked("Android reminder switch is unavailable")
+    if switches[0].get("checked", "false").lower() != "true":
+        _tap_ui_node(context, switches[0])
+        _allow_notification_permission_if_prompted(context)
+        _find_ui_label(
+            context,
+            ("提醒时间", "Reminder time"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        )
+
+    _tap_ui_label(context, ("修改时间", "Change time"), wait_seconds=_UI_READY_TIMEOUT_SECONDS)
+    _tap_ui_label(
+        context,
+        ("切换到文本输入模式", "Switch to text input mode"),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    )
+    _set_time_picker_value(context, 0, hour_on_clock)
+    _set_time_picker_value(context, 1, target_minute)
+    _tap_ui_label(
+        context,
+        ("上午", "AM") if target_hour < 12 else ("下午", "PM"),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    )
+    _tap_ui_label(context, ("确定", "OK"), wait_seconds=_UI_READY_TIMEOUT_SECONDS)
+
+
+def _allow_notification_permission_if_prompted(context: CaseExecutionContext) -> None:
+    try:
+        _tap_ui_label(context, ("允许", "Allow"), wait_seconds=5)
+    except _ScenarioBlocked:
+        # Android < 13, previously granted, or already denied permission.
+        return
+
+
+def _wait_for_notification_delivery(
+    context: CaseExecutionContext,
+    *,
+    not_before_epoch_ms: int,
+) -> None:
+    deadline = time.monotonic() + _NOTIFICATION_DELIVERY_TIMEOUT_SECONDS
+    scheduler_observed = False
+    while True:
+        alarm_state = _dumpsys(context, "alarm")
+        scheduler_observed = scheduler_observed or _alarm_has_daily_reminder(
+            alarm_state,
+            context.package_id,
+        )
+        notification_state = _dumpsys(context, "notification", "--noredact")
+        if (
+            scheduler_observed
+            and _alarm_proves_daily_reminder_delivery(alarm_state, context.package_id)
+            and _notification_is_posted(
+                notification_state,
+                context.package_id,
+                not_before_epoch_ms=not_before_epoch_ms,
+            )
+        ):
+            return
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("Android reminder delivery was not observable")
+        time.sleep(1)
+
+
 def _run_android_notification(context: CaseExecutionContext) -> CaseCommandResult:
-    _launch_app(context)
+    _navigate_to_reminder_controls(context)
+    _schedule_near_term_daily_reminder(context)
     scenario_started_epoch_ms = int(time.time() * 1000)
-    try:
-        _tap_ui_label(context, ("提醒设置", "每日提醒"))
-    except _ScenarioBlocked:
-        _tap_ui_label(context, ("我的", "Me"))
-        _tap_ui_label(context, ("提醒设置", "每日提醒"))
-    _tap_ui_class(context, "Switch")
-    try:
-        _tap_ui_label(context, ("允许", "Allow"))
-    except _ScenarioBlocked:
-        # Android < 13, or an already-granted permission, has no dialog.
-        pass
-    alarm_state = _dumpsys(context, "alarm")
-    if not _alarm_has_daily_reminder(alarm_state, context.package_id):
-        raise _ScenarioBlocked("Android scheduler did not expose daily reminder")
-    delivery_state = _dumpsys(context, "alarm")
-    if not _alarm_proves_daily_reminder_delivery(delivery_state, context.package_id):
-        raise _ScenarioBlocked("AlarmManager has not actually delivered the reminder")
-    notification_state = _dumpsys(context, "notification", "--noredact")
-    if not _notification_is_posted(
-        notification_state,
-        context.package_id,
-        not_before_epoch_ms=scenario_started_epoch_ms,
-    ):
-        raise _ScenarioBlocked("Android notification was not observable")
+    _allow_notification_permission_if_prompted(context)
+    _wait_for_notification_delivery(context, not_before_epoch_ms=scenario_started_epoch_ms)
     _tap_ui_class(context, "Switch")
     cancelled_state = _dumpsys(context, "alarm")
     if _alarm_has_daily_reminder(cancelled_state, context.package_id):
@@ -1331,23 +1797,33 @@ def _run_android_notification(context: CaseExecutionContext) -> CaseCommandResul
 
 
 def _run_android_audio(context: CaseExecutionContext) -> CaseCommandResult:
-    _launch_app(context)
-    _tap_ui_label(context, ("场景", "Scenes", "练习"))
-    one_x_seconds = _measure_audio_duration(context, ("1.0x", "1x", "倍速"))
-    two_x_seconds = _measure_audio_duration(context, ("2.0x", "2x", "倍速"))
+    def run_stage(stage: str, action: Callable[[], object]) -> object:
+        try:
+            return action()
+        except _ScenarioBlocked as error:
+            raise _ScenarioBlocked(f"android audio {stage}: {error}") from error
+
+    run_stage("configure_1x", lambda: _configure_audio_playback(context, speed=1.0))
+    run_stage("care_controls_1x", lambda: _navigate_to_care_controls(context))
+    one_x_seconds = run_stage("measure_1x", lambda: _measure_audio_duration(context))
+    run_stage("configure_2x", lambda: _configure_audio_playback(context, speed=2.0))
+    run_stage("care_controls_2x", lambda: _navigate_to_care_controls(context))
+    two_x_seconds = run_stage("measure_2x", lambda: _measure_audio_duration(context))
+    if not isinstance(one_x_seconds, float) or not isinstance(two_x_seconds, float):
+        raise _ScenarioBlocked("android audio duration measurement is invalid")
     # A speed label alone is not proof of playback policy. Require a material
     # duration change from the same device-observed playback surface.
     if two_x_seconds >= one_x_seconds * 0.8:
         raise _ScenarioBlocked("audio speed effect was not observed")
-    _tap_ui_label(context, ("暂停", "Pause"))
+    run_stage("pause", lambda: _tap_ui_label(context, ("暂停", "Pause")))
     paused_state = _dumpsys(context, "media_session")
     if _audio_state_is_playing(paused_state, context.package_id):
         raise _ScenarioBlocked("audio pause state was not observed")
-    _tap_ui_label(context, ("继续", "Resume", "播放"))
+    run_stage("resume", lambda: _tap_ui_label(context, ("继续", "Resume", "播放")))
     resumed_state = _dumpsys(context, "media_session")
     if not _audio_state_is_playing(resumed_state, context.package_id):
         raise _ScenarioBlocked("audio resume state was not observed")
-    _tap_ui_label(context, ("重播", "Replay", "再来一次"))
+    run_stage("replay", lambda: _tap_ui_label(context, ("重播", "Replay", "再来一次")))
     replayed_state = _dumpsys(context, "media_session")
     if not _audio_state_is_playing(replayed_state, context.package_id):
         raise _ScenarioBlocked("audio replay state was not observed")
@@ -1376,9 +1852,56 @@ def _audio_state_is_playing(output: str, package_id: str) -> bool:
     )
 
 
-def _measure_audio_duration(context: CaseExecutionContext, speed_labels: tuple[str, ...]) -> float:
-    _tap_ui_label(context, speed_labels)
-    _tap_ui_label(context, ("播放", "听一遍", "播放音频"))
+def _configure_audio_playback(context: CaseExecutionContext, *, speed: float) -> None:
+    if speed not in {1.0, 2.0}:
+        raise _ScenarioBlocked("fixed audio speed is invalid")
+    _launch_app(context)
+    _tap_ui_label(context, ("我", "我的", "Me"), wait_seconds=_UI_READY_TIMEOUT_SECONDS)
+    _tap_ui_label(context, ("设置", "Settings"), wait_seconds=_UI_READY_TIMEOUT_SECONDS)
+    _tap_ui_label(
+        context,
+        ("播放偏好", "Playback preferences"),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    )
+    switches = [
+        node
+        for node in _parse_ui_nodes(_dump_ui(context))
+        if node.get("class", "").endswith("Switch")
+    ]
+    if len(switches) != 1:
+        raise _ScenarioBlocked("audio autoplay control is unavailable")
+    if switches[0].get("checked", "false").lower() == "true":
+        _tap_ui_node(context, switches[0])
+
+    sliders = [
+        node
+        for node in _parse_ui_nodes(_dump_ui(context))
+        if node.get("class", "").endswith(("SeekBar", "Slider"))
+    ]
+    if len(sliders) != 1:
+        raise _ScenarioBlocked("audio speed slider is unavailable")
+    bounds = sliders[0].get("bounds", "")
+    match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
+    if match is None:
+        raise _ScenarioBlocked("audio speed slider geometry is unavailable")
+    left, top, right, bottom = (int(part) for part in match.groups())
+    fraction = (speed - 0.5) / 1.5
+    x = round(left + (right - left) * fraction)
+    y = (top + bottom) // 2
+    _run_device_step(context, ["shell", "input", "tap", str(x), str(y)])
+    _find_ui_label(
+        context,
+        (f"{speed:.1f}x",),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    )
+
+
+def _measure_audio_duration(context: CaseExecutionContext) -> float:
+    _tap_ui_label(
+        context,
+        ("播放音频", "播放", "听一遍", "Play audio", "重播", "Replay"),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    )
     started_at: float | None = None
     for _ in range(100):
         state = _dumpsys(context, "media_session")
@@ -1406,77 +1929,34 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
             ),
             statuses=(201,),
         )
-        _safe_invite_url(_required_string(invite, "inviteUrl"))
-        invite_token = quote(_required_string(invite, "token"), safe="")
-        invite_uri = (
-            f"babytalk://invite/open?token={invite_token}"
-            "&source=invite_link&role=caregiver"
+        invite_uri = _server_invite_deep_link(
+            _required_string(invite, "inviteUrl"),
+            _required_string(invite, "token"),
         )
+        try:
+            _sign_in_apk_identity(context, "idempotent_event_id")
+        except _ScenarioBlocked as error:
+            raise _ScenarioBlocked(f"android deep-link recipient_sign_in: {error}") from error
         _run_device_step(context, ["shell", "am", "force-stop", context.package_id])
-        _run_device_step(
-            context,
-            [
-                "shell",
-                "am",
-                "start",
-                "-W",
-                "-a",
-                "android.intent.action.VIEW",
-                "-d",
-                invite_uri,
-                "-n",
-                f"{context.package_id}/.MainActivity",
-            ],
-        )
-        cold_ui = _dump_ui(context)
+        _run_view_intent(context, invite_uri)
+        cold_ui = _wait_for_deep_link_surface(context, valid=True)
         cold_activity = _dumpsys(context, "activity", "activities")
         if not _deep_link_intent_is_active(cold_activity, context.package_id):
             raise _ScenarioBlocked("cold-start invite intent delivery was not observable")
-        if not _deep_link_valid_destination_is_visible(cold_ui, foreground=False):
+        if not _deep_link_valid_destination_is_visible(cold_ui):
             raise _ScenarioBlocked("cold-start invite destination was not visible")
-        _launch_app(context)
-        _run_device_step(
-            context,
-            [
-                "shell",
-                "am",
-                "start",
-                "-W",
-                "-a",
-                "android.intent.action.VIEW",
-                "-d",
-                invite_uri,
-                "-n",
-                f"{context.package_id}/.MainActivity",
-            ],
-        )
-        foreground_ui = _dump_ui(context)
+        # Do not restart between duplicate intents: product deduplication is
+        # process-scoped and a restart would test a new delivery instead.
+        _run_view_intent(context, invite_uri)
+        foreground_ui = _wait_for_deep_link_surface(context, valid=True)
         foreground_activity = _dumpsys(context, "activity", "activities")
         if not _deep_link_intent_is_active(foreground_activity, context.package_id):
             raise _ScenarioBlocked("foreground invite intent delivery was not observable")
-        if not _deep_link_valid_destination_is_visible(foreground_ui, foreground=True):
+        if not _deep_link_valid_destination_is_visible(foreground_ui):
             raise _ScenarioBlocked("foreground invite destination was not visible")
-        invalid_uri = (
-            "babytalk://invite/open?token=bad*"
-            "&source=invite_link&role=caregiver"
-        )
         _run_device_step(context, ["shell", "am", "force-stop", context.package_id])
-        _run_device_step(
-            context,
-            [
-                "shell",
-                "am",
-                "start",
-                "-W",
-                "-a",
-                "android.intent.action.VIEW",
-                "-d",
-                invalid_uri,
-                "-n",
-                f"{context.package_id}/.MainActivity",
-            ],
-        )
-        invalid_ui = _dump_ui(context)
+        _run_view_intent(context, _INVALID_INVITE_URI)
+        invalid_ui = _wait_for_deep_link_surface(context, valid=False)
         invalid_activity = _dumpsys(context, "activity", "activities")
         if not _deep_link_intent_is_active(invalid_activity, context.package_id):
             raise _ScenarioBlocked("invalid invite intent delivery was not observable")
@@ -1506,10 +1986,35 @@ def _deep_link_intent_is_active(output: str, package_id: str) -> bool:
     )
 
 
-def _deep_link_valid_destination_is_visible(xml: str, *, foreground: bool) -> bool:
-    exact_markers = {"邀请已接受，正在进入共享练习。"}
-    if foreground:
-        exact_markers.add("重复照护邀请链接已忽略。")
+def _wait_for_deep_link_surface(context: CaseExecutionContext, *, valid: bool) -> str:
+    deadline = time.monotonic() + _UI_READY_TIMEOUT_SECONDS
+    while True:
+        xml = _dump_ui(context)
+        visible = (
+            _deep_link_valid_destination_is_visible(xml)
+            if valid
+            else _deep_link_invalid_fallback_is_visible(xml)
+        )
+        if visible:
+            return xml
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("deep-link user-visible destination was not available")
+        time.sleep(0.5)
+
+
+def _deep_link_valid_destination_is_visible(xml: str) -> bool:
+    exact_markers = {
+        "播放音频",
+        "重播",
+        "暂停",
+        "Play audio",
+        "Replay",
+        "Pause",
+        "现在说一句",
+        "Say one sentence",
+        "Speak now",
+        "Continue this activity",
+    }
     visible = {
         (node.get("text", "") + " " + node.get("content-desc", "")).strip()
         for node in _parse_ui_nodes(xml)
@@ -1765,14 +2270,24 @@ def _valid_case_evidence(value: object) -> bool:
 
 
 def _valid_observations(case_id: str, observations: dict[str, object]) -> bool:
+    if case_id == "idempotent_account_sync":
+        return observations in (
+            {
+                "external_user_behavior_observed": True,
+                "server_observable_observed": True,
+                "first_write_status": "accepted",
+                "retry_status": "duplicate",
+                "server_event_count": 1,
+            },
+            {
+                "external_user_behavior_observed": True,
+                "server_observable_observed": True,
+                "first_write_status": "already_persisted",
+                "retry_status": "duplicate",
+                "server_event_count": 1,
+            },
+        )
     required: dict[str, dict[str, object]] = {
-        "idempotent_account_sync": {
-            "external_user_behavior_observed": True,
-            "server_observable_observed": True,
-            "first_write_status": "accepted",
-            "retry_status": "duplicate",
-            "server_event_count": 1,
-        },
         "two_account_household": {
             "external_user_behavior_observed": True,
             "server_observable_observed": True,
