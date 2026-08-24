@@ -47,6 +47,11 @@ class DailyReminderReceiver : BroadcastReceiver() {
         } catch (_: SecurityException) {
             // Notification permission can be revoked after scheduling.
         }
+        // The scheduling API is intentionally one-shot so a near-term reminder
+        // is not deferred into the broad window used by inexact repeats. Keep
+        // the user-selected daily cadence by scheduling the next occurrence
+        // only after this receiver has run.
+        scheduleDailyReminder(context, current.hour, current.minute)
     }
 
     companion object {

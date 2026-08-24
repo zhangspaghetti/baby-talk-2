@@ -128,10 +128,11 @@ class MainActivity : FlutterActivity() {
 }
 
 /**
- * Schedules the next wall-clock occurrence in the device timezone.
+ * Schedules one wall-clock occurrence in the device timezone.
  *
- * Inexact repeating alarms avoid `SCHEDULE_EXACT_ALARM`, which keeps the
- * capability available on Android 10 and later without a special-access gate.
+ * The receiver schedules the following day after delivery. A one-shot
+ * allow-while-idle alarm keeps an imminent reminder eligible for delivery
+ * without requiring the `SCHEDULE_EXACT_ALARM` special-access gate.
  */
 fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) {
     if (!isValidReminderTime(hour, minute)) {
@@ -153,10 +154,9 @@ fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) {
     ) ?: error("无法创建每日提醒 PendingIntent。")
     val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
     alarmManager.cancel(pending)
-    alarmManager.setInexactRepeating(
+    alarmManager.setAndAllowWhileIdle(
         AlarmManager.RTC_WAKEUP,
         calendar.timeInMillis,
-        AlarmManager.INTERVAL_DAY,
         pending,
     )
     context.getSharedPreferences(REMINDER_PREFS_NAME, Context.MODE_PRIVATE)
