@@ -29,7 +29,9 @@ class AuthScreen extends HookConsumerWidget {
     final colors = context.appColors;
     final notifier = ref.watch(accountNotifierProvider);
     final mode = useState(AuthMode.codeLogin);
-    final contactController = useTextEditingController();
+    final contactController = useTextEditingController(
+      text: notifier.phoneNumber,
+    );
     final codeController = useTextEditingController();
 
     final captchaPassed = useState(false);

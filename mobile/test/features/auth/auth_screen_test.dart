@@ -344,6 +344,83 @@ void main() {
     expect(notifier.snapshot.lastSyncPhase, 'sync_idle_no_pending');
   });
 
+  testWidgets(
+    'reopening auth route preserves pending challenge phone for verification',
+    (tester) async {
+      final repository = _ChallengeAccountRepository();
+      final notifier = AccountNotifier(
+        repository: repository,
+        challengeRepository: repository,
+      );
+      addTearDown(notifier.dispose);
+      late BuildContext hostContext;
+      AccountEntryResult? returnedResult;
+
+      await _pumpAuth(
+        tester,
+        notifier: notifier,
+        home: Builder(
+          builder: (context) {
+            hostContext = context;
+            return Scaffold(
+              body: FilledButton(
+                onPressed: () async {
+                  returnedResult = await Navigator.of(context)
+                      .push<AccountEntryResult>(
+                        MaterialPageRoute(
+                          builder: (_) => const AuthScreen(
+                            origin: AccountEntryOrigin.customSceneContinuation,
+                          ),
+                        ),
+                      );
+                },
+                child: const Text('open auth'),
+              ),
+            );
+          },
+        ),
+      );
+
+      await tester.tap(find.text('open auth'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('auth-contact-field')),
+        '13800138000',
+      );
+      await tester.tap(find.text('获取验证码'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('模拟验证通过'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.hasSignInChallenge, isTrue);
+      Navigator.of(hostContext).pop();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('open auth'));
+      await tester.pumpAndSettle();
+
+      final contactField = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const Key('auth-contact-field')),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(contactField.controller?.text, '13800138000');
+      expect(find.byKey(const Key('auth-code-field')), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('auth-code-field')),
+        '246810',
+      );
+      await tester.tap(find.byType(Checkbox));
+      await tester.tap(find.byKey(const Key('auth-submit-button')));
+      await tester.pumpAndSettle();
+
+      expect(repository.completeCalls, 1);
+      expect(returnedResult, AccountEntryResult.signedIn);
+    },
+  );
+
   test(
     'challenge purpose, reuse, forced resend and expiry are explicit',
     () async {

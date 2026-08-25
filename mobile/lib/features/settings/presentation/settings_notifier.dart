@@ -41,6 +41,7 @@ class SettingsNotifier extends ChangeNotifier {
   SettingsSnapshot _snapshot = const SettingsSnapshot();
   BabyProfileProjection? _remoteProfile;
   bool _remoteProfileAvailable = false;
+  Future<void>? _accountProfileRefresh;
   String? _errorMessage;
 
   // --- Getters ---
@@ -82,7 +83,24 @@ class SettingsNotifier extends ChangeNotifier {
   /// Refreshes the account-backed profile and reprojects its confirmed
   /// name/age into local settings. Local settings remain an offline
   /// projection; a failed refresh never invents a remote success.
-  Future<void> refreshAccountProfile() async {
+  Future<void> refreshAccountProfile() {
+    final running = _accountProfileRefresh;
+    if (running != null) {
+      return running;
+    }
+
+    final refresh = _refreshAccountProfile();
+    late final Future<void> tracked;
+    tracked = refresh.whenComplete(() {
+      if (identical(_accountProfileRefresh, tracked)) {
+        _accountProfileRefresh = null;
+      }
+    });
+    _accountProfileRefresh = tracked;
+    return tracked;
+  }
+
+  Future<void> _refreshAccountProfile() async {
     final remote = _babyProfileRepository;
     if (remote == null) {
       return;
@@ -191,14 +209,19 @@ class SettingsNotifier extends ChangeNotifier {
     String? stage,
   }) async {
     final remote = _babyProfileRepository;
-    if (remote != null && _remoteProfileAvailable) {
-      await _updateAccountBabyProfile(
-        remote,
-        name: name,
-        ageMonths: ageMonths,
-        stage: stage,
-      );
-      return;
+    if (remote != null) {
+      if (!_remoteProfileAvailable) {
+        await refreshAccountProfile();
+      }
+      if (_remoteProfileAvailable) {
+        await _updateAccountBabyProfile(
+          remote,
+          name: name,
+          ageMonths: ageMonths,
+          stage: stage,
+        );
+        return;
+      }
     }
     await _update(
       (s) => s.copyWith(
