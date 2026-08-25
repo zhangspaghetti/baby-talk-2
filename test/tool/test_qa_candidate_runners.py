@@ -545,6 +545,27 @@ class QaCandidateRunnerTest(unittest.TestCase):
             ("播放音频", "重播", "听一下", "现在说一句"),
         )
 
+    def test_apk_sign_in_returns_from_care_turn_before_opening_me(self) -> None:
+        with patch.object(harness, "_launch_app"), patch.object(
+            harness,
+            "_tap_ui_label",
+            side_effect=(
+                harness._ScenarioBlocked("me is hidden by care turn"),
+                "返回",
+                "我",
+                "登录后同步数据",
+                "登录并同意",
+            ),
+        ) as tap, patch.object(harness, "_tap_ui_class_at"), patch.object(
+            harness, "_replace_focused_text"
+        ), patch.object(harness, "_run_device_step"), patch.object(
+            harness, "_find_ui_label", return_value="已登录"
+        ):
+            harness._sign_in_apk_identity(_context(), "idempotent_event_id")
+
+        self.assertEqual(tap.call_args_list[1].args[1], ("返回", "Back"))
+        self.assertEqual(tap.call_args_list[2].args[1], ("我", "我的", "Me"))
+
     def test_deep_link_runner_blocks_generic_invite_words(self) -> None:
         primary = _session("primary")
         responses = iter(

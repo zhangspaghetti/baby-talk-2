@@ -1194,10 +1194,29 @@ def _sign_in_apk_identity(context: CaseExecutionContext, identity_key: str) -> N
             raise _ScenarioBlocked(f"deep-link sign-in {stage}: {error}") from error
 
     _launch_app(context)
-    run_stage(
-        "me",
-        lambda: _tap_ui_label(context, ("我", "我的", "Me"), wait_seconds=_UI_READY_TIMEOUT_SECONDS),
-    )
+    try:
+        _tap_ui_label(
+            context,
+            ("我", "我的", "Me"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        )
+    except _ScenarioBlocked as me_error:
+        try:
+            _tap_ui_label(
+                context,
+                ("返回", "Back"),
+                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+            )
+        except _ScenarioBlocked:
+            raise _ScenarioBlocked(f"deep-link sign-in me: {me_error}") from me_error
+        run_stage(
+            "me",
+            lambda: _tap_ui_label(
+                context,
+                ("我", "我的", "Me"),
+                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+            ),
+        )
     run_stage(
         "account",
         lambda: _tap_ui_label(
