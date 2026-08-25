@@ -777,6 +777,21 @@ def _stable_synthetic_phone(fingerprint: str) -> str:
     return f"{_QA_PHONE_PREFIX}{suffix:08d}"
 
 
+def _fresh_deep_link_recipient_fingerprint(
+    context: CaseExecutionContext,
+    invite_token: str,
+) -> str:
+    """Bind one isolated invite recipient to this server-issued invite only."""
+    seed = context.identity_fingerprints.get("idempotent_event_id")
+    if seed is None or not _SHA256.fullmatch(seed):
+        raise _ScenarioBlocked("synthetic deep-link recipient is missing")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{12,64}", invite_token):
+        raise _ScenarioBlocked("server returned an unsafe invite token")
+    return hashlib.sha256(
+        f"{context.candidate_id}|{context.package_id}|{seed}|{invite_token}".encode("utf-8")
+    ).hexdigest()
+
+
 def _stable_installation_id(context: CaseExecutionContext, fingerprint: str) -> str:
     digest = hashlib.sha256(
         f"{context.candidate_id}|{context.package_id}|{fingerprint}".encode("utf-8")
@@ -848,6 +863,15 @@ def _authenticate_fixed_identity(
     fingerprint = context.identity_fingerprints.get(identity_key)
     if fingerprint is None:
         raise _ScenarioBlocked(f"synthetic identity {identity_key} is missing")
+    return _authenticate_synthetic_fingerprint(context, fingerprint)
+
+
+def _authenticate_synthetic_fingerprint(
+    context: CaseExecutionContext,
+    fingerprint: str,
+) -> _QaSession:
+    if not _SHA256.fullmatch(fingerprint):
+        raise _ScenarioBlocked("synthetic identity fingerprint is invalid")
     installation_id = _stable_installation_id(context, fingerprint)
     challenge = _require_json_object(
         _scenario_json_request(
@@ -1140,6 +1164,70 @@ def _tap_ui_label(
         time.sleep(0.5)
 
 
+def _tap_signed_in_account_card(context: CaseExecutionContext) -> None:
+    """Open the signed-in Me card without retaining its masked phone value."""
+    for node in _parse_ui_nodes(_dump_ui(context)):
+        if node.get("clickable", "true").lower() == "false":
+            continue
+        visible = unescape(
+            (node.get("text", "") + " " + node.get("content-desc", "")).strip()
+        )
+        if re.search(r"1\d{2}\*{4}\d{4}", visible) and "center_x" in node and "center_y" in node:
+            _tap_ui_node(context, node)
+            return
+    raise _ScenarioBlocked("fixed scenario signed-in account card is unavailable")
+
+
+def _tap_ui_label_after_scroll(
+    context: CaseExecutionContext,
+    labels: tuple[str, ...],
+    *,
+    scroll_attempts: int = 3,
+) -> str:
+    """Find one account action after bounded visible ScrollView movement."""
+    try:
+        return _tap_ui_label(context, labels, wait_seconds=0)
+    except _ScenarioBlocked:
+        pass
+    for _ in range(scroll_attempts):
+        scroll_view = next(
+            (
+                node
+                for node in _parse_ui_nodes(_dump_ui(context))
+                if node.get("class", "").endswith("ScrollView")
+                and "center_x" in node
+                and "bounds" in node
+            ),
+            None,
+        )
+        if scroll_view is None:
+            break
+        bounds = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", scroll_view["bounds"])
+        if bounds is None:
+            break
+        _, top, _, bottom = (int(value) for value in bounds.groups())
+        if bottom - top < 240:
+            break
+        _run_device_step(
+            context,
+            [
+                "shell",
+                "input",
+                "swipe",
+                scroll_view["center_x"],
+                str(bottom - 120),
+                scroll_view["center_x"],
+                str(top + 120),
+                "250",
+            ],
+        )
+        try:
+            return _tap_ui_label(context, labels, wait_seconds=2)
+        except _ScenarioBlocked:
+            continue
+    raise _ScenarioBlocked("fixed scenario user control is unavailable")
+
+
 def _tap_ui_class(context: CaseExecutionContext, class_suffix: str) -> None:
     xml = _dump_ui(context)
     for node in _parse_ui_nodes(xml):
@@ -1181,11 +1269,22 @@ def _replace_focused_text(context: CaseExecutionContext, value: str) -> None:
     _run_device_step(context, ["shell", "input", "text", value])
 
 
-def _sign_in_apk_identity(context: CaseExecutionContext, identity_key: str) -> None:
+def _sign_in_apk_identity(
+    context: CaseExecutionContext,
+    identity_key: str,
+    *,
+    recipient_fingerprint: str | None = None,
+) -> None:
     """Create a persisted APK session through the same visible auth UI as a user."""
-    fingerprint = context.identity_fingerprints.get(identity_key)
+    fingerprint = (
+        recipient_fingerprint
+        if recipient_fingerprint is not None
+        else context.identity_fingerprints.get(identity_key)
+    )
     if fingerprint is None:
         raise _ScenarioBlocked("synthetic deep-link recipient is missing")
+    if not _SHA256.fullmatch(fingerprint):
+        raise _ScenarioBlocked("synthetic deep-link recipient is invalid")
 
     def run_stage(stage: str, action: Callable[[], object]) -> object:
         try:
@@ -1217,14 +1316,64 @@ def _sign_in_apk_identity(context: CaseExecutionContext, identity_key: str) -> N
                 wait_seconds=_UI_READY_TIMEOUT_SECONDS,
             ),
         )
-    run_stage(
-        "account",
-        lambda: _tap_ui_label(
-            context,
-            ("登录后同步数据", "登录", "Sign in"),
-            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
-        ),
-    )
+    try:
+        account_entry = run_stage(
+            "account",
+            lambda: _tap_ui_label(
+                context,
+                ("登录后同步数据", "已用 ", "登录", "Sign in"),
+                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+            ),
+        )
+        has_signed_in_account = "已用 " in str(account_entry)
+    except _ScenarioBlocked:
+        run_stage("signed_in_account", lambda: _tap_signed_in_account_card(context))
+        has_signed_in_account = True
+    if has_signed_in_account:
+        run_stage(
+            "sign_out",
+            lambda: _tap_ui_label_after_scroll(
+                context,
+                ("退出为未登录", "Sign out", "Log out"),
+            ),
+        )
+        run_stage(
+            "sign_out_confirm",
+            lambda: _tap_ui_label(
+                context,
+                ("确认退出", "Confirm sign out", "Confirm log out"),
+                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+            ),
+        )
+        run_stage(
+            "signed_out",
+            lambda: _find_ui_label(
+                context,
+                (
+                    "账号入口已可见，但你还没有登录",
+                    "当前未登录账号",
+                    "Not signed in",
+                ),
+                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+            ),
+        )
+        _launch_app(context)
+        run_stage(
+            "me_after_sign_out",
+            lambda: _tap_ui_label(
+                context,
+                ("我", "我的", "Me"),
+                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+            ),
+        )
+        run_stage(
+            "account_after_sign_out",
+            lambda: _tap_ui_label(
+                context,
+                ("登录后同步数据", "登录", "Sign in"),
+                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+            ),
+        )
     run_stage("phone_field", lambda: _tap_ui_class_at(context, "EditText", 0))
     run_stage("phone_value", lambda: _replace_focused_text(context, _stable_synthetic_phone(fingerprint)))
     run_stage("code_field", lambda: _tap_ui_class_at(context, "EditText", 1))
@@ -1937,6 +2086,7 @@ def _measure_audio_duration(context: CaseExecutionContext) -> float:
 
 def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
     primary: _QaSession | None = None
+    recipient: _QaSession | None = None
     try:
         primary = _authenticate_fixed_identity(context, "primary_account_ref")
         _ensure_profile_for_household(context, primary)
@@ -1954,8 +2104,30 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
             _required_string(invite, "inviteUrl"),
             _required_string(invite, "token"),
         )
+        recipient = _authenticate_synthetic_fingerprint(
+            context,
+            _fresh_deep_link_recipient_fingerprint(
+                context,
+                _required_string(invite, "token"),
+            ),
+        )
+        pre_acceptance = _scenario_json_request(
+            context=context,
+            method="GET",
+            path="/api/v1/household/shared-context",
+            access_token=recipient.access_token,
+        )
+        if pre_acceptance.status_code != 403:
+            raise _ScenarioBlocked("deep-link recipient is not a fresh non-member")
         try:
-            _sign_in_apk_identity(context, "idempotent_event_id")
+            _sign_in_apk_identity(
+                context,
+                "idempotent_event_id",
+                recipient_fingerprint=_fresh_deep_link_recipient_fingerprint(
+                    context,
+                    _required_string(invite, "token"),
+                ),
+            )
         except _ScenarioBlocked as error:
             raise _ScenarioBlocked(f"android deep-link recipient_sign_in: {error}") from error
         _run_device_step(context, ["shell", "am", "force-stop", context.package_id])
@@ -1975,6 +2147,17 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
             raise _ScenarioBlocked("foreground invite intent delivery was not observable")
         if not _deep_link_valid_destination_is_visible(foreground_ui):
             raise _ScenarioBlocked("foreground invite destination was not visible")
+        recipient_shared_context = _require_json_object(
+            _scenario_json_request(
+                context=context,
+                method="GET",
+                path="/api/v1/household/shared-context",
+                access_token=recipient.access_token,
+            ),
+            statuses=(200,),
+        )
+        if _required_string(recipient_shared_context, "householdId") != _required_string(invite, "householdId"):
+            raise _ScenarioBlocked("deep-link recipient did not join the invited household")
         _run_device_step(context, ["shell", "am", "force-stop", context.package_id])
         _run_view_intent(context, _INVALID_INVITE_URI)
         invalid_ui = _wait_for_deep_link_surface(context, valid=False)
@@ -1991,10 +2174,13 @@ def _run_android_deep_link(context: CaseExecutionContext) -> CaseCommandResult:
                 "user_visible_result_observed": True,
                 "cold_start_destination_observed": True,
                 "foreground_destination_observed": True,
+                "recipient_pre_acceptance_non_member_observed": True,
+                "recipient_household_join_observed": True,
                 "invalid_link_message_observed": True,
             },
         )
     finally:
+        _logout_fixed_identity(context, recipient)
         _logout_fixed_identity(context, primary)
 
 
@@ -2334,6 +2520,8 @@ def _valid_observations(case_id: str, observations: dict[str, object]) -> bool:
             "user_visible_result_observed": True,
             "cold_start_destination_observed": True,
             "foreground_destination_observed": True,
+            "recipient_pre_acceptance_non_member_observed": True,
+            "recipient_household_join_observed": True,
             "invalid_link_message_observed": True,
         },
     }

@@ -738,6 +738,8 @@ def _receipts(manifest: dict[str, object]) -> dict[str, dict[str, object]]:
                 "user_visible_result_observed": True,
                 "cold_start_destination_observed": True,
                 "foreground_destination_observed": True,
+                "recipient_pre_acceptance_non_member_observed": True,
+                "recipient_household_join_observed": True,
                 "invalid_link_message_observed": True,
             },
         },

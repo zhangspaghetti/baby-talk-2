@@ -423,13 +423,17 @@ class QaCandidateRunnerTest(unittest.TestCase):
                         "inviteUrl": "https://babytalk.example.com/invite/qa-invite-123",
                     },
                 ),
+                harness._ScenarioHttpResponse(403, {"code": "role_not_allowed"}),
+                harness._ScenarioHttpResponse(200, {"householdId": "household-qa"}),
             )
         )
         with patch.object(harness, "_authenticate_fixed_identity", return_value=primary), patch.object(
+            harness, "_authenticate_synthetic_fingerprint", return_value=_session("recipient")
+        ), patch.object(
             harness, "_scenario_json_request", side_effect=lambda **_: next(responses)
         ), patch.object(
             harness, "_sign_in_apk_identity"
-        ), patch.object(harness, "_run_device_step"), patch.object(
+        ) as sign_in, patch.object(harness, "_run_device_step"), patch.object(
             harness,
             "_dump_ui",
             side_effect=(
@@ -452,21 +456,56 @@ class QaCandidateRunnerTest(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0)
         self.assertTrue(json.loads(result.stdout)["observations"]["cold_start_destination_observed"])
+        self.assertTrue(json.loads(result.stdout)["observations"]["recipient_pre_acceptance_non_member_observed"])
+        self.assertTrue(json.loads(result.stdout)["observations"]["recipient_household_join_observed"])
         self.assertTrue(json.loads(result.stdout)["observations"]["invalid_link_message_observed"])
+        self.assertEqual(
+            sign_in.call_args.kwargs["recipient_fingerprint"],
+            harness._fresh_deep_link_recipient_fingerprint(_context(), "qa-invite-123"),
+        )
+
+    def test_deep_link_runner_blocks_an_existing_household_member(self) -> None:
+        primary = _session("primary")
+        responses = iter(
+            (
+                harness._ScenarioHttpResponse(200, {"babyProfileId": "profile-qa"}),
+                harness._ScenarioHttpResponse(
+                    201,
+                    {
+                        "householdId": "household-qa",
+                        "token": "qa-invite-123",
+                        "inviteUrl": "https://babytalk.example.com/invite/qa-invite-123",
+                    },
+                ),
+                harness._ScenarioHttpResponse(200, {"householdId": "old-household"}),
+            )
+        )
+        with patch.object(harness, "_authenticate_fixed_identity", return_value=primary), patch.object(
+            harness, "_authenticate_synthetic_fingerprint", return_value=_session("recipient")
+        ), patch.object(
+            harness, "_scenario_json_request", side_effect=lambda **_: next(responses)
+        ), patch.object(harness, "_logout_fixed_identity"):
+            result = harness.run_case_command("android_deep_link", context=_context())
+
+        self.assertEqual(result.exit_code, 77)
+        self.assertEqual(result.stderr, "deep-link recipient is not a fresh non-member")
 
     def test_deep_link_runner_reports_safe_recipient_sign_in_stage(self) -> None:
         primary = _session("primary")
         with patch.object(harness, "_authenticate_fixed_identity", return_value=primary), patch.object(
-            harness, "_ensure_profile_for_household"
-        ), patch.object(
+            harness, "_authenticate_synthetic_fingerprint", return_value=_session("recipient")
+        ), patch.object(harness, "_ensure_profile_for_household"), patch.object(
             harness,
             "_scenario_json_request",
-            return_value=harness._ScenarioHttpResponse(
-                201,
-                {
-                    "inviteUrl": "https://babytalk.example.com/invite/qa-invite-123",
-                    "token": "qa-invite-123",
-                },
+            side_effect=(
+                harness._ScenarioHttpResponse(
+                    201,
+                    {
+                        "inviteUrl": "https://babytalk.example.com/invite/qa-invite-123",
+                        "token": "qa-invite-123",
+                    },
+                ),
+                harness._ScenarioHttpResponse(403, {"code": "role_not_allowed"}),
             ),
         ), patch.object(
             harness,
@@ -493,6 +532,17 @@ class QaCandidateRunnerTest(unittest.TestCase):
             ):
                 harness._sign_in_apk_identity(_context(), "idempotent_event_id")
 
+    def test_apk_sign_in_rejects_an_empty_explicit_recipient(self) -> None:
+        with self.assertRaisesRegex(
+            harness._ScenarioBlocked,
+            "synthetic deep-link recipient is invalid",
+        ):
+            harness._sign_in_apk_identity(
+                _context(),
+                "idempotent_event_id",
+                recipient_fingerprint="",
+            )
+
     def test_apk_sign_in_reaches_form_without_non_clickable_account_entry(self) -> None:
         with patch.object(harness, "_launch_app"), patch.object(
             harness, "_tap_ui_label", return_value="登录并同意"
@@ -505,7 +555,7 @@ class QaCandidateRunnerTest(unittest.TestCase):
             [call.args[1] for call in tap.call_args_list],
             [
                 ("我", "我的", "Me"),
-                ("登录后同步数据", "登录", "Sign in"),
+                ("登录后同步数据", "已用 ", "登录", "Sign in"),
                 ("登录并同意", "Sign in and agree"),
             ],
         )
@@ -566,6 +616,105 @@ class QaCandidateRunnerTest(unittest.TestCase):
         self.assertEqual(tap.call_args_list[1].args[1], ("返回", "Back"))
         self.assertEqual(tap.call_args_list[2].args[1], ("我", "我的", "Me"))
 
+    def test_apk_sign_in_replaces_a_residual_signed_in_account(self) -> None:
+        fresh_recipient = "f" * 64
+        with patch.object(harness, "_launch_app") as launch, patch.object(
+            harness,
+            "_tap_ui_label",
+            side_effect=(
+                "我",
+                "已用 masked account 登录并完成最近一次对齐",
+                "退出为未登录",
+                "确认退出",
+                "我",
+                "登录后同步数据",
+                "登录并同意",
+            ),
+        ) as tap, patch.object(harness, "_tap_ui_class_at"), patch.object(
+            harness, "_replace_focused_text"
+        ) as replace, patch.object(harness, "_run_device_step"), patch.object(
+            harness, "_find_ui_label", return_value="已登录"
+        ) as find:
+            harness._sign_in_apk_identity(
+                _context(),
+                "idempotent_event_id",
+                recipient_fingerprint=fresh_recipient,
+            )
+
+        self.assertEqual(launch.call_count, 2)
+        self.assertEqual(tap.call_args_list[2].args[1], ("退出为未登录", "Sign out", "Log out"))
+        self.assertEqual(tap.call_args_list[3].args[1], ("确认退出", "Confirm sign out", "Confirm log out"))
+        self.assertEqual(
+            replace.call_args_list[0].args[1],
+            harness._stable_synthetic_phone(fresh_recipient),
+        )
+        self.assertEqual(
+            find.call_args_list[0].args[1],
+            ("账号入口已可见，但你还没有登录", "当前未登录账号", "Not signed in"),
+        )
+
+    def test_apk_sign_in_opens_a_masked_account_card_when_its_label_is_absent(self) -> None:
+        fresh_recipient = "f" * 64
+        with patch.object(harness, "_launch_app") as launch, patch.object(
+            harness,
+            "_tap_ui_label",
+            side_effect=(
+                "我",
+                harness._ScenarioBlocked("fixed scenario user control is unavailable"),
+                "退出为未登录",
+                "确认退出",
+                "我",
+                "登录后同步数据",
+                "登录并同意",
+            ),
+        ), patch.object(harness, "_tap_signed_in_account_card") as account_card, patch.object(
+            harness, "_tap_ui_class_at"
+        ), patch.object(harness, "_replace_focused_text"), patch.object(
+            harness, "_run_device_step"
+        ), patch.object(harness, "_find_ui_label", return_value="已登录"):
+            harness._sign_in_apk_identity(
+                _context(),
+                "idempotent_event_id",
+                recipient_fingerprint=fresh_recipient,
+            )
+
+        account_card.assert_called_once_with(_context())
+        self.assertEqual(launch.call_count, 2)
+
+    def test_account_sign_out_scrolls_only_when_action_is_offscreen(self) -> None:
+        xml = (
+            '<hierarchy><node class="android.widget.ScrollView" '
+            'bounds="[0,300][1000,2000]"/></hierarchy>'
+        )
+        with patch.object(
+            harness,
+            "_tap_ui_label",
+            side_effect=(
+                harness._ScenarioBlocked("fixed scenario user control is unavailable"),
+                "退出为未登录",
+            ),
+        ), patch.object(harness, "_dump_ui", return_value=xml), patch.object(
+            harness, "_run_device_step"
+        ) as step:
+            value = harness._tap_ui_label_after_scroll(_context(), ("退出为未登录",))
+
+        self.assertEqual(value, "退出为未登录")
+        self.assertIn(
+            call(_context(), ["shell", "input", "swipe", "500", "1880", "500", "420", "250"]),
+            step.call_args_list,
+        )
+
+    def test_deep_link_recipient_fingerprint_is_invite_scoped(self) -> None:
+        first = harness._fresh_deep_link_recipient_fingerprint(
+            _context(), "qa-invite-123"
+        )
+        second = harness._fresh_deep_link_recipient_fingerprint(
+            _context(), "qa-invite-456"
+        )
+
+        self.assertRegex(first, r"^[a-f0-9]{64}$")
+        self.assertNotEqual(first, second)
+
     def test_deep_link_runner_blocks_generic_invite_words(self) -> None:
         primary = _session("primary")
         responses = iter(
@@ -579,9 +728,12 @@ class QaCandidateRunnerTest(unittest.TestCase):
                         "inviteUrl": "https://babytalk.example.com/invite/qa-invite-123",
                     },
                 ),
+                harness._ScenarioHttpResponse(403, {"code": "role_not_allowed"}),
             )
         )
         with patch.object(harness, "_authenticate_fixed_identity", return_value=primary), patch.object(
+            harness, "_authenticate_synthetic_fingerprint", return_value=_session("recipient")
+        ), patch.object(
             harness, "_scenario_json_request", side_effect=lambda **_: next(responses)
         ), patch.object(
             harness, "_sign_in_apk_identity"
