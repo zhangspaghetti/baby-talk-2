@@ -355,6 +355,9 @@ main() {
   stage 'mobile-format-baseline' 'MOBILE_FORMAT_BASE_REF=<merge-base> bash ci/mobile-format-changed.sh'
   MOBILE_FORMAT_BASE_REF="$MERGE_BASE_SHA" bash ci/mobile-format-changed.sh
 
+  stage 'custom-scene-production-release' 'dart tool/verify_custom_scene_production_release.dart'
+  dart tool/verify_custom_scene_production_release.dart
+
   stage 'mobile-r4' 'bash ci/mobile-r4-release-gates.sh'
   bash ci/mobile-r4-release-gates.sh
 

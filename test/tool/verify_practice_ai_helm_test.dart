@@ -305,6 +305,36 @@ void main() {
       );
     });
 
+    test('enforces the bounded production operation chain within its lease', () {
+      final production = _productionManifest('rotation-1').replaceFirst(
+        '            timeout: 180s\n',
+        '            timeout: 120s\n',
+      );
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          production,
+          profile: practiceAi.PracticeAiHelmProfile.production,
+        ),
+        returnsNormally,
+      );
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          production.replaceFirst(
+            '            generation-lease: 15m\n',
+            '            generation-lease: 10m\n',
+          ),
+          profile: practiceAi.PracticeAiHelmProfile.production,
+        ),
+        throwsA(
+          isA<practiceAi.PracticeAiHelmVerificationException>().having(
+            (error) => error.message,
+            'message',
+            contains('Production generation-lease'),
+          ),
+        ),
+      );
+    });
+
     test('rejects provider credentials outside dedicated secret or app-api', () {
       final leakedCredential = agenticManifest.replaceFirst(
         '        checksum/practice-ai-runtime: abc123',

@@ -458,6 +458,9 @@ const m213ClosureGates = <M213ClosureGate>[
       'tool/verify_practice_generation_privacy.py',
     ], '.'),
     ClosureCommand('dart', ['tool/verify_m2_11_custom_scene_gates.dart'], '.'),
+    ClosureCommand('dart', [
+      'tool/verify_custom_scene_production_release.dart',
+    ], '.'),
   ]),
   M213ClosureGate('static_source', [
     ClosureCommand('python3', [

@@ -107,6 +107,9 @@ gateway:
 # Do not add Practice AI keys to the shared `secret` block below.
 practiceAi:
   providerMode: agentic
+  # Bound worst-case generator + judge + repair + judge chain (11m) with margin.
+  maxGenerationAttempts: 2
+  generationLease: 15m
   routingPolicyVersion: custom-scene-routing-v1
   providers:
     dashscope-qwen:

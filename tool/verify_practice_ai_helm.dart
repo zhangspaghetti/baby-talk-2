@@ -761,8 +761,9 @@ void _verifyRuntime(
         _fail('${profile.name} must configure route $capability.');
       }
     }
-    if (profile == PracticeAiHelmProfile.agenticQa) {
-      _verifyQaGenerationLeaseBudget(runtime);
+    if (profile == PracticeAiHelmProfile.agenticQa ||
+        profile == PracticeAiHelmProfile.production) {
+      _verifyGenerationLeaseBudget(runtime, profile);
     }
     _verifyDashscopeQwenRuntime(runtime, profile);
   } else {
@@ -776,17 +777,25 @@ void _verifyRuntime(
   }
 }
 
-void _verifyQaGenerationLeaseBudget(_RuntimeConfiguration runtime) {
+void _verifyGenerationLeaseBudget(
+  _RuntimeConfiguration runtime,
+  PracticeAiHelmProfile profile,
+) {
+  final profileLabel = profile == PracticeAiHelmProfile.production
+      ? 'Production'
+      : 'Agentic QA';
   final maxAttemptsValue = runtime.customSceneValues['max-generation-attempts'];
   if (maxAttemptsValue == null ||
       !RegExp(r'^[1-5]$').hasMatch(maxAttemptsValue)) {
-    _fail('Agentic QA must configure max-generation-attempts between 1 and 5.');
+    _fail(
+      '$profileLabel must configure max-generation-attempts between 1 and 5.',
+    );
   }
   final generationLease = _parsePositiveProviderTimeout(
     runtime.customSceneValues['generation-lease'],
   );
   if (generationLease == null) {
-    _fail('Agentic QA must configure a positive generation-lease.');
+    _fail('$profileLabel must configure a positive generation-lease.');
   }
 
   final maxAttempts = int.parse(maxAttemptsValue);
@@ -802,7 +811,7 @@ void _verifyQaGenerationLeaseBudget(_RuntimeConfiguration runtime) {
       _generationLeaseOperationOverhead;
   if (boundedOperationChain > generationLease) {
     _fail(
-      'Agentic QA generation-lease must cover the bounded operation chain: '
+      '$profileLabel generation-lease must cover the bounded operation chain: '
       '${boundedOperationChain.inSeconds}s required for $maxAttempts attempts, '
       'ordered provider fallbacks, and '
       '${_generationLeaseOperationOverhead.inSeconds}s overhead; '

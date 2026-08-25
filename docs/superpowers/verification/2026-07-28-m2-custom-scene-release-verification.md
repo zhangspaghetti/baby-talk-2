@@ -10,6 +10,7 @@ Scope: #28 / M2-12 only. Evidence below is from current workspace after #27 (`9a
 | Gate | Evidence command | Status |
 | --- | --- | --- |
 | Spring AI 2 backend platform | `python tool/verify_spring_ai_2_backend_platform.py` | PASS — `Spring AI 2 backend platform contract verified` |
+| Production-default custom-scene release wiring | `dart tool/verify_custom_scene_production_release.dart` | PASS — mobile default, production Helm routing/Secret, runtime enable mapping, and release APK/AAB workflow are fail-closed |
 | Privacy / lifecycle / architecture | `dart tool/verify_m2_11_custom_scene_gates.dart` | PASS — 0 violations |
 | M2-12 evidence manifest | `dart tool/verify_m2_12_release_matrix.dart` | PASS — 18 required targets present |
 | M2-12 verifier tests + M2-11 negative fixtures | `flutter test test/tool/verify_m2_12_release_matrix_test.dart test/tool/verify_m2_11_custom_scene_gates_test.dart` | PASS — 8 tests |
