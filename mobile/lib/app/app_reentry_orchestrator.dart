@@ -223,7 +223,9 @@ class AppReentryOrchestrator {
 
   Future<void> _drainPendingInviteReentryInternal() async {
     _observeInviteAuthentication();
-    if (!_isInviteAuthenticationReady()) {
+    if (_inviteReentryCoordinator.pendingTarget ==
+            InviteReentryDispatchTarget.acceptInvite &&
+        !_isInviteAuthenticationReady()) {
       _inviteReentryCoordinator.markAwaitingAuthentication();
       return;
     }

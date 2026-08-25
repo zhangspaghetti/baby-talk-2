@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/app_reentry_orchestrator.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
@@ -280,6 +281,47 @@ void main() {
       expect(inviteCoordinator.shellFallbackCount, 0);
       orchestrator.dispose();
       authentication.dispose();
+    });
+
+    test('未登录的非法邀请仍回到首页并显示安全提示', () async {
+      final router = GoRouter(
+        initialLocation: '/practice',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const SizedBox.shrink(),
+          ),
+          GoRoute(
+            path: '/practice',
+            builder: (context, state) => const SizedBox.shrink(),
+          ),
+        ],
+      );
+      final orchestrator = AppReentryOrchestrator(
+        shareReentryCoordinator: shareCoordinator,
+        inviteReentryCoordinator: inviteCoordinator,
+        goRouterProvider: () => router,
+        mountedCheck: () => mounted,
+        launchDestinationProvider: () => launchDestination,
+        seedContentProvider: () => null,
+        householdNotifierLookup: () => null,
+        continuityNotifierLookup: () => null,
+        gardenGrowthNotifierLookup: () => null,
+        isInviteAuthenticationReady: () => false,
+      );
+
+      orchestrator.handleIncomingUri(
+        Uri.parse(
+          'babytalk://invite/open?token=bad%2A&source=invite_link&role=caregiver',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(inviteCoordinator.pendingTarget, InviteReentryDispatchTarget.none);
+      expect(inviteCoordinator.shellFallbackCount, 1);
+      expect(inviteCoordinator.displayMessage, contains('缺少有效 token'));
+      orchestrator.dispose();
+      router.dispose();
     });
   });
 }

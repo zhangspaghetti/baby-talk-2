@@ -177,8 +177,6 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   late Future<_AppLaunchState> _launchStateFuture;
   late final ShareReentryCoordinator _shareReentryCoordinator;
   late final InviteReentryCoordinator _inviteReentryCoordinator;
-  late final bool _ownsShareReentryCoordinator;
-  late final bool _ownsInviteReentryCoordinator;
   late final AppReentryOrchestrator _reentryOrchestrator;
   GoRouter? _currentRouter;
   _AppLaunchState? _resolvedLaunchState;
@@ -186,12 +184,12 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   @override
   void initState() {
     super.initState();
-    _ownsShareReentryCoordinator = widget.shareReentryCoordinator == null;
-    _ownsInviteReentryCoordinator = widget.inviteReentryCoordinator == null;
     _shareReentryCoordinator =
-        widget.shareReentryCoordinator ?? ShareReentryCoordinator();
+        widget.shareReentryCoordinator ??
+        ref.read(shareReentryCoordinatorProvider);
     _inviteReentryCoordinator =
-        widget.inviteReentryCoordinator ?? InviteReentryCoordinator();
+        widget.inviteReentryCoordinator ??
+        ref.read(inviteReentryCoordinatorProvider);
     _reentryOrchestrator = AppReentryOrchestrator(
       shareReentryCoordinator: _shareReentryCoordinator,
       inviteReentryCoordinator: _inviteReentryCoordinator,
@@ -352,12 +350,6 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   @override
   void dispose() {
     _reentryOrchestrator.dispose();
-    if (_ownsShareReentryCoordinator) {
-      _shareReentryCoordinator.dispose();
-    }
-    if (_ownsInviteReentryCoordinator) {
-      _inviteReentryCoordinator.dispose();
-    }
     super.dispose();
   }
 
