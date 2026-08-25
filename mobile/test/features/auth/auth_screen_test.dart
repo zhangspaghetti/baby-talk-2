@@ -91,6 +91,45 @@ void main() {
     },
   );
 
+  testWidgets('signed-out auth form exposes one semantic control per action', (
+    tester,
+  ) async {
+    final repository = _ChallengeAccountRepository();
+    final notifier = AccountNotifier(
+      repository: repository,
+      challengeRepository: repository,
+    );
+    addTearDown(notifier.dispose);
+    await notifier.initialize();
+
+    await _pumpAuth(tester, notifier: notifier, home: const AuthScreen());
+    final semantics = tester.ensureSemantics();
+    try {
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is Semantics && widget.properties.label == '手机号',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == '同意服务条款和隐私协议',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == '登录，需先发送验证码',
+        ),
+        findsOneWidget,
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('signed-out cleanup failure is announced on the public route', (
     tester,
   ) async {
