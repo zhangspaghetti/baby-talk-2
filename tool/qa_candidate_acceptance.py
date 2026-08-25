@@ -2226,7 +2226,7 @@ def _deep_link_valid_destination_is_visible(xml: str) -> bool:
         (node.get("text", "") + " " + node.get("content-desc", "")).strip()
         for node in _parse_ui_nodes(xml)
     }
-    return bool(exact_markers & visible)
+    return any(marker in value for marker in exact_markers for value in visible)
 
 
 def _deep_link_invalid_fallback_is_visible(xml: str) -> bool:
@@ -2238,7 +2238,7 @@ def _deep_link_invalid_fallback_is_visible(xml: str) -> bool:
         (node.get("text", "") + " " + node.get("content-desc", "")).strip()
         for node in _parse_ui_nodes(xml)
     }
-    return bool(exact_markers & visible)
+    return any(marker in value for marker in exact_markers for value in visible)
 
 
 def _safe_case_runner(

@@ -753,6 +753,13 @@ class QaCandidateRunnerTest(unittest.TestCase):
             )
         )
 
+    def test_deep_link_invalid_destination_accepts_overlay_accessibility_suffix(self) -> None:
+        self.assertTrue(
+            harness._deep_link_invalid_fallback_is_visible(
+                '<hierarchy><node content-desc="邀请链接缺少有效 token，已停留在首页安全入口。&#10;关闭提示"/></hierarchy>'
+            )
+        )
+
     def test_environment_or_public_api_block_is_77_for_every_runner(self) -> None:
         context = _context(device_serial="")
         with patch.object(
