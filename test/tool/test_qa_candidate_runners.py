@@ -295,6 +295,23 @@ class QaCandidateRunnerTest(unittest.TestCase):
             ["shell", "input", "tap", "1114", "493"],
         )
 
+    def test_view_intent_quotes_query_delimiters_for_android_shell(self) -> None:
+        uri = (
+            "babytalk://invite/open?token=abcdefghijkl1234"
+            "&source=invite_link&role=caregiver"
+        )
+        with patch.object(harness, "_run_device_step", return_value="ok") as step:
+            harness._run_view_intent(_context(), uri)
+
+        self.assertEqual(
+            step.call_args.args[1],
+            [
+                "shell",
+                "am start -W -a android.intent.action.VIEW -d "
+                "'babytalk://invite/open?token=abcdefghijkl1234&source=invite_link&role=caregiver'",
+            ],
+        )
+
     def test_audio_runner_requires_output_speed_and_controls(self) -> None:
         with patch.object(harness, "_configure_audio_playback") as configure, patch.object(
             harness, "_navigate_to_care_controls"
@@ -506,6 +523,26 @@ class QaCandidateRunnerTest(unittest.TestCase):
         self.assertIn(
             call(_context(), ["shell", "input", "keyevent", "4"]),
             step.call_args_list,
+        )
+
+    def test_apk_sign_in_accepts_care_turn_surface_after_login(self) -> None:
+        with patch.object(harness, "_launch_app"), patch.object(
+            harness, "_tap_ui_label", return_value="登录并同意"
+        ), patch.object(harness, "_tap_ui_class_at"), patch.object(
+            harness, "_replace_focused_text"
+        ), patch.object(harness, "_run_device_step"), patch.object(
+            harness,
+            "_find_ui_label",
+            side_effect=(
+                harness._ScenarioBlocked("account confirmation label absent"),
+                "播放音频",
+            ),
+        ) as find:
+            harness._sign_in_apk_identity(_context(), "idempotent_event_id")
+
+        self.assertEqual(
+            find.call_args_list[1].args[1],
+            ("播放音频", "重播", "听一下", "现在说一句"),
         )
 
     def test_deep_link_runner_blocks_generic_invite_words(self) -> None:

@@ -7,6 +7,7 @@ import hashlib
 from html import unescape
 import json
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -945,13 +946,7 @@ def _run_view_intent(context: CaseExecutionContext, uri: str) -> str:
         raise _ScenarioBlocked("fixed invite intent is unsafe")
     arguments = [
         "shell",
-        "am",
-        "start",
-        "-W",
-        "-a",
-        "android.intent.action.VIEW",
-        "-d",
-        uri,
+        "am start -W -a android.intent.action.VIEW -d " + shlex.quote(uri),
     ]
     last_error: _ScenarioBlocked | None = None
     for _ in range(_ADB_VIEW_INTENT_ATTEMPTS):
@@ -1225,14 +1220,21 @@ def _sign_in_apk_identity(context: CaseExecutionContext, identity_key: str) -> N
             wait_seconds=_UI_READY_TIMEOUT_SECONDS,
         ),
     )
-    run_stage(
-        "confirmed",
-        lambda: _find_ui_label(
+    try:
+        _find_ui_label(
             context,
             ("已登录", "退出登录", "Account settings", "账号设置"),
             wait_seconds=_UI_READY_TIMEOUT_SECONDS,
-        ),
-    )
+        )
+    except _ScenarioBlocked:
+        run_stage(
+            "confirmed",
+            lambda: _find_ui_label(
+                context,
+                ("播放音频", "重播", "听一下", "现在说一句"),
+                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+            ),
+        )
 
 
 def _verify_installed_candidate_identity(context: CaseExecutionContext) -> bool:
