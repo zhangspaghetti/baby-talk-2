@@ -210,7 +210,7 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
                         .header("X-Onboarding-Audio-Capability", capability))
                 .andExpect(status().isOk())
                 .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray())
-                        .containsExactly(1, 2, 3));
+                        .containsExactly(validMp3Bytes()));
 
         mockMvc.perform(get(audioPath.replace(conversationId, "onbc_wrong1234"))
                         .header("X-App-Version", "1.2.0")
@@ -286,7 +286,7 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
                                 turnRoot.get("utterance").get("audioRef").asText()))
                 .andExpect(status().isOk())
                 .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray())
-                        .containsExactly(1, 2, 3));
+                        .containsExactly(validMp3Bytes()));
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from guest_onboarding_conversation_turns", Integer.class)).isOne();
         assertThat(jdbcTemplate.queryForObject("""
@@ -317,6 +317,14 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
                  "facets":{"parentTonePreference":"short_gentle"}},
                  "locale":"zh-CN","timeBand":"evening","babyNickname":null}
                 """;
+    }
+
+    private static byte[] validMp3Bytes() {
+        var bytes = new byte[417];
+        bytes[0] = (byte) 0xff;
+        bytes[1] = (byte) 0xfb;
+        bytes[2] = (byte) 0x90;
+        return bytes;
     }
 
     private String turnBody(String eventId, boolean reactionProvided, String reaction, String reactionText) {
@@ -351,7 +359,7 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
         @Primary
         GeneratedSpeechSynthesisPort onboardingGeneratedSpeechSynthesisPort() {
             return request -> new GeneratedAudioResponse(
-                    new byte[] {1, 2, 3}, "audio/mpeg", "generated-tts-v1");
+                    validMp3Bytes(), "audio/mpeg", "generated-tts-v1");
         }
     }
 
