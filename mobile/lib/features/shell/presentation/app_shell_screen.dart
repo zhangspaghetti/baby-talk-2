@@ -9,7 +9,7 @@ import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/account/presentation/screens/account_settings_screen.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';

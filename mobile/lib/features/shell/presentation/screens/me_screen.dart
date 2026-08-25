@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/account/presentation/screens/account_settings_screen.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -65,7 +65,7 @@ class MeScreen extends ConsumerWidget {
                 ageBucketLabel: onboardingSnapshot?.ageBucket.label,
                 accountStateLabel: accountStateLabel,
                 isSyncing: accountSyncing,
-                onTap: () => openAccountEntryScreen(context),
+                onTap: () => openAccountSurface(context),
               ),
               const SizedBox(height: 20),
 

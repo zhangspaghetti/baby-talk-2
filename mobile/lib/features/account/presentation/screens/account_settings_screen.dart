@@ -1,15 +1,11 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
-import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
-import 'package:mobile/app/widgets/app_toast.dart';
-import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/account/presentation/account_surface_phase.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
@@ -17,11 +13,8 @@ import 'package:mobile/features/household/presentation/widgets/household_shared_
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
-Future<void> openAccountEntryScreen(
-  BuildContext context, {
-  AccountEntryOrigin origin = AccountEntryOrigin.settings,
-}) {
-  return GoRouter.of(context).push('/account', extra: origin);
+Future<void> openAccountSurface(BuildContext context) {
+  return GoRouter.of(context).push('/account');
 }
 
 String _accountBodyForPhase(
@@ -207,42 +200,6 @@ Future<void> _confirmReturnToLocalOnly(
       .clearSession(revertToLocalOnly: true);
 }
 
-Future<void> _showAccountPolicy(
-  BuildContext context, {
-  required bool privacy,
-}) async {
-  final l = AppLocalizations.of(context)!;
-  final title = privacy ? l.discoverPrivacyPolicy : l.discoverTermsOfService;
-  final key = Key(privacy ? 'account-privacy-dialog' : 'account-terms-dialog');
-  final body = privacy
-      ? '隐私协议版本 $currentAccountConsentVersion\n\n'
-            '我们只会在你明确同意后，把账号同步所需的资料和练习记录发送到服务端。'
-            '手机号、设备标识和练习内容会按最小必要范围处理；你可以在账号页撤回同意、'
-            '删除账号或清除本机保留数据。'
-      : '服务条款版本 $currentAccountConsentVersion\n\n'
-            '你可以先在本机使用 BabyTalk；登录并明确同意后，才会启用账号同步、家庭照护'
-            '和跨设备恢复。请在继续前阅读并确认你理解这些边界。';
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      key: key,
-      title: Text(title),
-      content: SingleChildScrollView(child: Text(body)),
-      actions: [
-        TextButton(
-          key: Key(
-            privacy
-                ? 'account-privacy-dialog-close'
-                : 'account-terms-dialog-close',
-          ),
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: Text(l.close),
-        ),
-      ],
-    ),
-  );
-}
-
 class AccountStatusCard extends ConsumerWidget {
   const AccountStatusCard({
     super.key,
@@ -363,7 +320,7 @@ class AccountStatusCard extends ConsumerWidget {
                 onPressed:
                     phase == AccountSurfacePhase.loading || notifier.isBusy
                     ? null
-                    : () => openAccountEntryScreen(context),
+                    : () => openAccountSurface(context),
                 child: Text(
                   notifier.isSignedIn
                       ? l.accountViewStatus
@@ -583,139 +540,21 @@ class _AccountEntrySection extends StatelessWidget {
   }
 }
 
-class _AccountConsentSection extends StatelessWidget {
-  const _AccountConsentSection({
-    required this.accepted,
-    required this.onChanged,
-    required this.onOpenTerms,
-    required this.onOpenPrivacy,
-  });
-
-  final bool accepted;
-  final ValueChanged<bool> onChanged;
-  final VoidCallback onOpenTerms;
-  final VoidCallback onOpenPrivacy;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
-    final theme = Theme.of(context);
-    return Semantics(
-      container: true,
-      checked: accepted,
-      label: '登录前明确同意当前版本服务条款和隐私协议',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Checkbox(
-            key: const Key('account-consent-checkbox'),
-            value: accepted,
-            onChanged: (value) => onChanged(value ?? false),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(l.discoverTermsPrefix, style: theme.textTheme.bodySmall),
-                  TextButton(
-                    key: const Key('account-terms-button'),
-                    onPressed: onOpenTerms,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      l.discoverTermsOfService,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.accent,
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                  Text('和', style: theme.textTheme.bodySmall),
-                  TextButton(
-                    key: const Key('account-privacy-button'),
-                    onPressed: onOpenPrivacy,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      l.discoverPrivacyPolicy,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.accent,
-                        fontWeight: FontWeight.w700,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '（版本 $currentAccountConsentVersion）',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class AccountEntryScreen extends HookConsumerWidget {
-  const AccountEntryScreen({
-    super.key,
-    this.origin = AccountEntryOrigin.settings,
-  });
-
-  final AccountEntryOrigin origin;
+class AccountSettingsScreen extends ConsumerWidget {
+  const AccountSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final phoneController = useTextEditingController();
-    final codeController = useTextEditingController();
-    final acceptedConsent = useState(false);
-
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final theme = Theme.of(context);
     final notifier = ref.watch(accountNotifierProvider);
     final householdRepository = ref.watch(householdRepositoryProvider);
     final phase = resolveAccountPhase(notifier);
-    useEffect(() {
-      if (notifier.isRevoked || notifier.isSignedOut || notifier.isLocalOnly) {
-        acceptedConsent.value = false;
-      }
-      return null;
-    }, [notifier.snapshot.consentState]);
     final helperBody = _accountBodyForPhase(l, phase, null, notifier);
     final showSubmissionMessage =
         notifier.submissionMessage != null &&
         phase != AccountSurfacePhase.error;
-    final showSignInForm =
-        !notifier.isSignedIn || phase == AccountSurfacePhase.revoked;
-
-    if (phoneController.text != notifier.phoneNumber) {
-      phoneController.value = TextEditingValue(
-        text: notifier.phoneNumber,
-        selection: TextSelection.collapsed(offset: notifier.phoneNumber.length),
-      );
-    }
-    if (codeController.text != notifier.verificationCode) {
-      codeController.value = TextEditingValue(
-        text: notifier.verificationCode,
-        selection: TextSelection.collapsed(
-          offset: notifier.verificationCode.length,
-        ),
-      );
-    }
 
     return Scaffold(
       appBar: AppBar(title: Text(l.accountEntryTitle)),
@@ -837,113 +676,19 @@ class AccountEntryScreen extends HookConsumerWidget {
                       const SizedBox(height: 24),
                       _AccountEntrySection(
                         key: const Key('account-primary-action-section'),
-                        title: l.accountPrimaryActionSectionTitle,
-                        description: showSignInForm
-                            ? l.accountPrimaryActionSectionHint
-                            : l.accountPrimaryActionSignedInHint,
-                        child: showSignInForm
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextField(
-                                    key: const Key('account-phone-field'),
-                                    controller: phoneController,
-                                    keyboardType: TextInputType.phone,
-                                    decoration: InputDecoration(
-                                      labelText: l.accountPhoneLabel,
-                                      hintText: kDebugMode
-                                          ? '13800138000'
-                                          : null,
-                                      errorText: notifier.phoneError,
-                                    ),
-                                    onChanged: notifier.updatePhoneNumber,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  TextField(
-                                    key: const Key('account-code-field'),
-                                    controller: codeController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: InputDecoration(
-                                      labelText: l.accountCodeLabel,
-                                      hintText: l.accountDevStub,
-                                      errorText: notifier.verificationCodeError,
-                                    ),
-                                    onChanged: notifier.updateVerificationCode,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    l.accountRealLoginNote,
-                                    key: const Key(
-                                      'account-sign-in-trust-note',
-                                    ),
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  _AccountConsentSection(
-                                    accepted: acceptedConsent.value,
-                                    onChanged: (value) =>
-                                        acceptedConsent.value = value,
-                                    onOpenTerms: () => _showAccountPolicy(
-                                      context,
-                                      privacy: false,
-                                    ),
-                                    onOpenPrivacy: () => _showAccountPolicy(
-                                      context,
-                                      privacy: true,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  FilledButton(
-                                    key: const Key('account-submit-button'),
-                                    onPressed: notifier.isBusy
-                                        ? null
-                                        : () async {
-                                            AppHaptics.lightTap();
-                                            final succeeded = await ref
-                                                .read(
-                                                  accountNotifierProvider
-                                                      .notifier,
-                                                )
-                                                .submitSignIn(
-                                                  acceptedConsent:
-                                                      acceptedConsent.value,
-                                                  consentVersion:
-                                                      currentAccountConsentVersion,
-                                                );
-                                            if (!context.mounted ||
-                                                !succeeded) {
-                                              return;
-                                            }
-                                            if (!context.mounted) {
-                                              return;
-                                            }
-                                            if (origin ==
-                                                    AccountEntryOrigin
-                                                        .onboardingContinuation ||
-                                                origin ==
-                                                    AccountEntryOrigin
-                                                        .customSceneContinuation) {
-                                              context.pop(
-                                                AccountEntryResult.signedIn,
-                                              );
-                                              return;
-                                            }
-                                            showAppToast(
-                                              context,
-                                              l.accountEntrySubmitMessage,
-                                            );
-                                          },
-                                    child: Text(
-                                      notifier.isBusy
-                                          ? l.processing
-                                          : l.accountLoginConsent,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Text(
+                        title: '账号设置',
+                        description: '登录、注册和验证码校验已迁移到新版认证页。',
+                        child: notifier.isSignedIn
+                            ? Text(
                                 l.accountPrimaryActionSignedInBody,
                                 style: theme.textTheme.bodyMedium,
+                              )
+                            : FilledButton(
+                                key: const Key('account-settings-sign-in'),
+                                onPressed: notifier.isBusy
+                                    ? null
+                                    : () => openAccountSurface(context),
+                                child: const Text('前往登录'),
                               ),
                       ),
                       const SizedBox(height: 24),

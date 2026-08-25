@@ -9,7 +9,6 @@ import 'package:mobile/features/account/data/repositories/account_repository_con
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
 import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -92,7 +91,9 @@ void main() {
       expect(entry.hasValidArgs, isTrue);
     });
 
-    testWidgets('/account exposes account lifecycle controls', (tester) async {
+    testWidgets('/account exposes new authentication flow when signed out', (
+      tester,
+    ) async {
       final notifier = AccountNotifier(repository: _RouteAccountRepository());
       final router = createAppRouter(initialLocation: AppRouteNames.account);
       addTearDown(router.dispose);
@@ -110,10 +111,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(AccountEntryScreen), findsOneWidget);
-      expect(find.byKey(const Key('account-entry-surface')), findsOneWidget);
-      expect(find.byKey(const Key('account-revoke-button')), findsOneWidget);
-      expect(find.byKey(const Key('account-delete-button')), findsOneWidget);
+      expect(find.byType(AuthScreen), findsOneWidget);
+      expect(find.byKey(const Key('auth-contact-field')), findsOneWidget);
+      expect(find.byKey(const Key('account-revoke-button')), findsNothing);
+      expect(find.byKey(const Key('account-delete-button')), findsNothing);
     });
 
     testWidgets('direct /account logout returns to the signed-out shell', (
