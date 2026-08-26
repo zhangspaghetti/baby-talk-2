@@ -8,8 +8,8 @@ Release closure: **NOT COMPLETE**. This report records automated evidence only. 
 
 - Candidate ID: `m2-final-2ff3c79f3a11`.
 - Mobile source SHA: `2ff3c79f3a1149f831bc22b1f0c4d36bb1484c7f`.
-- APK: `mobile/build/app/outputs/flutter-apk/app-debug.apk`; SHA-256 `72535a69baaf3a42de29fd2577300c03a055f40c9f6cadc6efd5ee36c819d093`; `172070992` bytes.
-- Installed APK artifact: `artifacts/m2-final-2ff3c79f3a11-installed.apk`; same SHA-256 and byte count.
+- APK artifact: `artifacts/m2-final-2ff3c79f3a11/candidate.apk` (built from `mobile/build/app/outputs/flutter-apk/app-debug.apk`); SHA-256 `72535a69baaf3a42de29fd2577300c03a055f40c9f6cadc6efd5ee36c819d093`; `172070992` bytes.
+- Installed APK artifact: `artifacts/m2-final-2ff3c79f3a11/installed.apk`; same SHA-256 and byte count.
 - Backend source SHA: `2ff3c79f3a1149f831bc22b1f0c4d36bb1484c7f`.
 - Deployed app-api artifact: `image_sha256:159831b5f9f645d7d46fa5e8e037bba9f4b2f366cf8a10e93f6b9e64a12e6975` (current Pod image ID).
 - Environment: `sanitized-qa-kind-rev26`.
