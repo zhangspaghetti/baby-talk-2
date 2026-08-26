@@ -382,22 +382,19 @@ final customSceneRepositoryProvider = FutureProvider<CustomSceneRepository>((
 ) async {
   final accountRepository = await ref.watch(accountRepositoryProvider.future);
   final practiceRepository = await ref.watch(practiceRepositoryProvider.future);
-  final onboardingRepository = await ref.watch(
-    onboardingRepositoryProvider.future,
-  );
   final settingsRepository = await ref.watch(settingsRepositoryProvider.future);
   return CustomSceneRepositoryImpl(
     api: ref.watch(customSceneApiProvider),
     mapper: const CustomSceneMapper(),
     profileContextResolver: CustomSceneProfileContextResolver(
-      onboardingRepository: onboardingRepository,
+      babyProfileRepository: ref.watch(babyProfileRepositoryProvider),
       settingsRepository: settingsRepository,
     ),
     accountSnapshotLoader: accountRepository.loadSnapshot,
     persistRefreshedSession: accountRepository.persistRefreshedSession,
     installationIdLoader: practiceRepository.ensureInstallationId,
   );
-}, dependencies: [onboardingRepositoryProvider]);
+});
 
 final customSceneSubmissionControllerProvider =
     FutureProvider<CustomSceneSubmissionController>((ref) async {
