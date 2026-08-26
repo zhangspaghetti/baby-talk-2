@@ -248,6 +248,7 @@ class AuthScreen extends HookConsumerWidget {
                 vertical: AppLayoutConstants.spacing2xl,
               ),
               child: Semantics(
+                key: const Key('account-entry-surface'),
                 container: true,
                 label: _screenSemanticsLabel(mode.value, codeSent),
                 child: Column(
@@ -270,6 +271,7 @@ class AuthScreen extends HookConsumerWidget {
 
                     // --- Contact input ---
                     Semantics(
+                      key: const Key('account-phone-field'),
                       textField: true,
                       label: _contactLabel(mode.value, l),
                       hint: _contactHelp(mode.value, l),
@@ -351,6 +353,7 @@ class AuthScreen extends HookConsumerWidget {
                     // --- Submit button ---
                     const SizedBox(height: AppLayoutConstants.spacingXl),
                     Semantics(
+                      key: const Key('account-submit-button'),
                       button: true,
                       label: _mainButtonSemantics(mode.value, codeSent),
                       child: FilledButton(

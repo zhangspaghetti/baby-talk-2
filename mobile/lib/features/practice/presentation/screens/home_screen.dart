@@ -294,7 +294,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
 
   Future<void> _refreshTodaySurface({required String reason}) async {
     await _refreshContinuity(reason: reason);
+    if (!mounted) {
+      return;
+    }
     await _refreshCarePath();
+    if (!mounted) {
+      return;
+    }
     await ref.read(gardenGrowthNotifierProvider).refresh();
   }
 
