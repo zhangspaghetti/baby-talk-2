@@ -38,6 +38,22 @@ void main() {
       expect(session.hasJwtTokens, isFalse);
     });
 
+    test('AccountSession toString never exposes JWT credentials', () {
+      final session = AccountSession(
+        accountId: 'account-1',
+        sessionId: 'session-1',
+        maskedPhoneNumber: '138****8000',
+        createdAt: DateTime.utc(2026, 1, 1),
+        accessToken: 'access-secret',
+        refreshToken: 'refresh-secret',
+      );
+
+      final representation = session.toString();
+
+      expect(representation, isNot(contains('access-secret')));
+      expect(representation, isNot(contains('refresh-secret')));
+    });
+
     test('ShareLinkDraft copyWith keeps public payload behavior', () {
       const draft = ShareLinkDraft(
         source: ShareLinkSource.latestImpact,

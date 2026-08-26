@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
@@ -20,8 +19,6 @@ import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart'
-    show PracticeContinuityLoadStatusLabel;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_botanical_header.dart';
 
@@ -186,7 +183,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
     final carePathNotifier = ref.watch(carePathNotifierProvider);
     final carePathViewModel = carePathNotifier.viewModel;
@@ -249,16 +245,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
 
                             const SizedBox(height: 24),
 
-                            if (kDebugMode) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                'continuity: ${continuityNotifier.status.label}${continuityNotifier.lastRefreshReason == null ? '' : ' · refresh: ${continuityNotifier.lastRefreshReason}'}',
-                                key: const Key('home-debug-status'),
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: colors.textMuted),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
                           ],
                         ),
                       ),

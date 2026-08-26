@@ -241,11 +241,6 @@ class _$AccountSessionImpl extends _AccountSession {
   final DateTime? refreshTokenExpiresAt;
 
   @override
-  String toString() {
-    return 'AccountSession(accountId: $accountId, sessionId: $sessionId, maskedPhoneNumber: $maskedPhoneNumber, createdAt: $createdAt, accessToken: $accessToken, refreshToken: $refreshToken, tokenType: $tokenType, accessTokenExpiresAt: $accessTokenExpiresAt, refreshTokenExpiresAt: $refreshTokenExpiresAt)';
-  }
-
-  @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
