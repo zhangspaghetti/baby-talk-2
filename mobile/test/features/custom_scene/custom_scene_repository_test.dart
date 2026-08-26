@@ -214,16 +214,57 @@ void main() {
       expect(gateway.callCount, 0);
     },
   );
+
+  test(
+    'maps profile network failure to network instead of profile unavailable',
+    () async {
+      final gateway = _RecordingGateway();
+      final repository = _repository(
+        gateway: gateway,
+        profileContextResolver: _FailingProfileSource(
+          const CustomSceneProfileContextException.network(),
+        ),
+      );
+
+      await expectLater(
+        repository.generate(
+          CustomSceneDraft(
+            text: '宝宝洗澡时一直躲水。',
+            entrySource: CustomSceneEntrySource.scene,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'custom_scene_network',
+            ),
+          ),
+        ),
+        throwsA(
+          isA<CustomSceneFailure>()
+              .having(
+                (failure) => failure.kind,
+                'kind',
+                CustomSceneFailureKind.network,
+              )
+              .having((failure) => failure.retryable, 'retryable', isTrue)
+              .having(
+                (failure) => failure.presentationMessage,
+                'presentation message',
+                '网络暂不可用，请检查后重试。',
+              ),
+        ),
+      );
+      expect(gateway.callCount, 0);
+    },
+  );
 }
 
 CustomSceneRepositoryImpl _repository({
   required _RecordingGateway gateway,
   Future<String> Function()? installationIdLoader,
+  CustomSceneProfileContextSource? profileContextResolver,
 }) {
   return CustomSceneRepositoryImpl(
     api: gateway,
     mapper: const CustomSceneMapper(),
-    profileContextResolver: _ProfileSource(),
+    profileContextResolver: profileContextResolver ?? _ProfileSource(),
     accountSnapshotLoader: () async => AccountLocalSnapshot(
       consentState: AccountConsentState.acceptedPendingSync,
       session: _session(),
@@ -242,6 +283,15 @@ class _ProfileSource implements CustomSceneProfileContextSource {
       locale: 'zh-CN',
     );
   }
+}
+
+class _FailingProfileSource implements CustomSceneProfileContextSource {
+  _FailingProfileSource(this.error);
+
+  final CustomSceneProfileContextException error;
+
+  @override
+  Future<CustomSceneProfileContext> resolve() async => throw error;
 }
 
 class _RecordingGateway implements CustomSceneDiscoveryGateway {

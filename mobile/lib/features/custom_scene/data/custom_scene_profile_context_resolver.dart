@@ -1,42 +1,80 @@
+import 'package:mobile/features/account/data/services/account_api_service.dart';
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
-import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
-import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
+import 'package:mobile/features/settings/data/repositories/baby_profile_repository.dart';
 import 'package:mobile/features/settings/data/repositories/settings_repository.dart';
 
 class CustomSceneProfileContextUnavailableException implements Exception {
   const CustomSceneProfileContextUnavailableException();
 }
 
+enum CustomSceneProfileContextFailureKind {
+  network,
+  timeout,
+  authentication,
+  malformed,
+  unavailable,
+}
+
+class CustomSceneProfileContextException implements Exception {
+  const CustomSceneProfileContextException({
+    required this.kind,
+    this.retryable = false,
+  });
+
+  const CustomSceneProfileContextException.network()
+    : this(kind: CustomSceneProfileContextFailureKind.network, retryable: true);
+
+  const CustomSceneProfileContextException.timeout()
+    : this(kind: CustomSceneProfileContextFailureKind.timeout, retryable: true);
+
+  const CustomSceneProfileContextException.authentication()
+    : this(kind: CustomSceneProfileContextFailureKind.authentication);
+
+  const CustomSceneProfileContextException.malformed()
+    : this(kind: CustomSceneProfileContextFailureKind.malformed);
+
+  const CustomSceneProfileContextException.unavailable({bool retryable = false})
+    : this(
+        kind: CustomSceneProfileContextFailureKind.unavailable,
+        retryable: retryable,
+      );
+
+  final CustomSceneProfileContextFailureKind kind;
+  final bool retryable;
+}
+
 abstract interface class CustomSceneProfileContextSource {
   Future<CustomSceneProfileContext> resolve();
 }
 
-/// Resolves generation context from completed onboarding and Settings profile
-/// records. UI never supplies age, goal, locale, or backend profile IDs.
+/// Resolves generation context from the saved account profile and Settings.
+/// UI never supplies age, goal, locale, or backend profile IDs.
 class CustomSceneProfileContextResolver
     implements CustomSceneProfileContextSource {
   CustomSceneProfileContextResolver({
-    required OnboardingRepository onboardingRepository,
+    required BabyProfileRepository babyProfileRepository,
     required SettingsRepository settingsRepository,
-  }) : _onboardingRepository = onboardingRepository,
+  }) : _babyProfileRepository = babyProfileRepository,
        _settingsRepository = settingsRepository;
 
-  final OnboardingRepository _onboardingRepository;
+  static const _defaultParentGoal = 'natural_opening';
+
+  final BabyProfileRepository _babyProfileRepository;
   final SettingsRepository _settingsRepository;
 
   @override
   Future<CustomSceneProfileContext> resolve() async {
+    final profile = await _loadProfile();
+    if (profile == null) {
+      throw const CustomSceneProfileContextUnavailableException();
+    }
     try {
-      final onboarding = await _onboardingRepository.readCompletedSnapshot();
-      if (onboarding == null) {
-        throw const CustomSceneProfileContextUnavailableException();
-      }
       final settings = await _settingsRepository.readSettings();
-      final ageMonths = settings.childAgeMonths ?? onboarding.approxMonths;
       return CustomSceneProfileContext(
-        ageRange: _ageRangeForMonths(ageMonths),
-        parentGoal: _parentGoalFor(onboarding),
+        babyProfileId: profile.babyProfileId,
+        ageRange: profile.ageRange,
+        parentGoal: profile.parentGoal ?? _defaultParentGoal,
         locale: _localeFor(settings.preferredLanguage),
       );
     } on CustomSceneProfileContextUnavailableException {
@@ -46,25 +84,59 @@ class CustomSceneProfileContextResolver
     }
   }
 
-  String _ageRangeForMonths(int? value) {
-    if (value == null || value < 0 || value > 36) {
-      throw const CustomSceneProfileContextUnavailableException();
+  Future<BabyProfileProjection?> _loadProfile() async {
+    try {
+      return await _babyProfileRepository.load();
+    } on CustomSceneProfileContextException {
+      rethrow;
+    } on AccountApiException catch (error) {
+      throw _mapAccountApiFailure(error);
+    } on AuthenticatedApiClientException catch (error) {
+      throw _mapAuthenticatedApiFailure(error);
+    } on Object {
+      throw const CustomSceneProfileContextException.unavailable();
     }
-    if (value <= 3) return 'm0_3';
-    if (value <= 6) return 'm4_6';
-    if (value <= 11) return 'm7_11';
-    if (value <= 17) return 'm12_17';
-    if (value <= 23) return 'm18_23';
-    if (value <= 30) return 'm24_30';
-    return 'm31_36';
   }
 
-  String _parentGoalFor(OnboardingSnapshot snapshot) {
-    return switch (snapshot.supportGoal) {
-      OnboardingSupportGoal.firstWords => 'natural_opening',
-      OnboardingSupportGoal.moreNatural => 'confident_pronunciation',
-      OnboardingSupportGoal.dailyHabit => 'calmer_care',
-    };
+  CustomSceneProfileContextException _mapAccountApiFailure(
+    AccountApiException error,
+  ) {
+    switch (error.kind) {
+      case AccountApiFailureKind.network:
+        return const CustomSceneProfileContextException.network();
+      case AccountApiFailureKind.timeout:
+        return const CustomSceneProfileContextException.timeout();
+      case AccountApiFailureKind.malformed:
+        return const CustomSceneProfileContextException.malformed();
+      case AccountApiFailureKind.http:
+        if (error.isUnauthorized) {
+          return const CustomSceneProfileContextException.authentication();
+        }
+        return CustomSceneProfileContextException.unavailable(
+          retryable: error.isServerFailure || error.isRetryable,
+        );
+    }
+  }
+
+  CustomSceneProfileContextException _mapAuthenticatedApiFailure(
+    AuthenticatedApiClientException error,
+  ) {
+    switch (error.kind) {
+      case AuthenticatedApiClientFailureKind.refreshNetwork:
+        return const CustomSceneProfileContextException.network();
+      case AuthenticatedApiClientFailureKind.refreshTimeout:
+        return const CustomSceneProfileContextException.timeout();
+      case AuthenticatedApiClientFailureKind.refreshMalformed:
+        return const CustomSceneProfileContextException.malformed();
+      case AuthenticatedApiClientFailureKind.missingCredentials:
+      case AuthenticatedApiClientFailureKind.sessionExpired:
+      case AuthenticatedApiClientFailureKind.persistenceFailure:
+        return const CustomSceneProfileContextException.authentication();
+      case AuthenticatedApiClientFailureKind.refreshFailed:
+        return const CustomSceneProfileContextException.unavailable(
+          retryable: true,
+        );
+    }
   }
 
   String _localeFor(String value) {

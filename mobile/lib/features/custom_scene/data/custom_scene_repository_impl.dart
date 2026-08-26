@@ -109,6 +109,40 @@ class CustomSceneRepositoryImpl implements CustomSceneRepository {
         kind: CustomSceneFailureKind.profileUnavailable,
         retryable: false,
       );
+    } on CustomSceneProfileContextException catch (error) {
+      throw _mapProfileContextFailure(error);
+    }
+  }
+
+  CustomSceneFailure _mapProfileContextFailure(
+    CustomSceneProfileContextException error,
+  ) {
+    switch (error.kind) {
+      case CustomSceneProfileContextFailureKind.network:
+        return const CustomSceneFailure(
+          kind: CustomSceneFailureKind.network,
+          retryable: true,
+        );
+      case CustomSceneProfileContextFailureKind.timeout:
+        return const CustomSceneFailure(
+          kind: CustomSceneFailureKind.timeout,
+          retryable: true,
+        );
+      case CustomSceneProfileContextFailureKind.authentication:
+        return const CustomSceneFailure(
+          kind: CustomSceneFailureKind.authenticationRequired,
+          retryable: false,
+        );
+      case CustomSceneProfileContextFailureKind.malformed:
+        return const CustomSceneFailure(
+          kind: CustomSceneFailureKind.malformedResponse,
+          retryable: false,
+        );
+      case CustomSceneProfileContextFailureKind.unavailable:
+        return CustomSceneFailure(
+          kind: CustomSceneFailureKind.unavailable,
+          retryable: error.retryable,
+        );
     }
   }
 
