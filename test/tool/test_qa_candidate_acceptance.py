@@ -210,9 +210,21 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
         self.assertEqual(
             tap.call_args_list,
             [
-                call(context, ("我的", "我", "Me")),
-                call(context, ("设置", "Settings")),
-                call(context, ("关于 BabyTalk",)),
+                call(
+                    context,
+                    ("我的", "我", "Me"),
+                    wait_seconds=harness._UI_READY_TIMEOUT_SECONDS,
+                ),
+                call(
+                    context,
+                    ("设置", "Settings"),
+                    wait_seconds=harness._UI_READY_TIMEOUT_SECONDS,
+                ),
+                call(
+                    context,
+                    ("关于 BabyTalk",),
+                    wait_seconds=harness._UI_READY_TIMEOUT_SECONDS,
+                ),
             ],
         )
 

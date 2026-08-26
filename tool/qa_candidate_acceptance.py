@@ -1134,7 +1134,14 @@ def _find_ui_label(
 ) -> str:
     deadline = time.monotonic() + wait_seconds
     while True:
-        for node in _parse_ui_nodes(_dump_ui(context)):
+        try:
+            nodes = _parse_ui_nodes(_dump_ui(context))
+        except _ScenarioBlocked:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.5)
+            continue
+        for node in nodes:
             visible = unescape(
                 (node.get("text", "") + " " + node.get("content-desc", "")).strip()
             )
@@ -1153,7 +1160,14 @@ def _tap_ui_label(
 ) -> str:
     deadline = time.monotonic() + wait_seconds
     while True:
-        for node in _parse_ui_nodes(_dump_ui(context)):
+        try:
+            nodes = _parse_ui_nodes(_dump_ui(context))
+        except _ScenarioBlocked:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.5)
+            continue
+        for node in nodes:
             if node.get("clickable", "true").lower() == "false":
                 continue
             visible = unescape(
@@ -1484,15 +1498,27 @@ def _verify_installed_candidate_identity(context: CaseExecutionContext) -> bool:
     """Read the immutable candidate ID from the installed APK's About UI."""
     _launch_app(context)
     try:
-        _tap_ui_label(context, ("我的", "我", "Me"))
+        _tap_ui_label(
+            context,
+            ("我的", "我", "Me"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        )
     except _ScenarioBlocked:
         # The app may already be inside the settings subtree.
         pass
     try:
-        _tap_ui_label(context, ("设置", "Settings"))
+        _tap_ui_label(
+            context,
+            ("设置", "Settings"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        )
     except _ScenarioBlocked:
         pass
-    _tap_ui_label(context, ("关于 BabyTalk",))
+    _tap_ui_label(
+        context,
+        ("关于 BabyTalk",),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    )
     nodes = _parse_ui_nodes(_dump_ui(context))
     visible = [
         unescape((node.get("text", "") + " " + node.get("content-desc", "")).strip())
@@ -1834,7 +1860,10 @@ def _ensure_profile_for_household(context: CaseExecutionContext, session: _QaSes
                 },
                 "onboardingState": "completed",
                 "completedAt": "2026-01-01T00:00:00Z",
-                "clientTraceId": f"qa-profile-{session.installation_id[-24:]}",
+                # Keep this deterministic synthetic trace independent of the
+                # installation digest. A hex tail can contain an 11-digit
+                # run and is correctly rejected as phone-like private data.
+                "clientTraceId": "qa-profile-v1",
             },
             access_token=session.access_token,
         ),
