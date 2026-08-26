@@ -7,6 +7,24 @@ import 'package:mobile/features/settings/data/repositories/settings_repository.d
 import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 
 void main() {
+  test('initialize stops before account refresh after disposal', () async {
+    final settings = _BlockingSettingsRepository();
+    final remote = _DelayedBabyProfileRepository()..accountId = 'acct_1';
+    final notifier = SettingsNotifier(
+      repository: settings,
+      babyProfileRepository: remote,
+    );
+
+    final initialization = notifier.initialize();
+    await settings.readStarted.future;
+    notifier.dispose();
+    settings.readCompleter.complete(const SettingsSnapshot());
+
+    await initialization;
+
+    expect(remote.currentAccountIdCalls, 0);
+  });
+
   test('profile edit waits for the account refresh after sign-in', () async {
     final accountState = ChangeNotifier();
     final remote = _DelayedBabyProfileRepository();
@@ -34,12 +52,16 @@ void main() {
 class _DelayedBabyProfileRepository extends Fake
     implements BabyProfileRepository {
   String? accountId;
+  int currentAccountIdCalls = 0;
   int saveCalls = 0;
   final refreshStarted = Completer<void>();
   final loadCompleter = Completer<BabyProfileProjection?>();
 
   @override
-  Future<String?> currentAccountId() async => accountId;
+  Future<String?> currentAccountId() async {
+    currentAccountIdCalls += 1;
+    return accountId;
+  }
 
   @override
   Future<BabyProfileProjection?> load() {
@@ -94,5 +116,16 @@ class _FakeSettingsRepository extends Fake implements SettingsRepository {
   Future<SettingsSnapshot> writeSettings(SettingsSnapshot value) async {
     snapshot = value;
     return value;
+  }
+}
+
+class _BlockingSettingsRepository extends Fake implements SettingsRepository {
+  final readStarted = Completer<void>();
+  final readCompleter = Completer<SettingsSnapshot>();
+
+  @override
+  Future<SettingsSnapshot> readSettings() async {
+    readStarted.complete();
+    return readCompleter.future;
   }
 }

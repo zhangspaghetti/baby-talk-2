@@ -74,6 +74,7 @@ class SettingsNotifier extends ChangeNotifier {
     if (_initialized) return;
     _initialized = true;
     await _loadSettings();
+    if (_disposed) return;
     await refreshAccountProfile();
   }
 
@@ -106,6 +107,7 @@ class SettingsNotifier extends ChangeNotifier {
       return;
     }
     final accountId = await remote.currentAccountId();
+    if (_disposed) return;
     if (accountId == null) {
       _remoteProfile = null;
       _remoteProfileAvailable = false;
@@ -113,6 +115,7 @@ class SettingsNotifier extends ChangeNotifier {
     }
     try {
       final profile = await remote.load();
+      if (_disposed) return;
       _remoteProfileAvailable = true;
       _remoteProfile = profile;
       if (profile == null) {
