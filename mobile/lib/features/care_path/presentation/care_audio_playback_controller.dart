@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_repository.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
@@ -200,6 +200,9 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
   AudioPlayer? _initialPlayer;
   AudioPlayer? _activePlayer;
   StreamSubscription<void>? _completionSubscription;
+  double _playbackRate = 1.0;
+  bool _pauseRequested = false;
+  Future<void>? _pauseOperation;
   final StreamController<CareAudioPlaybackCompletion> _completions =
       StreamController<CareAudioPlaybackCompletion>.broadcast();
 
@@ -237,24 +240,72 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
   }
 
   @override
-  Future<void> stop() => _disposeActivePlayer();
+  Future<void> stop() async {
+    _pauseRequested = false;
+    await _NativeAudioPlaybackSession.update(
+      state: 'stopped',
+      playbackRate: _playbackRate,
+    );
+    await _pauseOperation;
+    await _disposeActivePlayer();
+  }
 
   @override
-  Future<void> pause() => _activePlayer?.pause() ?? Future.value();
+  Future<void> pause() async {
+    // `playBytes` may still be loading when the Flutter control becomes
+    // visible. Remember the intent so `_startSession` pauses the player after
+    // its asynchronous `play` call has installed the native source.
+    _pauseRequested = true;
+    await _NativeAudioPlaybackSession.update(
+      state: 'paused',
+      playbackRate: _playbackRate,
+    );
+    final player = _activePlayer;
+    final operation = player?.pause();
+    _pauseOperation = operation;
+    try {
+      await operation;
+    } finally {
+      if (identical(_pauseOperation, operation)) {
+        _pauseOperation = null;
+      }
+    }
+  }
 
   @override
-  Future<void> resume() => _activePlayer?.resume() ?? Future.value();
+  Future<void> resume() async {
+    await _pauseOperation;
+    _pauseRequested = false;
+    await _activePlayer?.resume();
+    await _NativeAudioPlaybackSession.update(
+      state: 'playing',
+      playbackRate: _playbackRate,
+    );
+  }
 
   @override
   Future<void> setPlaybackRate(double rate) async {
     if (rate < 0.5 || rate > 2.0) {
       throw ArgumentError.value(rate, 'rate', '播放速度必须在 0.5 到 2.0 倍之间。');
     }
+    _playbackRate = rate;
     await _activePlayer?.setPlaybackRate(rate);
+    if (_activePlayer != null) {
+      await _NativeAudioPlaybackSession.update(
+        state: _pauseRequested ? 'paused' : 'playing',
+        playbackRate: rate,
+      );
+    }
   }
 
   @override
   Future<void> dispose() async {
+    _pauseRequested = false;
+    await _NativeAudioPlaybackSession.update(
+      state: 'stopped',
+      playbackRate: _playbackRate,
+    );
+    await _pauseOperation;
     await _disposeActivePlayer();
     final initial = _initialPlayer;
     _initialPlayer = null;
@@ -270,11 +321,18 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
     required Future<void> Function(AudioPlayer player) start,
   }) async {
     await _disposeActivePlayer();
+    _playbackRate = playbackRate;
     final player = _initialPlayer ?? AudioPlayer();
     _initialPlayer = null;
     _activePlayer = player;
     _completionSubscription = player.onPlayerComplete.listen((_) {
       if (identical(_activePlayer, player)) {
+        unawaited(
+          _NativeAudioPlaybackSession.update(
+            state: 'completed',
+            playbackRate: _playbackRate,
+          ),
+        );
         _completions.add(CareAudioPlaybackCompletion(sessionId: sessionId));
       }
     });
@@ -283,6 +341,18 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
       // audioplayers applies playback rate after a source starts. Calling it
       // before play only updates the cached value on some platforms.
       await player.setPlaybackRate(playbackRate);
+      if (_pauseRequested) {
+        await player.pause();
+        await _NativeAudioPlaybackSession.update(
+          state: 'paused',
+          playbackRate: playbackRate,
+        );
+      } else {
+        await _NativeAudioPlaybackSession.update(
+          state: 'playing',
+          playbackRate: playbackRate,
+        );
+      }
     } catch (_) {
       if (identical(_activePlayer, player)) {
         await _disposeActivePlayer();
@@ -300,6 +370,32 @@ class AudioplayersCareAudioOutput implements CareAudioOutput {
     if (player != null) {
       await player.stop();
       await player.dispose();
+    }
+  }
+}
+
+/// Keeps Android's MediaSession state aligned with audioplayers output.
+///
+/// The bridge is best-effort: desktop, web, and widget tests do not register
+/// the Android channel, but audio playback remains fully functional there.
+class _NativeAudioPlaybackSession {
+  const _NativeAudioPlaybackSession._();
+
+  static const _channel = MethodChannel('com.babytalk.mobile/audio-session');
+
+  static Future<void> update({
+    required String state,
+    required double playbackRate,
+  }) async {
+    try {
+      await _channel.invokeMethod<void>('update', {
+        'state': state,
+        'playbackRate': playbackRate,
+      });
+    } on MissingPluginException {
+      // Native session is Android-only.
+    } on PlatformException {
+      // A missing or unavailable system session must not break playback.
     }
   }
 }

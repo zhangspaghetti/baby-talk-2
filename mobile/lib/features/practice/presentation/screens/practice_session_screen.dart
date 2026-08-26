@@ -13,6 +13,7 @@ import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
+import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class PracticeSessionScreen extends ConsumerWidget {
@@ -221,9 +222,14 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
         .watch(settingsRepositoryProvider)
         .when(
           data: (_) {
-            final playbackSettings = ref
-                .watch(settingsNotifierProvider)
-                .snapshot;
+            final settingsNotifier = ref.watch(settingsNotifierProvider);
+            final playbackSettings = settingsNotifier.snapshot;
+            if (settingsNotifier.loadStatus != SettingsLoadStatus.ready) {
+              // The notifier starts with factory defaults (autoplay enabled)
+              // while Isar is loading. Do not let that transient value start
+              // audio before the persisted playback preference is known.
+              return CareTurnAudioPlaybackPolicy.disabled;
+            }
             return CareTurnAudioPlaybackPolicy(
               autoPlayEnabled: playbackSettings.autoPlayEnabled,
               playbackRate: playbackSettings.audioSpeed,

@@ -5,6 +5,9 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.MediaMetadata
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -15,6 +18,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.util.Calendar
 
 private const val REMINDER_CHANNEL = "com.babytalk.mobile/reminder"
+private const val AUDIO_SESSION_CHANNEL = "com.babytalk.mobile/audio-session"
 private const val REMINDER_REQUEST_CODE = 7020
 private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 7021
 
@@ -29,8 +33,63 @@ private data class PendingReminderPermission(
     val result: MethodChannel.Result,
 )
 
+/** Publishes playback state for Android system evidence and media controls. */
+private class NativeAudioPlaybackSession(context: Context) {
+    private val session = MediaSession(context.applicationContext, "BabyTalkCareAudio")
+
+    init {
+        session.setFlags(
+            MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or
+                MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS,
+        )
+        session.setCallback(object : MediaSession.Callback() {})
+        session.setMetadata(
+            MediaMetadata.Builder()
+                .putString(MediaMetadata.METADATA_KEY_TITLE, "BabyTalk care audio")
+                .build(),
+        )
+    }
+
+    fun update(state: String, playbackRate: Float) {
+        val androidState = when (state) {
+            "playing" -> PlaybackState.STATE_PLAYING
+            "paused" -> PlaybackState.STATE_PAUSED
+            "completed" -> PlaybackState.STATE_PAUSED
+            "stopped" -> PlaybackState.STATE_STOPPED
+            else -> throw IllegalArgumentException("未知音频状态。")
+        }
+        val rate = if (playbackRate > 0f && !playbackRate.isNaN()) {
+            playbackRate
+        } else {
+            1f
+        }
+        session.setPlaybackState(
+            PlaybackState.Builder()
+                .setActions(
+                    PlaybackState.ACTION_PLAY or
+                        PlaybackState.ACTION_PAUSE or
+                        PlaybackState.ACTION_PLAY_PAUSE or
+                        PlaybackState.ACTION_STOP,
+                )
+                .setState(
+                    androidState,
+                    PlaybackState.PLAYBACK_POSITION_UNKNOWN,
+                    rate,
+                )
+                .build(),
+        )
+        session.isActive = state != "stopped"
+    }
+
+    fun release() {
+        session.isActive = false
+        session.release()
+    }
+}
+
 class MainActivity : FlutterActivity() {
     private var pendingReminderPermission: PendingReminderPermission? = null
+    private var nativeAudioSession: NativeAudioPlaybackSession? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -44,6 +103,37 @@ class MainActivity : FlutterActivity() {
                         )
                         pendingReminderPermission = null
                         cancelDailyReminder(this)
+                        result.success(null)
+                    }
+
+                    else -> result.notImplemented()
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AUDIO_SESSION_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "update" -> {
+                        val state = call.argument<String>("state")
+                        if (state == null) {
+                            result.error("invalid_state", "音频状态缺失。", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            val playbackRate = call.argument<Double>("playbackRate")?.toFloat() ?: 1f
+                            if (nativeAudioSession == null) {
+                                nativeAudioSession = NativeAudioPlaybackSession(this)
+                            }
+                            nativeAudioSession!!.update(state, playbackRate)
+                            result.success(null)
+                        } catch (error: IllegalArgumentException) {
+                            result.error("invalid_state", error.message, null)
+                        }
+                    }
+
+                    "release" -> {
+                        nativeAudioSession?.release()
+                        nativeAudioSession = null
                         result.success(null)
                     }
 
@@ -123,6 +213,8 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         pendingReminderPermission?.result?.success("unavailable")
         pendingReminderPermission = null
+        nativeAudioSession?.release()
+        nativeAudioSession = null
         super.onDestroy()
     }
 }

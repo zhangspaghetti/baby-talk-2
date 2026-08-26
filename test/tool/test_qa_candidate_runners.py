@@ -319,9 +319,7 @@ class QaCandidateRunnerTest(unittest.TestCase):
             harness,
             "_tap_ui_label",
             side_effect=(
-                "暂停",
                 "继续",
-                "重播",
             ),
         ), patch.object(
             harness,
@@ -331,21 +329,32 @@ class QaCandidateRunnerTest(unittest.TestCase):
             harness,
             "_dumpsys",
             side_effect=(
-                "state=2 package:com.babytalk.mobile",
-                "state=3 package:com.babytalk.mobile",
-                "state=3 package:com.babytalk.mobile",
+                "BabyTalkCareAudio com.babytalk.mobile/BabyTalkCareAudio/1\n"
+                "  state=PlaybackState {state=PAUSED(2)}",
+                "BabyTalkCareAudio com.babytalk.mobile/BabyTalkCareAudio/1\n"
+                "  state=PlaybackState {state=PLAYING(3)}",
+                "BabyTalkCareAudio com.babytalk.mobile/BabyTalkCareAudio/1\n"
+                "  state=PlaybackState {state=PAUSED(2)}",
+                "BabyTalkCareAudio com.babytalk.mobile/BabyTalkCareAudio/1\n"
+                "  state=PlaybackState {state=PLAYING(3)}",
             ),
         ), patch.object(
             harness,
             "_dump_ui",
-            return_value='<hierarchy><node content-desc="暂停"/></hierarchy>',
-        ), patch.object(harness, "_runner_case_evidence", return_value=_evidence()):
+            return_value='<hierarchy><node content-desc="暂停" bounds="[1,1][3,3]"/></hierarchy>',
+        ), patch.object(harness, "_run_device_step"), patch.object(
+            harness,
+            "_wait_for_replay_control",
+            return_value={"center_x": "2", "center_y": "2"},
+        ), patch.object(
+            harness, "_runner_case_evidence", return_value=_evidence()
+        ):
             result = harness.run_case_command("android_audio", context=_context())
 
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(
             [call.kwargs["speed"] for call in configure.call_args_list],
-            [1.0, 2.0],
+            [1.0, 2.0, 1.0],
         )
         observations = json.loads(result.stdout)["observations"]
         self.assertTrue(observations["audio_output_observed"])
@@ -362,7 +371,12 @@ class QaCandidateRunnerTest(unittest.TestCase):
                 '<hierarchy><node class="android.widget.Switch" '
                 'checked="false" bounds="[10,20][110,60]" '
                 'center_x="60" center_y="40"/>'
-                '<node class="android.widget.SeekBar" bounds="[10,80][110,120]"/>'
+                '<node class="android.view.View" '
+                'content-desc="语速&#10;1.0x&#10;0.5x&#10;1.0x&#10;2.0x" '
+                'bounds="[10,60][110,160]">'
+                '<node class="android.widget.SeekBar" content-desc="33%" '
+                'bounds="[10,80][110,120]"/>'
+                '</node>'
                 '</hierarchy>'
             ),
         ), patch.object(harness, "_run_device_step"), patch.object(
@@ -398,8 +412,10 @@ class QaCandidateRunnerTest(unittest.TestCase):
             harness,
             "_dumpsys",
             side_effect=(
-                "state=3 package:com.babytalk.mobile",
-                "state=2 package:com.babytalk.mobile",
+                "BabyTalkCareAudio com.babytalk.mobile/BabyTalkCareAudio/1\n"
+                "  state=PlaybackState {state=PLAYING(3)}",
+                "BabyTalkCareAudio com.babytalk.mobile/BabyTalkCareAudio/1\n"
+                "  state=PlaybackState {state=PAUSED(2)}",
             ),
         ), patch.object(harness.time, "monotonic", side_effect=(100.0, 100.5)):
             duration = harness._measure_audio_duration(_context())
@@ -407,7 +423,7 @@ class QaCandidateRunnerTest(unittest.TestCase):
         self.assertEqual(duration, 0.5)
         self.assertEqual(
             tap.call_args.args[1],
-            ("播放音频", "播放", "听一遍", "Play audio", "重播", "Replay"),
+            ("播放音频", "播放", "听一遍", "听一下", "Play audio", "重播", "Replay"),
         )
 
     def test_deep_link_runner_requires_cold_foreground_and_invalid_results(self) -> None:
@@ -556,7 +572,26 @@ class QaCandidateRunnerTest(unittest.TestCase):
             [
                 ("我", "我的", "Me"),
                 ("登录后同步数据", "已用 ", "登录", "Sign in"),
-                ("登录并同意", "Sign in and agree"),
+                ("获取验证码", "发送验证码", "Get verification code", "Send code"),
+                (
+                    "模拟验证通过",
+                    "模拟人机校验通过并发送验证码",
+                    "Pass CAPTCHA",
+                    "Complete verification",
+                ),
+                (
+                    "同意服务条款和隐私协议",
+                    "Agree to the terms and privacy policy",
+                    "I agree to the terms and privacy policy",
+                ),
+                (
+                    "登录并同意",
+                    "提交验证码登录",
+                    "提交验证码完成注册",
+                    "Sign in and agree",
+                    "Submit verification code",
+                    "登录 / 注册",
+                ),
             ],
         )
 
@@ -604,6 +639,9 @@ class QaCandidateRunnerTest(unittest.TestCase):
                 "返回",
                 "我",
                 "登录后同步数据",
+                "获取验证码",
+                "模拟验证通过",
+                "同意服务条款和隐私协议",
                 "登录并同意",
             ),
         ) as tap, patch.object(harness, "_tap_ui_class_at"), patch.object(
@@ -628,6 +666,9 @@ class QaCandidateRunnerTest(unittest.TestCase):
                 "确认退出",
                 "我",
                 "登录后同步数据",
+                "获取验证码",
+                "模拟验证通过",
+                "同意服务条款和隐私协议",
                 "登录并同意",
             ),
         ) as tap, patch.object(harness, "_tap_ui_class_at"), patch.object(
@@ -665,6 +706,9 @@ class QaCandidateRunnerTest(unittest.TestCase):
                 "确认退出",
                 "我",
                 "登录后同步数据",
+                "获取验证码",
+                "模拟验证通过",
+                "同意服务条款和隐私协议",
                 "登录并同意",
             ),
         ), patch.object(harness, "_tap_signed_in_account_card") as account_card, patch.object(

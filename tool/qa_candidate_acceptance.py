@@ -58,7 +58,10 @@ _RECEIPT_KEYS = {
 _EVIDENCE_KEYS = {"server", "adb", "user_visible"}
 _SCENARIO_TIMEOUT_SECONDS = 30
 _UI_READY_TIMEOUT_SECONDS = 12
-_NOTIFICATION_DELIVERY_TIMEOUT_SECONDS = 210
+# `setAndAllowWhileIdle` is intentionally inexact (no exact-alarm permission).
+# Android 15 may use the full ~2-minute delivery window after the fixed
+# near-term target, so allow enough time for the target plus that window.
+_NOTIFICATION_DELIVERY_TIMEOUT_SECONDS = 360
 _ADB_VIEW_INTENT_ATTEMPTS = 2
 _QA_VERIFICATION_CODE = "246810"
 _QA_CONSENT_VERSION = "pipl-v1"
@@ -608,7 +611,12 @@ def _collect_case_business_result(
     if case_id == "android_notification":
         alarm = _dumpsys(context, "alarm")
         notification = _dumpsys(context, "notification", "--noredact")
-        if not _alarm_proves_daily_reminder_delivery(alarm, context.package_id):
+        notification_time = _notification_post_time_epoch_ms(notification)
+        if not _alarm_proves_daily_reminder_delivery(
+            alarm,
+            context.package_id,
+            not_before_epoch_ms=(notification_time - 60_000) if notification_time else None,
+        ):
             raise _ScenarioBlocked("independent alarm delivery evidence is unavailable")
         if not _notification_is_posted(notification, context.package_id):
             raise _ScenarioBlocked("independent posted notification evidence is unavailable")
@@ -1017,8 +1025,9 @@ def _navigate_to_care_controls(context: CaseExecutionContext) -> None:
     _tap_ui_label(
         context,
         ("现在说一句", "Say one sentence", "Speak now", "Continue this activity"),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
     )
-    _require_ui_label(
+    _find_ui_label(
         context,
         (
             "暂停",
@@ -1028,6 +1037,7 @@ def _navigate_to_care_controls(context: CaseExecutionContext) -> None:
             "Pause",
             "Play audio",
         ),
+        wait_seconds=_SCENARIO_TIMEOUT_SECONDS,
     )
 
 
@@ -1264,8 +1274,10 @@ def _replace_focused_text(context: CaseExecutionContext, value: str) -> None:
     if not re.fullmatch(r"[0-9]{1,16}", value):
         raise _ScenarioBlocked("fixed scenario input is invalid")
     _run_device_step(context, ["shell", "input", "keyevent", "123"])
+    time.sleep(0.25)
     for _ in range(16):
         _run_device_step(context, ["shell", "input", "keyevent", "67"])
+        time.sleep(0.25)
     _run_device_step(context, ["shell", "input", "text", value])
 
 
@@ -1345,9 +1357,9 @@ def _sign_in_apk_identity(
                 wait_seconds=_UI_READY_TIMEOUT_SECONDS,
             ),
         )
-        run_stage(
-            "signed_out",
-            lambda: _find_ui_label(
+        auth_form_ready = False
+        try:
+            _find_ui_label(
                 context,
                 (
                     "账号入口已可见，但你还没有登录",
@@ -1355,36 +1367,99 @@ def _sign_in_apk_identity(
                     "Not signed in",
                 ),
                 wait_seconds=_UI_READY_TIMEOUT_SECONDS,
-            ),
-        )
-        _launch_app(context)
-        run_stage(
-            "me_after_sign_out",
-            lambda: _tap_ui_label(
-                context,
-                ("我", "我的", "Me"),
-                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
-            ),
-        )
-        run_stage(
-            "account_after_sign_out",
-            lambda: _tap_ui_label(
-                context,
-                ("登录后同步数据", "登录", "Sign in"),
-                wait_seconds=_UI_READY_TIMEOUT_SECONDS,
-            ),
-        )
+            )
+        except _ScenarioBlocked as signed_out_error:
+            # AuthScreen may be the post-logout destination for a deep-link
+            # account entry. It is already the required fresh form; avoid
+            # sending a second launch/back sequence that loses that route.
+            try:
+                _find_ui_label(
+                    context,
+                    ("验证码登录", "验证码登录页面", "Code sign-in", "Sign-in"),
+                    wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+                )
+                auth_form_ready = True
+            except _ScenarioBlocked:
+                raise signed_out_error
+        if not auth_form_ready:
+            _launch_app(context)
+            run_stage(
+                "me_after_sign_out",
+                lambda: _tap_ui_label(
+                    context,
+                    ("我", "我的", "Me"),
+                    wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+                ),
+            )
+            run_stage(
+                "account_after_sign_out",
+                lambda: _tap_ui_label(
+                    context,
+                    ("登录后同步数据", "登录", "Sign in"),
+                    wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+                ),
+            )
     run_stage("phone_field", lambda: _tap_ui_class_at(context, "EditText", 0))
     run_stage("phone_value", lambda: _replace_focused_text(context, _stable_synthetic_phone(fingerprint)))
+    # The form starts with only phone input. Request the challenge through the
+    # same visible CAPTCHA flow as a real user before looking for OTP input.
+    run_stage(
+        "close_phone_keyboard",
+        lambda: _run_device_step(context, ["shell", "input", "keyevent", "4"]),
+    )
+    run_stage(
+        "request_code",
+        lambda: _tap_ui_label(
+            context,
+            ("获取验证码", "发送验证码", "Get verification code", "Send code"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        ),
+    )
+    run_stage(
+        "captcha",
+        lambda: _tap_ui_label(
+            context,
+            (
+                "模拟验证通过",
+                "模拟人机校验通过并发送验证码",
+                "Pass CAPTCHA",
+                "Complete verification",
+            ),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        ),
+    )
     run_stage("code_field", lambda: _tap_ui_class_at(context, "EditText", 1))
     run_stage("code_value", lambda: _replace_focused_text(context, _QA_VERIFICATION_CODE))
-    run_stage("close_keyboard", lambda: _run_device_step(context, ["shell", "input", "keyevent", "4"]))
-    run_stage("consent", lambda: _tap_ui_class_at(context, "CheckBox", 0))
+    # Pinput dismisses the IME when the sixth digit completes the field. Do
+    # not send an unconditional Android back key here: on the candidate
+    # emulator the IME is already hidden, so that key would pop the auth route
+    # before the consent row is scrolled into view.
+    # The V11 auth page exposes the terms row as one merged Flutter semantics
+    # node (`android.view.View`), so a native CheckBox class lookup is not
+    # stable on Android. Tap the user-visible consent label instead.
+    run_stage(
+        "consent",
+        lambda: _tap_ui_label_after_scroll(
+            context,
+            (
+                "同意服务条款和隐私协议",
+                "Agree to the terms and privacy policy",
+                "I agree to the terms and privacy policy",
+            ),
+        ),
+    )
     run_stage(
         "submit",
         lambda: _tap_ui_label(
             context,
-            ("登录并同意", "Sign in and agree"),
+            (
+                "登录并同意",
+                "提交验证码登录",
+                "提交验证码完成注册",
+                "Sign in and agree",
+                "Submit verification code",
+                "登录 / 注册",
+            ),
             wait_seconds=_UI_READY_TIMEOUT_SECONDS,
         ),
     )
@@ -1441,17 +1516,34 @@ def _dumpsys(context: CaseExecutionContext, service: str, *arguments: str) -> st
 
 def _alarm_has_daily_reminder(output: str, package_id: str) -> bool:
     normalized = output.lower()
+    pending = normalized
+    pending_match = re.search(
+        r"\b\d+\s+pending alarms:(?P<body>[\s\S]*?)"
+        r"\n\s*pending alarms per uid:",
+        normalized,
+    )
+    if pending_match is not None:
+        pending = pending_match.group("body")
+    else:
+        # Keep historical snapshots and Alarm Stats from looking like a live
+        # PendingIntent when an alarm has just been cancelled.
+        pending = re.split(r"\n\s*(?:app alarm history|alarm stats):", normalized, maxsplit=1)[0]
     component = re.escape("dailyreminderreceiver".lower())
     package = re.escape(package_id.lower())
     return bool(
-        re.search(package + r"[^\n]{0,180}" + component, normalized)
-        and re.search(r"pendingintentrecord|broadcastintent|type=.?broadcast", normalized)
-        and "no scheduled dailyreminderreceiver" not in normalized
-        and "not scheduled dailyreminderreceiver" not in normalized
+        re.search(package + r"[^\n]{0,180}" + component, pending)
+        and re.search(r"pendingintentrecord|broadcastintent|type=.?broadcast", pending)
+        and "no scheduled dailyreminderreceiver" not in pending
+        and "not scheduled dailyreminderreceiver" not in pending
     )
 
 
-def _alarm_proves_daily_reminder_delivery(output: str, package_id: str) -> bool:
+def _alarm_proves_daily_reminder_delivery(
+    output: str,
+    package_id: str,
+    *,
+    not_before_epoch_ms: int | None = None,
+) -> bool:
     normalized = output.lower()
     history_count = re.search(
         r"(?:deliverycount|count|delivered)\s*[=:]\s*[1-9]\d*",
@@ -1468,18 +1560,61 @@ def _alarm_proves_daily_reminder_delivery(output: str, package_id: str) -> bool:
         + r"type=rtc_wakeup[\s\S]{0,360}whenelapsed=-\d",
         normalized,
     )
+    # The app intentionally uses a one-shot `setAndAllowWhileIdle` alarm so
+    # Android 15 can deliver an imminent reminder without exact-alarm access.
+    # DailyReminderReceiver cancels that fired PendingIntent before scheduling
+    # the next day, so AlarmManager exposes the delivery as a recent
+    # `Removal history` snapshot rather than a repeating due alarm.
+    one_shot_removal_history = re.search(
+        r"removal history:[\s\S]{0,5000}"
+        + re.escape(package_id.lower())
+        + r"/\.dailyreminderreceiver[\s\S]{0,240}"
+        + r"reason=(?:pi_)?cancelled",
+        normalized,
+    )
+    recent_one_shot_removal = False
+    if one_shot_removal_history:
+        if not_before_epoch_ms is None:
+            recent_one_shot_removal = True
+        else:
+            for raw in re.findall(
+                r"rtc=(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,3})?)",
+                one_shot_removal_history.group(0),
+            ):
+                try:
+                    removal_time = datetime.fromisoformat(raw).replace(tzinfo=UTC)
+                except ValueError:
+                    continue
+                if int(removal_time.timestamp() * 1000) >= not_before_epoch_ms:
+                    recent_one_shot_removal = True
+                    break
     return bool(
         package_id.lower() in normalized
         and "dailyreminderreceiver" in normalized
-        and (history_count or due_repeating_alarm)
+        and (history_count or due_repeating_alarm or recent_one_shot_removal)
         and any(marker in normalized for marker in ("history", "wakeup"))
     )
 
 
 def _notification_post_time_epoch_ms(output: str) -> int | None:
+    return _notification_post_time_epoch_ms_with_offset(output)
+
+
+def _notification_post_time_epoch_ms_with_offset(
+    output: str,
+    *,
+    elapsed_epoch_offset_ms: int | None = None,
+) -> int | None:
     match = re.search(r"\bposttime\s*=\s*([^\s,)]+)", output, re.IGNORECASE)
     if match is None:
-        return None
+        elapsed_match = re.search(
+            r"\bposttimeelapsedms\s*=\s*(\d+)",
+            output,
+            re.IGNORECASE,
+        )
+        if elapsed_match is None or elapsed_epoch_offset_ms is None:
+            return None
+        return int(elapsed_match.group(1)) + elapsed_epoch_offset_ms
     raw = match.group(1)
     if raw.isdigit():
         value = int(raw)
@@ -1490,26 +1625,44 @@ def _notification_post_time_epoch_ms(output: str) -> int | None:
         return None
 
 
+def _alarm_elapsed_epoch_offset_ms(output: str) -> int | None:
+    match = re.search(
+        r"nowrtc\s*=\s*(\d+)=.*?nowelapsed\s*=\s*(\d+)",
+        output,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if match is None:
+        return None
+    return int(match.group(1)) - int(match.group(2))
+
+
 def _notification_is_posted(
     output: str,
     package_id: str,
     *,
     not_before_epoch_ms: int | None = None,
+    elapsed_epoch_offset_ms: int | None = None,
 ) -> bool:
     normalized = output.lower()
+    has_post_time = bool(
+        re.search(r"\bposttime(?:elapsedms)?\s*=\s*\S+", normalized)
+    )
     structurally_posted = bool(
         "notificationrecord(" in normalized
         and f"pkg={package_id.lower()}" in normalized
         and re.search(r"\bid\s*=\s*7020\b", normalized)
         and re.search(r"\bchannel\s*=\s*daily_reminder\b", normalized)
-        and re.search(r"\bposttime\s*=\s*\S+", normalized)
+        and has_post_time
     )
     if not structurally_posted:
         return False
-    post_time = _notification_post_time_epoch_ms(output)
-    return post_time is not None and (
-        not_before_epoch_ms is None or post_time >= not_before_epoch_ms
+    if not_before_epoch_ms is None:
+        return True
+    post_time = _notification_post_time_epoch_ms_with_offset(
+        output,
+        elapsed_epoch_offset_ms=elapsed_epoch_offset_ms,
     )
+    return post_time is not None and post_time >= not_before_epoch_ms
 
 
 def _runner_case_evidence(context: CaseExecutionContext, case_id: str) -> CaseEvidence:
@@ -1860,10 +2013,17 @@ def _set_time_picker_value(context: CaseExecutionContext, index: int, value: int
     if len(edit_fields) != 2 or index not in (0, 1):
         raise _ScenarioBlocked("Android time picker fields are unavailable")
     _tap_ui_node(context, edit_fields[index])
+    # The text-mode picker opens the IME asynchronously.  Give the tapped
+    # EditText time to become focused before sending keyevents; otherwise the
+    # first field can retain its old value and append the replacement digit.
+    time.sleep(0.5)
     _run_device_step(context, ["shell", "input", "keyevent", "123"])
+    time.sleep(0.25)
     for _ in range(4):
         _run_device_step(context, ["shell", "input", "keyevent", "67"])
-    _run_device_step(context, ["shell", "input", "text", str(value)])
+        time.sleep(0.25)
+    _run_device_step(context, ["shell", "input", "text", f"{value:02d}"])
+    time.sleep(0.5)
 
 
 def _schedule_near_term_daily_reminder(context: CaseExecutionContext) -> None:
@@ -1871,7 +2031,6 @@ def _schedule_near_term_daily_reminder(context: CaseExecutionContext) -> None:
     target = datetime(2000, 1, 1, hour, minute) + timedelta(minutes=3)
     target_hour = target.hour
     target_minute = target.minute
-    hour_on_clock = target_hour % 12 or 12
 
     switches = [
         node
@@ -1895,13 +2054,28 @@ def _schedule_near_term_daily_reminder(context: CaseExecutionContext) -> None:
         ("切换到文本输入模式", "Switch to text input mode"),
         wait_seconds=_UI_READY_TIMEOUT_SECONDS,
     )
-    _set_time_picker_value(context, 0, hour_on_clock)
-    _set_time_picker_value(context, 1, target_minute)
-    _tap_ui_label(
-        context,
-        ("上午", "AM") if target_hour < 12 else ("下午", "PM"),
-        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    picker_xml = _dump_ui(context)
+    picker_visible = {
+        (node.get("text", "") + " " + node.get("content-desc", "")).strip()
+        for node in _parse_ui_nodes(picker_xml)
+    }
+    has_period_selector = any(
+        marker in value
+        for value in picker_visible
+        for marker in ("上午", "下午", "AM", "PM")
     )
+    _set_time_picker_value(
+        context,
+        0,
+        (target_hour % 12 or 12) if has_period_selector else target_hour,
+    )
+    _set_time_picker_value(context, 1, target_minute)
+    if has_period_selector:
+        _tap_ui_label(
+            context,
+            ("上午", "AM") if target_hour < 12 else ("下午", "PM"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        )
     _tap_ui_label(context, ("确定", "OK"), wait_seconds=_UI_READY_TIMEOUT_SECONDS)
 
 
@@ -1929,11 +2103,16 @@ def _wait_for_notification_delivery(
         notification_state = _dumpsys(context, "notification", "--noredact")
         if (
             scheduler_observed
-            and _alarm_proves_daily_reminder_delivery(alarm_state, context.package_id)
+            and _alarm_proves_daily_reminder_delivery(
+                alarm_state,
+                context.package_id,
+                not_before_epoch_ms=not_before_epoch_ms,
+            )
             and _notification_is_posted(
                 notification_state,
                 context.package_id,
                 not_before_epoch_ms=not_before_epoch_ms,
+                elapsed_epoch_offset_ms=_alarm_elapsed_epoch_offset_ms(alarm_state),
             )
         ):
             return
@@ -1949,9 +2128,16 @@ def _run_android_notification(context: CaseExecutionContext) -> CaseCommandResul
     _allow_notification_permission_if_prompted(context)
     _wait_for_notification_delivery(context, not_before_epoch_ms=scenario_started_epoch_ms)
     _tap_ui_class(context, "Switch")
-    cancelled_state = _dumpsys(context, "alarm")
-    if _alarm_has_daily_reminder(cancelled_state, context.package_id):
-        raise _ScenarioBlocked("disabling reminder left a stale schedule")
+    deadline = time.monotonic() + _UI_READY_TIMEOUT_SECONDS
+    while _alarm_has_daily_reminder(
+        _dumpsys(context, "alarm"),
+        context.package_id,
+    ):
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("disabling reminder left a stale schedule")
+        # The notifier persists the setting and cancels AlarmManager on the
+        # platform channel asynchronously after the Switch tap.
+        time.sleep(0.25)
     visible = _dump_ui(context)
     if "每日提醒" not in visible and "提醒" not in visible:
         raise _ScenarioBlocked("reminder result was not user-visible")
@@ -1985,18 +2171,39 @@ def _run_android_audio(context: CaseExecutionContext) -> CaseCommandResult:
     # duration change from the same device-observed playback surface.
     if two_x_seconds >= one_x_seconds * 0.8:
         raise _ScenarioBlocked("audio speed effect was not observed")
-    run_stage("pause", lambda: _tap_ui_label(context, ("暂停", "Pause")))
-    paused_state = _dumpsys(context, "media_session")
-    if _audio_state_is_playing(paused_state, context.package_id):
-        raise _ScenarioBlocked("audio pause state was not observed")
-    run_stage("resume", lambda: _tap_ui_label(context, ("继续", "Resume", "播放")))
-    resumed_state = _dumpsys(context, "media_session")
-    if not _audio_state_is_playing(resumed_state, context.package_id):
-        raise _ScenarioBlocked("audio resume state was not observed")
-    run_stage("replay", lambda: _tap_ui_label(context, ("重播", "Replay", "再来一次")))
-    replayed_state = _dumpsys(context, "media_session")
-    if not _audio_state_is_playing(replayed_state, context.package_id):
-        raise _ScenarioBlocked("audio replay state was not observed")
+    # The 2.0x sample is intentionally short. Re-enter the same activity at
+    # the persisted 1.0x setting before exercising pause/resume/replay so the
+    # UI can expose each control before playback naturally completes.
+    run_stage("configure_controls_1x", lambda: _configure_audio_playback(context, speed=1.0))
+    run_stage("care_controls_for_pause", lambda: _navigate_to_care_controls(context))
+    pause_node = run_stage("prepare_pause", lambda: _ensure_audio_playing(context))
+    if not isinstance(pause_node, dict):
+        raise _ScenarioBlocked("audio pause control geometry is unavailable")
+    run_stage(
+        "pause",
+        lambda: _tap_ui_node(context, pause_node),
+    )
+    run_stage("pause_state", lambda: _wait_for_audio_state(context, playing=False))
+    run_stage(
+        "resume",
+        lambda: _tap_ui_label(
+            context,
+            ("继续", "Resume", "播放"),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        ),
+    )
+    run_stage("resume_state", lambda: _wait_for_audio_state(context, playing=True))
+    # Replay is disabled while the turn is playing or paused. Let the resumed
+    # clip complete so the current turn exposes an enabled replay control.
+    replay_node = run_stage("wait_for_replay", lambda: _wait_for_replay_control(context))
+    if not isinstance(replay_node, dict):
+        raise _ScenarioBlocked("audio replay control geometry is unavailable")
+    run_stage("replay_pause_state", lambda: _wait_for_audio_state(context, playing=False))
+    run_stage(
+        "replay",
+        lambda: _tap_ui_node(context, replay_node),
+    )
+    run_stage("replay_state", lambda: _wait_for_audio_state(context, playing=True))
     controls_state = _dump_ui(context)
     if not any(label in controls_state for label in ("暂停", "继续", "重播", "播放")):
         raise _ScenarioBlocked("audio controls were not observable")
@@ -2013,17 +2220,112 @@ def _run_android_audio(context: CaseExecutionContext) -> CaseCommandResult:
     )
 
 
+def _ensure_audio_playing(context: CaseExecutionContext) -> dict[str, str]:
+    """Ensure the current care turn exposes a clickable pause control.
+
+    A UI dump is expensive on the candidate emulator and a short clip can
+    finish while the runner is polling a stale MediaSession. The pause
+    control is owned by the current Flutter turn, so it is the right
+    readiness signal; the following pause-state assertion still verifies the
+    independent system session.
+    """
+    play_requested = False
+    deadline = time.monotonic() + _UI_READY_TIMEOUT_SECONDS
+    while True:
+        xml = _dump_ui(context)
+        pause_node = _find_clickable_ui_node_from_xml(xml, ("暂停", "Pause"))
+        if pause_node is not None:
+            return pause_node
+        if not play_requested:
+            play_node = _find_clickable_ui_node_from_xml(
+                xml,
+                ("播放音频", "播放", "听一遍", "听一下", "Play audio", "重播", "Replay"),
+            )
+            if play_node is not None:
+                _tap_ui_node(context, play_node)
+                play_requested = True
+                continue
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("audio playback state was not observable")
+        time.sleep(0.2)
+
+
+def _find_clickable_ui_node_from_xml(
+    xml: str,
+    labels: tuple[str, ...],
+) -> dict[str, str] | None:
+    for node in _parse_ui_nodes(xml):
+        if (
+            node.get("clickable", "true").lower() == "false"
+            or node.get("enabled", "true").lower() == "false"
+        ):
+            continue
+        visible = unescape(
+            (node.get("text", "") + " " + node.get("content-desc", "")).strip()
+        )
+        if any(label == visible or label in visible for label in labels):
+            return node
+    return None
+
+
+def _find_clickable_ui_node(
+    context: CaseExecutionContext,
+    labels: tuple[str, ...],
+) -> dict[str, str] | None:
+    return _find_clickable_ui_node_from_xml(_dump_ui(context), labels)
+
+
+def _wait_for_replay_control(context: CaseExecutionContext) -> dict[str, str]:
+    """Wait for the current turn to expose an enabled replay action."""
+    deadline = time.monotonic() + _SCENARIO_TIMEOUT_SECONDS
+    while True:
+        replay_node = _find_clickable_ui_node(
+            context,
+            ("重播", "Replay", "再来一次"),
+        )
+        if replay_node is not None:
+            return replay_node
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("audio replay control was not observable")
+        time.sleep(0.2)
+
+
+def _wait_for_audio_state(context: CaseExecutionContext, *, playing: bool) -> str:
+    deadline = time.monotonic() + _UI_READY_TIMEOUT_SECONDS
+    while True:
+        state = _dumpsys(context, "media_session")
+        if _audio_state_is_playing(state, context.package_id) is playing:
+            return state
+        if time.monotonic() >= deadline:
+            marker = "playing" if playing else "paused"
+            raise _ScenarioBlocked(f"audio {marker} state was not observed")
+        time.sleep(0.2)
+
+
 def _audio_state_is_playing(output: str, package_id: str) -> bool:
     normalized = output.lower()
-    return package_id.lower() in normalized and (
-        "state=3" in normalized
-        or "state_playing" in normalized
-        or "playing" in normalized
+    session = re.search(
+        re.escape(package_id.lower()) + r"[^\n]*\n(?P<body>[\s\S]{0,1000})",
+        normalized,
+    )
+    if session is None:
+        return False
+    state = re.search(
+        r"state\s*=\s*playbackstate\s*\{\s*state\s*=\s*"
+        r"(?P<name>[a-z_]+)(?:\((?P<code>\d+)\))?",
+        session.group("body"),
+    )
+    return bool(
+        state is not None
+        and (
+            state.group("name") in {"playing", "state_playing"}
+            or state.group("code") == "3"
+        )
     )
 
 
 def _configure_audio_playback(context: CaseExecutionContext, *, speed: float) -> None:
-    if speed not in {1.0, 2.0}:
+    if speed not in {0.5, 1.0, 2.0}:
         raise _ScenarioBlocked("fixed audio speed is invalid")
     _launch_app(context)
     _tap_ui_label(context, ("我", "我的", "Me"), wait_seconds=_UI_READY_TIMEOUT_SECONDS)
@@ -2033,9 +2335,10 @@ def _configure_audio_playback(context: CaseExecutionContext, *, speed: float) ->
         ("播放偏好", "Playback preferences"),
         wait_seconds=_UI_READY_TIMEOUT_SECONDS,
     )
+    settings_nodes = _parse_ui_nodes(_dump_ui(context))
     switches = [
         node
-        for node in _parse_ui_nodes(_dump_ui(context))
+        for node in settings_nodes
         if node.get("class", "").endswith("Switch")
     ]
     if len(switches) != 1:
@@ -2045,7 +2348,7 @@ def _configure_audio_playback(context: CaseExecutionContext, *, speed: float) ->
 
     sliders = [
         node
-        for node in _parse_ui_nodes(_dump_ui(context))
+        for node in settings_nodes
         if node.get("class", "").endswith(("SeekBar", "Slider"))
     ]
     if len(sliders) != 1:
@@ -2056,21 +2359,76 @@ def _configure_audio_playback(context: CaseExecutionContext, *, speed: float) ->
         raise _ScenarioBlocked("audio speed slider geometry is unavailable")
     left, top, right, bottom = (int(part) for part in match.groups())
     fraction = (speed - 0.5) / 1.5
-    x = round(left + (right - left) * fraction)
-    y = (top + bottom) // 2
-    _run_device_step(context, ["shell", "input", "tap", str(x), str(y)])
-    _find_ui_label(
-        context,
-        (f"{speed:.1f}x",),
-        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
-    )
+    current_percent = int(sliders[0].get("content-desc", "0%").rstrip("%"))
+    expected_percent = round(fraction * 100)
+    if current_percent != expected_percent:
+        speed_surface = next(
+            (
+                node
+                for node in settings_nodes
+                if "语速" in node.get("content-desc", "")
+                and node.get("bounds", "")
+            ),
+            None,
+        )
+        if speed_surface is None:
+            raise _ScenarioBlocked("audio speed track geometry is unavailable")
+        surface_match = re.fullmatch(
+            r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+            speed_surface["bounds"],
+        )
+        if surface_match is None:
+            raise _ScenarioBlocked("audio speed track geometry is unavailable")
+        surface_left, _, surface_right, _ = (
+            int(part) for part in surface_match.groups()
+        )
+        # Flutter's Slider reserves the thumb radius plus the card's inner
+        # padding at either end. The semantic parent gives stable track
+        # geometry even though the SeekBar node itself only bounds the thumb.
+        track_margin = round((surface_right - surface_left) * 0.108)
+        track_left = surface_left + track_margin
+        track_right = surface_right - track_margin
+        target_x = round(track_left + (track_right - track_left) * fraction)
+        x = (left + right) // 2
+        y = (top + bottom) // 2
+        _run_device_step(
+            context,
+            [
+                "shell",
+                "input",
+                "swipe",
+                str(x),
+                str(y),
+                str(target_x),
+                str(y),
+                "500",
+            ],
+        )
+
+    expected_slider_desc = f"{expected_percent}%"
+    deadline = time.monotonic() + _UI_READY_TIMEOUT_SECONDS
+    while True:
+        selected = [
+            node
+            for node in _parse_ui_nodes(_dump_ui(context))
+            if node.get("class", "").endswith(("SeekBar", "Slider"))
+            and node.get("content-desc", "") == expected_slider_desc
+        ]
+        if selected:
+            # `onChangeEnd` persists through Isar asynchronously; let the
+            # write finish before the next cold-start reads playback policy.
+            time.sleep(1.0)
+            return
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("audio speed value was not observable")
+        time.sleep(0.5)
 
 
 def _measure_audio_duration(context: CaseExecutionContext) -> float:
     _tap_ui_label(
         context,
-        ("播放音频", "播放", "听一遍", "Play audio", "重播", "Replay"),
-        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        ("播放音频", "播放", "听一遍", "听一下", "Play audio", "重播", "Replay"),
+        wait_seconds=_SCENARIO_TIMEOUT_SECONDS,
     )
     started_at: float | None = None
     for _ in range(100):

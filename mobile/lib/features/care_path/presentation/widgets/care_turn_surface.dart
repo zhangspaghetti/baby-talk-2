@@ -294,10 +294,18 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       return;
     }
     final intent = _audioIntent;
+    final l = AppLocalizations.of(context)!;
+    // Reflect the user's pause intent immediately. The generated-audio
+    // controller may still be awaiting bytes, but the control must remain
+    // actionable while the native pause operation drains.
+    setState(() {
+      _isPlayingAudio = false;
+      _isAudioPaused = true;
+      _audioMessage = l.practiceAudioPausedInline;
+    });
     try {
       await controller.pause();
       if (!mounted || intent != _audioIntent) return;
-      final l = AppLocalizations.of(context)!;
       setState(() {
         _isPlayingAudio = false;
         _isAudioPaused = true;
@@ -324,10 +332,17 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       return;
     }
     final intent = _audioIntent;
+    final l = AppLocalizations.of(context)!;
+    // Resume is also optimistic so a pause requested during generated-byte
+    // loading cannot strand the user on a disabled or missing control.
+    setState(() {
+      _isPlayingAudio = true;
+      _isAudioPaused = false;
+      _audioMessage = l.practiceAudioPlayingInline;
+    });
     try {
       await controller.resume();
       if (!mounted || intent != _audioIntent) return;
-      final l = AppLocalizations.of(context)!;
       setState(() {
         _isPlayingAudio = true;
         _isAudioPaused = false;
