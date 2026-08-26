@@ -60,7 +60,7 @@ class CustomSceneApi implements CustomSceneDiscoveryGateway {
     Dio? dio,
     String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
-    this.timeout = const Duration(seconds: 15),
+    this.timeout = const Duration(seconds: 60),
   }) : _authenticatedApiClient = authenticatedApiClient,
        _dio =
            dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
