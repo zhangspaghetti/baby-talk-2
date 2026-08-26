@@ -47,7 +47,33 @@ class PracticeOnboardingConversationGeneratorTest {
                 request.capture(), eq(ownerKey), eq(installationRef));
         verify(content, never()).generateCustomScene(any());
         assertThat(request.getValue().installationId()).isNull();
+        assertThat(request.getValue().mode()).isEqualTo("custom_scene");
         assertThat(request.getValue().customSceneText()).contains("Time to sleep.", "hesitant");
         assertThat(result.utteranceId()).isEqualTo("utterance-next-1");
+    }
+
+    @Test
+    void firstUtteranceUsesDatabaseCompatibleCustomSceneMode() {
+        var content = mock(PracticeGeneratedContentService.class);
+        var generated = new PracticeGeneratedContentEntity();
+        generated.setGeneratedContentId("generated-first-1");
+        var utterance = new PracticeGeneratedContentUtteranceEntity();
+        utterance.setUtteranceId("utterance-first-1");
+        utterance.setRole("starter");
+        utterance.setEnglishText("Time to sleep.");
+        utterance.setChineseText("该睡觉啦。");
+        utterance.setPronunciationHint("time to sleep");
+        when(content.generateCustomScene(any())).thenReturn(generated);
+        when(content.findApprovedUtterances("generated-first-1")).thenReturn(List.of(utterance));
+        var generator = new PracticeOnboardingConversationGenerator(content);
+
+        var result = generator.generate(new OnboardingConversationGenerator.GenerationRequest(
+                "qa-installation-1", "first-event-1", "bedtime", Map.of(), "zh-CN", "night"));
+
+        var request = ArgumentCaptor.forClass(
+                PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
+        verify(content).generateCustomScene(request.capture());
+        assertThat(request.getValue().mode()).isEqualTo("custom_scene");
+        assertThat(result.utteranceId()).isEqualTo("utterance-first-1");
     }
 }

@@ -27,7 +27,7 @@ public class PracticeOnboardingConversationGenerator implements OnboardingConver
         }
         var generated = generatedContentService.generateCustomScene(
                 new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                        "onboarding", "first_utterance", request.installationId(), null, null,
+                        "onboarding", "custom_scene", request.installationId(), null, null,
                         "12_18m", "daily_care", request.locale(), safeScene, request.localEventId()));
         var starter = generatedContentService.findApprovedUtterances(generated.generatedContentId()).stream()
                 .filter(utterance -> "starter".equals(utterance.role()))
@@ -49,7 +49,7 @@ public class PracticeOnboardingConversationGenerator implements OnboardingConver
                 : "，宝宝暂时没有明显反应";
         var generated = generatedContentService.generateCustomSceneForInstallationOwner(
                 new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                        "onboarding", "next_support", null, null, null,
+                        "onboarding", "custom_scene", null, null, null,
                         "12_18m", "daily_care", request.locale(),
                         safeScene + "，家长刚才说了英文：" + request.previousEnglishText() + reactionContext,
                         request.localEventId()), request.installationOwnerKey(),
