@@ -241,6 +241,40 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
         ):
             self.assertFalse(harness._verify_installed_candidate_identity(context))
 
+    def test_installed_candidate_identity_scrolls_to_about_after_initial_miss(self) -> None:
+        context = harness.CaseExecutionContext(
+            candidate_id="btqa-2026-08-15",
+            apk_sha256="a" * 64,
+            gateway_url="http://127.0.0.1:19091",
+            package_id="com.zhangspaghetti.babytalk",
+            device_identity_sha256="b" * 64,
+            android_version="14",
+            app_version="1.0.0",
+            identity_fingerprints={},
+            device_serial="emulator-5554",
+        )
+        with patch.object(harness, "_launch_app"), patch.object(
+            harness,
+            "_tap_ui_label",
+            side_effect=["我", "设置", harness._ScenarioBlocked("about below viewport")],
+        ), patch.object(
+            harness, "_tap_ui_label_after_scroll", return_value="关于 BabyTalk"
+        ) as tap_after_scroll, patch.object(
+            harness,
+            "_dump_ui",
+            return_value=(
+                '<hierarchy><node content-desc="关于 BabyTalk"/><node '
+                'content-desc="版本&#10;1.0.0&#10;候选 ID&#10;btqa-2026-08-15&#10;开发者&#10;BabyTalk Studio"/>'
+                "</hierarchy>"
+            ),
+        ):
+            self.assertTrue(harness._verify_installed_candidate_identity(context))
+        tap_after_scroll.assert_called_once_with(
+            context,
+            ("关于 BabyTalk",),
+            scroll_attempts=5,
+        )
+
     def test_parse_ui_nodes_preserves_hyphenated_android_attributes(self) -> None:
         nodes = harness._parse_ui_nodes(
             '<hierarchy><node content-desc="设置" resource-id="android:id/content" '

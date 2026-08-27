@@ -1514,11 +1514,22 @@ def _verify_installed_candidate_identity(context: CaseExecutionContext) -> bool:
         )
     except _ScenarioBlocked:
         pass
-    _tap_ui_label(
-        context,
-        ("关于 BabyTalk",),
-        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
-    )
+    try:
+        _tap_ui_label(
+            context,
+            ("关于 BabyTalk",),
+            wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+        )
+    except _ScenarioBlocked:
+        # Settings is a bounded ScrollView on the release APK; the About tile
+        # can be below the initial viewport after a cold launch or a prior
+        # scenario. Retry through the shared bounded-scroll helper so identity
+        # verification does not depend on whatever route happened to be open.
+        _tap_ui_label_after_scroll(
+            context,
+            ("关于 BabyTalk",),
+            scroll_attempts=5,
+        )
     nodes = _parse_ui_nodes(_dump_ui(context))
     visible = [
         unescape((node.get("text", "") + " " + node.get("content-desc", "")).strip())
