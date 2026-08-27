@@ -1021,7 +1021,11 @@ def _navigate_to_reminder_controls(context: CaseExecutionContext) -> None:
 def _navigate_to_care_controls(context: CaseExecutionContext) -> None:
     """Cold-start and enter one care activity before audio assertions."""
     _launch_app(context)
-    _tap_ui_label(context, ("场景", "Scenes", "练习", "Practice"))
+    _tap_ui_label(
+        context,
+        ("场景", "Scenes", "练习", "Practice"),
+        wait_seconds=_UI_READY_TIMEOUT_SECONDS,
+    )
     _tap_ui_label(
         context,
         ("现在说一句", "Say one sentence", "Speak now", "Continue this activity"),

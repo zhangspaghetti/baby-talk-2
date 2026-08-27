@@ -275,6 +275,36 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             scroll_attempts=5,
         )
 
+    def test_care_navigation_waits_for_cold_start_scene_tab(self) -> None:
+        context = _ui_context()
+        with patch.object(harness, "_launch_app"), patch.object(
+            harness, "_tap_ui_label", return_value="场景"
+        ) as tap_label, patch.object(
+            harness, "_find_ui_label", return_value="现在说一句"
+        ):
+            harness._navigate_to_care_controls(context)
+
+        self.assertEqual(
+            tap_label.call_args_list,
+            [
+                call(
+                    context,
+                    ("场景", "Scenes", "练习", "Practice"),
+                    wait_seconds=harness._UI_READY_TIMEOUT_SECONDS,
+                ),
+                call(
+                    context,
+                    (
+                        "现在说一句",
+                        "Say one sentence",
+                        "Speak now",
+                        "Continue this activity",
+                    ),
+                    wait_seconds=harness._UI_READY_TIMEOUT_SECONDS,
+                ),
+            ],
+        )
+
     def test_parse_ui_nodes_preserves_hyphenated_android_attributes(self) -> None:
         nodes = harness._parse_ui_nodes(
             '<hierarchy><node content-desc="设置" resource-id="android:id/content" '
