@@ -316,6 +316,21 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
 
         self.assertEqual(dump_ui.call_count, 2)
 
+    def test_deep_link_surface_retries_transient_ui_dump(self) -> None:
+        context = _ui_context()
+        visible_surface = '<hierarchy><node content-desc="现在说一句"/></hierarchy>'
+        with patch.object(
+            harness,
+            "_dump_ui",
+            side_effect=[harness._ScenarioBlocked("route is still starting"), visible_surface],
+        ) as dump_ui:
+            self.assertEqual(
+                harness._wait_for_deep_link_surface(context, valid=True),
+                visible_surface,
+            )
+
+        self.assertEqual(dump_ui.call_count, 2)
+
     def test_parse_ui_nodes_preserves_hyphenated_android_attributes(self) -> None:
         nodes = harness._parse_ui_nodes(
             '<hierarchy><node content-desc="设置" resource-id="android:id/content" '

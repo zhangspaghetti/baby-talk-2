@@ -61,6 +61,9 @@ _UI_READY_TIMEOUT_SECONDS = 12
 # A freshly installed Flutter release can expose only the Android host view
 # for several seconds while its first route and semantics tree initialize.
 _APP_STARTUP_TIMEOUT_SECONDS = 45
+# Invite reentry also waits for the persisted auth bootstrap before it can
+# accept a link, which is slower than ordinary in-app route readiness.
+_DEEP_LINK_READY_TIMEOUT_SECONDS = 45
 # `setAndAllowWhileIdle` is intentionally inexact (no exact-alarm permission).
 # Android 15 may use the full ~2-minute delivery window after the fixed
 # near-term target, so allow enough time for the target plus that window.
@@ -2621,18 +2624,27 @@ def _deep_link_intent_is_active(output: str, package_id: str) -> bool:
 
 
 def _wait_for_deep_link_surface(context: CaseExecutionContext, *, valid: bool) -> str:
-    deadline = time.monotonic() + _UI_READY_TIMEOUT_SECONDS
+    deadline = time.monotonic() + _DEEP_LINK_READY_TIMEOUT_SECONDS
+    last_dump_error: _ScenarioBlocked | None = None
     while True:
-        xml = _dump_ui(context)
-        visible = (
-            _deep_link_valid_destination_is_visible(xml)
-            if valid
-            else _deep_link_invalid_fallback_is_visible(xml)
-        )
-        if visible:
-            return xml
+        try:
+            xml = _dump_ui(context)
+        except _ScenarioBlocked as error:
+            # The Android activity can briefly expose no hierarchy while the
+            # deep-link route is being delivered. Keep polling within the
+            # bounded readiness window instead of treating that transition
+            # as a permanent scenario failure.
+            last_dump_error = error
+        else:
+            visible = (
+                _deep_link_valid_destination_is_visible(xml)
+                if valid
+                else _deep_link_invalid_fallback_is_visible(xml)
+            )
+            if visible:
+                return xml
         if time.monotonic() >= deadline:
-            raise _ScenarioBlocked("deep-link user-visible destination was not available")
+            raise _ScenarioBlocked("deep-link user-visible destination was not available") from last_dump_error
         time.sleep(0.5)
 
 
