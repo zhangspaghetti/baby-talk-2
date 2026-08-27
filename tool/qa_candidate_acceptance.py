@@ -58,6 +58,9 @@ _RECEIPT_KEYS = {
 _EVIDENCE_KEYS = {"server", "adb", "user_visible"}
 _SCENARIO_TIMEOUT_SECONDS = 30
 _UI_READY_TIMEOUT_SECONDS = 12
+# A freshly installed Flutter release can expose only the Android host view
+# for several seconds while its first route and semantics tree initialize.
+_APP_STARTUP_TIMEOUT_SECONDS = 45
 # `setAndAllowWhileIdle` is intentionally inexact (no exact-alarm permission).
 # Android 15 may use the full ~2-minute delivery window after the fixed
 # near-term target, so allow enough time for the target plus that window.
@@ -998,6 +1001,28 @@ def _launch_app(context: CaseExecutionContext) -> None:
         context,
         ["shell", "am", "start", "-W", "-n", f"{context.package_id}/.MainActivity"],
     )
+    _wait_for_initial_user_surface(context)
+
+
+def _wait_for_initial_user_surface(context: CaseExecutionContext) -> None:
+    """Wait for Flutter semantics after Android reports MainActivity started."""
+    deadline = time.monotonic() + _APP_STARTUP_TIMEOUT_SECONDS
+    while True:
+        try:
+            xml = _dump_ui(context)
+        except _ScenarioBlocked:
+            if time.monotonic() >= deadline:
+                raise _ScenarioBlocked("fixed scenario initial user surface unavailable")
+            time.sleep(0.5)
+            continue
+        if any(
+            unescape((node.get("text", "") + " " + node.get("content-desc", "")).strip())
+            for node in _parse_ui_nodes(xml)
+        ):
+            return
+        if time.monotonic() >= deadline:
+            raise _ScenarioBlocked("fixed scenario initial user surface unavailable")
+        time.sleep(0.5)
 def _require_ui_label(context: CaseExecutionContext, labels: tuple[str, ...]) -> str:
     """Require one allow-listed semantic label on the current user surface."""
     return _find_ui_label(context, labels, wait_seconds=_UI_READY_TIMEOUT_SECONDS)

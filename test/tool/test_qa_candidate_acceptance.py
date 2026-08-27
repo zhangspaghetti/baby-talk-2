@@ -305,6 +305,17 @@ class QaCandidateAcceptanceTest(unittest.TestCase):
             ],
         )
 
+    def test_launch_app_waits_for_user_visible_surface_after_cold_start(self) -> None:
+        context = _ui_context()
+        empty_surface = '<hierarchy><node class="android.widget.FrameLayout"/></hierarchy>'
+        visible_surface = '<hierarchy><node content-desc="家"/></hierarchy>'
+        with patch.object(harness, "_run_device_step"), patch.object(
+            harness, "_dump_ui", side_effect=[empty_surface, visible_surface]
+        ) as dump_ui:
+            harness._launch_app(context)
+
+        self.assertEqual(dump_ui.call_count, 2)
+
     def test_parse_ui_nodes_preserves_hyphenated_android_attributes(self) -> None:
         nodes = harness._parse_ui_nodes(
             '<hierarchy><node content-desc="设置" resource-id="android:id/content" '
