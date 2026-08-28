@@ -532,6 +532,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       await _markUnknownOutcome(submitting);
       return;
     }
+    if (failure.kind == CustomSceneFailureKind.profileUnavailable) {
+      // Profile resolution happens before the discovery request. There is no
+      // server-side request to reconcile, so retaining this local intent would
+      // turn a deterministic profile miss into an unrelated "pending draft"
+      // error on the next attempt.
+      await _discardUnsubmittedDraft(submitting);
+    }
     _setState(
       _recoverable(
         failure.presentationMessage,
@@ -539,6 +546,25 @@ class CustomSceneSubmissionController extends ChangeNotifier {
             failure.kind == CustomSceneFailureKind.requestTerminal,
       ),
     );
+  }
+
+  Future<void> _discardUnsubmittedDraft(
+    CustomSceneStoredDraft submitting,
+  ) async {
+    try {
+      final result = await _draftStore.readResult(now: _clock().toUtc());
+      final stored = result.draft;
+      if (result.status != CustomSceneDraftReadStatus.available ||
+          stored == null ||
+          stored.draftId != submitting.draftId ||
+          stored.requestIdentity.clientRequestId !=
+              submitting.requestIdentity.clientRequestId) {
+        return;
+      }
+      await _draftContinuationCoordinator.cancel();
+    } on Object {
+      // Keep the deterministic profile error visible if local cleanup fails.
+    }
   }
 
   Future<void> _beginAuthentication(CustomSceneStoredDraft stored) async {

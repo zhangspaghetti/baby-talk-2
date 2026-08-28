@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
 
 typedef CustomSceneEntryOpener =
     Future<void> Function(BuildContext context, CustomSceneEntrySource source);
@@ -24,6 +25,12 @@ bool shouldOfferCustomSceneFromToday(CustomSceneTodayEntryContext context) {
   return context.userSkippedRecommendation ||
       !context.currentRecommendationMatches ||
       !context.hasOpenableMoment;
+}
+
+/// Custom-scene generation needs the current account's own baby profile.
+/// Secondary caregivers are read-only and must use the shared next-step entry.
+bool isCustomSceneEntryAllowedForRole(HouseholdRole? role) {
+  return role != HouseholdRole.caregiver;
 }
 
 class CustomSceneEntryLink extends StatelessWidget {

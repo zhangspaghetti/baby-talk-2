@@ -77,10 +77,10 @@ class CustomSceneProfileContextResolver
         parentGoal: profile.parentGoal ?? _defaultParentGoal,
         locale: _localeFor(settings.preferredLanguage),
       );
-    } on CustomSceneProfileContextUnavailableException {
+    } on CustomSceneProfileContextException {
       rethrow;
     } on Object {
-      throw const CustomSceneProfileContextUnavailableException();
+      throw const CustomSceneProfileContextException.unavailable();
     }
   }
 
@@ -145,7 +145,7 @@ class CustomSceneProfileContextResolver
       case 'zh-CN':
         return 'zh-CN';
       default:
-        throw const CustomSceneProfileContextUnavailableException();
+        throw const CustomSceneProfileContextException.malformed();
     }
   }
 }

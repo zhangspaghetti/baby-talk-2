@@ -152,6 +152,72 @@ void main() {
     );
 
     test(
+      'profile-unavailable failure clears the unsent draft for a fresh retry',
+      () async {
+        var shouldFail = true;
+        final repository = _FakeRepository((_) async {
+          if (shouldFail) {
+            throw const CustomSceneFailure(
+              kind: CustomSceneFailureKind.profileUnavailable,
+              retryable: false,
+            );
+          }
+          return _moment();
+        });
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+        );
+
+        await harness.continuation.beginAuthentication(
+          draft: _draft(),
+          expectedAccountContext: 'account_a',
+        );
+        await harness.controller.submit(_draft());
+
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.recoverableError,
+        );
+        expect(
+          (await harness.draftStore.readResult(now: now)).status,
+          CustomSceneDraftReadStatus.notFound,
+        );
+        expect(
+          (await harness.continuation.readForAuthenticatedResume(
+            accountContext: 'account_a',
+          )).status,
+          CustomSceneDraftContinuationStatus.notFound,
+        );
+
+        shouldFail = false;
+        await harness.controller.submit(
+          CustomSceneDraft(
+            text: '宝宝穿衣服时不愿意伸手。',
+            entrySource: CustomSceneEntrySource.scene,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'request_2',
+            ),
+          ),
+        );
+
+        expect(
+          repository.received.map(
+            (draft) => draft.requestIdentity.clientRequestId,
+          ),
+          <String>['request_1', 'request_2'],
+        );
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.readyForHandoff,
+        );
+      },
+    );
+
+    test(
       'terminal request failure exposes retained draft cancellation',
       () async {
         var attempts = 0;
