@@ -187,6 +187,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     final carePathNotifier = ref.watch(carePathNotifierProvider);
     final carePathViewModel = carePathNotifier.viewModel;
     final customSceneEnabled = ref.watch(customSceneFeatureEnabledProvider);
+    final householdRole = ref.watch(householdNotifierProvider).snapshot.role;
+    final customSceneEntryAllowed =
+        customSceneEnabled && isCustomSceneEntryAllowedForRole(householdRole);
     final isInitialCarePathLoading =
         carePathViewModel.isLoading && carePathViewModel.moment == null;
 
@@ -231,7 +234,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                               navigationError: _todayNavigationError,
                               onStart: _openCurrentCareMoment,
                               showCustomSceneEntry:
-                                  customSceneEnabled &&
+                                  customSceneEntryAllowed &&
                                   _shouldOfferCustomSceneToday(
                                     carePathViewModel,
                                   ),

@@ -30,7 +30,8 @@ class CustomSceneFailure implements Exception {
   /// Stable, non-sensitive copy for a future application controller.
   String get presentationMessage => switch (kind) {
     CustomSceneFailureKind.authenticationRequired => '请先登录后再生成。',
-    CustomSceneFailureKind.profileUnavailable => '宝宝档案还未准备好，请完成档案后再试。',
+    CustomSceneFailureKind.profileUnavailable =>
+      '当前账号还没有可用于生成的宝宝档案；如果你是次照护者，请让主照护者先完成档案后再试。',
     CustomSceneFailureKind.invalidDraft => '请调整描述后再试。',
     CustomSceneFailureKind.requestConflict => '这次描述已变更，请重新开始生成。',
     CustomSceneFailureKind.requestTerminal => '这次生成已结束，请重新生成。',

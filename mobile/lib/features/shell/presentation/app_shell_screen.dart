@@ -10,6 +10,7 @@ import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_settings_screen.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
@@ -74,6 +75,10 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         .watch(gardenFertilizerNotifierProvider)
         .view
         .hasPendingPacks;
+    final householdSnapshot = ref.watch(householdNotifierProvider).snapshot;
+    final customSceneEntryAllowed = isCustomSceneEntryAllowedForRole(
+      householdSnapshot.role,
+    );
 
     return Scaffold(
       key: const Key('shell-ready'),
@@ -142,7 +147,10 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                 onboardingSnapshot: widget.onboardingSnapshot,
                 embeddedInShell: true,
               ),
-              DiscoverScreen(customSceneEnabled: widget.customSceneEnabled),
+              DiscoverScreen(
+                customSceneEnabled: widget.customSceneEnabled,
+                customSceneEntryAllowed: customSceneEntryAllowed,
+              ),
               GardenGrowthCombinedScreen(
                 initialTab: _gardenInitialTab,
                 onGoHome: () => setState(() => _selectedIndex = 0),

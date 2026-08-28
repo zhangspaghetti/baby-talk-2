@@ -254,6 +254,37 @@ void main() {
       expect(gateway.callCount, 0);
     },
   );
+
+  test(
+    'maps a missing profile to an actionable, account-scoped message',
+    () async {
+      final gateway = _RecordingGateway();
+      final repository = _repository(
+        gateway: gateway,
+        profileContextResolver: _MissingProfileSource(),
+      );
+
+      await expectLater(
+        repository.generate(
+          CustomSceneDraft(
+            text: '宝宝洗澡时一直躲水。',
+            entrySource: CustomSceneEntrySource.scene,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'custom_scene_missing_profile',
+            ),
+          ),
+        ),
+        throwsA(
+          isA<CustomSceneFailure>().having(
+            (failure) => failure.presentationMessage,
+            'presentation message',
+            '当前账号还没有可用于生成的宝宝档案；如果你是次照护者，请让主照护者先完成档案后再试。',
+          ),
+        ),
+      );
+      expect(gateway.callCount, 0);
+    },
+  );
 }
 
 CustomSceneRepositoryImpl _repository({
@@ -292,6 +323,13 @@ class _FailingProfileSource implements CustomSceneProfileContextSource {
 
   @override
   Future<CustomSceneProfileContext> resolve() async => throw error;
+}
+
+class _MissingProfileSource implements CustomSceneProfileContextSource {
+  @override
+  Future<CustomSceneProfileContext> resolve() async {
+    throw const CustomSceneProfileContextUnavailableException();
+  }
 }
 
 class _RecordingGateway implements CustomSceneDiscoveryGateway {

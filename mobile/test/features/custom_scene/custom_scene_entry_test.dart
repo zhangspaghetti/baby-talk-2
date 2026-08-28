@@ -3,11 +3,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 void main() {
+  test(
+    'secondary caregiver cannot open account-profile custom scene entry',
+    () {
+      expect(
+        isCustomSceneEntryAllowedForRole(HouseholdRole.caregiver),
+        isFalse,
+      );
+      expect(
+        isCustomSceneEntryAllowedForRole(HouseholdRole.primaryCaregiver),
+        isTrue,
+      );
+      // An unresolved role must not block a first-launch primary account.
+      expect(isCustomSceneEntryAllowedForRole(null), isTrue);
+    },
+  );
+
   test('Today entry remains lower priority than an open matching moment', () {
     expect(
       shouldOfferCustomSceneFromToday(
@@ -254,6 +271,33 @@ void main() {
     expect(find.semantics.byLabel('没找到正在发生的场景？描述一下此刻'), findsNothing);
     semantics.dispose();
   });
+
+  testWidgets(
+    'secondary caregiver catalog hides account-profile custom scene',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: DiscoverScreen(
+              customSceneEnabled: true,
+              customSceneEntryAllowed: false,
+              catalogLoader: () async => _catalog(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('discover-phrase-card-bath_time')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('custom-scene-entry-scene')), findsNothing);
+    },
+  );
 }
 
 PracticeActivityCatalog _catalog() {
