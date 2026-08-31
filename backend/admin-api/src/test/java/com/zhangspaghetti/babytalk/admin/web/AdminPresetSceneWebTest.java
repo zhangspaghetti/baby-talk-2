@@ -13,7 +13,14 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
+import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +33,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -159,6 +167,59 @@ class AdminPresetSceneWebTest {
     }
 
     @Test
+    void draftRejectsControlCharactersAtFieldBoundaries() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+
+        var leadingControl = validDraftJson()
+                .replace("\"title\": \"洗澡时间（草稿）\"", "\"title\": \"\\n洗澡时间\"");
+        mockMvc.perform(post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(leadingControl))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("validation_failed"));
+
+        var trailingControl = validDraftJson()
+                .replace("\"coachTip\": \"草稿提示\"", "\"coachTip\": \"草稿提示\\t\"");
+        mockMvc.perform(post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(trailingControl))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("validation_failed"));
+    }
+
+    @Test
+    void rollbackZeroReturnsValidationContract() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+
+        mockMvc.perform(post("/api/admin/v1/practice/preset-scenes/{id}/rollback/{version}", "bath_time", 0)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("validation_failed"));
+    }
+
+    @Test
+    void createAuditConstraintFailurePropagatesAndRollsBackDraft() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        installConstraintAuditFailureTrigger();
+
+        mockMvc.perform(post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validDraftJson()))
+                .andExpect(status().isInternalServerError());
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_versions where state = 'draft' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'create_draft'",
+                Integer.class)).isZero();
+    }
+
+    @Test
     void writerUpdatesDraftWithOptimisticLockAndPublisherPublishesAsAuthenticatedPrincipal() throws Exception {
         var superAdmin = login("super_admin", "SuperAdmin123!");
         var writerRole = testRole("writer");
@@ -175,6 +236,12 @@ class AdminPresetSceneWebTest {
         var publisher = login(publisherUsername, "Publisher123!");
 
         createDraft(writer.accessToken());
+        assertThat(jdbcTemplate.queryForObject(
+                "select admin_principal_id from practice_preset_scene_audit where action = 'create_draft'",
+                String.class)).isEqualTo(writer.principalId());
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'create_draft'",
+                Integer.class)).isEqualTo(1);
 
         mockMvc.perform(put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
                         .header(HttpHeaders.AUTHORIZATION, bearer(writer.accessToken()))
@@ -182,6 +249,12 @@ class AdminPresetSceneWebTest {
                         .content(validDraftJson(0, "洗澡时间（更新）")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lockVersion").value(1));
+        assertThat(jdbcTemplate.queryForObject(
+                "select admin_principal_id from practice_preset_scene_audit where action = 'update_draft'",
+                String.class)).isEqualTo(writer.principalId());
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'update_draft'",
+                Integer.class)).isEqualTo(1);
 
         mockMvc.perform(put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
                         .header(HttpHeaders.AUTHORIZATION, bearer(writer.accessToken()))
@@ -205,6 +278,19 @@ class AdminPresetSceneWebTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select admin_principal_id from practice_preset_scene_audit where action = 'publish'",
                 String.class)).isEqualTo(publisher.principalId());
+        createDraft(publisher.accessToken(), "禁用版本", false);
+        mockMvc.perform(post("/api/admin/v1/practice/preset-scenes/{id}/publish", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(publisher.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockVersion\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false));
+        assertThat(jdbcTemplate.queryForObject(
+                "select admin_principal_id from practice_preset_scene_audit where action = 'disable'",
+                String.class)).isEqualTo(publisher.principalId());
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'disable'",
+                Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
                 "select title_zh from practice_preset_scene_versions where state = 'published' and version = 1 "
                         + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
@@ -295,10 +381,81 @@ class AdminPresetSceneWebTest {
         jdbcTemplate.update(
                 "delete from practice_preset_scene_versions where state = 'draft' "
                         + "and activity_id = (select id from practice_activities where slug = 'bath_time')");
+        var historyBeforeRollback = publishedHistory();
+        var publishedCountBeforeRollback = publishedCount();
         mockMvc.perform(post("/api/admin/v1/practice/preset-scenes/{id}/rollback/{version}", "bath_time", 1)
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isInternalServerError());
         assertThat(currentPublishedVersion()).isEqualTo(1);
+        assertThat(publishedCount()).isEqualTo(publishedCountBeforeRollback);
+        assertThat(publishedHistory()).isEqualTo(historyBeforeRollback);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit",
+                Integer.class)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_versions where state = 'draft'",
+                Integer.class)).isZero();
+    }
+
+    @Test
+    void concurrentCreateSameSceneAllowsOnlyOneDraft() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        var results = runConcurrently(() -> mockMvc.perform(
+                post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validDraftJson()))
+                .andReturn());
+
+        assertThat(statuses(results)).containsExactlyInAnyOrder(201, 409);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_versions where state = 'draft' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'create_draft'",
+                Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentUpdateSameLockVersionAllowsOnlyOneUpdate() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        createDraft(superAdmin.accessToken());
+        var results = runConcurrently(
+                () -> mockMvc.perform(put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(validDraftJson(0, "并发更新")))
+                        .andReturn());
+
+        assertThat(statuses(results)).containsExactlyInAnyOrder(200, 409);
+        assertThat(jdbcTemplate.queryForObject(
+                "select lock_version from practice_preset_scene_versions where state = 'draft' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'update_draft'",
+                Integer.class)).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentPublishSameDraftCreatesOneMonotonicVersion() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        createDraft(superAdmin.accessToken());
+        var nextVersion = nextPublishedVersion();
+        var results = runConcurrently(
+                () -> mockMvc.perform(post("/api/admin/v1/practice/preset-scenes/{id}/publish", "bath_time")
+                                .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"lockVersion\":0}"))
+                        .andReturn());
+
+        assertThat(statuses(results)).containsExactlyInAnyOrder(200, 409);
+        assertThat(publishedCount()).isEqualTo(nextVersion);
+        assertThat(currentPublishedVersion()).isEqualTo(nextVersion);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'publish'",
+                Integer.class)).isEqualTo(1);
     }
 
     private void installAuditFailureTrigger() {
@@ -316,6 +473,21 @@ class AdminPresetSceneWebTest {
                         + "for each row execute function test_fail_preset_scene_audit()");
     }
 
+    private void installConstraintAuditFailureTrigger() {
+        jdbcTemplate.execute(
+                """
+                create or replace function test_fail_preset_scene_audit()
+                returns trigger language plpgsql as $$
+                begin
+                    raise exception using errcode = '23514', message = 'forced preset scene audit check failure';
+                end;
+                $$
+                """);
+        jdbcTemplate.execute(
+                "create trigger test_fail_preset_scene_audit before insert on practice_preset_scene_audit "
+                        + "for each row execute function test_fail_preset_scene_audit()");
+    }
+
     private String testRole(String suffix) {
         return "practice_" + suffix + "_" + testSequence;
     }
@@ -325,14 +497,18 @@ class AdminPresetSceneWebTest {
     }
 
     private void createDraft(String accessToken) throws Exception {
-        createDraft(accessToken, "洗澡时间（草稿）");
+        createDraft(accessToken, "洗澡时间（草稿）", true);
     }
 
     private void createDraft(String accessToken, String title) throws Exception {
+        createDraft(accessToken, title, true);
+    }
+
+    private void createDraft(String accessToken, String title, boolean enabled) throws Exception {
         mockMvc.perform(post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(validDraftJson(0, title)))
+                        .content(validDraftJson(0, title, enabled)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.lockVersion").value(0));
     }
@@ -361,11 +537,53 @@ class AdminPresetSceneWebTest {
                 Integer.class);
     }
 
+    private int publishedCount() {
+        return jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_versions where state = 'published' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class);
+    }
+
+    private List<String> publishedHistory() {
+        return jdbcTemplate.query(
+                "select version, title_zh from practice_preset_scene_versions where state = 'published' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time') "
+                        + "order by version",
+                (resultSet, rowNum) -> resultSet.getInt("version") + ":" + resultSet.getString("title_zh"));
+    }
+
+    private List<Integer> statuses(List<MvcResult> results) {
+        return results.stream()
+                .map(result -> result.getResponse().getStatus())
+                .toList();
+    }
+
+    private List<MvcResult> runConcurrently(Callable<MvcResult> request) throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        var barrier = new CyclicBarrier(2);
+        Callable<MvcResult> synchronizedRequest = () -> {
+            barrier.await(10, TimeUnit.SECONDS);
+            return request.call();
+        };
+        try {
+            Future<MvcResult> first = executor.submit(synchronizedRequest);
+            Future<MvcResult> second = executor.submit(synchronizedRequest);
+            return List.of(first.get(30, TimeUnit.SECONDS), second.get(30, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        }
+    }
+
     private String validDraftJson() {
         return validDraftJson(0, "洗澡时间（草稿）");
     }
 
     private String validDraftJson(int lockVersion, String title) {
+        return validDraftJson(lockVersion, title, true);
+    }
+
+    private String validDraftJson(int lockVersion, String title, boolean enabled) {
         return """
                 {
                   "title": "%s",
@@ -374,10 +592,10 @@ class AdminPresetSceneWebTest {
                   "coachTip": "草稿提示",
                   "sortOrder": 1,
                   "generationBrief": "围绕暖水生成互动。",
-                  "enabled": true,
+                  "enabled": %s,
                   "lockVersion": %d
                 }
-                """.formatted(title, lockVersion);
+                """.formatted(title, enabled, lockVersion);
     }
 
     private void createRole(String accessToken, String roleCode, String... permissionCodes) throws Exception {

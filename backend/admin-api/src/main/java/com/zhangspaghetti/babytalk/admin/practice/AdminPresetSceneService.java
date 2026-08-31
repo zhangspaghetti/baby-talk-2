@@ -7,6 +7,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.sql.SQLException;
 import java.util.regex.Pattern;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -78,6 +79,9 @@ public class AdminPresetSceneService {
             }
             return toDraftView(draft);
         } catch (DataIntegrityViolationException exception) {
+            if (!isSingleDraftUniqueConstraint(exception)) {
+                throw exception;
+            }
             throw new AdminApiContractException(
                     HttpStatus.CONFLICT,
                     "practice_draft_version_conflict",
@@ -193,20 +197,32 @@ public class AdminPresetSceneService {
         if (raw == null || raw.isBlank()) {
             throw invalid(field, field + " 不能为空。");
         }
-        var normalized = Normalizer.normalize(raw, Normalizer.Form.NFC).trim();
+        var normalized = Normalizer.normalize(raw, Normalizer.Form.NFC);
+        if (containsControlCharacter(normalized)) {
+            throw invalid(field, field + " 不得包含控制字符。");
+        }
+        normalized = normalized.trim();
         if (normalized.isEmpty()) {
             throw invalid(field, field + " 不能为空。");
         }
         if (normalized.length() > maxLength) {
             throw invalid(field, field + " 过长。");
         }
-        if (containsControlCharacter(normalized)) {
-            throw invalid(field, field + " 不得包含控制字符。");
-        }
         if (PHONE_LIKE.matcher(normalized).find()) {
             throw invalid(field, field + " 不得包含手机号样式的数字序列。");
         }
         return normalized;
+    }
+
+    private boolean isSingleDraftUniqueConstraint(DataIntegrityViolationException exception) {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sqlException
+                    && sqlException.getMessage() != null
+                    && sqlException.getMessage().contains("uq_practice_preset_scene_versions_one_draft")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean containsControlCharacter(String value) {

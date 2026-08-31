@@ -84,7 +84,7 @@ public class AdminPresetSceneController {
     @PreAuthorize("hasAuthority('practice:publish')")
     public AdminPresetSceneService.PublishedView rollback(
             @PathVariable String presetSceneId,
-            @PathVariable @Min(1) int version,
+            @PathVariable int version,
             JwtAuthenticationToken authentication
     ) {
         return service.rollback(presetSceneId, version, principalId(authentication));
