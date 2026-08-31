@@ -31,7 +31,7 @@ create table practice_preset_scene_versions (
         check (state in ('draft', 'published')),
     constraint chk_practice_preset_scene_versions_number
         check ((state = 'draft' and version is null and published_at is null)
-            or (state = 'published' and version > 0 and published_at is not null)),
+            or (state = 'published' and version is not null and version > 0 and published_at is not null)),
     constraint chk_practice_preset_scene_versions_fields
         check (length(btrim(title_zh)) > 0
             and length(btrim(summary_zh)) > 0

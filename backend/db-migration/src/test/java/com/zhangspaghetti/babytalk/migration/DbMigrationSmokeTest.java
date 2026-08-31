@@ -258,6 +258,16 @@ class DbMigrationSmokeTest {
                 Long.class);
         Timestamp now = Timestamp.from(Instant.parse("2026-08-31T12:00:00Z"));
         String versionsTable = V37_IMMUTABILITY_SCHEMA + ".practice_preset_scene_versions";
+        String nullVersionPublishedInsert = """
+                insert into %s (
+                    activity_id, version, state, title_zh, summary_zh, scene_tag_en, coach_tip_zh,
+                    sort_order, generation_brief, enabled, created_at, updated_at, published_at
+                ) values (?, null, 'published', '非法已发布版本', '摘要', 'Bath time', '提示',
+                    1, '生成文案', true, ?, ?, ?)
+                """.formatted(versionsTable);
+        assertThatThrownBy(() -> jdbcTemplate.update(nullVersionPublishedInsert, activityId, now, now, now))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
         String draftInsert = """
                 insert into %s (
                     activity_id, version, state, title_zh, summary_zh, scene_tag_en, coach_tip_zh,
