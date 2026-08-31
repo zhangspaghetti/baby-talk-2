@@ -99,6 +99,7 @@ class AdminPresetSceneRepositoryTest {
         var withDraft = findSceneSummary("bath_time");
         assertThat(withDraft.publishedVersion()).isEqualTo(1);
         assertThat(withDraft.draftLockVersion()).isZero();
+        assertSafeAuditSummary("create_draft", "洗澡时间（编辑）");
     }
 
     @Test
@@ -121,6 +122,7 @@ class AdminPresetSceneRepositoryTest {
 
         assertThat(updated.lockVersion()).isEqualTo(1);
         assertThat(updated.title()).isEqualTo("洗澡时间（更新）");
+        assertSafeAuditSummary("update_draft", "洗澡时间（更新）");
         assertThat(repository.updateDraft(
                 "bath_time",
                 draft.lockVersion(),
@@ -149,6 +151,27 @@ class AdminPresetSceneRepositoryTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from practice_preset_scene_audit where action = 'publish'",
                 Integer.class)).isEqualTo(1);
+        assertSafeAuditSummary("publish", "洗澡时间（草稿）");
+    }
+
+    @Test
+    void publishDisabledDraftRecordsDisableAudit() {
+        var draft = createDraft(false);
+
+        var published = repository.publish(
+                "bath_time",
+                draft.lockVersion(),
+                adminPrincipalId(),
+                now());
+
+        assertThat(published.enabled()).isFalse();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'disable'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'publish'",
+                Integer.class)).isZero();
+        assertSafeAuditSummary("disable", "洗澡时间（草稿）");
     }
 
     @Test
@@ -165,6 +188,7 @@ class AdminPresetSceneRepositoryTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from practice_preset_scene_audit where action = 'rollback'",
                 Integer.class)).isEqualTo(1);
+        assertSafeAuditSummary("rollback", "洗澡时间");
     }
 
     private AdminPresetSceneRepository.SceneSummaryRow findSceneSummary(String presetSceneId) {
@@ -175,6 +199,10 @@ class AdminPresetSceneRepositoryTest {
     }
 
     private AdminPresetSceneRepository.DraftRow createDraft() {
+        return createDraft(true);
+    }
+
+    private AdminPresetSceneRepository.DraftRow createDraft(boolean enabled) {
         return repository.createDraft(
                 "bath_time",
                 new AdminPresetSceneRepository.DraftWrite(
@@ -184,7 +212,7 @@ class AdminPresetSceneRepositoryTest {
                         "草稿提示",
                         1,
                         "围绕暖水生成互动。",
-                        true),
+                        enabled),
                 adminPrincipalId(),
                 now());
     }
@@ -198,6 +226,20 @@ class AdminPresetSceneRepositoryTest {
                 2,
                 "冲突生成文案。",
                 true);
+    }
+
+    private void assertSafeAuditSummary(String action, String forbiddenText) {
+        String summary = jdbcTemplate.queryForObject(
+                "select change_summary::text from practice_preset_scene_audit where action = ?",
+                String.class,
+                action);
+        assertThat(summary)
+                .isNotBlank()
+                .contains(action)
+                .contains("lock_version")
+                .doesNotContain(forbiddenText)
+                .doesNotContain("generationBrief")
+                .doesNotContain("coachTip");
     }
 
     private String adminPrincipalId() {

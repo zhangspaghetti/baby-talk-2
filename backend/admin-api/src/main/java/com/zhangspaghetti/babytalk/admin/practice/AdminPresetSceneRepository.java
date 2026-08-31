@@ -15,6 +15,11 @@ import org.springframework.stereotype.Component;
 @Component
 public final class AdminPresetSceneRepository {
 
+    private static final String DRAFT_CHANGED_FIELDS =
+            "[\"title_zh\",\"summary_zh\",\"scene_tag_en\",\"coach_tip_zh\",\"sort_order\",\"generation_brief\",\"enabled\"]";
+    private static final String PUBLISHED_CHANGED_FIELDS =
+            "[\"state\",\"version\",\"published_by_admin_id\",\"published_at\",\"current_published_version_id\"]";
+
     private final AdminPresetSceneMapper mapper;
 
     public AdminPresetSceneRepository(AdminPresetSceneMapper mapper) {
@@ -47,7 +52,7 @@ public final class AdminPresetSceneRepository {
                     null,
                     draft.versionId(),
                     adminId,
-                    null,
+                    draftAuditSummary("create_draft", draft.lockVersion()),
                     now);
         }
         return draft;
@@ -68,7 +73,7 @@ public final class AdminPresetSceneRepository {
                     draft.versionId(),
                     draft.versionId(),
                     adminId,
-                    null,
+                    draftAuditSummary("update_draft", draft.lockVersion()),
                     now);
         }
         return draft;
@@ -110,11 +115,14 @@ public final class AdminPresetSceneRepository {
         }
         mapper.insertAudit(
                 activityId,
-                "publish",
+                published.enabled() ? "publish" : "disable",
                 published.versionId(),
                 published.versionId(),
                 adminId,
-                null,
+                publishedAuditSummary(
+                        published.enabled() ? "publish" : "disable",
+                        published.lockVersion(),
+                        published.version()),
                 now);
         return published;
     }
@@ -141,7 +149,7 @@ public final class AdminPresetSceneRepository {
                     sourceVersionId,
                     draft.versionId(),
                     adminId,
-                    null,
+                    rollbackAuditSummary(sourceVersion, draft.lockVersion()),
                     now);
         }
         return draft;
@@ -149,6 +157,21 @@ public final class AdminPresetSceneRepository {
 
     public List<PublishedRow> findVersions(String presetSceneId) {
         return mapper.findVersions(presetSceneId);
+    }
+
+    private String draftAuditSummary(String action, int lockVersion) {
+        return "{\"action\":\"" + action + "\",\"lock_version\":" + lockVersion
+                + ",\"fields\":" + DRAFT_CHANGED_FIELDS + "}";
+    }
+
+    private String publishedAuditSummary(String action, int lockVersion, int version) {
+        return "{\"action\":\"" + action + "\",\"lock_version\":" + lockVersion
+                + ",\"version\":" + version + ",\"fields\":" + PUBLISHED_CHANGED_FIELDS + "}";
+    }
+
+    private String rollbackAuditSummary(int sourceVersion, int lockVersion) {
+        return "{\"action\":\"rollback\",\"source_version\":" + sourceVersion
+                + ",\"lock_version\":" + lockVersion + ",\"fields\":" + DRAFT_CHANGED_FIELDS + "}";
     }
 
     public record DraftWrite(
