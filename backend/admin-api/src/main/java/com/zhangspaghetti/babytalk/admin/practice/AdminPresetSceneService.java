@@ -148,18 +148,21 @@ public class AdminPresetSceneService {
         if (repository.findScene(presetSceneId).isEmpty()) {
             throw sceneNotFound();
         }
-        if (repository.findDraft(presetSceneId).isPresent()) {
+        var result = repository.rollback(presetSceneId, sourceVersion, adminId, now());
+        if (result == AdminPresetSceneRepository.RollbackResult.Failure.ACTIVITY_NOT_FOUND) {
+            throw sceneNotFound();
+        }
+        if (result == AdminPresetSceneRepository.RollbackResult.Failure.DRAFT_EXISTS) {
             throw draftVersionConflict();
         }
-        var published = repository.rollback(presetSceneId, sourceVersion, adminId, now());
-        if (published == null) {
+        if (result == AdminPresetSceneRepository.RollbackResult.Failure.SOURCE_VERSION_NOT_FOUND) {
             throw new AdminApiContractException(
                     HttpStatus.NOT_FOUND,
                     "practice_preset_scene_not_found",
                     "预置场景版本不存在。",
                     Map.of("version", sourceVersion));
         }
-        return toPublishedView(published);
+        return toPublishedView(((AdminPresetSceneRepository.RollbackResult.Completed) result).published());
     }
 
     @Transactional(readOnly = true)

@@ -5,15 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,10 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -76,9 +64,6 @@ class AdminPresetSceneRepositoryTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void removeDraftsAndAudits() {
@@ -208,11 +193,7 @@ class AdminPresetSceneRepositoryTest {
 
     @Test
     void rollbackPublishesNextVersionAndWritesOnlyOneRollbackAudit() {
-        var published = repository.rollback(
-                "bath_time",
-                1,
-                adminPrincipalId(),
-                now());
+        var published = rollbackPublished("bath_time", 1);
 
         assertThat(published.version()).isEqualTo(2);
         assertThat(published.title()).isEqualTo("洗澡时间");
@@ -229,87 +210,22 @@ class AdminPresetSceneRepositoryTest {
     }
 
     @Test
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    void concurrentUpdateAndRollbackUseIndependentTransactionsAndPreserveBothAudits() throws Exception {
-        var sceneId = createConcurrentScene();
-        var principalId = adminPrincipalId();
-        var draft = repository.createDraft(
-                sceneId,
-                new AdminPresetSceneRepository.DraftWrite(
-                        "并发草稿",
-                        "并发摘要",
-                        "Concurrent",
-                        "并发提示",
-                        1,
-                        "并发生成文案。",
-                        true),
-                principalId,
+    void rollbackReturnsTypedDraftConflictAfterActivityLock() {
+        var draft = createDraft();
+        var publishedBefore = repository.findVersions("bath_time");
+
+        var result = repository.rollback(
+                "bath_time",
+                1,
+                adminPrincipalId(),
                 now());
-        assertThat(draft).isNotNull();
 
-        var results = runRepositoryConcurrently(
-                () -> repository.updateDraft(
-                        sceneId,
-                        0,
-                        new AdminPresetSceneRepository.DraftWrite(
-                                "并发更新",
-                                "并发更新摘要",
-                                "Concurrent",
-                                "并发更新提示",
-                                2,
-                                "并发更新文案。",
-                                true),
-                        principalId,
-                        now()),
-                () -> repository.rollback(sceneId, 1, principalId, now()));
-
-        assertThat(results).allSatisfy(result -> assertThat(result.failure()).isNull());
-        assertThat(results).anyMatch(result -> result.value() instanceof AdminPresetSceneRepository.PublishedRow);
-        assertThat(results).anyMatch(result -> result.value() instanceof AdminPresetSceneRepository.DraftRow);
-        var updatedDraft = results.stream()
-                .map(RepositoryCallResult::value)
-                .filter(AdminPresetSceneRepository.DraftRow.class::isInstance)
-                .map(AdminPresetSceneRepository.DraftRow.class::cast)
-                .findFirst()
-                .orElseThrow();
-        var rolledBack = results.stream()
-                .map(RepositoryCallResult::value)
-                .filter(AdminPresetSceneRepository.PublishedRow.class::isInstance)
-                .map(AdminPresetSceneRepository.PublishedRow.class::cast)
-                .findFirst()
-                .orElseThrow();
-
-        assertThat(updatedDraft.lockVersion()).isEqualTo(1);
-        assertThat(rolledBack.version()).isEqualTo(2);
-        assertThat(currentPublishedVersion(sceneId)).isEqualTo(2);
-        assertThat(repository.findDraft(sceneId)).isPresent()
-                .get()
-                .extracting(AdminPresetSceneRepository.DraftRow::title)
-                .isEqualTo("并发更新");
-        assertThat(repository.findVersions(sceneId))
-                .extracting(AdminPresetSceneRepository.PublishedRow::version)
-                .containsExactly(2, 1);
-        assertThat(repository.findVersions(sceneId).get(0).title()).isEqualTo("并发测试");
+        assertThat(result).isEqualTo(AdminPresetSceneRepository.RollbackResult.Failure.DRAFT_EXISTS);
+        assertThat(repository.findDraft("bath_time")).contains(draft);
+        assertThat(repository.findVersions("bath_time")).isEqualTo(publishedBefore);
         assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_preset_scene_audit where activity_id = "
-                        + "(select id from practice_activities where slug = ?) and action = 'update_draft'",
-                Integer.class,
-                sceneId)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_preset_scene_audit where activity_id = "
-                        + "(select id from practice_activities where slug = ?) and action = 'rollback'",
-                Integer.class,
-                sceneId)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject(
-                "select admin_principal_id from practice_preset_scene_audit where activity_id = "
-                        + "(select id from practice_activities where slug = ?) and action = 'update_draft'",
-                String.class,
-                sceneId)).isEqualTo(principalId);
-        assertThat(jdbcTemplate.queryForObject(
-                "select admin_principal_id from practice_preset_scene_audit where activity_id = "
-                        + "(select id from practice_activities where slug = ?) and action = 'rollback'",
-                String.class,
-                sceneId)).isEqualTo(principalId);
+                "select count(*) from practice_preset_scene_audit where action = 'rollback'",
+                Integer.class)).isZero();
     }
 
     private AdminPresetSceneRepository.SceneSummaryRow findSceneSummary(String presetSceneId) {
@@ -336,6 +252,15 @@ class AdminPresetSceneRepositoryTest {
                         enabled),
                 adminPrincipalId(),
                 now());
+    }
+
+    private AdminPresetSceneRepository.PublishedRow rollbackPublished(
+            String presetSceneId,
+            int sourceVersion
+    ) {
+        var result = repository.rollback(presetSceneId, sourceVersion, adminPrincipalId(), now());
+        assertThat(result).isInstanceOf(AdminPresetSceneRepository.RollbackResult.Completed.class);
+        return ((AdminPresetSceneRepository.RollbackResult.Completed) result).published();
     }
 
     private AdminPresetSceneRepository.DraftWrite updatedWrite() {
@@ -373,95 +298,4 @@ class AdminPresetSceneRepositoryTest {
         return OffsetDateTime.of(2026, 8, 31, 12, 0, 0, 0, ZoneOffset.UTC);
     }
 
-    private String createConcurrentScene() {
-        var sceneId = "concurrent_repo_" + UUID.randomUUID().toString().replace("-", "");
-        var activityId = jdbcTemplate.queryForObject(
-                """
-                insert into practice_activities (
-                    slug, space_id, title_zh, scene_tag_en, coach_tip, sort_order, source
-                )
-                select ?, id, '并发测试', 'Concurrent', '并发测试提示', 99, 'seed'
-                from practice_spaces
-                where slug = 'daily_care'
-                returning id
-                """,
-                Long.class,
-                sceneId);
-        var versionId = jdbcTemplate.queryForObject(
-                """
-                insert into practice_preset_scene_versions (
-                    activity_id, version, state, title_zh, summary_zh, scene_tag_en,
-                    coach_tip_zh, sort_order, generation_brief, enabled, lock_version,
-                    created_at, updated_at, published_at
-                ) values (?, 1, 'published', '并发测试', '并发摘要', 'Concurrent',
-                          '并发提示', 1, '并发历史文案。', true, 0, ?, ?, ?)
-                returning version_id
-                """,
-                Long.class,
-                activityId,
-                now(),
-                now(),
-                now());
-        jdbcTemplate.update(
-                "update practice_activities set current_published_version_id = ? where id = ?",
-                versionId,
-                activityId);
-        return sceneId;
-    }
-
-    private int currentPublishedVersion(String sceneId) {
-        return jdbcTemplate.queryForObject(
-                "select v.version from practice_activities a "
-                        + "join practice_preset_scene_versions v on v.version_id = a.current_published_version_id "
-                        + "where a.slug = ?",
-                Integer.class,
-                sceneId);
-    }
-
-    private List<RepositoryCallResult> runRepositoryConcurrently(
-            Callable<Object> firstCall,
-            Callable<Object> secondCall
-    ) throws Exception {
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        var barrier = new CyclicBarrier(2);
-        Callable<RepositoryCallResult> first = synchronizedRepositoryCall(barrier, firstCall);
-        Callable<RepositoryCallResult> second = synchronizedRepositoryCall(barrier, secondCall);
-        try {
-            Future<RepositoryCallResult> firstFuture = executor.submit(first);
-            Future<RepositoryCallResult> secondFuture = executor.submit(second);
-            return List.of(
-                    firstFuture.get(30, TimeUnit.SECONDS),
-                    secondFuture.get(30, TimeUnit.SECONDS));
-        } finally {
-            executor.shutdownNow();
-            executor.awaitTermination(10, TimeUnit.SECONDS);
-        }
-    }
-
-    private Callable<RepositoryCallResult> synchronizedRepositoryCall(
-            CyclicBarrier barrier,
-            Callable<Object> call
-    ) {
-        return () -> {
-            barrier.await(10, TimeUnit.SECONDS);
-            try {
-                return new RepositoryCallResult(inIndependentTransaction(() -> {
-                    try {
-                        return call.call();
-                    } catch (Exception failure) {
-                        throw new IllegalStateException(failure);
-                    }
-                }), null);
-            } catch (Throwable failure) {
-                return new RepositoryCallResult(null, failure);
-            }
-        };
-    }
-
-    private <T> T inIndependentTransaction(Supplier<T> work) {
-        return new TransactionTemplate(transactionManager).execute(status -> work.get());
-    }
-
-    private record RepositoryCallResult(Object value, Throwable failure) {
-    }
 }

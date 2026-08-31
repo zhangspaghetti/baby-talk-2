@@ -157,7 +157,7 @@ public final class AdminPresetSceneRepository {
      * and rollback use the same lock order. Rollback owns one audit action;
      * it must not call {@link #publish(String, int, String, OffsetDateTime)}.
      */
-    public PublishedRow rollback(
+    public RollbackResult rollback(
             String presetSceneId,
             int sourceVersion,
             String adminId,
@@ -165,14 +165,16 @@ public final class AdminPresetSceneRepository {
     ) {
         var activityId = mapper.lockActivityForUpdate(presetSceneId);
         if (activityId == null) {
-            return null;
+            return RollbackResult.Failure.ACTIVITY_NOT_FOUND;
         }
 
-        mapper.findDraftForUpdate(presetSceneId);
+        if (mapper.findDraftForUpdate(presetSceneId) != null) {
+            return RollbackResult.Failure.DRAFT_EXISTS;
+        }
 
         var sourceVersionId = mapper.findPublishedVersionId(presetSceneId, sourceVersion);
         if (sourceVersionId == null) {
-            return null;
+            return RollbackResult.Failure.SOURCE_VERSION_NOT_FOUND;
         }
 
         var nextVersion = mapper.findNextPublishedVersion(activityId);
@@ -187,7 +189,7 @@ public final class AdminPresetSceneRepository {
                 adminId,
                 now);
         if (published == null) {
-            return null;
+            return RollbackResult.Failure.SOURCE_VERSION_NOT_FOUND;
         }
 
         if (mapper.updateCurrentPublishedVersion(activityId, published.versionId()) != 1) {
@@ -201,7 +203,7 @@ public final class AdminPresetSceneRepository {
                 adminId,
                 rollbackPublishedAuditSummary(sourceVersion, published.lockVersion(), published.version()),
                 now);
-        return published;
+        return new RollbackResult.Completed(published);
     }
 
     public DraftRow copyPublishedToDraft(
@@ -276,6 +278,19 @@ public final class AdminPresetSceneRepository {
         return "{\"action\":\"rollback\",\"source_version\":" + sourceVersion
                 + ",\"target_version\":" + version + ",\"lock_version\":" + lockVersion
                 + ",\"fields\":" + PUBLISHED_CHANGED_FIELDS + "}";
+    }
+
+    public sealed interface RollbackResult
+            permits RollbackResult.Completed, RollbackResult.Failure {
+
+        enum Failure implements RollbackResult {
+            ACTIVITY_NOT_FOUND,
+            DRAFT_EXISTS,
+            SOURCE_VERSION_NOT_FOUND
+        }
+
+        record Completed(PublishedRow published) implements RollbackResult {
+        }
     }
 
     public record DraftWrite(

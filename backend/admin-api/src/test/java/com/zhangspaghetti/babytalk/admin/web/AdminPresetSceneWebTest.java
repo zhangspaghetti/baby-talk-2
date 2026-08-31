@@ -13,7 +13,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CyclicBarrier;
@@ -54,6 +57,9 @@ import org.testcontainers.utility.DockerImageName;
 class AdminPresetSceneWebTest {
 
     private static final AtomicInteger TEST_SEQUENCE = new AtomicInteger();
+    private static final long UPDATE_PAUSE_ADVISORY_KEY = 910001L;
+    private static final long CREATE_PAUSE_ADVISORY_KEY = 910002L;
+    private static final long ROLLBACK_PAUSE_ADVISORY_KEY = 910003L;
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -123,6 +129,12 @@ class AdminPresetSceneWebTest {
         jdbcTemplate.execute(
                 "drop trigger if exists test_pause_preset_scene_draft_update on practice_preset_scene_versions");
         jdbcTemplate.execute("drop function if exists test_pause_preset_scene_draft_update()");
+        jdbcTemplate.execute(
+                "drop trigger if exists test_pause_preset_scene_draft_create on practice_preset_scene_versions");
+        jdbcTemplate.execute("drop function if exists test_pause_preset_scene_draft_create()");
+        jdbcTemplate.execute(
+                "drop trigger if exists test_pause_preset_scene_rollback_insert on practice_preset_scene_versions");
+        jdbcTemplate.execute("drop function if exists test_pause_preset_scene_rollback_insert()");
     }
 
     @Test
@@ -465,23 +477,40 @@ class AdminPresetSceneWebTest {
     void concurrentDraftUpdateAndPublishUseSameActivityThenDraftLockOrder() throws Exception {
         var superAdmin = login("super_admin", "SuperAdmin123!");
         createDraft(superAdmin.accessToken());
-        installDraftUpdatePauseTrigger();
+        installDraftUpdatePauseTrigger(UPDATE_PAUSE_ADVISORY_KEY);
         var publishedCountBefore = publishedCount();
         var nextVersion = nextPublishedVersion();
 
-        var results = runConcurrently(() -> mockMvc.perform(
-                put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(validDraftJson(0, "交叉更新")))
-                .andReturn(), () -> mockMvc.perform(
-                post("/api/admin/v1/practice/preset-scenes/{id}/publish", "bath_time")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"lockVersion\":0}"))
-                .andReturn());
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        Future<MvcResult> update;
+        Future<MvcResult> publish;
+        try (var gate = holdAdvisoryXactLock(UPDATE_PAUSE_ADVISORY_KEY)) {
+            update = executor.submit(() -> mockMvc.perform(
+                    put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(validDraftJson(0, "交叉更新")))
+                    .andReturn());
+            awaitAdvisoryWait(UPDATE_PAUSE_ADVISORY_KEY);
+            publish = executor.submit(() -> mockMvc.perform(
+                    post("/api/admin/v1/practice/preset-scenes/{id}/publish", "bath_time")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"lockVersion\":0}"))
+                    .andReturn());
+            awaitTransactionLockWait("from practice_activities");
+            gate.rollback();
 
-        assertThat(statuses(results)).containsExactlyInAnyOrder(200, 409);
+            var results = List.of(
+                    update.get(30, TimeUnit.SECONDS),
+                    publish.get(30, TimeUnit.SECONDS));
+
+            assertThat(statuses(results)).containsExactlyInAnyOrder(200, 409);
+        } finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        }
+
         var updateAudits = jdbcTemplate.queryForObject(
                 "select count(*) from practice_preset_scene_audit where action = 'update_draft'",
                 Integer.class);
@@ -498,40 +527,103 @@ class AdminPresetSceneWebTest {
     }
 
     @Test
-    void concurrentDraftUpdateAndRollbackUseSameActivityThenDraftLockOrder() throws Exception {
+    void concurrentCreateWinningRollbackReturnsConflictWithoutNewVersion() throws Exception {
         var superAdmin = login("super_admin", "SuperAdmin123!");
-        createDraft(superAdmin.accessToken());
-        installDraftUpdatePauseTrigger();
+        installDraftCreatePauseTrigger(CREATE_PAUSE_ADVISORY_KEY);
         var publishedCountBefore = publishedCount();
-        var nextVersion = nextPublishedVersion();
+        var historyBefore = publishedHistory();
 
-        var results = runConcurrently(() -> mockMvc.perform(
-                put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
-                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(validDraftJson(0, "交叉回滚更新")))
-                .andReturn(), () -> mockMvc.perform(
-                post("/api/admin/v1/practice/preset-scenes/{id}/rollback/{version}", "bath_time", 1)
-                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
-                .andReturn());
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        Future<MvcResult> create;
+        Future<MvcResult> rollback;
+        try (var gate = holdAdvisoryXactLock(CREATE_PAUSE_ADVISORY_KEY)) {
+            create = executor.submit(() -> mockMvc.perform(
+                    post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(validDraftJson()))
+                    .andReturn());
+            awaitAdvisoryWait(CREATE_PAUSE_ADVISORY_KEY);
+            rollback = executor.submit(() -> mockMvc.perform(
+                    post("/api/admin/v1/practice/preset-scenes/{id}/rollback/{version}", "bath_time", 1)
+                            .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                    .andReturn());
+            awaitTransactionLockWait("from practice_activities");
+            gate.rollback();
 
-        assertThat(statuses(results)).containsExactlyInAnyOrder(200, 409);
-        var updateAudits = jdbcTemplate.queryForObject(
-                "select count(*) from practice_preset_scene_audit where action = 'update_draft'",
-                Integer.class);
-        var rollbackAudits = jdbcTemplate.queryForObject(
-                "select count(*) from practice_preset_scene_audit where action = 'rollback'",
-                Integer.class);
-        assertThat(updateAudits + rollbackAudits).isEqualTo(1);
-        assertThat(publishedCount()).isEqualTo(publishedCountBefore + rollbackAudits);
-        assertThat(currentPublishedVersion()).isEqualTo(rollbackAudits == 1 ? nextVersion : 1);
+            var results = List.of(
+                    create.get(30, TimeUnit.SECONDS),
+                    rollback.get(30, TimeUnit.SECONDS));
+
+            assertThat(statuses(results)).containsExactly(201, 409);
+        } finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        }
+
+        assertThat(currentPublishedVersion()).isEqualTo(1);
+        assertThat(publishedCount()).isEqualTo(publishedCountBefore);
+        assertThat(publishedHistory()).isEqualTo(historyBefore);
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from practice_preset_scene_versions where state = 'draft' "
                         + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
-                Integer.class)).isEqualTo(rollbackAudits == 1 ? 0 : 1);
+                Integer.class)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_preset_scene_audit where action = 'publish'",
+                "select count(*) from practice_preset_scene_audit where action = 'create_draft'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'rollback'",
                 Integer.class)).isZero();
+    }
+
+    @Test
+    void concurrentRollbackWinningCreateLeavesPublishedVersionAndLaterDraft() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        installRollbackPauseTrigger(ROLLBACK_PAUSE_ADVISORY_KEY);
+        var publishedCountBefore = publishedCount();
+        var nextVersion = nextPublishedVersion();
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        Future<MvcResult> rollback;
+        Future<MvcResult> create;
+        try (var gate = holdAdvisoryXactLock(ROLLBACK_PAUSE_ADVISORY_KEY)) {
+            rollback = executor.submit(() -> mockMvc.perform(
+                    post("/api/admin/v1/practice/preset-scenes/{id}/rollback/{version}", "bath_time", 1)
+                            .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                    .andReturn());
+            awaitAdvisoryWait(ROLLBACK_PAUSE_ADVISORY_KEY);
+            create = executor.submit(() -> mockMvc.perform(
+                    post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                            .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(validDraftJson()))
+                    .andReturn());
+            awaitTransactionLockWait("from practice_activities");
+            gate.rollback();
+
+            var results = List.of(
+                    rollback.get(30, TimeUnit.SECONDS),
+                    create.get(30, TimeUnit.SECONDS));
+
+            assertThat(statuses(results)).containsExactly(200, 201);
+        } finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, TimeUnit.SECONDS);
+        }
+
+        assertThat(currentPublishedVersion()).isEqualTo(nextVersion);
+        assertThat(publishedCount()).isEqualTo(publishedCountBefore + 1);
+        assertThat(publishedHistory()).contains(nextVersion + ":洗澡时间");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_versions where state = 'draft' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'rollback'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'create_draft'",
+                Integer.class)).isEqualTo(1);
     }
 
     private void installAuditFailureTrigger() {
@@ -564,23 +656,104 @@ class AdminPresetSceneWebTest {
                         + "for each row execute function test_fail_preset_scene_audit()");
     }
 
-    private void installDraftUpdatePauseTrigger() {
+    private void installDraftUpdatePauseTrigger(long advisoryKey) {
         jdbcTemplate.execute(
                 """
                 create or replace function test_pause_preset_scene_draft_update()
                 returns trigger language plpgsql as $$
                 begin
                     if old.state = 'draft' and new.state = 'draft' then
-                        perform pg_sleep(1.0);
+                        perform pg_advisory_xact_lock(%d::bigint);
+                        perform 1 from practice_activities where id = old.activity_id for update;
                     end if;
                     return new;
                 end;
                 $$
-                """);
+                """.formatted(advisoryKey));
         jdbcTemplate.execute(
                 "create trigger test_pause_preset_scene_draft_update before update on "
                         + "practice_preset_scene_versions for each row execute function "
                         + "test_pause_preset_scene_draft_update()");
+    }
+
+    private void installDraftCreatePauseTrigger(long advisoryKey) {
+        jdbcTemplate.execute(
+                """
+                create or replace function test_pause_preset_scene_draft_create()
+                returns trigger language plpgsql as $$
+                begin
+                    if new.state = 'draft' then
+                        perform pg_advisory_xact_lock(%d::bigint);
+                        perform 1 from practice_activities where id = new.activity_id for update;
+                    end if;
+                    return new;
+                end;
+                $$
+                """.formatted(advisoryKey));
+        jdbcTemplate.execute(
+                "create trigger test_pause_preset_scene_draft_create before insert on "
+                        + "practice_preset_scene_versions for each row execute function "
+                        + "test_pause_preset_scene_draft_create()");
+    }
+
+    private void installRollbackPauseTrigger(long advisoryKey) {
+        jdbcTemplate.execute(
+                """
+                create or replace function test_pause_preset_scene_rollback_insert()
+                returns trigger language plpgsql as $$
+                begin
+                    if new.state = 'published' and new.version > 1 then
+                        perform pg_advisory_xact_lock(%d::bigint);
+                    end if;
+                    return new;
+                end;
+                $$
+                """.formatted(advisoryKey));
+        jdbcTemplate.execute(
+                "create trigger test_pause_preset_scene_rollback_insert before insert on "
+                        + "practice_preset_scene_versions for each row execute function "
+                        + "test_pause_preset_scene_rollback_insert()");
+    }
+
+    private Connection holdAdvisoryXactLock(long advisoryKey) throws SQLException {
+        var dataSource = Objects.requireNonNull(jdbcTemplate.getDataSource());
+        var connection = dataSource.getConnection();
+        connection.setAutoCommit(false);
+        try (var statement = connection.prepareStatement(
+                "select pg_advisory_xact_lock(?::bigint)")) {
+            statement.setLong(1, advisoryKey);
+            statement.execute();
+        }
+        return connection;
+    }
+
+    private void awaitAdvisoryWait(long advisoryKey) throws InterruptedException {
+        awaitLock(
+                "select count(*) from pg_locks "
+                        + "where locktype = 'advisory' and classid = 0 and objid = ? and not granted",
+                advisoryKey,
+                "advisory lock " + advisoryKey);
+    }
+
+    private void awaitTransactionLockWait(String queryFragment) throws InterruptedException {
+        awaitLock(
+                "select count(*) from pg_stat_activity "
+                        + "where wait_event_type = 'Lock' and wait_event = 'transactionid' "
+                        + "and query like ?",
+                "%" + queryFragment + "%",
+                "transaction lock for query containing " + queryFragment);
+    }
+
+    private void awaitLock(String sql, Object argument, String description) throws InterruptedException {
+        var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (System.nanoTime() < deadline) {
+            var waiting = jdbcTemplate.queryForObject(sql, Integer.class, argument);
+            if (waiting != null && waiting > 0) {
+                return;
+            }
+            Thread.sleep(25L);
+        }
+        throw new AssertionError("Timed out waiting for " + description);
     }
 
     private String testRole(String suffix) {
