@@ -16,6 +16,10 @@ public interface AdminPresetSceneMapper {
             @Param("presetSceneId") String presetSceneId
     );
 
+    AdminPresetSceneRepository.DraftRow findDraft(
+            @Param("presetSceneId") String presetSceneId
+    );
+
     AdminPresetSceneRepository.DraftRow createDraft(
             @Param("presetSceneId") String presetSceneId,
             @Param("write") AdminPresetSceneRepository.DraftWrite write,
@@ -56,6 +60,14 @@ public interface AdminPresetSceneMapper {
     AdminPresetSceneRepository.DraftRow copyPublishedToDraft(
             @Param("presetSceneId") String presetSceneId,
             @Param("sourceVersion") int sourceVersion,
+            @Param("adminId") String adminId,
+            @Param("now") OffsetDateTime now
+    );
+
+    AdminPresetSceneRepository.PublishedRow rollbackPublished(
+            @Param("presetSceneId") String presetSceneId,
+            @Param("sourceVersion") int sourceVersion,
+            @Param("nextVersion") int nextVersion,
             @Param("adminId") String adminId,
             @Param("now") OffsetDateTime now
     );

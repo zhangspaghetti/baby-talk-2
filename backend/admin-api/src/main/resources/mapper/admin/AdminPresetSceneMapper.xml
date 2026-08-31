@@ -186,6 +186,15 @@
         for update of v
     </select>
 
+    <select id="findDraft" resultMap="draftRowMap">
+        select <include refid="draftColumns"/>
+        from practice_preset_scene_versions v
+        join practice_activities a on a.id = v.activity_id
+        join practice_spaces s on s.id = a.space_id
+        where a.slug = #{presetSceneId}
+          and v.state = 'draft'
+    </select>
+
     <select id="createDraft" resultMap="draftRowMap" flushCache="true" useCache="false">
         with inserted as (
             insert into practice_preset_scene_versions (
@@ -347,6 +356,57 @@
             returning *
         )
         select <include refid="draftColumns"/>
+        from inserted v
+        join practice_activities a on a.id = v.activity_id
+        join practice_spaces s on s.id = a.space_id
+    </select>
+
+    <select id="rollbackPublished" resultMap="publishedRowMap" flushCache="true" useCache="false">
+        with inserted as (
+            insert into practice_preset_scene_versions (
+                activity_id,
+                version,
+                state,
+                title_zh,
+                summary_zh,
+                scene_tag_en,
+                coach_tip_zh,
+                sort_order,
+                generation_brief,
+                enabled,
+                lock_version,
+                created_by_admin_id,
+                published_by_admin_id,
+                created_at,
+                updated_at,
+                published_at
+            )
+            select
+                source.activity_id,
+                #{nextVersion},
+                'published',
+                source.title_zh,
+                source.summary_zh,
+                source.scene_tag_en,
+                source.coach_tip_zh,
+                source.sort_order,
+                source.generation_brief,
+                source.enabled,
+                source.lock_version,
+                #{adminId},
+                #{adminId},
+                #{now},
+                #{now},
+                #{now}
+            from practice_activities a
+            join practice_preset_scene_versions source
+              on source.activity_id = a.id
+             and source.version = #{sourceVersion}
+             and source.state = 'published'
+            where a.slug = #{presetSceneId}
+            returning *
+        )
+        select <include refid="versionColumns"/>
         from inserted v
         join practice_activities a on a.id = v.activity_id
         join practice_spaces s on s.id = a.space_id

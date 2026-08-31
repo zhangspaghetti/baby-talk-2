@@ -191,6 +191,28 @@ class AdminPresetSceneRepositoryTest {
         assertSafeAuditSummary("rollback", "洗澡时间");
     }
 
+    @Test
+    void rollbackPublishesNextVersionAndWritesOnlyOneRollbackAudit() {
+        var published = repository.rollback(
+                "bath_time",
+                1,
+                adminPrincipalId(),
+                now());
+
+        assertThat(published.version()).isEqualTo(2);
+        assertThat(published.title()).isEqualTo("洗澡时间");
+        assertThat(repository.findScene("bath_time")).get()
+                .extracting(AdminPresetSceneRepository.SceneDetailRow::publishedVersion)
+                .isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'rollback'",
+                Integer.class)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'publish'",
+                Integer.class)).isZero();
+        assertSafeAuditSummary("rollback", "洗澡时间");
+    }
+
     private AdminPresetSceneRepository.SceneSummaryRow findSceneSummary(String presetSceneId) {
         return repository.findScenes().stream()
                 .filter(row -> row.presetSceneId().equals(presetSceneId))

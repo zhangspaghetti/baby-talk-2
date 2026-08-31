@@ -3,6 +3,7 @@ package com.zhangspaghetti.babytalk.admin.practice;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import org.springframework.stereotype.Component;
 
 /**
@@ -38,6 +39,10 @@ public final class AdminPresetSceneRepository {
         return Optional.ofNullable(mapper.findDraftForUpdate(presetSceneId));
     }
 
+    public Optional<DraftRow> findDraft(String presetSceneId) {
+        return Optional.ofNullable(mapper.findDraft(presetSceneId));
+    }
+
     public DraftRow createDraft(
             String presetSceneId,
             DraftWrite write,
@@ -46,7 +51,7 @@ public final class AdminPresetSceneRepository {
     ) {
         var draft = mapper.createDraft(presetSceneId, write, adminId, now);
         if (draft != null) {
-            mapper.insertAudit(
+            insertAudit(
                     draft.activityId(),
                     "create_draft",
                     null,
@@ -67,7 +72,7 @@ public final class AdminPresetSceneRepository {
     ) {
         var draft = mapper.updateDraft(presetSceneId, expectedLockVersion, write, adminId, now);
         if (draft != null) {
-            mapper.insertAudit(
+            insertAudit(
                     draft.activityId(),
                     "update_draft",
                     draft.versionId(),
@@ -85,6 +90,17 @@ public final class AdminPresetSceneRepository {
             String adminId,
             OffsetDateTime now
     ) {
+        return publish(presetSceneId, expectedLockVersion, adminId, now, draft -> {
+        });
+    }
+
+    public PublishedRow publish(
+            String presetSceneId,
+            int expectedLockVersion,
+            String adminId,
+            OffsetDateTime now,
+            Consumer<DraftRow> draftValidator
+    ) {
         var activityId = mapper.lockActivityForUpdate(presetSceneId);
         if (activityId == null) {
             return null;
@@ -94,6 +110,7 @@ public final class AdminPresetSceneRepository {
         if (draft == null || draft.lockVersion() != expectedLockVersion) {
             return null;
         }
+        draftValidator.accept(draft);
 
         var nextVersion = mapper.findNextPublishedVersion(activityId);
         if (nextVersion == null) {
@@ -113,7 +130,7 @@ public final class AdminPresetSceneRepository {
         if (mapper.updateCurrentPublishedVersion(activityId, published.versionId()) != 1) {
             throw new IllegalStateException("published preset scene pointer update affected no activity");
         }
-        mapper.insertAudit(
+        insertAudit(
                 activityId,
                 published.enabled() ? "publish" : "disable",
                 published.versionId(),
@@ -123,6 +140,62 @@ public final class AdminPresetSceneRepository {
                         published.enabled() ? "publish" : "disable",
                         published.lockVersion(),
                         published.version()),
+                now);
+        return published;
+    }
+
+    /**
+     * Copies a historical published version into a new published version.
+     *
+     * <p>The activity row is locked before the optional draft row so publish
+     * and rollback use the same lock order. Rollback owns one audit action;
+     * it must not call {@link #publish(String, int, String, OffsetDateTime)}.
+     */
+    public PublishedRow rollback(
+            String presetSceneId,
+            int sourceVersion,
+            String adminId,
+            OffsetDateTime now
+    ) {
+        var activityId = mapper.lockActivityForUpdate(presetSceneId);
+        if (activityId == null) {
+            return null;
+        }
+
+        if (mapper.findDraftForUpdate(presetSceneId) != null) {
+            return null;
+        }
+
+        var sourceVersionId = mapper.findPublishedVersionId(presetSceneId, sourceVersion);
+        if (sourceVersionId == null) {
+            return null;
+        }
+
+        var nextVersion = mapper.findNextPublishedVersion(activityId);
+        if (nextVersion == null) {
+            throw new IllegalStateException("published preset scene version sequence is unavailable");
+        }
+
+        var published = mapper.rollbackPublished(
+                presetSceneId,
+                sourceVersion,
+                nextVersion,
+                adminId,
+                now);
+        if (published == null) {
+            return null;
+        }
+
+        if (mapper.updateCurrentPublishedVersion(activityId, published.versionId()) != 1) {
+            throw new IllegalStateException("published preset scene pointer update affected no activity");
+        }
+        insertAudit(
+                activityId,
+                "rollback",
+                sourceVersionId,
+                published.versionId(),
+                adminId,
+                rollbackPublishedAuditSummary(sourceVersion, published.lockVersion(), published.version()),
                 now);
         return published;
     }
@@ -143,7 +216,7 @@ public final class AdminPresetSceneRepository {
         }
         var draft = mapper.copyPublishedToDraft(presetSceneId, sourceVersion, adminId, now);
         if (draft != null) {
-            mapper.insertAudit(
+            insertAudit(
                     activityId,
                     "rollback",
                     sourceVersionId,
@@ -159,6 +232,27 @@ public final class AdminPresetSceneRepository {
         return mapper.findVersions(presetSceneId);
     }
 
+    private void insertAudit(
+            long activityId,
+            String action,
+            Long sourceVersionId,
+            Long targetVersionId,
+            String adminId,
+            String changeSummary,
+            OffsetDateTime now
+    ) {
+        if (mapper.insertAudit(
+                activityId,
+                action,
+                sourceVersionId,
+                targetVersionId,
+                adminId,
+                changeSummary,
+                now) != 1) {
+            throw new IllegalStateException("preset scene audit insert affected no row");
+        }
+    }
+
     private String draftAuditSummary(String action, int lockVersion) {
         return "{\"action\":\"" + action + "\",\"lock_version\":" + lockVersion
                 + ",\"fields\":" + DRAFT_CHANGED_FIELDS + "}";
@@ -172,6 +266,12 @@ public final class AdminPresetSceneRepository {
     private String rollbackAuditSummary(int sourceVersion, int lockVersion) {
         return "{\"action\":\"rollback\",\"source_version\":" + sourceVersion
                 + ",\"lock_version\":" + lockVersion + ",\"fields\":" + DRAFT_CHANGED_FIELDS + "}";
+    }
+
+    private String rollbackPublishedAuditSummary(int sourceVersion, int lockVersion, int version) {
+        return "{\"action\":\"rollback\",\"source_version\":" + sourceVersion
+                + ",\"target_version\":" + version + ",\"lock_version\":" + lockVersion
+                + ",\"fields\":" + PUBLISHED_CHANGED_FIELDS + "}";
     }
 
     public record DraftWrite(
