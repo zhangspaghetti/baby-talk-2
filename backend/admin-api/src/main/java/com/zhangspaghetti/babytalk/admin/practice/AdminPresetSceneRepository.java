@@ -168,9 +168,7 @@ public final class AdminPresetSceneRepository {
             return null;
         }
 
-        if (mapper.findDraftForUpdate(presetSceneId) != null) {
-            return null;
-        }
+        mapper.findDraftForUpdate(presetSceneId);
 
         var sourceVersionId = mapper.findPublishedVersionId(presetSceneId, sourceVersion);
         if (sourceVersionId == null) {
