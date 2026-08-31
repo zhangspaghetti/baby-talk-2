@@ -3,6 +3,7 @@ package com.zhangspaghetti.babytalk.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,7 +20,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -30,7 +32,6 @@ import tools.jackson.databind.ObjectMapper;
         "app.sms.dev-code=246810"
 })
 @AutoConfigureMockMvc
-@Transactional
 class PresetSceneCatalogControllerTest extends AbstractIntegrationTest {
 
     private static final Set<String> PUBLIC_KEYS = Set.of(
@@ -55,6 +56,9 @@ class PresetSceneCatalogControllerTest extends AbstractIntegrationTest {
 
     @Autowired
     private PresetSceneCatalogService catalogService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void resetCurrentPointersToFirstPublishedVersion() {
@@ -103,12 +107,23 @@ class PresetSceneCatalogControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void disabledCurrentVersionDisappearsFromCatalogAndIsUnavailableToConsumers() throws Exception {
-        var originalVersionId = currentVersionId("bath_time");
-        var disabledVersion = insertPublishedVersion("bath_time", "禁用洗澡时间", false, 1);
-        setCurrentVersion("bath_time", disabledVersion.versionId());
+    void nonGetCatalogRoutesRequireConsumerAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/practice/preset-scenes")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("consumer_authentication_required"))
+                .andExpect(jsonPath("$.details.reason").value("missing"));
+    }
 
-        try {
+    @Test
+    void disabledCurrentVersionDisappearsFromCatalogAndIsUnavailableToConsumers() throws Exception {
+        inRollbackTransaction(() -> {
+            var originalVersionId = currentVersionId("bath_time");
+            var disabledVersion = insertPublishedVersion("bath_time", "禁用洗澡时间", false, 1);
+            setCurrentVersion("bath_time", disabledVersion.versionId());
+
             var result = mockMvc.perform(get("/api/v1/practice/preset-scenes")
                             .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0"))
                     .andExpect(status().isOk())
@@ -116,18 +131,17 @@ class PresetSceneCatalogControllerTest extends AbstractIntegrationTest {
             assertThat(sceneIds(objectMapper.readTree(result.getResponse().getContentAsString())))
                     .doesNotContain("bath_time");
             assertUnavailable("bath_time");
-        } finally {
             setCurrentVersion("bath_time", originalVersionId);
-        }
+        });
     }
 
     @Test
     void currentPublishedTitleChangesWhilePublishedHistoryRemains() throws Exception {
-        var originalVersionId = currentVersionId("bath_time");
-        var changedVersion = insertPublishedVersion("bath_time", "新的洗澡时间", true, 1);
-        setCurrentVersion("bath_time", changedVersion.versionId());
+        inRollbackTransaction(() -> {
+            var originalVersionId = currentVersionId("bath_time");
+            var changedVersion = insertPublishedVersion("bath_time", "新的洗澡时间", true, 1);
+            setCurrentVersion("bath_time", changedVersion.versionId());
 
-        try {
             var result = mockMvc.perform(get("/api/v1/practice/preset-scenes")
                             .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0"))
                     .andExpect(status().isOk())
@@ -149,22 +163,73 @@ class PresetSceneCatalogControllerTest extends AbstractIntegrationTest {
                     "select title_zh from practice_preset_scene_versions where version_id = ?",
                     String.class,
                     originalVersionId)).isEqualTo("洗澡时间");
-        } finally {
             setCurrentVersion("bath_time", originalVersionId);
-        }
+        });
     }
 
     @Test
-    void missingOrUnpublishedPresetUsesSameUnavailableContract() {
+    void requirePublishedReturnsCurrentInternalIdentityAndGenerationBrief() throws Exception {
+        var initial = catalogService.requirePublished("bath_time");
+        assertThat(initial.activityId()).isPositive();
+        assertThat(initial.versionId()).isPositive();
+        assertThat(initial.publishedVersion()).isEqualTo(1);
+        assertThat(initial.generationBrief()).isNotBlank();
+
+        inRollbackTransaction(() -> {
+            var originalVersionId = currentVersionId("bath_time");
+            var changedVersion = insertPublishedVersion("bath_time", "新的洗澡时间", true, 1);
+            setCurrentVersion("bath_time", changedVersion.versionId());
+
+            var current = catalogService.requirePublished("bath_time");
+            assertThat(current.activityId()).isEqualTo(initial.activityId());
+            assertThat(current.versionId()).isEqualTo(changedVersion.versionId());
+            assertThat(current.publishedVersion()).isEqualTo(changedVersion.version());
+            assertThat(current.generationBrief()).isEqualTo("更新后的生成文案");
+            setCurrentVersion("bath_time", originalVersionId);
+        });
+    }
+
+    @Test
+    void missingOrUnpublishedPresetUsesSameUnavailableContract() throws Exception {
         assertUnavailable("does_not_exist");
 
-        var originalVersionId = currentVersionId("bath_time");
-        jdbcTemplate.update(
-                "update practice_activities set current_published_version_id = null where slug = 'bath_time'");
-        try {
+        inRollbackTransaction(() -> {
+            var originalVersionId = currentVersionId("bath_time");
+            jdbcTemplate.update(
+                    "update practice_activities set current_published_version_id = null where slug = 'bath_time'");
             assertUnavailable("bath_time");
-        } finally {
             setCurrentVersion("bath_time", originalVersionId);
+        });
+    }
+
+    private void inRollbackTransaction(ThrowingRunnable action) throws Exception {
+        try {
+            new TransactionTemplate(transactionManager).executeWithoutResult(transactionStatus -> {
+                try {
+                    action.run();
+                    transactionStatus.setRollbackOnly();
+                } catch (Exception exception) {
+                    throw new TestExecutionException(exception);
+                }
+            });
+        } catch (TestExecutionException exception) {
+            throw exception.cause;
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+
+        void run() throws Exception;
+    }
+
+    private static final class TestExecutionException extends RuntimeException {
+
+        private final Exception cause;
+
+        private TestExecutionException(Exception cause) {
+            super(cause);
+            this.cause = cause;
         }
     }
 
