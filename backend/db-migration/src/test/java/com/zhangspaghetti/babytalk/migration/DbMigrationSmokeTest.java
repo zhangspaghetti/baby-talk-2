@@ -28,7 +28,7 @@ import org.testcontainers.utility.DockerImageName;
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
                 "babytalk.candidate.id=btqa-migration-test",
-                "babytalk.candidate.required-migration-version=36"
+                "babytalk.candidate.required-migration-version=37"
         }
 )
 class DbMigrationSmokeTest {
@@ -40,6 +40,8 @@ class DbMigrationSmokeTest {
     private static final String V35_INVITE_TOKEN_PRIVACY_SCHEMA = "flyway_v35_invite_token_privacy";
     private static final String V36_INTERACTION_EVENT_PRIVACY_SCHEMA = "flyway_v36_interaction_event_privacy";
     private static final String V36_DUPLICATE_GUARD_SCHEMA = "flyway_v36_duplicate_guard";
+    private static final String V37_PRESET_SCENE_SCHEMA = "flyway_v37_preset_scene_schema";
+    private static final String V37_IMMUTABILITY_SCHEMA = "flyway_v37_immutability";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -169,7 +171,10 @@ class DbMigrationSmokeTest {
                 "kg:read",
                 "kg:review",
                 "mentor:audit",
-                "distribution:read");
+                "distribution:read",
+                "practice:read",
+                "practice:write",
+                "practice:publish");
         List<String> seededPermissionCodes = jdbcTemplate.queryForList(
                 """
                 select permission_code
@@ -188,6 +193,108 @@ class DbMigrationSmokeTest {
                 """,
                 Integer.class);
         assertThat(seededSuperAdminGrants).isEqualTo(expectedPermissionCodes.size());
+    }
+
+    @Test
+    void flywayV37CreatesVersionedPresetSceneSchemaAndSeedsPublishedScenes() {
+        Flyway v36 = flywayFor(V37_PRESET_SCENE_SCHEMA, "36");
+        v36.migrate();
+        assertThat(v36.info().current().getVersion().getVersion()).isEqualTo("36");
+
+        Flyway v37 = flywayFor(V37_PRESET_SCENE_SCHEMA, "37");
+        v37.migrate();
+        assertThat(v37.info().current().getVersion().getVersion()).isEqualTo("37");
+
+        assertThat(tableExists(V37_PRESET_SCENE_SCHEMA, "practice_preset_scene_versions")).isTrue();
+        assertThat(tableExists(V37_PRESET_SCENE_SCHEMA, "practice_preset_scene_audit")).isTrue();
+        assertThat(columnExists(
+                V37_PRESET_SCENE_SCHEMA,
+                "practice_activities",
+                "current_published_version_id")).isTrue();
+        assertThat(indexExists(
+                V37_PRESET_SCENE_SCHEMA,
+                "uq_practice_preset_scene_versions_one_draft")).isTrue();
+        assertThat(columnExists(V37_PRESET_SCENE_SCHEMA, "practice_preset_scene_versions", "generation_brief"))
+                .isTrue();
+        assertThat(queryInt(
+                "select count(*) from " + V37_PRESET_SCENE_SCHEMA
+                        + ".practice_preset_scene_versions where state='published' and version=1"))
+                .isEqualTo(5);
+        assertThat(queryInt(
+                "select count(*) from " + V37_PRESET_SCENE_SCHEMA
+                        + ".admin_permissions where permission_code like 'practice:%'"))
+                .isEqualTo(3);
+        assertThat(jdbcTemplate.queryForList(
+                "select a.slug from " + V37_PRESET_SCENE_SCHEMA
+                        + ".practice_activities a join " + V37_PRESET_SCENE_SCHEMA
+                        + ".practice_preset_scene_versions v on v.activity_id = a.id "
+                        + "where v.state = 'published' and v.version = 1 order by a.slug",
+                String.class))
+                .containsExactly(
+                        "bath_time",
+                        "bedtime",
+                        "diaper_change",
+                        "feeding_time",
+                        "post_cry_soothing");
+        assertThat(queryInt(
+                """
+                select count(*)
+                from %s.practice_activities a
+                join %s.practice_preset_scene_versions v
+                  on v.activity_id = a.id
+                 and v.version_id = a.current_published_version_id
+                where v.state = 'published'
+                """.formatted(V37_PRESET_SCENE_SCHEMA, V37_PRESET_SCENE_SCHEMA)))
+                .isEqualTo(5);
+    }
+
+    @Test
+    void flywayV37EnforcesOneDraftAndPublishedVersionImmutability() {
+        Flyway v37 = flywayFor(V37_IMMUTABILITY_SCHEMA, "37");
+        v37.migrate();
+
+        Long activityId = jdbcTemplate.queryForObject(
+                "select id from " + V37_IMMUTABILITY_SCHEMA + ".practice_activities where slug = 'bath_time'",
+                Long.class);
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-31T12:00:00Z"));
+        String versionsTable = V37_IMMUTABILITY_SCHEMA + ".practice_preset_scene_versions";
+        String draftInsert = """
+                insert into %s (
+                    activity_id, version, state, title_zh, summary_zh, scene_tag_en, coach_tip_zh,
+                    sort_order, generation_brief, enabled, created_at, updated_at
+                ) values (?, null, 'draft', '洗澡时间草稿', '草稿摘要', 'Bath time', '草稿提示',
+                    1, '草稿生成文案', true, ?, ?)
+                """.formatted(versionsTable);
+        jdbcTemplate.update(draftInsert, activityId, now, now);
+
+        assertThatThrownBy(() -> jdbcTemplate.update(draftInsert, activityId, now, now))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        Long draftVersionId = jdbcTemplate.queryForObject(
+                "select version_id from " + versionsTable
+                        + " where activity_id = ? and state = 'draft'",
+                Long.class,
+                activityId);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + V37_IMMUTABILITY_SCHEMA
+                        + ".practice_activities set current_published_version_id = ? where id = ?",
+                draftVersionId,
+                activityId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        Long publishedVersionId = jdbcTemplate.queryForObject(
+                "select version_id from " + versionsTable
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                activityId);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + versionsTable + " set title_zh = '不应更新' where version_id = ?",
+                publishedVersionId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "delete from " + versionsTable + " where version_id = ?",
+                publishedVersionId))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -1452,6 +1559,28 @@ class DbMigrationSmokeTest {
                 String.class,
                 schemaName,
                 tableName);
+    }
+
+    private boolean columnExists(String schemaName, String tableName, String columnName) {
+        Boolean exists = jdbcTemplate.queryForObject(
+                """
+                select exists(
+                    select 1
+                    from information_schema.columns
+                    where table_schema = ?
+                      and table_name = ?
+                      and column_name = ?
+                )
+                """,
+                Boolean.class,
+                schemaName,
+                tableName,
+                columnName);
+        return Boolean.TRUE.equals(exists);
+    }
+
+    private int queryInt(String sql) {
+        return jdbcTemplate.queryForObject(sql, Integer.class);
     }
 
     private String columnDataType(String tableName, String columnName) {

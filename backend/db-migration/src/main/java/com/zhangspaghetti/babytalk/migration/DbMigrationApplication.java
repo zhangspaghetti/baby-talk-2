@@ -18,8 +18,8 @@ import org.springframework.beans.factory.annotation.Value;
 @SpringBootApplication
 public class DbMigrationApplication {
 
-    static final String EXPECTED_CURRENT_VERSION = "36";
-    static final int EXPECTED_APPLIED_MIGRATION_COUNT = 35;
+    static final String EXPECTED_CURRENT_VERSION = "37";
+    static final int EXPECTED_APPLIED_MIGRATION_COUNT = 36;
     private static final Pattern SAFE_CANDIDATE_ID = Pattern.compile("^[a-z0-9][a-z0-9._-]{2,127}$");
     private static final Pattern SAFE_MIGRATION_VERSION = Pattern.compile("^[0-9]+(?:_[0-9]+)?$");
 
