@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.admin.practice.AdminPresetSceneMapper">
+
+    <resultMap id="sceneSummaryRowMap"
+               type="com.zhangspaghetti.babytalk.admin.practice.AdminPresetSceneRepository$SceneSummaryRow">
+        <constructor>
+            <arg column="activity_id" javaType="_long"/>
+            <arg column="preset_scene_id" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="published_version_id" javaType="_long"/>
+            <arg column="published_version" javaType="_int"/>
+            <arg column="title" javaType="java.lang.String"/>
+            <arg column="summary" javaType="java.lang.String"/>
+            <arg column="scene_tag" javaType="java.lang.String"/>
+            <arg column="coach_tip" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="_int"/>
+            <arg column="enabled" javaType="_boolean"/>
+            <arg column="draft_lock_version" javaType="java.lang.Integer"/>
+            <arg column="published_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="updated_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="draft_updated_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="sceneDetailRowMap"
+               type="com.zhangspaghetti.babytalk.admin.practice.AdminPresetSceneRepository$SceneDetailRow">
+        <constructor>
+            <arg column="activity_id" javaType="_long"/>
+            <arg column="preset_scene_id" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="published_version_id" javaType="_long"/>
+            <arg column="published_version" javaType="_int"/>
+            <arg column="title" javaType="java.lang.String"/>
+            <arg column="summary" javaType="java.lang.String"/>
+            <arg column="scene_tag" javaType="java.lang.String"/>
+            <arg column="coach_tip" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="_int"/>
+            <arg column="generation_brief" javaType="java.lang.String"/>
+            <arg column="enabled" javaType="_boolean"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="updated_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="published_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="draftRowMap"
+               type="com.zhangspaghetti.babytalk.admin.practice.AdminPresetSceneRepository$DraftRow">
+        <constructor>
+            <arg column="version_id" javaType="_long"/>
+            <arg column="activity_id" javaType="_long"/>
+            <arg column="preset_scene_id" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="title" javaType="java.lang.String"/>
+            <arg column="summary" javaType="java.lang.String"/>
+            <arg column="scene_tag" javaType="java.lang.String"/>
+            <arg column="coach_tip" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="_int"/>
+            <arg column="generation_brief" javaType="java.lang.String"/>
+            <arg column="enabled" javaType="_boolean"/>
+            <arg column="lock_version" javaType="_int"/>
+            <arg column="created_by_admin_id" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="updated_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="publishedRowMap"
+               type="com.zhangspaghetti.babytalk.admin.practice.AdminPresetSceneRepository$PublishedRow">
+        <constructor>
+            <arg column="version_id" javaType="_long"/>
+            <arg column="activity_id" javaType="_long"/>
+            <arg column="preset_scene_id" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="version" javaType="_int"/>
+            <arg column="title" javaType="java.lang.String"/>
+            <arg column="summary" javaType="java.lang.String"/>
+            <arg column="scene_tag" javaType="java.lang.String"/>
+            <arg column="coach_tip" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="_int"/>
+            <arg column="generation_brief" javaType="java.lang.String"/>
+            <arg column="enabled" javaType="_boolean"/>
+            <arg column="lock_version" javaType="_int"/>
+            <arg column="created_by_admin_id" javaType="java.lang.String"/>
+            <arg column="published_by_admin_id" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="updated_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="published_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="publishedSceneColumns">
+        a.id as activity_id,
+        a.slug as preset_scene_id,
+        s.slug as space_id,
+        v.version_id as published_version_id,
+        v.version as published_version,
+        v.title_zh as title,
+        v.summary_zh as summary,
+        v.scene_tag_en as scene_tag,
+        v.coach_tip_zh as coach_tip,
+        v.sort_order,
+        v.generation_brief,
+        v.enabled,
+        v.created_at,
+        v.updated_at,
+        v.published_at
+    </sql>
+
+    <sql id="versionColumns">
+        v.version_id,
+        v.activity_id,
+        a.slug as preset_scene_id,
+        s.slug as space_id,
+        v.version,
+        v.title_zh as title,
+        v.summary_zh as summary,
+        v.scene_tag_en as scene_tag,
+        v.coach_tip_zh as coach_tip,
+        v.sort_order,
+        v.generation_brief,
+        v.enabled,
+        v.lock_version,
+        v.created_by_admin_id,
+        v.published_by_admin_id,
+        v.created_at,
+        v.updated_at,
+        v.published_at
+    </sql>
+
+    <sql id="draftColumns">
+        v.version_id,
+        v.activity_id,
+        a.slug as preset_scene_id,
+        s.slug as space_id,
+        v.title_zh as title,
+        v.summary_zh as summary,
+        v.scene_tag_en as scene_tag,
+        v.coach_tip_zh as coach_tip,
+        v.sort_order,
+        v.generation_brief,
+        v.enabled,
+        v.lock_version,
+        v.created_by_admin_id,
+        v.created_at,
+        v.updated_at
+    </sql>
+
+    <select id="findScenes" resultMap="sceneSummaryRowMap">
+        select
+            <include refid="publishedSceneColumns"/>,
+            draft.lock_version as draft_lock_version,
+            draft.updated_at as draft_updated_at
+        from practice_activities a
+        join practice_spaces s on s.id = a.space_id
+        join practice_preset_scene_versions v
+          on v.version_id = a.current_published_version_id
+         and v.activity_id = a.id
+         and v.state = 'published'
+        left join practice_preset_scene_versions draft
+          on draft.activity_id = a.id
+         and draft.state = 'draft'
+        order by v.sort_order asc, a.slug asc
+    </select>
+
+    <select id="findScene" resultMap="sceneDetailRowMap">
+        select <include refid="publishedSceneColumns"/>
+        from practice_activities a
+        join practice_spaces s on s.id = a.space_id
+        join practice_preset_scene_versions v
+          on v.version_id = a.current_published_version_id
+         and v.activity_id = a.id
+         and v.state = 'published'
+        where a.slug = #{presetSceneId}
+    </select>
+
+    <select id="findDraftForUpdate" resultMap="draftRowMap">
+        select <include refid="draftColumns"/>
+        from practice_preset_scene_versions v
+        join practice_activities a on a.id = v.activity_id
+        join practice_spaces s on s.id = a.space_id
+        where a.slug = #{presetSceneId}
+          and v.state = 'draft'
+        for update of v
+    </select>
+
+    <select id="createDraft" resultMap="draftRowMap" flushCache="true" useCache="false">
+        with inserted as (
+            insert into practice_preset_scene_versions (
+                activity_id,
+                version,
+                state,
+                title_zh,
+                summary_zh,
+                scene_tag_en,
+                coach_tip_zh,
+                sort_order,
+                generation_brief,
+                enabled,
+                lock_version,
+                created_by_admin_id,
+                created_at,
+                updated_at
+            )
+            select
+                a.id,
+                null,
+                'draft',
+                #{write.title},
+                #{write.summary},
+                #{write.sceneTag},
+                #{write.coachTip},
+                #{write.sortOrder},
+                #{write.generationBrief},
+                #{write.enabled},
+                0,
+                #{adminId},
+                #{now},
+                #{now}
+            from practice_activities a
+            where a.slug = #{presetSceneId}
+            returning *
+        )
+        select <include refid="draftColumns"/>
+        from inserted v
+        join practice_activities a on a.id = v.activity_id
+        join practice_spaces s on s.id = a.space_id
+    </select>
+
+    <select id="updateDraft" resultMap="draftRowMap" flushCache="true" useCache="false">
+        with updated as (
+            update practice_preset_scene_versions v
+            set title_zh = #{write.title},
+                summary_zh = #{write.summary},
+                scene_tag_en = #{write.sceneTag},
+                coach_tip_zh = #{write.coachTip},
+                sort_order = #{write.sortOrder},
+                generation_brief = #{write.generationBrief},
+                enabled = #{write.enabled},
+                lock_version = v.lock_version + 1,
+                updated_at = #{now}
+            from practice_activities a
+            where v.activity_id = a.id
+              and a.slug = #{presetSceneId}
+              and v.state = 'draft'
+              and v.lock_version = #{expectedLockVersion}
+            returning v.*
+        )
+        select <include refid="draftColumns"/>
+        from updated v
+        join practice_activities a on a.id = v.activity_id
+        join practice_spaces s on s.id = a.space_id
+    </select>
+
+    <select id="lockActivityForUpdate" resultType="java.lang.Long">
+        select id
+        from practice_activities
+        where slug = #{presetSceneId}
+        for update
+    </select>
+
+    <select id="findNextPublishedVersion" resultType="java.lang.Integer">
+        select coalesce(max(version), 0) + 1
+        from practice_preset_scene_versions
+        where activity_id = #{activityId}
+          and state = 'published'
+    </select>
+
+    <select id="findPublishedVersionId" resultType="java.lang.Long">
+        select v.version_id
+        from practice_preset_scene_versions v
+        join practice_activities a on a.id = v.activity_id
+        where a.slug = #{presetSceneId}
+          and v.version = #{sourceVersion}
+          and v.state = 'published'
+    </select>
+
+    <select id="publishDraft" resultMap="publishedRowMap" flushCache="true" useCache="false">
+        with updated as (
+            update practice_preset_scene_versions v
+            set version = #{nextVersion},
+                state = 'published',
+                published_by_admin_id = #{adminId},
+                published_at = #{now},
+                updated_at = #{now},
+                lock_version = v.lock_version + 1
+            from practice_activities a
+            where v.activity_id = a.id
+              and a.slug = #{presetSceneId}
+              and v.state = 'draft'
+              and v.lock_version = #{expectedLockVersion}
+            returning v.*
+        )
+        select <include refid="versionColumns"/>
+        from updated v
+        join practice_activities a on a.id = v.activity_id
+        join practice_spaces s on s.id = a.space_id
+    </select>
+
+    <update id="updateCurrentPublishedVersion" flushCache="true">
+        update practice_activities
+        set current_published_version_id = #{versionId}
+        where id = #{activityId}
+    </update>
+
+    <select id="copyPublishedToDraft" resultMap="draftRowMap" flushCache="true" useCache="false">
+        with inserted as (
+            insert into practice_preset_scene_versions (
+                activity_id,
+                version,
+                state,
+                title_zh,
+                summary_zh,
+                scene_tag_en,
+                coach_tip_zh,
+                sort_order,
+                generation_brief,
+                enabled,
+                lock_version,
+                created_by_admin_id,
+                created_at,
+                updated_at
+            )
+            select
+                a.id,
+                null,
+                'draft',
+                source.title_zh,
+                source.summary_zh,
+                source.scene_tag_en,
+                source.coach_tip_zh,
+                source.sort_order,
+                source.generation_brief,
+                source.enabled,
+                0,
+                #{adminId},
+                #{now},
+                #{now}
+            from practice_activities a
+            join practice_preset_scene_versions source
+              on source.activity_id = a.id
+             and source.version = #{sourceVersion}
+             and source.state = 'published'
+            where a.slug = #{presetSceneId}
+            returning *
+        )
+        select <include refid="draftColumns"/>
+        from inserted v
+        join practice_activities a on a.id = v.activity_id
+        join practice_spaces s on s.id = a.space_id
+    </select>
+
+    <select id="findVersions" resultMap="publishedRowMap">
+        select <include refid="versionColumns"/>
+        from practice_preset_scene_versions v
+        join practice_activities a on a.id = v.activity_id
+        join practice_spaces s on s.id = a.space_id
+        where a.slug = #{presetSceneId}
+          and v.state = 'published'
+        order by v.version desc
+    </select>
+
+    <insert id="insertAudit" flushCache="true">
+        insert into practice_preset_scene_audit (
+            activity_id,
+            action,
+            source_version_id,
+            target_version_id,
+            admin_principal_id,
+            change_summary,
+            created_at
+        ) values (
+            #{activityId},
+            #{action},
+            #{sourceVersionId},
+            #{targetVersionId},
+            #{adminId},
+            cast(#{changeSummary} as jsonb),
+            #{now}
+        )
+    </insert>
+</mapper>

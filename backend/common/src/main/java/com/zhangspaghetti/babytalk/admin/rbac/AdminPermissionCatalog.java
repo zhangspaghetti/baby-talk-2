@@ -20,6 +20,9 @@ public class AdminPermissionCatalog {
     public static final String KG_REVIEW = "kg:review";
     public static final String MENTOR_AUDIT = "mentor:audit";
     public static final String DISTRIBUTION_READ = "distribution:read";
+    public static final String PRACTICE_READ = "practice:read";
+    public static final String PRACTICE_WRITE = "practice:write";
+    public static final String PRACTICE_PUBLISH = "practice:publish";
 
     private final List<PermissionDefinition> definitions = List.of(
             new PermissionDefinition(USERS_READ, "Read consumer users."),
@@ -33,7 +36,10 @@ public class AdminPermissionCatalog {
             new PermissionDefinition(KG_READ, "Read knowledge graph data."),
             new PermissionDefinition(KG_REVIEW, "Review knowledge graph changes."),
             new PermissionDefinition(MENTOR_AUDIT, "Audit mentor operations."),
-            new PermissionDefinition(DISTRIBUTION_READ, "Read distribution reports.")
+            new PermissionDefinition(DISTRIBUTION_READ, "Read distribution reports."),
+            new PermissionDefinition(PRACTICE_READ, "Read preset practice scenes."),
+            new PermissionDefinition(PRACTICE_WRITE, "Create and edit preset practice scene drafts."),
+            new PermissionDefinition(PRACTICE_PUBLISH, "Publish, disable, and roll back preset practice scenes.")
     );
 
     private final Map<String, PermissionDefinition> definitionsByCode = definitions.stream()
