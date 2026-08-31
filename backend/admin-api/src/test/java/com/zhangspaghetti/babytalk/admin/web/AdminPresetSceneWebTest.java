@@ -120,6 +120,9 @@ class AdminPresetSceneWebTest {
     void removeAuditFailureTrigger() {
         jdbcTemplate.execute("drop trigger if exists test_fail_preset_scene_audit on practice_preset_scene_audit");
         jdbcTemplate.execute("drop function if exists test_fail_preset_scene_audit()");
+        jdbcTemplate.execute(
+                "drop trigger if exists test_pause_preset_scene_draft_update on practice_preset_scene_versions");
+        jdbcTemplate.execute("drop function if exists test_pause_preset_scene_draft_update()");
     }
 
     @Test
@@ -458,6 +461,79 @@ class AdminPresetSceneWebTest {
                 Integer.class)).isEqualTo(1);
     }
 
+    @Test
+    void concurrentDraftUpdateAndPublishUseSameActivityThenDraftLockOrder() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        createDraft(superAdmin.accessToken());
+        installDraftUpdatePauseTrigger();
+        var publishedCountBefore = publishedCount();
+        var nextVersion = nextPublishedVersion();
+
+        var results = runConcurrently(() -> mockMvc.perform(
+                put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validDraftJson(0, "交叉更新")))
+                .andReturn(), () -> mockMvc.perform(
+                post("/api/admin/v1/practice/preset-scenes/{id}/publish", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockVersion\":0}"))
+                .andReturn());
+
+        assertThat(statuses(results)).containsExactlyInAnyOrder(200, 409);
+        var updateAudits = jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'update_draft'",
+                Integer.class);
+        var publishAudits = jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'publish'",
+                Integer.class);
+        assertThat(updateAudits + publishAudits).isEqualTo(1);
+        assertThat(publishedCount()).isEqualTo(publishedCountBefore + publishAudits);
+        assertThat(currentPublishedVersion()).isEqualTo(publishAudits == 1 ? nextVersion : 1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_versions where state = 'draft' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class)).isEqualTo(publishAudits == 1 ? 0 : 1);
+    }
+
+    @Test
+    void concurrentDraftUpdateAndRollbackUseSameActivityThenDraftLockOrder() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        createDraft(superAdmin.accessToken());
+        installDraftUpdatePauseTrigger();
+        var publishedCountBefore = publishedCount();
+        var nextVersion = nextPublishedVersion();
+
+        var results = runConcurrently(() -> mockMvc.perform(
+                put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validDraftJson(0, "交叉回滚更新")))
+                .andReturn(), () -> mockMvc.perform(
+                post("/api/admin/v1/practice/preset-scenes/{id}/rollback/{version}", "bath_time", 1)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
+                .andReturn());
+
+        assertThat(statuses(results)).containsExactlyInAnyOrder(200, 409);
+        var updateAudits = jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'update_draft'",
+                Integer.class);
+        var rollbackAudits = jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'rollback'",
+                Integer.class);
+        assertThat(updateAudits + rollbackAudits).isEqualTo(1);
+        assertThat(publishedCount()).isEqualTo(publishedCountBefore + rollbackAudits);
+        assertThat(currentPublishedVersion()).isEqualTo(rollbackAudits == 1 ? nextVersion : 1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_versions where state = 'draft' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class)).isEqualTo(rollbackAudits == 1 ? 0 : 1);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_audit where action = 'publish'",
+                Integer.class)).isZero();
+    }
+
     private void installAuditFailureTrigger() {
         jdbcTemplate.execute(
                 """
@@ -486,6 +562,25 @@ class AdminPresetSceneWebTest {
         jdbcTemplate.execute(
                 "create trigger test_fail_preset_scene_audit before insert on practice_preset_scene_audit "
                         + "for each row execute function test_fail_preset_scene_audit()");
+    }
+
+    private void installDraftUpdatePauseTrigger() {
+        jdbcTemplate.execute(
+                """
+                create or replace function test_pause_preset_scene_draft_update()
+                returns trigger language plpgsql as $$
+                begin
+                    if old.state = 'draft' and new.state = 'draft' then
+                        perform pg_sleep(1.0);
+                    end if;
+                    return new;
+                end;
+                $$
+                """);
+        jdbcTemplate.execute(
+                "create trigger test_pause_preset_scene_draft_update before update on "
+                        + "practice_preset_scene_versions for each row execute function "
+                        + "test_pause_preset_scene_draft_update()");
     }
 
     private String testRole(String suffix) {
@@ -559,15 +654,26 @@ class AdminPresetSceneWebTest {
     }
 
     private List<MvcResult> runConcurrently(Callable<MvcResult> request) throws Exception {
+        return runConcurrently(request, request);
+    }
+
+    private List<MvcResult> runConcurrently(
+            Callable<MvcResult> firstRequest,
+            Callable<MvcResult> secondRequest
+    ) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         var barrier = new CyclicBarrier(2);
-        Callable<MvcResult> synchronizedRequest = () -> {
+        Callable<MvcResult> firstSynchronizedRequest = () -> {
             barrier.await(10, TimeUnit.SECONDS);
-            return request.call();
+            return firstRequest.call();
+        };
+        Callable<MvcResult> secondSynchronizedRequest = () -> {
+            barrier.await(10, TimeUnit.SECONDS);
+            return secondRequest.call();
         };
         try {
-            Future<MvcResult> first = executor.submit(synchronizedRequest);
-            Future<MvcResult> second = executor.submit(synchronizedRequest);
+            Future<MvcResult> first = executor.submit(firstSynchronizedRequest);
+            Future<MvcResult> second = executor.submit(secondSynchronizedRequest);
             return List.of(first.get(30, TimeUnit.SECONDS), second.get(30, TimeUnit.SECONDS));
         } finally {
             executor.shutdownNow();

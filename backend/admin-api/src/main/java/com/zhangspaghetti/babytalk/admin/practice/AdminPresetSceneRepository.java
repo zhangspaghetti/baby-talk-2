@@ -49,6 +49,9 @@ public final class AdminPresetSceneRepository {
             String adminId,
             OffsetDateTime now
     ) {
+        if (mapper.lockActivityForUpdate(presetSceneId) == null) {
+            return null;
+        }
         var draft = mapper.createDraft(presetSceneId, write, adminId, now);
         if (draft != null) {
             insertAudit(
@@ -70,6 +73,9 @@ public final class AdminPresetSceneRepository {
             String adminId,
             OffsetDateTime now
     ) {
+        if (mapper.lockActivityForUpdate(presetSceneId) == null) {
+            return null;
+        }
         var draft = mapper.updateDraft(presetSceneId, expectedLockVersion, write, adminId, now);
         if (draft != null) {
             insertAudit(
