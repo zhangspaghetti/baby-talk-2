@@ -156,6 +156,7 @@ public class AppSecurityConfig {
                                 "/api/v1/onboarding/conversations/*/turns",
                                 "/api/v1/onboarding/conversations/*/utterances/*/audio",
                                 "/api/v1/practice/discovery",
+                                "/api/v1/practice/preset-scenes",
                                 "/api/v1/mentor/chat")
                         .permitAll()
                         .anyRequest().authenticated())
