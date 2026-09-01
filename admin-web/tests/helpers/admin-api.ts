@@ -9,6 +9,7 @@ const repoRoot = path.resolve(currentDir, '..', '..', '..');
 
 const composeCommandTimeoutMs = 120_000;
 export const adminApiBaseUrl = process.env['BABY_TALK_ADMIN_API_BASE_URL'] ?? 'http://127.0.0.1:8081';
+export const adminPresetScenesApiPath = '/api/admin/v1/practice/preset-scenes';
 export const sessionStorageKey = 'babytalk.admin.session';
 const k8sNamespace = process.env['BABY_TALK_PLAYWRIGHT_K8S_NAMESPACE'] ?? 'babytalk-qa';
 const k8sPostgresDeployment =
@@ -50,6 +51,23 @@ export type CreatedAdminFixture = {
   principalId: string;
   displayName: string;
   permissionCodes: string[];
+};
+
+export type PresetSceneFixture = {
+  presetSceneId: string;
+  title: string;
+  generationBrief: string;
+};
+
+export type PresetSceneDraftFixture = {
+  title: string;
+  summary: string;
+  sceneTag: string;
+  coachTip: string;
+  sortOrder: number;
+  generationBrief: string;
+  enabled: boolean;
+  lockVersion: number;
 };
 
 export type SeededKnowledgeGraphFixture = {
@@ -142,6 +160,136 @@ export async function createAdminWithPermissions(
     displayName,
     permissionCodes: [...permissionCodes],
   };
+}
+
+export function seedPresetSceneFixture(label: string): PresetSceneFixture {
+  const suffix = uniqueSuffix();
+  const presetSceneId = `pw_${label}_${suffix}`.toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 64);
+  const title = `Playwright preset ${suffix}`;
+  const generationBrief = `围绕 ${label} 生成低压力、可重复的亲子互动短语。`;
+
+  runComposeSql(`
+    with created_activity as (
+      insert into practice_activities (
+        slug,
+        space_id,
+        title_zh,
+        scene_tag_en,
+        coach_tip,
+        sort_order,
+        source
+      ) values (
+        ${sqlLiteral(presetSceneId)},
+        (select id from practice_spaces where slug = 'daily_care'),
+        ${sqlLiteral(title)},
+        ${sqlLiteral(`Playwright ${label}`)},
+        ${sqlLiteral('使用稳定节奏和短句陪伴宝宝。')},
+        99,
+        'seed'
+      )
+      returning id
+    ), created_version as (
+      insert into practice_preset_scene_versions (
+        activity_id,
+        version,
+        state,
+        title_zh,
+        summary_zh,
+        scene_tag_en,
+        coach_tip_zh,
+        sort_order,
+        generation_brief,
+        enabled,
+        created_at,
+        updated_at,
+        published_at
+      )
+      select
+        id,
+        1,
+        'published',
+        ${sqlLiteral(title)},
+        ${sqlLiteral('用于管理后台工作台隔离验证的唯一预置场景。')},
+        ${sqlLiteral(`Playwright ${label}`)},
+        ${sqlLiteral('使用稳定节奏和短句陪伴宝宝。')},
+        99,
+        ${sqlLiteral(generationBrief)},
+        true,
+        current_timestamp,
+        current_timestamp,
+        current_timestamp
+      from created_activity
+      returning activity_id, version_id
+    )
+    update practice_activities activity
+       set current_published_version_id = created_version.version_id
+      from created_version
+     where activity.id = created_version.activity_id;
+  `);
+
+  return { presetSceneId, title, generationBrief };
+}
+
+export async function getPresetScene(
+  request: APIRequestContext,
+  accessToken: string,
+  presetSceneId: string,
+): Promise<Record<string, unknown>> {
+  return await expectJson<Record<string, unknown>>(
+    await request.get(`${adminApiBaseUrl}${adminPresetScenesApiPath}/${encodeURIComponent(presetSceneId)}`, {
+      headers: jsonHeaders(accessToken),
+    }),
+    200,
+    `get preset scene ${presetSceneId}`,
+  );
+}
+
+export async function createPresetSceneDraft(
+  request: APIRequestContext,
+  accessToken: string,
+  presetSceneId: string,
+  draft: PresetSceneDraftFixture,
+): Promise<Record<string, unknown>> {
+  return await expectJson<Record<string, unknown>>(
+    await request.post(`${adminApiBaseUrl}${adminPresetScenesApiPath}/${encodeURIComponent(presetSceneId)}/draft`, {
+      headers: jsonHeaders(accessToken),
+      data: draft,
+    }),
+    201,
+    `create preset scene draft ${presetSceneId}`,
+  );
+}
+
+export async function updatePresetSceneDraft(
+  request: APIRequestContext,
+  accessToken: string,
+  presetSceneId: string,
+  draft: PresetSceneDraftFixture,
+): Promise<Record<string, unknown>> {
+  return await expectJson<Record<string, unknown>>(
+    await request.put(`${adminApiBaseUrl}${adminPresetScenesApiPath}/${encodeURIComponent(presetSceneId)}/draft`, {
+      headers: jsonHeaders(accessToken),
+      data: draft,
+    }),
+    200,
+    `update preset scene draft ${presetSceneId}`,
+  );
+}
+
+export async function publishPresetScene(
+  request: APIRequestContext,
+  accessToken: string,
+  presetSceneId: string,
+  lockVersion: number,
+): Promise<Record<string, unknown>> {
+  return await expectJson<Record<string, unknown>>(
+    await request.post(`${adminApiBaseUrl}${adminPresetScenesApiPath}/${encodeURIComponent(presetSceneId)}/publish`, {
+      headers: jsonHeaders(accessToken),
+      data: { lockVersion },
+    }),
+    200,
+    `publish preset scene ${presetSceneId}`,
+  );
 }
 
 export async function revokeRefreshToken(request: APIRequestContext, refreshToken: string): Promise<void> {
@@ -323,6 +471,7 @@ async function expectJson<T>(response: APIResponse, expectedStatus: number, labe
   } catch (error) {
     throw new Error(
       `[admin-api seed] ${label} returned invalid fixture payload: ${error instanceof Error ? error.message : String(error)}. Body: ${bodyText}`,
+      { cause: error },
     );
   }
 }

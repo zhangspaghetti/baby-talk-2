@@ -7,6 +7,7 @@ import {
   resolveAdminRouteAuthorization,
   sortRoutesByLanding,
 } from '../../src/app/access';
+import { adminWorkspaceRoutes, findAdminWorkspaceRouteByPath } from '../../src/app/routes';
 import type { AdminWorkspaceRouteDefinition } from '../../src/app/routes';
 
 const routes = [
@@ -51,6 +52,33 @@ describe('admin route access', () => {
       'users',
       'mentor-safety',
     ]);
+  });
+
+  it('requires practice:read for preset scenes and keeps write/publish capabilities separate', () => {
+    const route = findAdminWorkspaceRouteByPath('/practice/preset-scenes');
+    expect(route).toMatchObject({
+      key: 'preset-scenes',
+      requiredPermissions: ['practice:read'],
+      path: '/practice/preset-scenes',
+    });
+    expect(route).toBeDefined();
+    if (!route) {
+      return;
+    }
+
+    const editor = { roles: ['practice_editor'], permissions: ['practice:read', 'practice:write'] };
+    const publisher = {
+      roles: ['practice_publisher'],
+      permissions: ['practice:read', 'practice:publish'],
+    };
+    const reader = { roles: ['practice_reader'], permissions: ['practice:read'] };
+
+    expect(canAccessAdminRoute(editor, route)).toBe(true);
+    expect(hasKnownAdminPermission(editor, 'practice:write')).toBe(true);
+    expect(hasKnownAdminPermission(editor, 'practice:publish')).toBe(false);
+    expect(canAccessAdminRoute(publisher, route)).toBe(true);
+    expect(canAccessAdminRoute(reader, route)).toBe(true);
+    expect(adminWorkspaceRoutes.some((item) => item.key === 'preset-scenes')).toBe(true);
   });
 });
 
