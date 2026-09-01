@@ -16,6 +16,7 @@ import com.zhangspaghetti.babytalk.service.CaregiverInviteRepository;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,9 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @ExtendWith(MockitoExtension.class)
 class HouseholdBabyProfileAccessServiceTest {
@@ -278,6 +282,71 @@ class HouseholdBabyProfileAccessServiceTest {
                     assertThat(contract.code()).isEqualTo("profile_unavailable");
                     assertPrivacySafe(contract, "秘密宝宝", "acct_primary", "babyprof_corrupt_goal", "household_primary");
                 });
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("incompleteProfileCases")
+    void incompleteProfileFieldsFailClosedByResolvedRole(
+            String caseName,
+            String role,
+            String accessState,
+            String householdId,
+            String ageRange,
+            String parentGoal,
+            String expectedCode
+    ) {
+        var actorAccountId = "caregiver".equals(role) ? "acct_caregiver" : "acct_primary";
+        stubAcceptedSession("sess_incomplete", actorAccountId);
+        var state = "never_member".equals(accessState)
+                ? neverMemberState(actorAccountId)
+                : activeState(householdId, actorAccountId, role);
+        when(householdRepository.findGenerationAccessStateByAccount(actorAccountId))
+                .thenReturn(Optional.of(state));
+        var profile = profileWithValues(
+                "babyprof_incomplete",
+                "caregiver".equals(role) ? "acct_primary" : actorAccountId,
+                "秘密宝宝",
+                ageRange,
+                parentGoal
+        );
+        if ("caregiver".equals(role)) {
+            when(babyProfileMapper.findSharedByHouseholdMemberAccountId(actorAccountId)).thenReturn(profile);
+        } else {
+            when(babyProfileMapper.findByAccountId(actorAccountId)).thenReturn(profile);
+        }
+
+        assertThatThrownBy(() -> service.resolve("sess_incomplete"))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.NOT_FOUND);
+                    assertThat(contract.code()).isEqualTo(expectedCode);
+                    assertPrivacySafe(
+                            contract,
+                            "秘密宝宝",
+                            "acct_caregiver",
+                            "acct_primary",
+                            "babyprof_incomplete",
+                            "household_primary"
+                    );
+                });
+    }
+
+    private static Stream<Arguments> incompleteProfileCases() {
+        return Stream.of(
+                Arguments.of("caregiver null age", "caregiver", "active_membership", "household_primary", null, "calmer_care", "shared_profile_unavailable"),
+                Arguments.of("caregiver blank age", "caregiver", "active_membership", "household_primary", "  ", "calmer_care", "shared_profile_unavailable"),
+                Arguments.of("caregiver null goal", "caregiver", "active_membership", "household_primary", "m7_11", null, "shared_profile_unavailable"),
+                Arguments.of("caregiver blank goal", "caregiver", "active_membership", "household_primary", "m7_11", "  ", "shared_profile_unavailable"),
+                Arguments.of("primary null age", "primary_caregiver", "active_membership", "household_primary", null, "calmer_care", "profile_unavailable"),
+                Arguments.of("primary blank age", "primary_caregiver", "active_membership", "household_primary", "  ", "calmer_care", "profile_unavailable"),
+                Arguments.of("primary null goal", "primary_caregiver", "active_membership", "household_primary", "m7_11", null, "profile_unavailable"),
+                Arguments.of("primary blank goal", "primary_caregiver", "active_membership", "household_primary", "m7_11", "  ", "profile_unavailable"),
+                Arguments.of("standalone null age", "primary_caregiver", "never_member", null, null, "calmer_care", "profile_unavailable"),
+                Arguments.of("standalone blank age", "primary_caregiver", "never_member", null, "  ", "calmer_care", "profile_unavailable"),
+                Arguments.of("standalone null goal", "primary_caregiver", "never_member", null, "m7_11", null, "profile_unavailable"),
+                Arguments.of("standalone blank goal", "primary_caregiver", "never_member", null, "m7_11", "  ", "profile_unavailable")
+        );
     }
 
     @Test

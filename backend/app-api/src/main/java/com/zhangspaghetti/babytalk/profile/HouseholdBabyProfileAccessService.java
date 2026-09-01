@@ -126,7 +126,9 @@ public class HouseholdBabyProfileAccessService {
                 || profileId == null
                 || profile.version() < 1
                 || !isValidBabyName(babyName)
+                || ageRange == null
                 || !BabyProfileOptions.AGE_RANGES.contains(ageRange)
+                || parentGoal == null
                 || !BabyProfileOptions.PARENT_GOALS.contains(parentGoal)
                 || (householdId != null && normalizeIdentifier(householdId) == null)) {
             throw unavailable.create();
