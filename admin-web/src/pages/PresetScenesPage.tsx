@@ -667,7 +667,20 @@ export default function PresetScenesPage() {
                 type="warning"
                 data-testid="preset-scene-draft-state"
                 message="当前存在唯一 draft"
-                description={`lockVersion=${selectedDraft.lockVersion} · updated=${formatTimestamp(selectedDraft.updatedAt)}`}
+                description={
+                  <Space direction="vertical" size={4}>
+                    <span>
+                      lockVersion={selectedDraft.lockVersion} · updated={formatTimestamp(selectedDraft.updatedAt)}
+                    </span>
+                    <Button
+                      type="link"
+                      disabled={!canWrite || mutation.phase === 'pending'}
+                      data-testid="preset-scene-create-draft"
+                    >
+                      创建草稿
+                    </Button>
+                  </Space>
+                }
               />
             ) : (
               <Alert

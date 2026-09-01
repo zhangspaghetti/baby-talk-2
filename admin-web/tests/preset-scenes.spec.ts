@@ -224,8 +224,7 @@ test.describe('preset-scene workbench', () => {
   }) => {
     const scene = seedPresetSceneFixture(`publisher-${uniqueSuffix()}`);
     const superAdmin = await loginViaAdminApi(request);
-    const created = await createPresetSceneDraft(request, superAdmin.accessToken, scene.presetSceneId, draftFor(scene));
-    await publishPresetScene(request, superAdmin.accessToken, scene.presetSceneId, Number(created.lockVersion));
+    await createPresetSceneDraft(request, superAdmin.accessToken, scene.presetSceneId, draftFor(scene));
     const publisher = await createAdminWithPermissions(
       request,
       ['practice:read', 'practice:publish'],
@@ -238,15 +237,37 @@ test.describe('preset-scene workbench', () => {
       expectedUrl: /\/practice\/preset-scenes$/,
     });
     await page.getByTestId(`preset-scene-edit-${scene.presetSceneId}`).click();
-    await expect(page.getByTestId('preset-scene-save')).toBeDisabled();
-    await expect(page.getByTestId('preset-scene-publish')).toBeEnabled();
-    await page.getByTestId(`preset-scene-history-${scene.presetSceneId}`).click();
+    await expect(page.getByRole('button', { name: '保存草稿', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '创建草稿', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '发布版本', exact: true })).toBeEnabled();
+
+    const publishResponse = page.waitForResponse(
+      (response) =>
+        exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/publish`) &&
+        response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: '发布版本', exact: true }).click();
+    expect((await publishResponse).status()).toBe(200);
+    await expect(sceneRow(page, scene.presetSceneId)).toContainText('published v2');
+    await expect(sceneRow(page, scene.presetSceneId)).toContainText('no draft');
+
+    await sceneRow(page, scene.presetSceneId).getByRole('button', { name: '版本历史', exact: true }).click();
     await expect(
-      page
-        .getByRole('dialog', { name: /版本历史/ })
-        .getByRole('button', { name: /回滚到 v/ })
-        .first(),
+      page.getByRole('dialog', { name: /版本历史/ }).getByRole('button', { name: '回滚到 v1', exact: true }),
     ).toBeEnabled();
+    const rollbackResponse = page.waitForResponse(
+      (response) =>
+        exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/rollback/1`) &&
+        response.request().method() === 'POST',
+    );
+    await page
+      .getByRole('dialog', { name: /版本历史/ })
+      .getByRole('button', { name: '回滚到 v1', exact: true })
+      .click();
+    await page.getByRole('button', { name: '确认回滚', exact: true }).click();
+    expect((await rollbackResponse).status()).toBe(200);
+    await expect(page.getByRole('dialog', { name: /版本历史/ })).toContainText('v3');
+    await expect(sceneRow(page, scene.presetSceneId)).toContainText('published v3');
   });
 
   test('hides the route for admins without practice:read and forbids direct navigation', async ({ page, request }) => {
