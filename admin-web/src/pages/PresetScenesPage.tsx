@@ -540,7 +540,7 @@ export default function PresetScenesPage() {
           <Space wrap>
             <Button
               type="link"
-              icon={<FormOutlined />}
+              icon={<FormOutlined aria-hidden="true" />}
               disabled={mutation.phase === 'pending'}
               data-testid={`preset-scene-edit-${record.presetSceneId}`}
               onClick={() => void openScene(record.presetSceneId)}
@@ -549,7 +549,7 @@ export default function PresetScenesPage() {
             </Button>
             <Button
               type="link"
-              icon={<HistoryOutlined />}
+              icon={<HistoryOutlined aria-hidden="true" />}
               disabled={mutation.phase === 'pending'}
               data-testid={`preset-scene-history-${record.presetSceneId}`}
               onClick={() => void openHistory(record.presetSceneId)}
@@ -603,7 +603,7 @@ export default function PresetScenesPage() {
         data-testid="preset-scenes-list-card"
         extra={
           <Button
-            icon={<ReloadOutlined />}
+            icon={<ReloadOutlined aria-hidden="true" />}
             disabled={mutation.phase === 'pending'}
             data-testid="preset-scenes-reload"
             onClick={() => setReloadNonce((value) => value + 1)}
@@ -754,7 +754,7 @@ export default function PresetScenesPage() {
                 <Space wrap>
                   <Button
                     type="primary"
-                    icon={<SaveOutlined />}
+                    icon={<SaveOutlined aria-hidden="true" />}
                     htmlType="submit"
                     disabled={!canWrite || mutation.phase === 'pending'}
                     data-testid="preset-scene-save"
