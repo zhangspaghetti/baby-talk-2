@@ -21,6 +21,11 @@ public class PracticeGeneratedContentEntity {
     private String profileId;
     private String surface;
     private String mode;
+    private String inputSource;
+    private Long presetActivityId;
+    private Long presetSceneVersionId;
+    private Integer profileVersion;
+    private String householdContextVersion;
     private String requestFingerprint;
     private String clientRequestId;
     private String clientRequestFingerprint;
@@ -148,6 +153,51 @@ public String getMode() {
     }
 public void setMode(String mode) {
         this.mode = mode;
+    }
+public String inputSource() {
+        return inputSource;
+    }
+public String getInputSource() {
+        return inputSource;
+    }
+public void setInputSource(String inputSource) {
+        this.inputSource = inputSource;
+    }
+public Long presetActivityId() {
+        return presetActivityId;
+    }
+public Long getPresetActivityId() {
+        return presetActivityId;
+    }
+public void setPresetActivityId(Long presetActivityId) {
+        this.presetActivityId = presetActivityId;
+    }
+public Long presetSceneVersionId() {
+        return presetSceneVersionId;
+    }
+public Long getPresetSceneVersionId() {
+        return presetSceneVersionId;
+    }
+public void setPresetSceneVersionId(Long presetSceneVersionId) {
+        this.presetSceneVersionId = presetSceneVersionId;
+    }
+public Integer profileVersion() {
+        return profileVersion;
+    }
+public Integer getProfileVersion() {
+        return profileVersion;
+    }
+public void setProfileVersion(Integer profileVersion) {
+        this.profileVersion = profileVersion;
+    }
+public String householdContextVersion() {
+        return householdContextVersion;
+    }
+public String getHouseholdContextVersion() {
+        return householdContextVersion;
+    }
+public void setHouseholdContextVersion(String householdContextVersion) {
+        this.householdContextVersion = householdContextVersion;
     }
 public String requestFingerprint() {
         return requestFingerprint;

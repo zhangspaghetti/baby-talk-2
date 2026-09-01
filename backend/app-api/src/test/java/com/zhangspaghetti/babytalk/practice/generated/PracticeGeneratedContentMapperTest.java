@@ -72,6 +72,80 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void unifiedSceneSourceColumnsExistForGeneratedContentMapping() {
+        assertThat(jdbcTemplate.queryForObject(
+                """
+                select count(*)
+                from information_schema.columns
+                where table_schema = current_schema()
+                  and table_name = 'practice_generated_content'
+                  and column_name in (
+                      'input_source', 'preset_activity_id', 'preset_scene_version_id',
+                      'profile_version', 'household_context_version'
+                  )
+                """,
+                Integer.class)).isEqualTo(5);
+    }
+
+    @Test
+    void unifiedSceneSourcesRoundTripThroughCommandAndQueryWhileLegacyRowsRemainReadable() {
+        var custom = row("pgc_repo_unified_custom")
+                .profile("acct_pgc_repo_unified_custom", "profile_pgc_repo_unified_custom")
+                .mode("scene_generation")
+                .inputSource("custom")
+                .profileVersion(7)
+                .householdContextVersion("2026-W36")
+                .build();
+
+        insertAccount(custom.accountId());
+        insertProfile(custom.accountId(), custom.profileId());
+        var reservation = repository.reserveDraft(custom);
+        assertThat(reservation.inserted()).isTrue();
+        var customLoaded = queries.findByGeneratedContentId(custom.generatedContentId());
+        assertThat(customLoaded).isNotNull();
+        assertThat(customLoaded.inputSource()).isEqualTo("custom");
+        assertThat(customLoaded.presetActivityId()).isNull();
+        assertThat(customLoaded.presetSceneVersionId()).isNull();
+        assertThat(customLoaded.profileVersion()).isEqualTo(7);
+        assertThat(customLoaded.householdContextVersion()).isEqualTo("2026-W36");
+
+        long activityId = jdbcTemplate.queryForObject(
+                "select id from practice_activities where slug = 'bath_time'", Long.class);
+        long versionId = jdbcTemplate.queryForObject(
+                "select version_id from practice_preset_scene_versions"
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                activityId);
+        var preset = row("pgc_repo_unified_preset")
+                .profile("acct_pgc_repo_unified_preset", "profile_pgc_repo_unified_preset")
+                .mode("scene_generation")
+                .inputSource("preset")
+                .presetIds(activityId, versionId)
+                .profileVersion(8)
+                .householdContextVersion("2026-W36")
+                .active()
+                .build();
+        insert(preset);
+
+        var presetLoaded = queries.findByGeneratedContentId(preset.generatedContentId());
+        assertThat(presetLoaded).isNotNull();
+        assertThat(presetLoaded.inputSource()).isEqualTo("preset");
+        assertThat(presetLoaded.presetActivityId()).isEqualTo(activityId);
+        assertThat(presetLoaded.presetSceneVersionId()).isEqualTo(versionId);
+        assertThat(presetLoaded.profileVersion()).isEqualTo(8);
+        assertThat(presetLoaded.householdContextVersion()).isEqualTo("2026-W36");
+
+        var legacy = row("pgc_repo_unified_legacy").build();
+        insert(legacy);
+        var legacyLoaded = queries.findByGeneratedContentId(legacy.generatedContentId());
+        assertThat(legacyLoaded).isNotNull();
+        assertThat(legacyLoaded.mode()).isEqualTo("custom_scene");
+        assertThat(legacyLoaded.inputSource()).isNull();
+        assertThat(legacyLoaded.presetActivityId()).isNull();
+        assertThat(legacyLoaded.presetSceneVersionId()).isNull();
+    }
+
+    @Test
     void constraintsRejectUnsupportedEnumsAndAllowExpiredStatus() {
         insert(row("pgc_repo_expired").expired().build());
 
@@ -1214,6 +1288,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 insert into practice_generated_content (
                     generated_content_id, owner_scope, owner_key, owner_key_version,
                     account_id, installation_ref_hash, profile_id, surface, mode,
+                    input_source, preset_activity_id, preset_scene_version_id, profile_version,
+                    household_context_version,
                     request_fingerprint, client_request_id, client_request_fingerprint,
                     normalized_scene_text, age_range, parent_goal, locale,
                     space_slug, activity_slug, phrase_slug, space_title_zh, activity_title_zh,
@@ -1228,6 +1304,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 ) values (
                     :generatedContentId, :ownerScope, :ownerKey, :ownerKeyVersion,
                     :accountId, :installationRefHash, :profileId, :surface, :mode,
+                    :inputSource, :presetActivityId, :presetSceneVersionId, :profileVersion,
+                    :householdContextVersion,
                     :requestFingerprint, :clientRequestId, :clientRequestFingerprint,
                     :normalizedSceneText, :ageRange, :parentGoal, :locale,
                     :spaceSlug, :activitySlug, :phraseSlug, :spaceTitleZh, :activityTitleZh,
@@ -1347,6 +1425,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         private String profileId;
         private String surface = "onboarding";
         private String mode = "custom_scene";
+        private String inputSource;
+        private Long presetActivityId;
+        private Long presetSceneVersionId;
+        private Integer profileVersion;
+        private String householdContextVersion;
         private String requestFingerprint;
         private String clientRequestId;
         private String clientRequestFingerprint;
@@ -1441,6 +1524,27 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
 
         RowBuilder mode(String mode) {
             this.mode = mode;
+            return this;
+        }
+
+        RowBuilder inputSource(String inputSource) {
+            this.inputSource = inputSource;
+            return this;
+        }
+
+        RowBuilder presetIds(Long presetActivityId, Long presetSceneVersionId) {
+            this.presetActivityId = presetActivityId;
+            this.presetSceneVersionId = presetSceneVersionId;
+            return this;
+        }
+
+        RowBuilder profileVersion(Integer profileVersion) {
+            this.profileVersion = profileVersion;
+            return this;
+        }
+
+        RowBuilder householdContextVersion(String householdContextVersion) {
+            this.householdContextVersion = householdContextVersion;
             return this;
         }
 
@@ -1579,6 +1683,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             row.setProfileId(profileId);
             row.setSurface(surface);
             row.setMode(mode);
+            row.setInputSource(inputSource);
+            row.setPresetActivityId(presetActivityId);
+            row.setPresetSceneVersionId(presetSceneVersionId);
+            row.setProfileVersion(profileVersion);
+            row.setHouseholdContextVersion(householdContextVersion);
             row.setRequestFingerprint(requestFingerprint);
             row.setClientRequestId(clientRequestId);
             row.setClientRequestFingerprint(clientRequestFingerprint);

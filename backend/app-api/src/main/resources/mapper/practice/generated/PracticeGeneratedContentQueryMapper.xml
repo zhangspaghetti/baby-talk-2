@@ -13,6 +13,11 @@
         <result property="profileId" column="profile_id"/>
         <result property="surface" column="surface"/>
         <result property="mode" column="mode"/>
+        <result property="inputSource" column="input_source"/>
+        <result property="presetActivityId" column="preset_activity_id"/>
+        <result property="presetSceneVersionId" column="preset_scene_version_id"/>
+        <result property="profileVersion" column="profile_version"/>
+        <result property="householdContextVersion" column="household_context_version"/>
         <result property="requestFingerprint" column="request_fingerprint"/>
         <result property="clientRequestId" column="client_request_id"/>
         <result property="clientRequestFingerprint" column="client_request_fingerprint"/>
@@ -58,6 +63,8 @@
         generated_content_id, owner_scope, owner_key, owner_key_version, account_id,
         installation_ref_hash, profile_id, surface, mode, request_fingerprint, client_request_id,
         client_request_fingerprint,
+        input_source, preset_activity_id, preset_scene_version_id, profile_version,
+        household_context_version,
         normalized_scene_text, age_range, parent_goal, locale, space_slug, activity_slug,
         phrase_slug, space_title_zh, activity_title_zh, scene_tag_en, tpr_action_zh,
         delivery_guidance_zh, english_text, chinese_text, pronunciation_hint, difficulty,

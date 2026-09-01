@@ -7,4 +7,4 @@ spring:
 babytalk:
   candidate:
     id: local-dev
-    required-migration-version: "37"
+    required-migration-version: "38"
