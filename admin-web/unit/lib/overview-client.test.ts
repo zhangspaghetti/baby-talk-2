@@ -1,3 +1,4 @@
+import axios, { AxiosError, AxiosHeaders, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthSession } from '../../src/auth/auth-api';
 
@@ -16,6 +17,7 @@ const session: AuthSession = {
 
 describe('overview stream session refresh', () => {
   const originalFetch = globalThis.fetch;
+  const originalAxiosAdapter = axios.defaults.adapter;
 
   beforeEach(() => {
     vi.resetModules();
@@ -25,6 +27,7 @@ describe('overview stream session refresh', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     globalThis.fetch = originalFetch;
+    axios.defaults.adapter = originalAxiosAdapter;
   });
 
   it('authorizes the first stream request with the stored access token without refreshing a valid session', async () => {
@@ -175,6 +178,107 @@ describe('overview stream session refresh', () => {
       expect.objectContaining({ code: 'unexpected_error', message: 'refresh transport failed' }),
     );
   });
+
+  it('shares one refresh request between stream and protected Axios retries', async () => {
+    const refreshGate = deferred<void>();
+    let refreshCalls = 0;
+    let meCalls = 0;
+    const meAuthorization: string[] = [];
+    const streamAuthorization: string[] = [];
+
+    axios.defaults.adapter = async (config) => {
+      if (config.url === '/api/admin/auth/refresh') {
+        refreshCalls += 1;
+        await refreshGate.promise;
+        return jsonResponse(config, 200, {
+          admin,
+          accessToken: 'next-access-token',
+          refreshToken: 'next-refresh-token',
+        });
+      }
+
+      if (config.url === '/api/admin/me') {
+        meCalls += 1;
+        meAuthorization.push(readHeader(config, 'Authorization'));
+        if (meCalls === 1) {
+          throw responseError(config, 401, { status: 401, code: 'expired', message: 'expired' });
+        }
+        return jsonResponse(config, 200, admin);
+      }
+
+      throw new Error(`Unexpected request ${config.url ?? ''}`);
+    };
+
+    const { persistStoredSession } = await import('../../src/auth/session-store');
+    const { overviewClient } = await import('../../src/lib/overviewClient');
+    const { requestCurrentAdmin } = await import('../../src/auth/http-client');
+    persistStoredSession({ admin, accessToken: 'old-access-token', refreshToken: 'refresh-token' });
+
+    let streamCalls = 0;
+    globalThis.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      streamCalls += 1;
+      streamAuthorization.push(new Headers(init?.headers).get('Authorization') ?? '');
+      if (streamCalls === 1) {
+        return new Response('', { status: 401 });
+      }
+      return streamResponse();
+    });
+
+    const stream = overviewClient.subscribeTransport({ onTransport: vi.fn() });
+    const protectedRequest = requestCurrentAdmin();
+    await vi.waitFor(() => {
+      expect(refreshCalls).toBe(1);
+    });
+    refreshGate.resolve();
+
+    await expect(protectedRequest).resolves.toEqual(admin);
+    await stream.closed;
+
+    expect(refreshCalls).toBe(1);
+    expect(meCalls).toBe(2);
+    expect(meAuthorization).toEqual(['Bearer old-access-token', 'Bearer next-access-token']);
+    expect(streamAuthorization).toEqual(['Bearer old-access-token', 'Bearer next-access-token']);
+  });
+
+  it('clears once and broadcasts the same refresh failure to stream and Axios callers', async () => {
+    let refreshCalls = 0;
+    axios.defaults.adapter = async (config) => {
+      if (config.url === '/api/admin/auth/refresh') {
+        refreshCalls += 1;
+        throw responseError(config, 401, {
+          status: 401,
+          code: 'refresh_invalid',
+          message: 'refresh invalid',
+        });
+      }
+      throw responseError(config, 401, { status: 401, code: 'expired', message: 'expired' });
+    };
+
+    const { persistStoredSession, subscribeToSessionStore } = await import('../../src/auth/session-store');
+    const { overviewClient } = await import('../../src/lib/overviewClient');
+    const { requestCurrentAdmin } = await import('../../src/auth/http-client');
+    persistStoredSession({ admin, accessToken: 'old-access-token', refreshToken: 'refresh-token' });
+    const snapshots: unknown[] = [];
+    const unsubscribe = subscribeToSessionStore((snapshot) => snapshots.push(snapshot));
+
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('', { status: 401 }));
+    const onError = vi.fn();
+    const stream = overviewClient.subscribeTransport({ onTransport: vi.fn(), onError });
+    const protectedError = await requestCurrentAdmin().catch((error: unknown) => error);
+    await stream.closed;
+    unsubscribe();
+
+    expect(refreshCalls).toBe(1);
+    expect(protectedError).toMatchObject({ status: 401, code: 'refresh_invalid' });
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledWith(protectedError);
+    expect(snapshots).toEqual([
+      expect.objectContaining({
+        session: null,
+        banner: { type: 'warning', code: 'refresh_invalid', message: 'refresh invalid' },
+      }),
+    ]);
+  });
 });
 
 function streamResponse(): Response {
@@ -192,4 +296,23 @@ function deferred<T>() {
     resolve = resolvePromise;
   });
   return { promise, resolve };
+}
+
+function readHeader(config: InternalAxiosRequestConfig, key: string): string {
+  const headers = AxiosHeaders.from(config.headers ?? {});
+  return headers.get(key)?.toString() ?? '';
+}
+
+function jsonResponse(config: InternalAxiosRequestConfig, status: number, data: unknown): AxiosResponse {
+  return {
+    data,
+    status,
+    statusText: String(status),
+    headers: {},
+    config,
+  };
+}
+
+function responseError(config: InternalAxiosRequestConfig, status: number, data: unknown): AxiosError {
+  return new AxiosError('Request failed', undefined, config, undefined, jsonResponse(config, status, data));
 }

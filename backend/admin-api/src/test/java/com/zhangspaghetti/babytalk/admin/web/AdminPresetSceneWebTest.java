@@ -37,6 +37,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -212,6 +213,81 @@ class AdminPresetSceneWebTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("validation_failed"));
+    }
+
+    @Test
+    void missingAdminRequestFieldsReturnValidationFailedWithoutMutatingState() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+
+        var missingEnabled = validDraftJson().replace("\"enabled\": true,", "");
+        assertValidationFailed(mockMvc.perform(
+                post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(missingEnabled)), "enabled");
+
+        createDraft(superAdmin.accessToken());
+        var draftCountBefore = draftCount();
+        var draftLockVersionBefore = draftLockVersion();
+        var missingSortOrder = validDraftJson()
+                .replace("\"sortOrder\": 1,", "");
+        assertValidationFailed(mockMvc.perform(
+                put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(missingSortOrder)), "sortOrder");
+
+        assertValidationFailed(mockMvc.perform(
+                post("/api/admin/v1/practice/preset-scenes/{id}/publish", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")), "lockVersion");
+
+        assertThat(draftCount()).isEqualTo(draftCountBefore);
+        assertThat(draftLockVersion()).isEqualTo(draftLockVersionBefore);
+        assertThat(currentPublishedVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void malformedAdminRequestBodiesReturnValidationFailedWithoutMutatingState() throws Exception {
+        var superAdmin = login("super_admin", "SuperAdmin123!");
+        createDraft(superAdmin.accessToken());
+        var draftCountBefore = draftCount();
+        var draftLockVersionBefore = draftLockVersion();
+        var publishedCountBefore = publishedCount();
+
+        assertValidationFailed(mockMvc.perform(
+                put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validDraftJson().replace("\"sortOrder\": 1", "\"sortOrder\": 1.5"))), null);
+
+        assertValidationFailed(mockMvc.perform(
+                put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validDraftJson().replace("\"lockVersion\": 0", "\"lockVersion\": 2147483648"))), null);
+
+        assertValidationFailed(mockMvc.perform(
+                put("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validDraftJson().replace("\"enabled\": true", "\"enabled\": \"true\""))), null);
+
+        assertValidationFailed(mockMvc.perform(
+                post("/api/admin/v1/practice/preset-scenes/{id}/draft", "bath_time")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\": ")), null);
+
+        assertValidationFailed(mockMvc.perform(
+                post("/api/admin/v1/practice/preset-scenes/{id}/rollback/{version}", "bath_time", "not-a-number")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))), null);
+
+        assertThat(draftCount()).isEqualTo(draftCountBefore);
+        assertThat(draftLockVersion()).isEqualTo(draftLockVersionBefore);
+        assertThat(publishedCount()).isEqualTo(publishedCountBefore);
+        assertThat(currentPublishedVersion()).isEqualTo(1);
     }
 
     @Test
@@ -805,6 +881,20 @@ class AdminPresetSceneWebTest {
                 Integer.class);
     }
 
+    private int draftCount() {
+        return jdbcTemplate.queryForObject(
+                "select count(*) from practice_preset_scene_versions where state = 'draft' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class);
+    }
+
+    private int draftLockVersion() {
+        return jdbcTemplate.queryForObject(
+                "select lock_version from practice_preset_scene_versions where state = 'draft' "
+                        + "and activity_id = (select id from practice_activities where slug = 'bath_time')",
+                Integer.class);
+    }
+
     private int publishedCount() {
         return jdbcTemplate.queryForObject(
                 "select count(*) from practice_preset_scene_versions where state = 'published' "
@@ -824,6 +914,17 @@ class AdminPresetSceneWebTest {
         return results.stream()
                 .map(result -> result.getResponse().getStatus())
                 .toList();
+    }
+
+    private void assertValidationFailed(ResultActions result, String field) throws Exception {
+        var checked = result
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("validation_failed"))
+                .andExpect(jsonPath("$.details").exists());
+        if (field != null) {
+            checked.andExpect(jsonPath("$.details.fields." + field).exists());
+        }
     }
 
     private List<MvcResult> runConcurrently(Callable<MvcResult> request) throws Exception {

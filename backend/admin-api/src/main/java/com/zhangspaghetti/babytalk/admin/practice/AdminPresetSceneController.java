@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 @RestController
 @RequestMapping("/api/admin/v1/practice/preset-scenes")
@@ -107,14 +114,20 @@ public class AdminPresetSceneController {
             @NotBlank(message = "coachTip 不能为空。")
             @Size(max = 240, message = "coachTip 过长。")
             String coachTip,
+            @NotNull(message = "sortOrder 不能为空。")
             @Min(value = 0, message = "sortOrder 不能小于 0。")
-            int sortOrder,
+            @JsonDeserialize(using = StrictIntegerDeserializer.class)
+            Integer sortOrder,
             @NotBlank(message = "generationBrief 不能为空。")
             @Size(max = 1200, message = "generationBrief 过长。")
             String generationBrief,
-            boolean enabled,
+            @NotNull(message = "enabled 不能为空。")
+            @JsonDeserialize(using = StrictBooleanDeserializer.class)
+            Boolean enabled,
+            @NotNull(message = "lockVersion 不能为空。")
             @Min(value = 0, message = "lockVersion 不能小于 0。")
-            int lockVersion
+            @JsonDeserialize(using = StrictIntegerDeserializer.class)
+            Integer lockVersion
     ) {
 
         AdminPresetSceneService.DraftCommand command() {
@@ -131,9 +144,33 @@ public class AdminPresetSceneController {
     }
 
     public record PublishRequest(
+            @NotNull(message = "lockVersion 不能为空。")
             @Min(value = 0, message = "lockVersion 不能小于 0。")
             @Max(value = Integer.MAX_VALUE, message = "lockVersion 过大。")
-            int lockVersion
+            @JsonDeserialize(using = StrictIntegerDeserializer.class)
+            Integer lockVersion
     ) {
+    }
+
+    public static final class StrictIntegerDeserializer extends ValueDeserializer<Integer> {
+
+        @Override
+        public Integer deserialize(JsonParser parser, DeserializationContext context) throws JacksonException {
+            if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT) {
+                return context.reportInputMismatch(Integer.class, "必须是 JSON 整数。");
+            }
+            return parser.getIntValue();
+        }
+    }
+
+    public static final class StrictBooleanDeserializer extends ValueDeserializer<Boolean> {
+
+        @Override
+        public Boolean deserialize(JsonParser parser, DeserializationContext context) throws JacksonException {
+            if (parser.currentToken() != JsonToken.VALUE_TRUE && parser.currentToken() != JsonToken.VALUE_FALSE) {
+                return context.reportInputMismatch(Boolean.class, "必须是 JSON 布尔值。");
+            }
+            return parser.getBooleanValue();
+        }
     }
 }
