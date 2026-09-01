@@ -111,4 +111,73 @@ describe('preset scenes client', () => {
       body: { lockVersion: 17 },
     });
   });
+
+  it('rejects missing nullable fields and invalid integer contract values', async () => {
+    const { presetScenesClient } = await import('../../src/lib/presetScenesClient');
+    const validSummary = {
+      presetSceneId: 'bath_time',
+      spaceId: 'daily_care',
+      publishedVersion: 1,
+      title: '洗澡时间',
+      summary: 'summary',
+      sceneTag: 'Bath time',
+      coachTip: 'tip',
+      sortOrder: 1,
+      enabled: true,
+      draftLockVersion: null,
+      publishedAt: '2026-08-31T00:00:00Z',
+      updatedAt: '2026-08-31T00:00:00Z',
+      draftUpdatedAt: null,
+    };
+
+    const { draftUpdatedAt: _missingDraftUpdatedAt, ...missingNullableField } = validSummary;
+    requestJson.mockResolvedValueOnce([missingNullableField]);
+    await expect(presetScenesClient.listScenes()).rejects.toMatchObject({ code: 'invalid_response_payload' });
+
+    requestJson.mockResolvedValueOnce([
+      {
+        ...validSummary,
+        publishedVersion: 1.5,
+      },
+    ]);
+    await expect(presetScenesClient.listScenes()).rejects.toMatchObject({ code: 'invalid_response_payload' });
+
+    requestJson.mockResolvedValueOnce([
+      {
+        ...validSummary,
+        sortOrder: -1,
+      },
+    ]);
+    await expect(presetScenesClient.listScenes()).rejects.toMatchObject({ code: 'invalid_response_payload' });
+
+    requestJson.mockResolvedValueOnce([
+      {
+        ...validSummary,
+        draftLockVersion: -1,
+      },
+    ]);
+    await expect(presetScenesClient.listScenes()).rejects.toMatchObject({ code: 'invalid_response_payload' });
+
+    const validDetail = {
+      presetSceneId: 'bath_time',
+      spaceId: 'daily_care',
+      publishedVersion: 1,
+      title: '洗澡时间',
+      summary: 'summary',
+      sceneTag: 'Bath time',
+      coachTip: 'tip',
+      sortOrder: 1,
+      generationBrief: 'brief',
+      enabled: true,
+      createdAt: '2026-08-30T00:00:00Z',
+      updatedAt: '2026-08-31T00:00:00Z',
+      publishedAt: '2026-08-31T00:00:00Z',
+      draft: null,
+    };
+    const { draft: _missingDraft, ...missingDraftField } = validDetail;
+    requestJson.mockResolvedValueOnce(missingDraftField);
+    await expect(presetScenesClient.getScene('bath_time')).rejects.toMatchObject({
+      code: 'invalid_response_payload',
+    });
+  });
 });

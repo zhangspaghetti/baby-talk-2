@@ -102,8 +102,11 @@ function readRequiredString(record: Record<string, unknown>, key: string, scope:
 }
 
 function readNullableString(record: Record<string, unknown>, key: string, scope: string): string | null {
+  if (!Object.prototype.hasOwnProperty.call(record, key)) {
+    throw invalidResponse(`${scope} 缺少合法 ${key}。`, key);
+  }
   const value = record[key];
-  if (value == null) {
+  if (value === null) {
     return null;
   }
   if (typeof value !== 'string' || !value.trim()) {
@@ -120,6 +123,14 @@ function readRequiredNumber(record: Record<string, unknown>, key: string, scope:
   return value;
 }
 
+function readRequiredInteger(record: Record<string, unknown>, key: string, scope: string, minimum: number): number {
+  const value = readRequiredNumber(record, key, scope);
+  if (!Number.isInteger(value) || value < minimum) {
+    throw invalidResponse(`${scope} 的 ${key} 必须是不小于 ${minimum} 的整数。`, key);
+  }
+  return value;
+}
+
 function readRequiredBoolean(record: Record<string, unknown>, key: string, scope: string): boolean {
   const value = record[key];
   if (typeof value !== 'boolean') {
@@ -129,12 +140,28 @@ function readRequiredBoolean(record: Record<string, unknown>, key: string, scope
 }
 
 function readNullableNumber(record: Record<string, unknown>, key: string, scope: string): number | null {
+  if (!Object.prototype.hasOwnProperty.call(record, key)) {
+    throw invalidResponse(`${scope} 缺少合法 ${key}。`, key);
+  }
   const value = record[key];
-  if (value == null) {
+  if (value === null) {
     return null;
   }
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw invalidResponse(`${scope} 的 ${key} 类型不正确。`, key);
+  }
+  return value;
+}
+
+function readNullableInteger(
+  record: Record<string, unknown>,
+  key: string,
+  scope: string,
+  minimum: number,
+): number | null {
+  const value = readNullableNumber(record, key, scope);
+  if (value !== null && (!Number.isInteger(value) || value < minimum)) {
+    throw invalidResponse(`${scope} 的 ${key} 必须为空或是不小于 ${minimum} 的整数。`, key);
   }
   return value;
 }
@@ -155,14 +182,14 @@ function parseSummary(payload: unknown, scope: string): PresetSceneSummaryView {
   return {
     presetSceneId: readRequiredString(payload, 'presetSceneId', scope),
     spaceId: readRequiredString(payload, 'spaceId', scope),
-    publishedVersion: readRequiredNumber(payload, 'publishedVersion', scope),
+    publishedVersion: readRequiredInteger(payload, 'publishedVersion', scope, 1),
     title: readRequiredString(payload, 'title', scope),
     summary: readRequiredString(payload, 'summary', scope),
     sceneTag: readRequiredString(payload, 'sceneTag', scope),
     coachTip: readRequiredString(payload, 'coachTip', scope),
-    sortOrder: readRequiredNumber(payload, 'sortOrder', scope),
+    sortOrder: readRequiredInteger(payload, 'sortOrder', scope, 0),
     enabled: readRequiredBoolean(payload, 'enabled', scope),
-    draftLockVersion: readNullableNumber(payload, 'draftLockVersion', scope),
+    draftLockVersion: readNullableInteger(payload, 'draftLockVersion', scope, 0),
     publishedAt: readRequiredString(payload, 'publishedAt', scope),
     updatedAt: readRequiredString(payload, 'updatedAt', scope),
     draftUpdatedAt: readNullableString(payload, 'draftUpdatedAt', scope),
@@ -181,10 +208,10 @@ function parseDraft(payload: unknown, scope: string): PresetSceneDraftView {
     summary: readRequiredString(payload, 'summary', scope),
     sceneTag: readRequiredString(payload, 'sceneTag', scope),
     coachTip: readRequiredString(payload, 'coachTip', scope),
-    sortOrder: readRequiredNumber(payload, 'sortOrder', scope),
+    sortOrder: readRequiredInteger(payload, 'sortOrder', scope, 0),
     generationBrief: readRequiredString(payload, 'generationBrief', scope),
     enabled: readRequiredBoolean(payload, 'enabled', scope),
-    lockVersion: readRequiredNumber(payload, 'lockVersion', scope),
+    lockVersion: readRequiredInteger(payload, 'lockVersion', scope, 0),
     createdAt: readRequiredString(payload, 'createdAt', scope),
     updatedAt: readRequiredString(payload, 'updatedAt', scope),
   };
@@ -198,15 +225,15 @@ function parsePublished(payload: unknown, scope: string): PresetScenePublishedVi
   return {
     presetSceneId: readRequiredString(payload, 'presetSceneId', scope),
     spaceId: readRequiredString(payload, 'spaceId', scope),
-    version: readRequiredNumber(payload, 'version', scope),
+    version: readRequiredInteger(payload, 'version', scope, 1),
     title: readRequiredString(payload, 'title', scope),
     summary: readRequiredString(payload, 'summary', scope),
     sceneTag: readRequiredString(payload, 'sceneTag', scope),
     coachTip: readRequiredString(payload, 'coachTip', scope),
-    sortOrder: readRequiredNumber(payload, 'sortOrder', scope),
+    sortOrder: readRequiredInteger(payload, 'sortOrder', scope, 0),
     generationBrief: readRequiredString(payload, 'generationBrief', scope),
     enabled: readRequiredBoolean(payload, 'enabled', scope),
-    lockVersion: readRequiredNumber(payload, 'lockVersion', scope),
+    lockVersion: readRequiredInteger(payload, 'lockVersion', scope, 0),
     createdAt: readRequiredString(payload, 'createdAt', scope),
     updatedAt: readRequiredString(payload, 'updatedAt', scope),
     publishedAt: readRequiredString(payload, 'publishedAt', scope),
@@ -218,22 +245,25 @@ function parseDetail(payload: unknown): PresetSceneDetailView {
     throw invalidResponse('preset scene detail 响应不是对象。');
   }
 
+  if (!Object.prototype.hasOwnProperty.call(payload, 'draft')) {
+    throw invalidResponse('preset scene detail 缺少合法 draft。', 'draft');
+  }
   const draftPayload = payload.draft;
   return {
     presetSceneId: readRequiredString(payload, 'presetSceneId', 'preset scene detail'),
     spaceId: readRequiredString(payload, 'spaceId', 'preset scene detail'),
-    publishedVersion: readRequiredNumber(payload, 'publishedVersion', 'preset scene detail'),
+    publishedVersion: readRequiredInteger(payload, 'publishedVersion', 'preset scene detail', 1),
     title: readRequiredString(payload, 'title', 'preset scene detail'),
     summary: readRequiredString(payload, 'summary', 'preset scene detail'),
     sceneTag: readRequiredString(payload, 'sceneTag', 'preset scene detail'),
     coachTip: readRequiredString(payload, 'coachTip', 'preset scene detail'),
-    sortOrder: readRequiredNumber(payload, 'sortOrder', 'preset scene detail'),
+    sortOrder: readRequiredInteger(payload, 'sortOrder', 'preset scene detail', 0),
     generationBrief: readRequiredString(payload, 'generationBrief', 'preset scene detail'),
     enabled: readRequiredBoolean(payload, 'enabled', 'preset scene detail'),
     createdAt: readRequiredString(payload, 'createdAt', 'preset scene detail'),
     updatedAt: readRequiredString(payload, 'updatedAt', 'preset scene detail'),
     publishedAt: readRequiredString(payload, 'publishedAt', 'preset scene detail'),
-    draft: draftPayload == null ? null : parseDraft(draftPayload, 'preset scene detail draft'),
+    draft: draftPayload === null ? null : parseDraft(draftPayload, 'preset scene detail draft'),
   };
 }
 
@@ -261,11 +291,17 @@ export const presetScenesClient = {
   },
 
   async createDraft(presetSceneId: string, write: PresetSceneDraftWrite): Promise<PresetSceneDraftView> {
-    return parseDraft(await requestJson(`${scenePath(presetSceneId)}/draft`, { method: 'POST', body: write }), 'create draft');
+    return parseDraft(
+      await requestJson(`${scenePath(presetSceneId)}/draft`, { method: 'POST', body: write }),
+      'create draft',
+    );
   },
 
   async updateDraft(presetSceneId: string, write: PresetSceneDraftWrite): Promise<PresetSceneDraftView> {
-    return parseDraft(await requestJson(`${scenePath(presetSceneId)}/draft`, { method: 'PUT', body: write }), 'update draft');
+    return parseDraft(
+      await requestJson(`${scenePath(presetSceneId)}/draft`, { method: 'PUT', body: write }),
+      'update draft',
+    );
   },
 
   async publish(presetSceneId: string, write: PresetScenePublishWrite): Promise<PresetScenePublishedView> {
@@ -277,7 +313,9 @@ export const presetScenesClient = {
 
   async rollback(presetSceneId: string, version: number): Promise<PresetScenePublishedView> {
     return parsePublished(
-      await requestJson(`${scenePath(presetSceneId)}/rollback/${encodeURIComponent(String(version))}`, { method: 'POST' }),
+      await requestJson(`${scenePath(presetSceneId)}/rollback/${encodeURIComponent(String(version))}`, {
+        method: 'POST',
+      }),
       'rollback preset scene',
     );
   },

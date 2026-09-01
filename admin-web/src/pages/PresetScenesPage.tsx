@@ -1,9 +1,4 @@
-import {
-  FormOutlined,
-  HistoryOutlined,
-  ReloadOutlined,
-  SaveOutlined,
-} from '@ant-design/icons';
+import { FormOutlined, HistoryOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
   Alert,
@@ -36,6 +31,14 @@ import {
   type PresetScenePublishedView,
   type PresetSceneSummaryView,
 } from '../lib/presetScenesClient';
+import {
+  beginPresetSceneOperation,
+  finishPresetSceneOperation,
+  isPresetSceneOperationActive,
+  type PresetSceneOperationRef,
+  type PresetSceneOperationToken,
+} from '../lib/presetScenesOperationGuard';
+import { readPresetSceneFieldErrors } from '../lib/presetScenesValidation';
 import { useAuth } from '../auth/auth-provider';
 
 type DraftFormValues = Omit<PresetSceneDraftWrite, 'lockVersion'>;
@@ -93,8 +96,11 @@ export default function PresetScenesPage() {
   const canPublish = isSuperAdmin(admin) || hasPermission(admin, 'practice:publish');
   const [form] = Form.useForm<DraftFormValues>();
   const formSceneIdRef = useRef<string | null>(null);
+  const selectedSceneIdRef = useRef<string | null>(null);
   const sceneRequestIdRef = useRef(0);
   const historyRequestIdRef = useRef(0);
+  const historySceneIdRef = useRef<string | null>(null);
+  const mutationOperationRef = useRef<PresetSceneOperationRef>({ current: null, nextSequence: 0 });
 
   const [scenes, setScenes] = useState<PresetSceneSummaryView[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -143,7 +149,11 @@ export default function PresetScenesPage() {
   }, [reloadNonce]);
 
   const loadScene = useCallback(
-    async (presetSceneId: string, preserveForm: boolean): Promise<PresetSceneDetailView | null> => {
+    async (
+      presetSceneId: string,
+      preserveForm: boolean,
+      operation?: PresetSceneOperationToken,
+    ): Promise<PresetSceneDetailView | null> => {
       const requestId = sceneRequestIdRef.current + 1;
       sceneRequestIdRef.current = requestId;
       setSceneLoading(true);
@@ -151,7 +161,11 @@ export default function PresetScenesPage() {
 
       try {
         const detail = await presetScenesClient.getScene(presetSceneId);
-        if (requestId !== sceneRequestIdRef.current) {
+        if (
+          requestId !== sceneRequestIdRef.current ||
+          selectedSceneIdRef.current !== presetSceneId ||
+          (operation && !isPresetSceneOperationActive(mutationOperationRef.current, operation, presetSceneId))
+        ) {
           return null;
         }
         setSelectedScene(detail);
@@ -162,12 +176,20 @@ export default function PresetScenesPage() {
         }
         return detail;
       } catch (error) {
-        if (requestId === sceneRequestIdRef.current) {
+        if (
+          requestId === sceneRequestIdRef.current &&
+          selectedSceneIdRef.current === presetSceneId &&
+          (!operation || isPresetSceneOperationActive(mutationOperationRef.current, operation, presetSceneId))
+        ) {
           setSceneError(toApiError(error));
         }
         return null;
       } finally {
-        if (requestId === sceneRequestIdRef.current) {
+        if (
+          requestId === sceneRequestIdRef.current &&
+          selectedSceneIdRef.current === presetSceneId &&
+          (!operation || isPresetSceneOperationActive(mutationOperationRef.current, operation, presetSceneId))
+        ) {
           setSceneLoading(false);
         }
       }
@@ -177,10 +199,10 @@ export default function PresetScenesPage() {
 
   const openScene = useCallback(
     async (presetSceneId: string) => {
-      const preserveForm =
-        formSceneIdRef.current === presetSceneId && formDirty;
+      const preserveForm = formSceneIdRef.current === presetSceneId && formDirty;
       setDrawerOpen(true);
       setSelectedSceneId(presetSceneId);
+      selectedSceneIdRef.current = presetSceneId;
       setConflict(null);
       setMutation({ phase: 'idle' });
       if (!preserveForm) {
@@ -194,22 +216,26 @@ export default function PresetScenesPage() {
     [form, formDirty, loadScene],
   );
 
-  const loadHistory = useCallback(async (presetSceneId: string) => {
+  const loadHistory = useCallback(async (presetSceneId: string, operation?: PresetSceneOperationToken) => {
     const requestId = historyRequestIdRef.current + 1;
     historyRequestIdRef.current = requestId;
     setHistoryLoading(true);
     setHistoryError(null);
+    const isCurrent = () =>
+      requestId === historyRequestIdRef.current &&
+      historySceneIdRef.current === presetSceneId &&
+      (!operation || isPresetSceneOperationActive(mutationOperationRef.current, operation, presetSceneId));
     try {
       const nextHistory = await presetScenesClient.versions(presetSceneId);
-      if (requestId === historyRequestIdRef.current) {
+      if (isCurrent()) {
         setHistory(nextHistory);
       }
     } catch (error) {
-      if (requestId === historyRequestIdRef.current) {
+      if (isCurrent()) {
         setHistoryError(toApiError(error));
       }
     } finally {
-      if (requestId === historyRequestIdRef.current) {
+      if (isCurrent()) {
         setHistoryLoading(false);
       }
     }
@@ -218,6 +244,7 @@ export default function PresetScenesPage() {
   const openHistory = useCallback(
     async (presetSceneId: string) => {
       setHistorySceneId(presetSceneId);
+      historySceneIdRef.current = presetSceneId;
       setHistoryOpen(true);
       setHistory([]);
       await loadHistory(presetSceneId);
@@ -225,25 +252,68 @@ export default function PresetScenesPage() {
     [loadHistory],
   );
 
-  const reloadAfterMutation = () => {
-    setReloadNonce((value) => value + 1);
+  const beginMutation = (targetSceneId: string): PresetSceneOperationToken =>
+    beginPresetSceneOperation(mutationOperationRef.current, targetSceneId);
+
+  const isSelectedMutationActive = (operation: PresetSceneOperationToken, targetSceneId: string) =>
+    isPresetSceneOperationActive(mutationOperationRef.current, operation, targetSceneId) &&
+    selectedSceneIdRef.current === targetSceneId;
+
+  const isHistoryMutationActive = (operation: PresetSceneOperationToken, targetSceneId: string) =>
+    isPresetSceneOperationActive(mutationOperationRef.current, operation, targetSceneId) &&
+    historySceneIdRef.current === targetSceneId;
+
+  const reloadAfterMutation = (
+    operation: PresetSceneOperationToken,
+    targetSceneId: string,
+    scope: 'selected' | 'history' = 'selected',
+  ) => {
+    const isActive = scope === 'selected' ? isSelectedMutationActive : isHistoryMutationActive;
+    if (isActive(operation, targetSceneId)) {
+      setReloadNonce((value) => value + 1);
+    }
   };
 
-  const handleConflict = async (operation: string, apiError: ApiError) => {
+  const applyValidationDetails = (operation: PresetSceneOperationToken, targetSceneId: string, apiError: ApiError) => {
+    if (!isSelectedMutationActive(operation, targetSceneId)) {
+      return;
+    }
+    const fieldErrors = readPresetSceneFieldErrors(apiError);
+    if (fieldErrors.length === 0) {
+      return;
+    }
+    form.setFields(
+      fieldErrors.flatMap(({ name, message }) =>
+        name === 'lockVersion' ? [] : [{ name: name as keyof DraftFormValues, errors: [message] }],
+      ),
+    );
+  };
+
+  const handleConflict = async (
+    operation: string,
+    apiError: ApiError,
+    mutationOperation: PresetSceneOperationToken,
+    targetSceneId: string,
+  ) => {
+    if (!isSelectedMutationActive(mutationOperation, targetSceneId)) {
+      return;
+    }
+    applyValidationDetails(mutationOperation, targetSceneId, apiError);
     setMutation({ phase: 'error', operation, error: apiError });
-    if (!selectedSceneId || apiError.code !== 'practice_draft_version_conflict') {
+    if (apiError.code !== 'practice_draft_version_conflict') {
       return;
     }
 
     const local = readFormValues(form.getFieldsValue(true));
-    const refreshed = await loadScene(selectedSceneId, true);
-    if (refreshed) {
-      setConflict({
-        operation,
-        local,
-        server: refreshed.draft ?? refreshed,
-      });
+    const refreshed = await loadScene(targetSceneId, true, mutationOperation);
+    if (!refreshed || !isSelectedMutationActive(mutationOperation, targetSceneId)) {
+      return;
     }
+    setConflict({
+      operation,
+      local,
+      server: refreshed.draft ?? refreshed,
+    });
   };
 
   const handleCreateDraft = async () => {
@@ -258,19 +328,27 @@ export default function PresetScenesPage() {
       return;
     }
 
+    const targetSceneId = selectedSceneId;
+    const operation = beginMutation(targetSceneId);
     const write = toDraftWrite(values, 0);
     setMutation({ phase: 'pending', operation: '创建草稿' });
     try {
-      const draft = await presetScenesClient.createDraft(selectedSceneId, write);
+      const draft = await presetScenesClient.createDraft(targetSceneId, write);
+      if (!isSelectedMutationActive(operation, targetSceneId)) {
+        return;
+      }
       setSelectedScene((current) => (current ? { ...current, draft } : current));
       applyFormValues(form, toFormValues(draft));
       setFormDirty(false);
-      formSceneIdRef.current = selectedSceneId;
+      formSceneIdRef.current = targetSceneId;
       setConflict(null);
       setMutation({ phase: 'success', message: '草稿已创建。' });
-      reloadAfterMutation();
+      reloadAfterMutation(operation, targetSceneId);
     } catch (error) {
-      await handleConflict('创建草稿', toApiError(error));
+      const apiError = toApiError(error);
+      await handleConflict('创建草稿', apiError, operation, targetSceneId);
+    } finally {
+      finishPresetSceneOperation(mutationOperationRef.current, operation);
     }
   };
 
@@ -279,22 +357,30 @@ export default function PresetScenesPage() {
       return;
     }
 
+    const targetSceneId = selectedSceneId;
     const lockVersion = selectedScene.draft?.lockVersion ?? 0;
     const write = toDraftWrite(values, lockVersion);
+    const operation = beginMutation(targetSceneId);
     setMutation({ phase: 'pending', operation: '保存草稿' });
     try {
       const draft = selectedScene.draft
-        ? await presetScenesClient.updateDraft(selectedSceneId, write)
-        : await presetScenesClient.createDraft(selectedSceneId, write);
+        ? await presetScenesClient.updateDraft(targetSceneId, write)
+        : await presetScenesClient.createDraft(targetSceneId, write);
+      if (!isSelectedMutationActive(operation, targetSceneId)) {
+        return;
+      }
       setSelectedScene((current) => (current ? { ...current, draft } : current));
       applyFormValues(form, toFormValues(draft));
       setFormDirty(false);
-      formSceneIdRef.current = selectedSceneId;
+      formSceneIdRef.current = targetSceneId;
       setConflict(null);
       setMutation({ phase: 'success', message: '草稿已保存。' });
-      reloadAfterMutation();
+      reloadAfterMutation(operation, targetSceneId);
     } catch (error) {
-      await handleConflict('保存草稿', toApiError(error));
+      const apiError = toApiError(error);
+      await handleConflict('保存草稿', apiError, operation, targetSceneId);
+    } finally {
+      finishPresetSceneOperation(mutationOperationRef.current, operation);
     }
   };
 
@@ -311,23 +397,31 @@ export default function PresetScenesPage() {
       return;
     }
 
+    const targetSceneId = selectedSceneId;
+    const operation = beginMutation(targetSceneId);
     setMutation({ phase: 'pending', operation: '发布版本' });
     try {
-      const published = await presetScenesClient.publish(selectedSceneId, {
+      const published = await presetScenesClient.publish(targetSceneId, {
         lockVersion: selectedScene.draft.lockVersion,
       });
+      if (!isSelectedMutationActive(operation, targetSceneId)) {
+        return;
+      }
       setSelectedScene((current) => (current ? mergePublished(current, published) : current));
       applyFormValues(form, toFormValues(published));
       setFormDirty(false);
-      formSceneIdRef.current = selectedSceneId;
+      formSceneIdRef.current = targetSceneId;
       setConflict(null);
       setMutation({
         phase: 'success',
         message: published.enabled ? `已发布 v${published.version}。` : `已停用并发布 v${published.version}。`,
       });
-      reloadAfterMutation();
+      reloadAfterMutation(operation, targetSceneId);
     } catch (error) {
-      await handleConflict('发布版本', toApiError(error));
+      const apiError = toApiError(error);
+      await handleConflict('发布版本', apiError, operation, targetSceneId);
+    } finally {
+      finishPresetSceneOperation(mutationOperationRef.current, operation);
     }
   };
 
@@ -336,25 +430,66 @@ export default function PresetScenesPage() {
       return;
     }
 
+    const targetSceneId = historySceneId;
+    if (selectedSceneIdRef.current === targetSceneId && (selectedScene?.draft != null || formDirty)) {
+      setMutation({
+        phase: 'error',
+        operation: `回滚到 v${version}`,
+        error: new ApiError(
+          409,
+          'practice_draft_version_conflict',
+          '当前场景存在未完成草稿，请先保存或发布草稿后再回滚。',
+        ),
+      });
+      return;
+    }
+
+    const operation = beginMutation(targetSceneId);
     setMutation({ phase: 'pending', operation: `回滚到 v${version}` });
     try {
-      const published = await presetScenesClient.rollback(historySceneId, version);
+      const published = await presetScenesClient.rollback(targetSceneId, version);
+      if (!isHistoryMutationActive(operation, targetSceneId)) {
+        return;
+      }
       setHistory((current) =>
         [published, ...current.filter((item) => item.version !== published.version)].sort(
           (left, right) => right.version - left.version,
         ),
       );
-      if (selectedSceneId === historySceneId) {
+      if (selectedSceneIdRef.current === targetSceneId) {
         setSelectedScene((current) => (current ? mergePublished(current, published) : current));
         applyFormValues(form, toFormValues(published));
         setFormDirty(false);
-        formSceneIdRef.current = historySceneId;
+        formSceneIdRef.current = targetSceneId;
       }
       setMutation({ phase: 'success', message: `已从 v${version} 回滚并发布 v${published.version}。` });
-      reloadAfterMutation();
-      await loadHistory(historySceneId);
+      reloadAfterMutation(operation, targetSceneId, 'history');
+      await loadHistory(targetSceneId, operation);
     } catch (error) {
-      setMutation({ phase: 'error', operation: `回滚到 v${version}`, error: toApiError(error) });
+      const apiError = toApiError(error);
+      if (isHistoryMutationActive(operation, targetSceneId) && apiError.code === 'practice_draft_version_conflict') {
+        if (isSelectedMutationActive(operation, targetSceneId)) {
+          await handleConflict(`回滚到 v${version}`, apiError, operation, targetSceneId);
+        } else {
+          setMutation({
+            phase: 'error',
+            operation: `回滚到 v${version}`,
+            error: new ApiError(
+              409,
+              'practice_draft_version_conflict',
+              '当前场景已有草稿，请先处理草稿后再回滚。',
+              apiError.details,
+            ),
+          });
+        }
+      } else if (isHistoryMutationActive(operation, targetSceneId)) {
+        if (isSelectedMutationActive(operation, targetSceneId)) {
+          applyValidationDetails(operation, targetSceneId, apiError);
+        }
+        setMutation({ phase: 'error', operation: `回滚到 v${version}`, error: apiError });
+      }
+    } finally {
+      finishPresetSceneOperation(mutationOperationRef.current, operation);
     }
   };
 
@@ -406,6 +541,7 @@ export default function PresetScenesPage() {
             <Button
               type="link"
               icon={<FormOutlined />}
+              disabled={mutation.phase === 'pending'}
               data-testid={`preset-scene-edit-${record.presetSceneId}`}
               onClick={() => void openScene(record.presetSceneId)}
             >
@@ -414,6 +550,7 @@ export default function PresetScenesPage() {
             <Button
               type="link"
               icon={<HistoryOutlined />}
+              disabled={mutation.phase === 'pending'}
               data-testid={`preset-scene-history-${record.presetSceneId}`}
               onClick={() => void openHistory(record.presetSceneId)}
             >
@@ -423,7 +560,7 @@ export default function PresetScenesPage() {
         ),
       },
     ],
-    [openHistory, openScene],
+    [mutation.phase, openHistory, openScene],
   );
 
   const selectedDraft = selectedScene?.draft ?? null;
@@ -435,12 +572,8 @@ export default function PresetScenesPage() {
           <Space wrap>
             <Tag>user: {admin.username}</Tag>
             <Tag color="success">practice:read enabled</Tag>
-            <Tag color={canWrite ? 'success' : 'default'}>
-              practice:write {canWrite ? 'enabled' : 'missing'}
-            </Tag>
-            <Tag color={canPublish ? 'success' : 'default'}>
-              practice:publish {canPublish ? 'enabled' : 'missing'}
-            </Tag>
+            <Tag color={canWrite ? 'success' : 'default'}>practice:write {canWrite ? 'enabled' : 'missing'}</Tag>
+            <Tag color={canPublish ? 'success' : 'default'}>practice:publish {canPublish ? 'enabled' : 'missing'}</Tag>
             <Tag>roles: {admin.roles.join(', ') || 'none'}</Tag>
           </Space>
           {!canWrite ? (
@@ -471,6 +604,7 @@ export default function PresetScenesPage() {
         extra={
           <Button
             icon={<ReloadOutlined />}
+            disabled={mutation.phase === 'pending'}
             data-testid="preset-scenes-reload"
             onClick={() => setReloadNonce((value) => value + 1)}
           >
@@ -524,9 +658,7 @@ export default function PresetScenesPage() {
                 published v{selectedScene.publishedVersion} · {selectedScene.enabled ? 'enabled' : 'disabled'}
               </Tag>
               <Tag>space: {selectedScene.spaceId}</Tag>
-              <Tag data-testid="preset-scene-draft-lock">
-                draft lockVersion: {selectedDraft?.lockVersion ?? 'new'}
-              </Tag>
+              <Tag data-testid="preset-scene-draft-lock">draft lockVersion: {selectedDraft?.lockVersion ?? 'new'}</Tag>
             </Space>
 
             {selectedDraft ? (
@@ -602,11 +734,7 @@ export default function PresetScenesPage() {
               >
                 <InputNumber min={0} precision={0} style={{ width: '100%' }} data-testid="preset-scene-sort-order" />
               </Form.Item>
-              <Form.Item
-                name="generationBrief"
-                label="generationBrief"
-                rules={textRules('generationBrief', 1200)}
-              >
+              <Form.Item name="generationBrief" label="generationBrief" rules={textRules('generationBrief', 1200)}>
                 <Input.TextArea autoSize={{ minRows: 4, maxRows: 10 }} data-testid="preset-scene-generation-brief" />
               </Form.Item>
               <Form.Item name="enabled" label="enabled" valuePropName="checked">
@@ -657,6 +785,7 @@ export default function PresetScenesPage() {
             description={`${historyError.message}（${historyError.code}）`}
           />
         ) : null}
+        <MutationFeedback mutation={mutation} />
         <Table<PresetScenePublishedView>
           rowKey={(record) => `${record.presetSceneId}-${record.version}`}
           loading={historyLoading}
@@ -811,13 +940,7 @@ function readServerComparisonValue(
   return server[field];
 }
 
-function ConflictComparison({
-  conflict,
-  onUseServer,
-}: {
-  conflict: ConflictState;
-  onUseServer: () => void;
-}) {
+function ConflictComparison({ conflict, onUseServer }: { conflict: ConflictState; onUseServer: () => void }) {
   return (
     <Alert
       showIcon
@@ -826,9 +949,7 @@ function ConflictComparison({
       message={`${conflict.operation}失败：服务器草稿版本已变化`}
       description={
         <Space direction="vertical" size={8} style={{ width: '100%' }}>
-          <Typography.Text>
-            未保存内容已保留。请对比本地值与服务器值后，选择继续编辑或加载服务器草稿。
-          </Typography.Text>
+          <Typography.Text>未保存内容已保留。请对比本地值与服务器值后，选择继续编辑或加载服务器草稿。</Typography.Text>
           {DRAFT_COMPARISON_FIELDS.map((field) => (
             <div key={field} data-testid={`preset-scene-conflict-${field}`}>
               <Typography.Text code>{field}</Typography.Text>
@@ -853,18 +974,32 @@ function MutationFeedback({ mutation }: { mutation: MutationState }) {
     return null;
   }
   if (mutation.phase === 'pending') {
-    return <Alert type="info" showIcon data-testid="preset-scene-mutation-feedback" message={`${mutation.operation}中…`} />;
+    return (
+      <Alert type="info" showIcon data-testid="preset-scene-mutation-feedback" message={`${mutation.operation}中…`} />
+    );
   }
   if (mutation.phase === 'success') {
     return <Alert type="success" showIcon data-testid="preset-scene-mutation-feedback" message={mutation.message} />;
   }
+  const fieldErrors = readPresetSceneFieldErrors(mutation.error);
   return (
     <Alert
       type={mutation.error.status >= 500 ? 'error' : 'warning'}
       showIcon
       data-testid="preset-scene-mutation-feedback"
       message={`${mutation.operation}失败`}
-      description={`${mutation.error.message}（${mutation.error.code}）`}
+      description={
+        <Space direction="vertical" size={4}>
+          <span>
+            {mutation.error.message}（{mutation.error.code}）
+          </span>
+          {fieldErrors.map(({ name, message }) => (
+            <Typography.Text key={name} type="danger" data-testid={`preset-scene-server-error-${name}`}>
+              {name}: {message}
+            </Typography.Text>
+          ))}
+        </Space>
+      }
     />
   );
 }

@@ -164,7 +164,10 @@ export async function createAdminWithPermissions(
 
 export function seedPresetSceneFixture(label: string): PresetSceneFixture {
   const suffix = uniqueSuffix();
-  const presetSceneId = `pw_${label}_${suffix}`.toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 64);
+  const presetSceneId = `pw_${label}_${suffix}`
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, 64);
   const title = `Playwright preset ${suffix}`;
   const generationBrief = `围绕 ${label} 生成低压力、可重复的亲子互动短语。`;
 

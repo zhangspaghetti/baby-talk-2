@@ -22,7 +22,9 @@ test.describe('preset-scene workbench', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
 
     const createResponse = page.waitForResponse(
-      (response) => exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/draft`) && response.request().method() === 'POST',
+      (response) =>
+        exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/draft`) &&
+        response.request().method() === 'POST',
     );
     await page.getByTestId('preset-scene-create-draft').click();
     expect((await createResponse).status()).toBe(201);
@@ -34,7 +36,9 @@ test.describe('preset-scene workbench', () => {
         requestEvent.method() === 'PUT',
     );
     const saveResponse = page.waitForResponse(
-      (response) => exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/draft`) && response.request().method() === 'PUT',
+      (response) =>
+        exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/draft`) &&
+        response.request().method() === 'PUT',
     );
     await page.getByTestId('preset-scene-save').click();
     const requestBody = saveRequest;
@@ -76,7 +80,10 @@ test.describe('preset-scene workbench', () => {
     await expect(page.getByLabel('title', { exact: true })).toHaveValue(`${scene.title} server failure`);
   });
 
-  test('reloads the server draft on stale conflict while preserving unsaved form values for comparison', async ({ page, request }) => {
+  test('reloads the server draft on stale conflict while preserving unsaved form values for comparison', async ({
+    page,
+    request,
+  }) => {
     const scene = seedPresetSceneFixture(`stale-${uniqueSuffix()}`);
     const session = await loginViaAdminApi(request);
     const draft = draftFor(scene, { lockVersion: 0 });
@@ -110,7 +117,9 @@ test.describe('preset-scene workbench', () => {
     await gotoPresetScenes(page);
     await page.getByTestId(`preset-scene-edit-${scene.presetSceneId}`).click();
     const publishResponse = page.waitForResponse(
-      (response) => exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/publish`) && response.request().method() === 'POST',
+      (response) =>
+        exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/publish`) &&
+        response.request().method() === 'POST',
     );
     await page.getByTestId('preset-scene-publish').click();
     expect((await publishResponse).status()).toBe(200);
@@ -123,7 +132,12 @@ test.describe('preset-scene workbench', () => {
   test('publishes a disabled draft as an explicit disabled scene', async ({ page, request }) => {
     const scene = seedPresetSceneFixture(`disable-${uniqueSuffix()}`);
     const session = await loginViaAdminApi(request);
-    await createPresetSceneDraft(request, session.accessToken, scene.presetSceneId, draftFor(scene, { enabled: false }));
+    await createPresetSceneDraft(
+      request,
+      session.accessToken,
+      scene.presetSceneId,
+      draftFor(scene, { enabled: false }),
+    );
 
     await loginViaUi(page);
     await gotoPresetScenes(page);
@@ -150,7 +164,9 @@ test.describe('preset-scene workbench', () => {
     await expect(history).toContainText('v2');
 
     const rollbackResponse = page.waitForResponse(
-      (response) => exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/rollback/1`) && response.request().method() === 'POST',
+      (response) =>
+        exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/rollback/1`) &&
+        response.request().method() === 'POST',
     );
     await history.getByRole('button', { name: '回滚到 v1' }).click();
     await page.getByRole('button', { name: '确认回滚' }).click();
@@ -174,14 +190,23 @@ test.describe('preset-scene workbench', () => {
     await expect(page.getByTestId('preset-scene-save')).toBeDisabled();
     await expect(page.getByTestId('preset-scene-publish')).toBeDisabled();
     await page.getByTestId(`preset-scene-history-${scene.presetSceneId}`).click();
-    await expect(page.getByRole('dialog', { name: /版本历史/ }).getByRole('button', { name: /回滚到 v/ }).first()).toBeDisabled();
+    await expect(
+      page
+        .getByRole('dialog', { name: /版本历史/ })
+        .getByRole('button', { name: /回滚到 v/ })
+        .first(),
+    ).toBeDisabled();
   });
 
   test('keeps save enabled for editors while publish remains publisher-only', async ({ page, request }) => {
     const scene = seedPresetSceneFixture(`editor-${uniqueSuffix()}`);
     const superAdmin = await loginViaAdminApi(request);
     await createPresetSceneDraft(request, superAdmin.accessToken, scene.presetSceneId, draftFor(scene));
-    const editor = await createAdminWithPermissions(request, ['practice:read', 'practice:write'], 'Preset Scene Editor');
+    const editor = await createAdminWithPermissions(
+      request,
+      ['practice:read', 'practice:write'],
+      'Preset Scene Editor',
+    );
 
     await loginViaUi(page, {
       username: editor.username,
@@ -191,6 +216,37 @@ test.describe('preset-scene workbench', () => {
     await page.getByTestId(`preset-scene-edit-${scene.presetSceneId}`).click();
     await expect(page.getByTestId('preset-scene-save')).toBeEnabled();
     await expect(page.getByTestId('preset-scene-publish')).toBeDisabled();
+  });
+
+  test('keeps publish and rollback enabled for publisher-only admins while save stays disabled', async ({
+    page,
+    request,
+  }) => {
+    const scene = seedPresetSceneFixture(`publisher-${uniqueSuffix()}`);
+    const superAdmin = await loginViaAdminApi(request);
+    const created = await createPresetSceneDraft(request, superAdmin.accessToken, scene.presetSceneId, draftFor(scene));
+    await publishPresetScene(request, superAdmin.accessToken, scene.presetSceneId, Number(created.lockVersion));
+    const publisher = await createAdminWithPermissions(
+      request,
+      ['practice:read', 'practice:publish'],
+      'Preset Scene Publisher',
+    );
+
+    await loginViaUi(page, {
+      username: publisher.username,
+      password: publisher.password,
+      expectedUrl: /\/practice\/preset-scenes$/,
+    });
+    await page.getByTestId(`preset-scene-edit-${scene.presetSceneId}`).click();
+    await expect(page.getByTestId('preset-scene-save')).toBeDisabled();
+    await expect(page.getByTestId('preset-scene-publish')).toBeEnabled();
+    await page.getByTestId(`preset-scene-history-${scene.presetSceneId}`).click();
+    await expect(
+      page
+        .getByRole('dialog', { name: /版本历史/ })
+        .getByRole('button', { name: /回滚到 v/ })
+        .first(),
+    ).toBeEnabled();
   });
 
   test('hides the route for admins without practice:read and forbids direct navigation', async ({ page, request }) => {
@@ -218,10 +274,7 @@ async function gotoPresetScenes(page: Page) {
   await expect(page.getByTestId('preset-scenes-page')).toBeVisible();
 }
 
-async function loginViaUi(
-  page: Page,
-  options: { username?: string; password?: string; expectedUrl?: RegExp } = {},
-) {
+async function loginViaUi(page: Page, options: { username?: string; password?: string; expectedUrl?: RegExp } = {}) {
   const username = options.username ?? 'super_admin';
   const password = options.password ?? 'SuperAdmin123!';
   const expectedUrl = options.expectedUrl ?? /\/overview$/;
