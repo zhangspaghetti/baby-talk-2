@@ -43,6 +43,7 @@ class DbMigrationSmokeTest {
     private static final String V37_PRESET_SCENE_SCHEMA = "flyway_v37_preset_scene_schema";
     private static final String V37_IMMUTABILITY_SCHEMA = "flyway_v37_immutability";
     private static final String V38_UNIFIED_SCENE_SCHEMA = "flyway_v38_unified_scene_schema";
+    private static final String V38_LEGACY_PRESET_SCHEMA = "flyway_v38_legacy_preset_schema";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -362,11 +363,12 @@ class DbMigrationSmokeTest {
                 "preset",
                 null,
                 null,
-                null,
+                "2026-W36",
                 "space-v38-missing",
                 "activity-v38-missing",
                 "phrase-v38-missing"))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("chk_practice_generated_content_scene_generation_shape");
         assertThatThrownBy(() -> insertV38GeneratedContent(
                 schema,
                 "pgc_v38_custom_with_ids",
@@ -377,7 +379,8 @@ class DbMigrationSmokeTest {
                 "space-v38-custom-with-ids",
                 "activity-v38-custom-with-ids",
                 "phrase-v38-custom-with-ids"))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("chk_practice_generated_content_scene_generation_shape");
         assertThatThrownBy(() -> insertV38GeneratedContent(
                 schema,
                 "pgc_v38_cross_activity_version",
@@ -385,10 +388,11 @@ class DbMigrationSmokeTest {
                 bathActivityId,
                 bedtimeVersionId,
                 "2026-W36",
-                null,
+                "space-v38-cross-pair",
                 "activity-v38-cross-pair",
                 "phrase-v38-cross-pair"))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("fk_practice_generated_content_preset_scene");
 
         insertV38GeneratedContent(
                 schema,
@@ -414,6 +418,57 @@ class DbMigrationSmokeTest {
                 "select count(*) from " + schema
                         + ".practice_generated_content where activity_slug = 'activity-v38-stable'",
                 Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void customScenePresetRowsStillParticipateInActiveSlugUniqueness() {
+        Flyway v38 = flywayFor(V38_LEGACY_PRESET_SCHEMA, "38");
+        v38.migrate();
+        assertThat(v38.info().current().getVersion().getVersion()).isEqualTo("38");
+
+        String schema = V38_LEGACY_PRESET_SCHEMA;
+        String activityTable = schema + ".practice_activities";
+        String versionsTable = schema + ".practice_preset_scene_versions";
+        long activityId = jdbcTemplate.queryForObject(
+                "select id from " + activityTable + " where slug = 'bath_time'", Long.class);
+        long versionId = jdbcTemplate.queryForObject(
+                "select version_id from " + versionsTable
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                activityId);
+        insertV38Profile(schema, "acct_v38_shape", "profile_v38_shape");
+
+        insertV38GeneratedContent(
+                schema,
+                "pgc_v38_legacy_slug_first",
+                "preset",
+                activityId,
+                versionId,
+                "2026-W36",
+                "space-v38-legacy-stable",
+                "activity-v38-legacy-stable",
+                "phrase-v38-legacy-stable");
+        jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set mode = 'custom_scene'"
+                        + " where generated_content_id = 'pgc_v38_legacy_slug_first'");
+
+        insertV38GeneratedContent(
+                schema,
+                "pgc_v38_legacy_slug_second",
+                "preset",
+                activityId,
+                versionId,
+                "2026-W37",
+                "space-v38-legacy-stable",
+                "activity-v38-legacy-stable",
+                "phrase-v38-legacy-stable");
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set mode = 'custom_scene'"
+                        + " where generated_content_id = 'pgc_v38_legacy_slug_second'"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("uq_practice_generated_content_active_space_slug");
     }
 
     @Test

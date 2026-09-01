@@ -52,14 +52,14 @@ drop index uq_practice_generated_content_active_phrase_slug;
 create unique index uq_practice_generated_content_active_space_slug
     on practice_generated_content(space_slug)
     where status = 'active'
-      and (input_source is null or input_source <> 'preset');
+      and (mode <> 'scene_generation' or input_source is distinct from 'preset');
 
 create unique index uq_practice_generated_content_active_activity_slug
     on practice_generated_content(activity_slug)
     where status = 'active'
-      and (input_source is null or input_source <> 'preset');
+      and (mode <> 'scene_generation' or input_source is distinct from 'preset');
 
 create unique index uq_practice_generated_content_active_phrase_slug
     on practice_generated_content(phrase_slug)
     where status = 'active'
-      and (input_source is null or input_source <> 'preset');
+      and (mode <> 'scene_generation' or input_source is distinct from 'preset');
