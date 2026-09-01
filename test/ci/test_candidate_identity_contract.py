@@ -43,16 +43,16 @@ class CandidateIdentityContractTest(unittest.TestCase):
         self.assertNotIn('QA_IMAGE_TAG="${QA_IMAGE_TAG:-$QA_CANDIDATE_ID}"', script)
         self.assertIn("candidate:", qa_values)
 
-    def test_candidate_migration_contract_tracks_current_v36(self) -> None:
+    def test_candidate_migration_contract_tracks_current_v38(self) -> None:
         values = VALUES.read_text(encoding="utf-8")
         qa_values = QA_VALUES.read_text(encoding="utf-8")
         production_values = PRODUCTION_VALUES.read_text(encoding="utf-8")
         script = QA_BOOTSTRAP.read_text(encoding="utf-8")
 
-        self.assertIn('requiredMigrationVersion: "36"', values)
-        self.assertIn('requiredMigrationVersion: "36"', qa_values)
-        self.assertIn('requiredMigrationVersion: "36"', production_values)
-        self.assertIn('QA_REQUIRED_MIGRATION_VERSION="${QA_REQUIRED_MIGRATION_VERSION:-36}"', script)
+        self.assertIn('requiredMigrationVersion: "38"', values)
+        self.assertIn('requiredMigrationVersion: "38"', qa_values)
+        self.assertIn('requiredMigrationVersion: "38"', production_values)
+        self.assertIn('QA_REQUIRED_MIGRATION_VERSION="${QA_REQUIRED_MIGRATION_VERSION:-38}"', script)
 
 
 if __name__ == "__main__":
