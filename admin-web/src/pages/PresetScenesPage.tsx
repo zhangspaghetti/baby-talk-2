@@ -631,6 +631,7 @@ export default function PresetScenesPage() {
         open={drawerOpen}
         width={640}
         title={selectedScene ? `编辑预置场景 · ${selectedScene.presetSceneId}` : '编辑预置场景'}
+        closable={{ 'aria-label': '关闭' }}
         onClose={() => setDrawerOpen(false)}
         destroyOnClose={false}
         data-testid="preset-scene-drawer"
@@ -672,11 +673,7 @@ export default function PresetScenesPage() {
                     <span>
                       lockVersion={selectedDraft.lockVersion} · updated={formatTimestamp(selectedDraft.updatedAt)}
                     </span>
-                    <Button
-                      type="link"
-                      disabled={!canWrite || mutation.phase === 'pending'}
-                      data-testid="preset-scene-create-draft"
-                    >
+                    <Button type="link" disabled data-testid="preset-scene-create-draft">
                       创建草稿
                     </Button>
                   </Space>

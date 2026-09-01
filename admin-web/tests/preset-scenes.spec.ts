@@ -26,7 +26,7 @@ test.describe('preset-scene workbench', () => {
         exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/draft`) &&
         response.request().method() === 'POST',
     );
-    await page.getByTestId('preset-scene-create-draft').click();
+    await page.getByRole('button', { name: '创建草稿', exact: true }).click();
     expect((await createResponse).status()).toBe(201);
 
     await page.getByLabel('title', { exact: true }).fill(`${scene.title} edited`);
@@ -40,7 +40,7 @@ test.describe('preset-scene workbench', () => {
         exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/draft`) &&
         response.request().method() === 'PUT',
     );
-    await page.getByTestId('preset-scene-save').click();
+    await page.getByRole('button', { name: '保存草稿', exact: true }).click();
     const requestBody = saveRequest;
     expect((await requestBody).postDataJSON()).toMatchObject({ lockVersion: 0 });
     expect((await saveResponse).status()).toBe(200);
@@ -56,10 +56,10 @@ test.describe('preset-scene workbench', () => {
     await loginViaUi(page);
     await gotoPresetScenes(page);
     await page.getByTestId(`preset-scene-edit-${scene.presetSceneId}`).click();
-    await page.getByTestId('preset-scene-create-draft').click();
+    await page.getByRole('button', { name: '创建草稿', exact: true }).click();
 
     await page.getByLabel('title', { exact: true }).fill('');
-    await page.getByTestId('preset-scene-save').click();
+    await page.getByRole('button', { name: '保存草稿', exact: true }).click();
     await expect(page.getByText('title 不能为空。', { exact: true })).toBeVisible();
 
     await page.getByLabel('title', { exact: true }).fill(`${scene.title} server failure`);
@@ -75,7 +75,7 @@ test.describe('preset-scene workbench', () => {
       }
       await route.continue();
     });
-    await page.getByTestId('preset-scene-save').click();
+    await page.getByRole('button', { name: '保存草稿', exact: true }).click();
     await expect(page.getByTestId('preset-scene-mutation-feedback')).toContainText('forced draft failure');
     await expect(page.getByLabel('title', { exact: true })).toHaveValue(`${scene.title} server failure`);
   });
@@ -100,7 +100,7 @@ test.describe('preset-scene workbench', () => {
       lockVersion: 0,
     });
 
-    await page.getByTestId('preset-scene-save').click();
+    await page.getByRole('button', { name: '保存草稿', exact: true }).click();
     await expect(page.getByTestId('preset-scene-mutation-feedback')).toContainText('practice_draft_version_conflict');
     await expect(page.getByTestId('preset-scene-conflict')).toBeVisible();
     await expect(page.getByLabel('title', { exact: true })).toHaveValue(`${scene.title} local unsaved`);
@@ -121,7 +121,7 @@ test.describe('preset-scene workbench', () => {
         exactApiPath(response, `${adminPresetScenesApiPath}/${scene.presetSceneId}/publish`) &&
         response.request().method() === 'POST',
     );
-    await page.getByTestId('preset-scene-publish').click();
+    await page.getByRole('button', { name: '发布版本', exact: true }).click();
     expect((await publishResponse).status()).toBe(200);
 
     const row = sceneRow(page, scene.presetSceneId);
@@ -142,7 +142,7 @@ test.describe('preset-scene workbench', () => {
     await loginViaUi(page);
     await gotoPresetScenes(page);
     await page.getByTestId(`preset-scene-edit-${scene.presetSceneId}`).click();
-    await page.getByTestId('preset-scene-publish').click();
+    await page.getByRole('button', { name: '发布版本', exact: true }).click();
 
     await expect(sceneRow(page, scene.presetSceneId)).toContainText('published v2 · disabled');
     await expect(page.getByTestId('preset-scene-mutation-feedback')).toContainText('已停用并发布');
@@ -187,8 +187,11 @@ test.describe('preset-scene workbench', () => {
     });
     await expect(page.getByTestId('workspace-link-preset-scenes')).toBeVisible();
     await page.getByTestId(`preset-scene-edit-${scene.presetSceneId}`).click();
-    await expect(page.getByTestId('preset-scene-save')).toBeDisabled();
-    await expect(page.getByTestId('preset-scene-publish')).toBeDisabled();
+    await expect(page.getByRole('button', { name: '保存草稿', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '发布版本', exact: true })).toBeDisabled();
+    const readerDrawer = page.getByRole('dialog', { name: /编辑预置场景/ });
+    await readerDrawer.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(readerDrawer).toBeHidden();
     await page.getByTestId(`preset-scene-history-${scene.presetSceneId}`).click();
     await expect(
       page
@@ -214,8 +217,8 @@ test.describe('preset-scene workbench', () => {
       expectedUrl: /\/practice\/preset-scenes$/,
     });
     await page.getByTestId(`preset-scene-edit-${scene.presetSceneId}`).click();
-    await expect(page.getByTestId('preset-scene-save')).toBeEnabled();
-    await expect(page.getByTestId('preset-scene-publish')).toBeDisabled();
+    await expect(page.getByRole('button', { name: '保存草稿', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '发布版本', exact: true })).toBeDisabled();
   });
 
   test('keeps publish and rollback enabled for publisher-only admins while save stays disabled', async ({
@@ -251,6 +254,9 @@ test.describe('preset-scene workbench', () => {
     await expect(sceneRow(page, scene.presetSceneId)).toContainText('published v2');
     await expect(sceneRow(page, scene.presetSceneId)).toContainText('no draft');
 
+    const publisherDrawer = page.getByRole('dialog', { name: /编辑预置场景/ });
+    await publisherDrawer.getByRole('button', { name: '关闭', exact: true }).click();
+    await expect(publisherDrawer).toBeHidden();
     await sceneRow(page, scene.presetSceneId).getByRole('button', { name: '版本历史', exact: true }).click();
     await expect(
       page.getByRole('dialog', { name: /版本历史/ }).getByRole('button', { name: '回滚到 v1', exact: true }),
