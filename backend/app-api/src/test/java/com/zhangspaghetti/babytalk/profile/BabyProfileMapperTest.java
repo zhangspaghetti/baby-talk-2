@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.profile.model.BabyProfilePatch;
 import com.zhangspaghetti.babytalk.profile.model.BabyProfileRow;
+import com.zhangspaghetti.babytalk.service.CaregiverInviteMapper;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -27,6 +28,9 @@ class BabyProfileMapperTest extends AbstractIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private CaregiverInviteMapper caregiverInviteMapper;
 
     @Test
     void insertsAndReadsByAccountId() {
@@ -115,6 +119,104 @@ class BabyProfileMapperTest extends AbstractIntegrationTest {
         assertThat(found.starterPhraseId()).isEqualTo("bath_time_warm_water");
     }
 
+    @Test
+    void sharedProfileRequiresActiveHouseholdPrimaryAndRequester() {
+        insertAccount("acct_shared_primary");
+        insertAccount("acct_shared_caregiver");
+        insertHouseholdGraph(
+                "household_shared_active",
+                "acct_shared_primary",
+                "acct_shared_caregiver",
+                "active",
+                "active",
+                "active"
+        );
+        mapper.insert(completedRow("babyprof_shared_primary", "acct_shared_primary"));
+
+        var found = mapper.findSharedByHouseholdMemberAccountId("acct_shared_caregiver");
+
+        assertThat(found).isNotNull();
+        assertThat(found.accountId()).isEqualTo("acct_shared_primary");
+        assertThat(found.profileId()).isEqualTo("babyprof_shared_primary");
+    }
+
+    @Test
+    void sharedProfileDoesNotReturnWhenMembershipOrPrimaryOrHouseholdIsInactive() {
+        insertAccount("acct_shared_primary_revoked");
+        insertAccount("acct_shared_caregiver_revoked");
+        insertHouseholdGraph(
+                "household_shared_revocation",
+                "acct_shared_primary_revoked",
+                "acct_shared_caregiver_revoked",
+                "active",
+                "active",
+                "active"
+        );
+        mapper.insert(completedRow("babyprof_shared_revocation", "acct_shared_primary_revoked"));
+
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where account_id = ?",
+                "acct_shared_caregiver_revoked"
+        );
+        assertThat(mapper.findSharedByHouseholdMemberAccountId("acct_shared_caregiver_revoked")).isNull();
+
+        jdbcTemplate.update(
+                "update household_members set status = 'active' where account_id = ?",
+                "acct_shared_caregiver_revoked"
+        );
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where account_id = ?",
+                "acct_shared_primary_revoked"
+        );
+        assertThat(mapper.findSharedByHouseholdMemberAccountId("acct_shared_caregiver_revoked")).isNull();
+
+        jdbcTemplate.update(
+                "update household_members set status = 'active' where account_id = ?",
+                "acct_shared_primary_revoked"
+        );
+        jdbcTemplate.update(
+                "update households set status = 'revoked' where household_id = ?",
+                "household_shared_revocation"
+        );
+        assertThat(mapper.findSharedByHouseholdMemberAccountId("acct_shared_caregiver_revoked")).isNull();
+    }
+
+    @Test
+    void generationAccessStateDistinguishesNeverMemberInactiveMembershipAndInactiveHousehold() {
+        insertAccount("acct_access_never");
+        insertAccount("acct_access_primary");
+        insertAccount("acct_access_membership");
+        insertHouseholdGraph(
+                "household_access_membership",
+                "acct_access_primary",
+                "acct_access_membership",
+                "active",
+                "active",
+                "active"
+        );
+
+        var neverMember = caregiverInviteMapper.findGenerationAccessStateByAccount("acct_access_never");
+        assertThat(neverMember.accessState()).isEqualTo("never_member");
+
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where account_id = ?",
+                "acct_access_membership"
+        );
+        var inactiveMembership = caregiverInviteMapper.findGenerationAccessStateByAccount("acct_access_membership");
+        assertThat(inactiveMembership.accessState()).isEqualTo("inactive_membership");
+
+        jdbcTemplate.update(
+                "update household_members set status = 'active' where account_id = ?",
+                "acct_access_membership"
+        );
+        jdbcTemplate.update(
+                "update households set status = 'revoked' where household_id = ?",
+                "household_access_membership"
+        );
+        var inactiveHousehold = caregiverInviteMapper.findGenerationAccessStateByAccount("acct_access_membership");
+        assertThat(inactiveHousehold.accessState()).isEqualTo("inactive_household");
+    }
+
     private void insertAccount(String accountId) {
         jdbcTemplate.update(
                 """
@@ -151,6 +253,66 @@ class BabyProfileMapperTest extends AbstractIntegrationTest {
                 1,
                 NOW_DB,
                 NOW_DB
+        );
+    }
+
+    private void insertHouseholdGraph(
+            String householdId,
+            String ownerAccountId,
+            String requesterAccountId,
+            String householdStatus,
+            String ownerMemberStatus,
+            String requesterMemberStatus
+    ) {
+        jdbcTemplate.update(
+                """
+                insert into households (
+                    household_id,
+                    owner_account_id,
+                    status,
+                    created_at,
+                    revoked_at
+                ) values (?, ?, ?, ?, null)
+                """,
+                householdId,
+                ownerAccountId,
+                householdStatus,
+                Timestamp.from(NOW_DB.toInstant())
+        );
+        jdbcTemplate.update(
+                """
+                insert into household_members (
+                    household_id,
+                    account_id,
+                    role,
+                    status,
+                    invited_by_account_id,
+                    joined_at,
+                    last_accepted_at
+                ) values (?, ?, 'primary_caregiver', ?, null, ?, null)
+                """,
+                householdId,
+                ownerAccountId,
+                ownerMemberStatus,
+                Timestamp.from(NOW_DB.toInstant())
+        );
+        jdbcTemplate.update(
+                """
+                insert into household_members (
+                    household_id,
+                    account_id,
+                    role,
+                    status,
+                    invited_by_account_id,
+                    joined_at,
+                    last_accepted_at
+                ) values (?, ?, 'caregiver', ?, ?, ?, null)
+                """,
+                householdId,
+                requesterAccountId,
+                requesterMemberStatus,
+                ownerAccountId,
+                Timestamp.from(NOW_DB.toInstant())
         );
     }
 

@@ -14,8 +14,12 @@ public class CaregiverInviteRepository {
         this.mapper = mapper;
     }
 
-    Optional<HouseholdMemberRow> findActiveMembershipByAccount(String accountId) {
+    public Optional<HouseholdMemberRow> findActiveMembershipByAccount(String accountId) {
         return Optional.ofNullable(mapper.findActiveMembershipByAccount(accountId));
+    }
+
+    public Optional<GenerationAccessStateRow> findGenerationAccessStateByAccount(String accountId) {
+        return Optional.ofNullable(mapper.findGenerationAccessStateByAccount(accountId));
     }
 
     /**
@@ -133,6 +137,19 @@ public class CaregiverInviteRepository {
             String invitedByAccountId,
             OffsetDateTime joinedAt,
             OffsetDateTime lastAcceptedAt
+    ) {
+    }
+
+    /**
+     * Single-row access decision from the database. {@code accessState} is
+     * one of never_member, active_membership, inactive_membership, or
+     * inactive_household.
+     */
+    public record GenerationAccessStateRow(
+            String accessState,
+            String householdId,
+            String accountId,
+            String role
     ) {
     }
 
