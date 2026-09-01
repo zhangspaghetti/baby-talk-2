@@ -427,13 +427,19 @@ async function requestOverviewStreamResponse(input: {
     url.searchParams.set('sinceEventId', input.lastEventId);
   }
 
+  const headers: Record<string, string> = {
+    Accept: 'text/event-stream',
+  };
+  const accessToken = loadStoredSession()?.accessToken;
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   let response: Response;
   try {
     response = await fetch(url.toString(), {
       method: 'GET',
-      headers: {
-        Accept: 'text/event-stream',
-      },
+      headers,
       credentials: 'include',
       cache: 'no-store',
       signal: input.signal,

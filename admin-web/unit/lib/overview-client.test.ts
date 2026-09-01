@@ -27,11 +27,42 @@ describe('overview stream session refresh', () => {
     globalThis.fetch = originalFetch;
   });
 
+  it('authorizes the first stream request with the stored access token without refreshing a valid session', async () => {
+    const { authApi } = await import('../../src/auth/auth-api');
+    const { persistStoredSession } = await import('../../src/auth/session-store');
+    const refreshSpy = vi.spyOn(authApi, 'refresh');
+    persistStoredSession({
+      ...session,
+      accessToken: 'stream-access-token',
+    });
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(streamResponse());
+    const { overviewClient } = await import('../../src/lib/overviewClient');
+
+    const subscription = overviewClient.subscribeTransport({
+      onTransport: vi.fn(),
+    });
+
+    await subscription.closed;
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Accept: 'text/event-stream',
+          Authorization: 'Bearer stream-access-token',
+        }),
+      }),
+    );
+  });
+
   it('passes stored refresh token, persists refreshed session, then retries the stream', async () => {
     const { authApi } = await import('../../src/auth/auth-api');
     const { getSessionSnapshot, persistStoredSession } = await import('../../src/auth/session-store');
     const refreshSpy = vi.spyOn(authApi, 'refresh').mockResolvedValue({
       admin,
+      accessToken: 'next-stream-access-token',
       refreshToken: 'next-refresh-token',
     });
     persistStoredSession(session);
@@ -50,10 +81,19 @@ describe('overview stream session refresh', () => {
     expect(refreshSpy).toHaveBeenCalledTimes(1);
     expect(refreshSpy).toHaveBeenCalledWith('stream-refresh-token');
     expect(getSessionSnapshot()).toEqual({
-      session: { admin, refreshToken: 'next-refresh-token' },
+      session: { admin, accessToken: 'next-stream-access-token', refreshToken: 'next-refresh-token' },
       banner: null,
     });
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      2,
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer next-stream-access-token',
+        }),
+      }),
+    );
   });
 
   it('fails closed without a stored refresh token and does not call refresh API', async () => {

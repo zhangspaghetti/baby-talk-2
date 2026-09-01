@@ -39,3 +39,23 @@ The focused JDBC tests first exposed the actual Spring AI 2 compatibility issue:
 - `DbMigrationSmokeTest`: 6 passed.
 - Task 6 focused suite: 140 passed.
 - Platform regression gate: 167 passed.
+
+## P1-T6 auth flake fix (2026-09-01)
+
+### Root cause and fix
+
+- Each UI login first navigates to `/overview`, but `requestOverviewStreamResponse` sent only the SSE `Accept` header and credentials. The admin API therefore returned 401, causing `refreshStreamSession` to race the protected Axios refresh path against the same rotating refresh token.
+- The stream request now reads `loadStoredSession()?.accessToken` on every attempt and sends `Authorization: Bearer <accessToken>` when present. The existing refresh retry recursively reads the persisted replacement access token; no shared mutex or broad auth refactor was added.
+- The focused regression test was observed RED before the production change (missing `Authorization`); after the change it verifies both the first valid-session request and the refreshed retry request.
+
+### Verification
+
+- `pnpm exec vitest run unit/lib/overview-client.test.ts`: 5 passed.
+- `pnpm test`: 10 files / 39 tests passed.
+- `pnpm typecheck`: passed.
+- `pnpm lint`: passed.
+- `pnpm format`: passed.
+- `pnpm build`: passed; existing Vite circular-chunk and large-chunk warnings remain.
+- QA `docker-desktop` / `babytalk-qa`: app-api, admin-api, gateway, and admin-web deployments were `1/1`, running, and had zero restarts. Temporary service forwards exposed app-api on 8080 and admin-api on 8081; both actuator health probes returned `UP`.
+- Single E2E run from the 89d worktree: `preset-scenes.spec.ts --retries=0` ran all 10 cases and passed in 56.8s. No retry, flaky result, failure, or failure trace.
+- Cleanup completed: Vite and both temporary forwards stopped; ports 3100, 8080, and 8081 were confirmed free. QA data and deployments were not changed.
