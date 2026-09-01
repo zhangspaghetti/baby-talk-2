@@ -224,11 +224,28 @@ export function seedPresetSceneFixture(label: string): PresetSceneFixture {
       from created_activity
       returning activity_id, version_id
     )
-    update practice_activities activity
-       set current_published_version_id = created_version.version_id
-      from created_version
-     where activity.id = created_version.activity_id;
+    select 1 from created_version;
   `);
+
+  const pointerUpdateCount = readComposeScalar(
+    `
+    with updated as (
+      update practice_activities activity
+         set current_published_version_id = version.version_id
+        from practice_preset_scene_versions version
+       where activity.slug = ${sqlLiteral(presetSceneId)}
+         and version.activity_id = activity.id
+         and version.version = 1
+         and version.state = 'published'
+      returning 1
+    )
+    select count(*) from updated;
+  `,
+    `point preset scene ${presetSceneId} at its published version`,
+  );
+  if (pointerUpdateCount !== '1') {
+    throw new Error(`[admin-api seed] preset scene ${presetSceneId} did not receive a current published pointer.`);
+  }
 
   return { presetSceneId, title, generationBrief };
 }
