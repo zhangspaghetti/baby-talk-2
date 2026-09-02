@@ -171,6 +171,15 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
                 request.displayText(),
                 request.ageRange(),
                 request.parentGoal(),
+                new GenerationRequestContextPayload(
+                        request.context().babyName(),
+                        request.context().ageRange(),
+                        request.context().parentGoal(),
+                        request.context().locale(),
+                        request.context().actorRole(),
+                        request.context().recentPracticeCount(),
+                        request.context().dominantReaction(),
+                        request.context().recentActivitySummary()),
                 new CandidatePayload(
                         candidate.spaceTitleZh(),
                         candidate.activityTitleZh(),
@@ -206,6 +215,7 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
             String displayText,
             String ageRange,
             String parentGoal,
+            GenerationRequestContextPayload context,
             CandidatePayload candidate,
             List<ReactionSupportPayload> reactionSupports,
             List<String> strategyIds,
@@ -215,6 +225,18 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
             List<String> orderedSanitizedEvidenceSummaries,
             String rubricVersion,
             String rubricContentHash
+    ) {
+    }
+
+    private record GenerationRequestContextPayload(
+            String babyName,
+            String ageRange,
+            String parentGoal,
+            String locale,
+            String actorRole,
+            int recentPracticeCount,
+            String dominantReaction,
+            String recentActivitySummary
     ) {
     }
 

@@ -41,6 +41,19 @@ public record TypedRepairPackage(
         Objects.requireNonNull(generationProfile, "generationProfile");
     }
 
+    @Override
+    public String toString() {
+        return "TypedRepairPackage{"
+                + "effectiveVerdict=" + effectiveVerdict
+                + ", failedDimensions=" + failedDimensions
+                + ", violationCount=" + violationCodes.size()
+                + ", branchRequirementCount=" + branchRequirements.size()
+                + ", repairDirectiveCount=" + repairDirectives.size()
+                + ", evidenceCount=" + evidenceSummaries.size()
+                + ", generationProfileVersion='" + generationProfile.version() + '\''
+                + '}';
+    }
+
     public record BranchRequirement(
             Branch branch,
             List<GeneratedOutputViolationCode> violationCodes

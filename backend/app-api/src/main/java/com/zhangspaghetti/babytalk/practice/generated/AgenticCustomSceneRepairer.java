@@ -82,6 +82,15 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
         var userPrompt = objectMapper.writeValueAsString(new RepairPromptPayload(
                 request.attemptNumber(),
                 request.locale(),
+                new GenerationRequestContextPayload(
+                        request.context().babyName(),
+                        request.context().ageRange(),
+                        request.context().parentGoal(),
+                        request.context().locale(),
+                        request.context().actorRole(),
+                        request.context().recentPracticeCount(),
+                        request.context().dominantReaction(),
+                        request.context().recentActivitySummary()),
                 repairPackage.displayText(),
                 repairPackage.ageRange(),
                 repairPackage.parentGoal(),
@@ -164,7 +173,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
     }
 
     private ContentConstraintsPayload contentConstraintsPayload(
-            CustomSceneGenerator.ContentConstraints constraints
+            SceneContentGenerator.ContentConstraints constraints
     ) {
         return new ContentConstraintsPayload(
                 constraints.maxEnglishWords(),
@@ -179,6 +188,7 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
     private record RepairPromptPayload(
             int attemptNumber,
             String locale,
+            GenerationRequestContextPayload context,
             String displayText,
             String ageRange,
             String parentGoal,
@@ -194,6 +204,18 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             EvidenceActionConsistencyPolicyPayload evidenceActionConsistencyPolicy,
             List<String> orderedSanitizedEvidenceSummaries,
             GenerationProfilePayload generationProfile
+    ) {
+    }
+
+    private record GenerationRequestContextPayload(
+            String babyName,
+            String ageRange,
+            String parentGoal,
+            String locale,
+            String actorRole,
+            int recentPracticeCount,
+            String dominantReaction,
+            String recentActivitySummary
     ) {
     }
 

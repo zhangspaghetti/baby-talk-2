@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.ContentConstraints;
 import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
 import java.util.Objects;
 import java.util.UUID;
@@ -16,8 +16,30 @@ public interface CustomSceneRepairer {
             UUID evidenceBundleId,
             String locale,
             ContentConstraints contentConstraints,
-            TypedRepairPackage repairPackage
+            TypedRepairPackage repairPackage,
+            GenerationRequestContext context
     ) {
+        public RepairRequest(
+                String generatedContentId,
+                int attemptNumber,
+                UUID evidenceBundleId,
+                String locale,
+                ContentConstraints contentConstraints,
+                TypedRepairPackage repairPackage
+        ) {
+            this(generatedContentId, attemptNumber, evidenceBundleId, locale,
+                    contentConstraints, repairPackage,
+                    new GenerationRequestContext(
+                            "legacy",
+                            repairPackage.ageRange(),
+                            repairPackage.parentGoal(),
+                            locale == null ? "unknown" : locale,
+                            "legacy",
+                            0,
+                            null,
+                            ""));
+        }
+
         public RepairRequest {
             if (generatedContentId == null || generatedContentId.isBlank()) {
                 throw new IllegalArgumentException("generatedContentId must be non-blank");
@@ -29,6 +51,21 @@ public interface CustomSceneRepairer {
             Objects.requireNonNull(locale, "locale");
             Objects.requireNonNull(contentConstraints, "contentConstraints");
             Objects.requireNonNull(repairPackage, "repairPackage");
+            Objects.requireNonNull(context, "context");
+            if (!Objects.equals(locale, context.locale())
+                    || !Objects.equals(repairPackage.ageRange(), context.ageRange())
+                    || !Objects.equals(repairPackage.parentGoal(), context.parentGoal())) {
+                throw new IllegalArgumentException("repair request context must match request profile");
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "RepairRequest{"
+                    + "generatedContentId='" + generatedContentId + '\''
+                    + ", attemptNumber=" + attemptNumber
+                    + ", locale='" + locale + '\''
+                    + '}';
         }
     }
 }

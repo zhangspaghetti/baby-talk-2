@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneGeneratedContentValidator;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
 import com.zhangspaghetti.babytalk.practice.generated.internal.PracticeGenerationAuditTestAccess;
@@ -539,7 +539,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         var retryingRepository = new PracticeGeneratedContentService(
                 queryMapper,
                 commandPort,
-                org.mockito.Mockito.mock(CustomSceneGenerator.class),
+                org.mockito.Mockito.mock(SceneContentGenerator.class),
                 validator(),
                 PracticeDiscoveryCustomSceneProperties.enabledForTest("fake"),
                 PracticeDiscoveryPolicyTestFixture.properties(),
@@ -1322,9 +1322,9 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 new BeanPropertySqlParameterSource(row));
     }
 
-    private CustomSceneGeneratedContentValidator validator() {
+    private SceneGeneratedContentValidator validator() {
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
-        return new CustomSceneGeneratedContentValidator(
+        return new SceneGeneratedContentValidator(
                 policy,
                 new com.zhangspaghetti.babytalk.practice.discovery.CustomSceneIntentClassifier(policy));
     }

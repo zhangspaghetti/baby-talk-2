@@ -20,7 +20,7 @@ import tools.jackson.databind.ObjectMapper;
         name = "provider-mode",
         havingValue = "agentic"
 )
-public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
+public class AgenticSceneContentGenerator implements SceneContentGenerator {
 
     private static final String SUBJECT_TYPE = "generated_content";
 
@@ -30,7 +30,7 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
     private final ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public AgenticCustomSceneGenerator(
+    public AgenticSceneContentGenerator(
             PracticeAiOperationRunner operationRunner,
             PracticeAiStructuredOutputCaller structuredOutputCaller,
             VersionedResourceRegistry resourceRegistry
@@ -38,7 +38,7 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
         this(operationRunner, structuredOutputCaller, resourceRegistry, new ObjectMapper());
     }
 
-    AgenticCustomSceneGenerator(
+    AgenticSceneContentGenerator(
             PracticeAiOperationRunner operationRunner,
             PracticeAiStructuredOutputCaller structuredOutputCaller,
             VersionedResourceRegistry resourceRegistry,
@@ -138,6 +138,15 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
                 request.ageRange(),
                 request.parentGoal(),
                 request.locale(),
+                new GenerationRequestContextPayload(
+                        request.context().babyName(),
+                        request.context().ageRange(),
+                        request.context().parentGoal(),
+                        request.context().locale(),
+                        request.context().actorRole(),
+                        request.context().recentPracticeCount(),
+                        request.context().dominantReaction(),
+                        request.context().recentActivitySummary()),
                 new GenerationProfilePayload(
                         profile.version(),
                         profile.generatorPrompt().version(),
@@ -166,10 +175,23 @@ public class AgenticCustomSceneGenerator implements CustomSceneGenerator {
             String ageRange,
             String parentGoal,
             String locale,
+            GenerationRequestContextPayload context,
             GenerationProfilePayload generationProfile,
             ContentConstraintsPayload constraints,
             CompleteGeneratedBundle.PersistenceCodePointLimits persistenceCodePointLimits,
             List<String> orderedSanitizedEvidenceSummaries
+    ) {
+    }
+
+    private record GenerationRequestContextPayload(
+            String babyName,
+            String ageRange,
+            String parentGoal,
+            String locale,
+            String actorRole,
+            int recentPracticeCount,
+            String dominantReaction,
+            String recentActivitySummary
     ) {
     }
 

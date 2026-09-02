@@ -5,7 +5,7 @@ import com.zhangspaghetti.babytalk.practice.generated.evidence.FrozenEvidenceBun
 import java.time.Duration;
 import java.util.Set;
 
-public interface CustomSceneGenerator {
+public interface SceneContentGenerator {
 
     /** Generates one closed six-utterance moment in one provider request. */
     GeneratedCareMomentBundle generateCareMoment(GeneratorRequest request);
@@ -19,8 +19,58 @@ public interface CustomSceneGenerator {
             String locale,
             FrozenEvidenceBundle evidenceBundle,
             GenerationProfile generationProfile,
-            ContentConstraints constraints
+            ContentConstraints constraints,
+            GenerationRequestContext context
     ) {
+        public GeneratorRequest(
+                String generatedContentId,
+                int attemptNumber,
+                String displayText,
+                String ageRange,
+                String parentGoal,
+                String locale,
+                FrozenEvidenceBundle evidenceBundle,
+                GenerationProfile generationProfile,
+                ContentConstraints constraints
+        ) {
+            this(generatedContentId, attemptNumber, displayText, ageRange, parentGoal, locale,
+                    evidenceBundle, generationProfile, constraints,
+                    legacyContext(ageRange, parentGoal, locale));
+        }
+
+        public GeneratorRequest {
+            java.util.Objects.requireNonNull(context, "context");
+            if (!java.util.Objects.equals(ageRange, context.ageRange())
+                    || !java.util.Objects.equals(parentGoal, context.parentGoal())
+                    || !java.util.Objects.equals(locale, context.locale())) {
+                throw new IllegalArgumentException("generator request context must match request profile");
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "GeneratorRequest{"
+                    + "generatedContentId='" + generatedContentId + '\''
+                    + ", attemptNumber=" + attemptNumber
+                    + ", locale='" + locale + '\''
+                    + '}';
+        }
+
+        private static GenerationRequestContext legacyContext(
+                String ageRange,
+                String parentGoal,
+                String locale
+        ) {
+            return new GenerationRequestContext(
+                    "legacy",
+                    ageRange == null ? "unknown" : ageRange,
+                    parentGoal == null ? "unknown" : parentGoal,
+                    locale == null ? "unknown" : locale,
+                    "legacy",
+                    0,
+                    null,
+                    "");
+        }
     }
 
     record ContentConstraints(

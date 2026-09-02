@@ -358,6 +358,7 @@ class ScenePersonalizationContextServiceTest extends AbstractIntegrationTest {
                 "daily_care",
                 "bath_time",
                 "zh-CN",
+                "installation-input",
                 "client-request-input"
         );
 

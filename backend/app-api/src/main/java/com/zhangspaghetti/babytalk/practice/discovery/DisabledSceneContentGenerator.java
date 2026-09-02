@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
         havingValue = "disabled",
         matchIfMissing = true
 )
-public class DisabledCustomSceneGenerationService implements CustomSceneGenerator {
+public class DisabledSceneContentGenerator implements SceneContentGenerator {
 
     @Override
     public com.zhangspaghetti.babytalk.practice.generated.GeneratedCareMomentBundle generateCareMoment(

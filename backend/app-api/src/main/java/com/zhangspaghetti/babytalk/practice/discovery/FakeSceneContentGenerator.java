@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator;
 import com.zhangspaghetti.babytalk.practice.generated.GeneratedCareMomentBundle;
 import java.util.Locale;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -10,11 +10,11 @@ import org.springframework.stereotype.Service;
 @Service
 @Profile({"dev", "test"})
 @ConditionalOnProperty(prefix = "babytalk.practice.discovery.custom-scene", name = "provider-mode", havingValue = "fake")
-public class FakeCustomSceneGenerationService implements CustomSceneGenerator {
+public class FakeSceneContentGenerator implements SceneContentGenerator {
 
     private final PracticeDiscoveryCustomSceneProperties properties;
 
-    public FakeCustomSceneGenerationService(PracticeDiscoveryCustomSceneProperties properties) {
+    public FakeSceneContentGenerator(PracticeDiscoveryCustomSceneProperties properties) {
         this.properties = properties;
     }
 

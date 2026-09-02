@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.generated;
 
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.quality.SuggestedJudgeResult;
 import java.util.List;
 import java.util.Objects;
@@ -25,8 +25,40 @@ public interface CustomSceneQualityJudge {
             List<String> safetyConstraintTags,
             List<String> orderedSanitizedEvidenceSummaries,
             String rubricVersion,
-            String rubricContentHash
+            String rubricContentHash,
+            GenerationRequestContext context
     ) {
+        public JudgeRequest(
+                String generatedContentId,
+                int attemptNumber,
+                UUID evidenceBundleId,
+                String displayText,
+                String ageRange,
+                String parentGoal,
+                GeneratedPracticeContentCandidate candidate,
+                GeneratedCareMomentBundle careMoment,
+                List<String> strategyIds,
+                List<String> communicationPrimitiveIds,
+                List<String> ageGuidanceTags,
+                List<String> safetyConstraintTags,
+                List<String> orderedSanitizedEvidenceSummaries,
+                String rubricVersion,
+                String rubricContentHash
+        ) {
+            this(generatedContentId, attemptNumber, evidenceBundleId, displayText, ageRange, parentGoal,
+                    candidate, careMoment, strategyIds, communicationPrimitiveIds, ageGuidanceTags,
+                    safetyConstraintTags, orderedSanitizedEvidenceSummaries, rubricVersion, rubricContentHash,
+                    new GenerationRequestContext(
+                            "legacy",
+                            ageRange,
+                            parentGoal,
+                            "unknown",
+                            "legacy",
+                            0,
+                            null,
+                            ""));
+        }
+
         public JudgeRequest {
             requireNonBlank(generatedContentId, "generatedContentId");
             if (attemptNumber < 1) {
@@ -46,6 +78,20 @@ public interface CustomSceneQualityJudge {
                     orderedSanitizedEvidenceSummaries, "orderedSanitizedEvidenceSummaries");
             requireNonBlank(rubricVersion, "rubricVersion");
             requireNonBlank(rubricContentHash, "rubricContentHash");
+            Objects.requireNonNull(context, "context");
+            if (!Objects.equals(ageRange, context.ageRange())
+                    || !Objects.equals(parentGoal, context.parentGoal())) {
+                throw new IllegalArgumentException("judge request context must match request profile");
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "JudgeRequest{"
+                    + "generatedContentId='" + generatedContentId + '\''
+                    + ", attemptNumber=" + attemptNumber
+                    + ", rubricVersion='" + rubricVersion + '\''
+                    + '}';
         }
         private static List<String> requiredList(List<String> values, String field) {
             Objects.requireNonNull(values, field);

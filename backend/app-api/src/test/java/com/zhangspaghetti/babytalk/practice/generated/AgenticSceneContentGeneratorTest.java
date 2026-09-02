@@ -20,8 +20,8 @@ import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedRef;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratorRequest;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.ContentConstraints;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratorRequest;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceItem;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSanitizer;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.FrozenEvidenceBundle;
@@ -42,14 +42,14 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 import tools.jackson.databind.json.JsonMapper;
 
-class AgenticCustomSceneGeneratorTest {
+class AgenticSceneContentGeneratorTest {
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper();
 
     @Test
     void candidateContainsOnlyTheTenApprovedContentFields() throws Exception {
         var candidateType = Class.forName(
-                "com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator$GeneratedPracticeContentCandidate");
+                "com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator$GeneratedPracticeContentCandidate");
 
         assertThat(Arrays.stream(candidateType.getRecordComponents())
                 .map(component -> component.getName())
@@ -71,7 +71,7 @@ class AgenticCustomSceneGeneratorTest {
     @Test
     void requestContainsOnlyApprovedTypedFields() throws Exception {
         var requestType = Class.forName(
-                "com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator$GeneratorRequest");
+                "com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator$GeneratorRequest");
 
         assertThat(Arrays.stream(requestType.getRecordComponents())
                 .map(component -> component.getName())
@@ -85,7 +85,8 @@ class AgenticCustomSceneGeneratorTest {
                         "locale",
                         "evidenceBundle",
                         "generationProfile",
-                        "constraints")
+                        "constraints",
+                        "context")
                 .doesNotContain(
                         "securityText",
                         "ownerKey",
@@ -120,11 +121,11 @@ class AgenticCustomSceneGeneratorTest {
                 "primary",
                 "gpt-test",
                 "provider-trace"));
-        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, structuredOutputCaller, registry);
 
         var candidate = generator.generateCareMoment(request()).starter();
 
-        assertThat(candidate).isEqualTo(new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+        assertThat(candidate).isEqualTo(new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "日常照护",
                 "穿鞋出门",
                 "Shoes on",
@@ -171,7 +172,8 @@ class AgenticCustomSceneGeneratorTest {
                 eq(8192));
         var userPrompt = userPromptCaptor.getValue();
         assertThat(userPrompt)
-                .contains("pgc_generator_test", "给宝宝穿鞋", "m7_11", "calmer_care", "zh-CN")
+                .contains("pgc_generator_test", "给宝宝穿鞋", "m7_11", "calmer_care", "zh-CN", "小满",
+                        "caregiver", "recentPracticeCount", "7", "hesitant", "daily_care/bath_time=7")
                 .contains("先轻声说。", "再停下来观察。")
                 .contains(
                         "\"persistenceCodePointLimits\":{",
@@ -217,7 +219,7 @@ class AgenticCustomSceneGeneratorTest {
                 "primary",
                 "glm-5.2",
                 null));
-        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, structuredOutputCaller, registry);
 
         generator.generateCareMoment(request(profile, evidenceBundle()));
         var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
@@ -267,7 +269,7 @@ class AgenticCustomSceneGeneratorTest {
                 "primary",
                 modelName,
                 null));
-        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, structuredOutputCaller, registry);
 
         generator.generateCareMoment(request(profile, evidenceBundle()));
         var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
@@ -304,7 +306,7 @@ class AgenticCustomSceneGeneratorTest {
                 "p".repeat(CompleteGeneratedBundle.PROVIDER_NAME_MAX_CODE_POINTS + 1),
                 "m".repeat(CompleteGeneratedBundle.MODEL_NAME_MAX_CODE_POINTS + 1),
                 null));
-        var generator = new AgenticCustomSceneGenerator(runner, caller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, caller, registry);
 
         var provenance = generator.generateCareMoment(request())
                 .completeBundle().utterances().get(0).providerProvenance();
@@ -330,7 +332,7 @@ class AgenticCustomSceneGeneratorTest {
                 "primary",
                 "gpt-test",
                 null));
-        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, structuredOutputCaller, registry);
         generator.generateCareMoment(request());
         var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
         var provider = new ResolvedProvider(
@@ -393,7 +395,7 @@ class AgenticCustomSceneGeneratorTest {
                 "profile-v2",
                 new VersionedRef("generator-v1", "a".repeat(64), "generator-v1.txt"),
                 new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml")));
-        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, structuredOutputCaller, registry);
 
         assertThatThrownBy(() -> generator.generateCareMoment(request()))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -410,7 +412,7 @@ class AgenticCustomSceneGeneratorTest {
                 "profile-v1",
                 new VersionedRef("generator-v1", "9".repeat(64), "generator-v1.txt"),
                 new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml")));
-        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, structuredOutputCaller, registry);
 
         assertThatThrownBy(() -> generator.generateCareMoment(request()))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -433,7 +435,7 @@ class AgenticCustomSceneGeneratorTest {
         var structuredOutputCaller = mock(PracticeAiStructuredOutputCaller.class);
         var registry = mock(VersionedResourceRegistry.class);
         when(registry.currentGenerationProfile()).thenReturn(generationProfile());
-        var generator = new AgenticCustomSceneGenerator(runner, structuredOutputCaller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, structuredOutputCaller, registry);
 
         assertThatThrownBy(() -> generator.generateCareMoment(request(generationProfile(), evidenceBundle)))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -455,7 +457,16 @@ class AgenticCustomSceneGeneratorTest {
                 "zh-CN",
                 evidenceBundle,
                 generationProfile,
-                ContentConstraints.defaults());
+                ContentConstraints.defaults(),
+                new GenerationRequestContext(
+                        "小满",
+                        "m7_11",
+                        "calmer_care",
+                        "zh-CN",
+                        "caregiver",
+                        7,
+                        "hesitant",
+                        "daily_care/bath_time=7"));
     }
 
     private FrozenEvidenceBundle evidenceBundle() {

@@ -1,6 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator;
 import com.zhangspaghetti.babytalk.practice.generated.GeneratedCareMomentBundle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -51,7 +51,7 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     private AuthConsentSyncService authConsentSyncService;
 
     @Autowired
-    private MutableCustomSceneGenerator customSceneGenerationService;
+    private MutableSceneContentGenerator customSceneGenerationService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -60,7 +60,7 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     private ApplicationContext applicationContext;
 
     @BeforeEach
-    void resetCustomSceneGenerator() {
+    void resetSceneContentGenerator() {
         customSceneGenerationService.mode("success");
     }
 
@@ -802,12 +802,12 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
 
         @Bean
         @Primary
-        MutableCustomSceneGenerator mutableCustomSceneGenerator() {
-            return new MutableCustomSceneGenerator();
+        MutableSceneContentGenerator mutableSceneContentGenerator() {
+            return new MutableSceneContentGenerator();
         }
     }
 
-    static class MutableCustomSceneGenerator implements CustomSceneGenerator {
+    static class MutableSceneContentGenerator implements SceneContentGenerator {
 
         private final AtomicReference<String> mode = new AtomicReference<>("success");
 

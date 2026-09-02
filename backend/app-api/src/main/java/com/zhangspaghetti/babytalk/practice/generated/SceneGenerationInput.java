@@ -6,8 +6,9 @@ import com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContext;
 /**
  * Source-neutral input contract shared by preset and custom scene generation.
  *
- * <p>Generation fields can contain prompt and profile material. Diagnostic
- * rendering therefore exposes only the source tag and preset presence.</p>
+ * <p>Generation fields can contain prompt, installation, and profile material.
+ * Diagnostic rendering therefore exposes only the source tag and preset
+ * presence.</p>
  */
 public record SceneGenerationInput(
         String inputSource,
@@ -19,21 +20,20 @@ public record SceneGenerationInput(
         String stableSpaceId,
         String stableActivityId,
         String locale,
+        String installationId,
         String clientRequestId
 ) {
 
     @Override
     public String toString() {
         return "SceneGenerationInput{"
-                + "inputSource='" + diagnosticValue(inputSource) + '\''
+                + "inputSource='" + sourceTag(inputSource) + '\''
                 + ", preset=" + (presetActivityId != null || presetSceneVersionId != null)
                 + '}';
     }
 
-    private static String diagnosticValue(String value) {
-        if (value == null) {
-            return "null";
-        }
-        return value.replace('\r', ' ').replace('\n', ' ').replace('\'', '_');
+    private static String sourceTag(String value) {
+        return "custom".equals(value) || "preset".equals(value) ? value : "unknown";
     }
+
 }

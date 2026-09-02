@@ -16,13 +16,13 @@ class FakeCustomSceneRepairerTest {
 
     @Test
     void preservesCompleteBundleAndRecordsFakeRepairProvenance() {
-        var previous = new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+        var previous = new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说一遍。", "Shoes on.", "穿鞋出门。",
                 "shoes on", "starter", "agentic_search");
         var previousBundle = GeneratedCareMomentBundle.fakeFixture(previous).completeBundle();
         var request = new CustomSceneRepairer.RepairRequest(
                 "pgc_fake_repair", 2, UUID.randomUUID(), "zh-CN",
-                CustomSceneGenerator.ContentConstraints.fakeProviderDefaults(),
+                SceneContentGenerator.ContentConstraints.fakeProviderDefaults(),
                 new TypedRepairPackage(
                         "给宝宝穿鞋", "m7_11", "calmer_care", previousBundle, JudgeVerdict.REPAIR,
                         List.of(JudgeDimension.TPR_QUALITY, JudgeDimension.DELIVERY_GUIDANCE_QUALITY),

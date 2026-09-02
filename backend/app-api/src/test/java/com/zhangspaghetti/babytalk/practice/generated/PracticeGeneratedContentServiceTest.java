@@ -9,8 +9,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
-import com.zhangspaghetti.babytalk.practice.discovery.FakeCustomSceneGenerationService;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.FakeSceneContentGenerator;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
@@ -127,12 +127,12 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void providerReceivesOnlyDisplayTextAndNoSecurityText() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(shoesCandidate()));
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
         stubActivateDraft();
-        var requestCaptor = ArgumentCaptor.forClass(CustomSceneGenerator.GeneratorRequest.class);
+        var requestCaptor = ArgumentCaptor.forClass(SceneContentGenerator.GeneratorRequest.class);
 
         service.generateCustomScene(request("  宝宝　不肯\n穿鞋  "));
 
@@ -146,7 +146,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void canonicalEquivalentSceneInputsReuseOneFingerprint() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var generatorCalls = new java.util.concurrent.atomic.AtomicInteger();
         when(generator.generateCareMoment(any())).thenAnswer(invocation -> {
             generatorCalls.incrementAndGet();
@@ -241,7 +241,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void rejectsClearlyUnsupportedNonCareRequest() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
 
         var exception = org.junit.jupiter.api.Assertions.assertThrows(ContractException.class,
@@ -253,7 +253,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void existingActiveRowReturnsWithoutGeneratorCall() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
         var active = activeRow("pgc_existing_active", "洗澡后哄睡");
         stubReserveExisting(active);
@@ -268,7 +268,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void existingDraftReturnsGenerationInProgressWithoutGeneratorCall() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
         stubReserveExistingDraft();
 
@@ -286,7 +286,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void unsafeGeneratedOutputRejectedAndNeverActivated() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(unsafeCandidate()));
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
@@ -304,7 +304,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void disabledProviderReturns503AndFallbackHint() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithPropertiesAndGenerator(properties(
                 PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
                 PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
@@ -326,7 +326,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void agenticModeIsAvailableForOrchestratedGeneration() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithPropertiesAndGenerator(properties(
                 PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
                 PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
@@ -355,7 +355,7 @@ class PracticeGeneratedContentServiceTest {
         var service = new PracticeGeneratedContentService(
                 queries,
                 commands,
-                new FakeCustomSceneGenerationService(properties),
+                new FakeSceneContentGenerator(properties),
                 validator(),
                 properties,
                 PracticeDiscoveryPolicyTestFixture.properties(),
@@ -381,9 +381,9 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void timeoutReturns504AndFallbackHint() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any()))
-                .thenThrow(new CustomSceneGenerator.GenerationTimeoutException(Duration.ofSeconds(5)));
+                .thenThrow(new SceneContentGenerator.GenerationTimeoutException(Duration.ofSeconds(5)));
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
@@ -402,10 +402,10 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void transientProviderUnavailableExpiresDraftAndReturnsRetryable() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any()))
-                .thenThrow(new CustomSceneGenerator.GenerationUnavailableException(
-                        CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_UNAVAILABLE));
+                .thenThrow(new SceneContentGenerator.GenerationUnavailableException(
+                        SceneContentGenerator.GenerationUnavailableReason.PROVIDER_UNAVAILABLE));
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
@@ -425,7 +425,7 @@ class PracticeGeneratedContentServiceTest {
     @Test
     void unexpectedProviderRuntimeExpiresDraftAndReturnsSanitizedRetryableUnavailable() {
         var providerFailure = new RuntimeException("sdk leaked provider payload");
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenThrow(providerFailure);
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
@@ -449,7 +449,7 @@ class PracticeGeneratedContentServiceTest {
     @Test
     void unexpectedActivationRuntimeExpiresDraftAndReturnsSanitizedRetryableUnavailable() {
         var activationFailure = new RuntimeException("database activation internals");
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(candidate()));
         when(commands.activate(any())).thenThrow(activationFailure);
         var service = serviceWithGenerator(generator);
@@ -473,7 +473,7 @@ class PracticeGeneratedContentServiceTest {
     void cleanupFailureDoesNotMaskOriginalProviderFailure() {
         var providerFailure = new RuntimeException("original provider failure");
         var cleanupFailure = new RuntimeException("cleanup storage failure");
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenThrow(providerFailure);
         org.mockito.Mockito.doThrow(cleanupFailure).when(commands)
                 .expire(any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any());
@@ -491,9 +491,9 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void timeoutCleanupFailureDoesNotMaskTimeoutContract() {
-        var timeout = new CustomSceneGenerator.GenerationTimeoutException(Duration.ofSeconds(5));
+        var timeout = new SceneContentGenerator.GenerationTimeoutException(Duration.ofSeconds(5));
         var cleanupFailure = new RuntimeException("cleanup storage failure");
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenThrow(timeout);
         org.mockito.Mockito.doThrow(cleanupFailure).when(commands)
                 .expire(any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any());
@@ -512,10 +512,10 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void unavailableCleanupFailureDoesNotMaskRetryableContract() {
-        var unavailable = new CustomSceneGenerator.GenerationUnavailableException(
-                CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
+        var unavailable = new SceneContentGenerator.GenerationUnavailableException(
+                SceneContentGenerator.GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
         var cleanupFailure = new RuntimeException("cleanup storage failure");
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenThrow(unavailable);
         org.mockito.Mockito.doThrow(cleanupFailure).when(commands)
                 .expire(any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any());
@@ -536,7 +536,7 @@ class PracticeGeneratedContentServiceTest {
     @Test
     void rejectedOutputCleanupFailureDoesNotMaskStableContract() {
         var cleanupFailure = new RuntimeException("cleanup storage failure");
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(unsafeCandidate()));
         org.mockito.Mockito.doThrow(cleanupFailure).when(commands)
                 .reject(any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any());
@@ -549,7 +549,7 @@ class PracticeGeneratedContentServiceTest {
                     var contract = (ContractException) error;
                     assertThat(contract.code()).isEqualTo("generated_content_rejected");
                     assertThat(contract.getCause())
-                            .isInstanceOf(CustomSceneGeneratedContentValidator.RejectedGeneratedContentException.class);
+                            .isInstanceOf(SceneGeneratedContentValidator.RejectedGeneratedContentException.class);
                     assertThat(contract.getCause().getSuppressed()).containsExactly(cleanupFailure);
                 });
     }
@@ -557,7 +557,7 @@ class PracticeGeneratedContentServiceTest {
     @Test
     void invalidOutputCleanupFailureDoesNotMaskStableContract() {
         var cleanupFailure = new RuntimeException("cleanup storage failure");
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(invalidCandidate()));
         org.mockito.Mockito.doThrow(cleanupFailure).when(commands)
                 .reject(any(), any(), org.mockito.ArgumentMatchers.anyBoolean(), any(), any());
@@ -570,18 +570,18 @@ class PracticeGeneratedContentServiceTest {
                     var contract = (ContractException) error;
                     assertThat(contract.code()).isEqualTo("generation_invalid_output");
                     assertThat(contract.getCause())
-                            .isInstanceOf(CustomSceneGeneratedContentValidator.InvalidGeneratedContentException.class);
+                            .isInstanceOf(SceneGeneratedContentValidator.InvalidGeneratedContentException.class);
                     assertThat(contract.getCause().getSuppressed()).containsExactly(cleanupFailure);
                 });
     }
 
     @Test
     void typedGeneratorTimeoutMapsToStableContractAndExpiresAttempt() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
         when(generator.generateCareMoment(any()))
-                .thenThrow(new CustomSceneGenerator.GenerationTimeoutException(Duration.ofSeconds(5)));
+                .thenThrow(new SceneContentGenerator.GenerationTimeoutException(Duration.ofSeconds(5)));
         assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("generation_timeout"));
@@ -610,7 +610,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void invalidGeneratedOutputReturns502() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(invalidCandidate()));
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
@@ -630,9 +630,9 @@ class PracticeGeneratedContentServiceTest {
     @Test
     void unexpectedValidationRuntimeExpiresDraftAndReturnsSanitizedUnavailable() {
         var validationFailure = new RuntimeException("validator candidate payload");
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(candidate()));
-        var validator = org.mockito.Mockito.mock(CustomSceneGeneratedContentValidator.class);
+        var validator = org.mockito.Mockito.mock(SceneGeneratedContentValidator.class);
         when(validator.normalizeAndValidate(any(), any(), any())).thenThrow(validationFailure);
         var properties = PracticeDiscoveryCustomSceneProperties.enabledForTest("fake");
         var service = new PracticeGeneratedContentService(
@@ -684,7 +684,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void databaseOverlongCanonicalSceneIsRejectedBeforeFingerprintReservationAndProvider() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
 
         assertThatThrownBy(() -> service.generateCustomScene(request("👨‍👩‍👧‍👦".repeat(80))))
@@ -697,7 +697,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void unicodeDecimalPhoneInCustomSceneIsRejectedBeforeReservationAndProvider() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
 
         assertThatThrownBy(() -> service.generateCustomScene(request("洗澡 ١٣٨٠٠١٣٨٠٠٠")))
@@ -729,7 +729,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void promptAndStrategyVersionComeFromPropertiesAndPersistIntoRows() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var properties = new PracticeDiscoveryCustomSceneProperties(
                 true,
                 Duration.ofSeconds(5),
@@ -847,7 +847,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void rateLimitedExpiredDraftDoesNotWriteCleanupBeforeRejection() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(expiredDraft(draftRow("pgc_expired_rate_limited")));
@@ -866,7 +866,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void installationBurstRateLimitDoesNotReserveDraftOrCallGenerator() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
         when(commands.reserveDraft(any(), any()))
                 .thenThrow(new PracticeGenerationRateLimitExceededException("burst", 3));
@@ -922,7 +922,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void legacyDailyRateLimitExpiresReservedDraftSoSameFingerprintCanRetry() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         when(generator.generateCareMoment(any())).thenReturn(bundle(candidate()));
         var service = serviceWithGenerator(generator);
         var reserved = new java.util.ArrayList<PracticeGeneratedContentEntity>();
@@ -996,7 +996,7 @@ class PracticeGeneratedContentServiceTest {
 
     @Test
     void disabledCustomSceneAllowsMissingOwnerSecretWithoutDatabaseAccess() {
-        var generator = org.mockito.Mockito.mock(CustomSceneGenerator.class);
+        var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var disabledProperties = new PracticeDiscoveryCustomSceneProperties(
                 true,
                 PracticeDiscoveryCustomSceneProperties.DEFAULT_TIMEOUT,
@@ -1037,9 +1037,9 @@ class PracticeGeneratedContentServiceTest {
         ));
     }
 
-    private CustomSceneGeneratedContentValidator validator() {
+    private SceneGeneratedContentValidator validator() {
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
-        return new CustomSceneGeneratedContentValidator(
+        return new SceneGeneratedContentValidator(
                 policy,
                 new com.zhangspaghetti.babytalk.practice.discovery.CustomSceneIntentClassifier(policy));
     }
@@ -1052,7 +1052,7 @@ class PracticeGeneratedContentServiceTest {
         return new PracticeGeneratedContentService(
                 queries,
                 commands,
-                new FakeCustomSceneGenerationService(properties),
+                new FakeSceneContentGenerator(properties),
                 validator(),
                 properties,
                 PracticeDiscoveryPolicyTestFixture.properties(),
@@ -1061,7 +1061,7 @@ class PracticeGeneratedContentServiceTest {
         );
     }
 
-    private PracticeGeneratedContentService serviceWithGenerator(CustomSceneGenerator generator) {
+    private PracticeGeneratedContentService serviceWithGenerator(SceneContentGenerator generator) {
         return serviceWithPropertiesAndGenerator(
                 properties(
                         PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
@@ -1074,7 +1074,7 @@ class PracticeGeneratedContentServiceTest {
 
     private PracticeGeneratedContentService serviceWithPropertiesAndGenerator(
             PracticeDiscoveryCustomSceneProperties properties,
-            CustomSceneGenerator generator
+            SceneContentGenerator generator
     ) {
         return new PracticeGeneratedContentService(
                 queries,
@@ -1269,8 +1269,8 @@ class PracticeGeneratedContentServiceTest {
         return row;
     }
 
-    private CustomSceneGenerator.GeneratedPracticeContentCandidate candidate() {
-        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+    private SceneContentGenerator.GeneratedPracticeContentCandidate candidate() {
+        return new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "日常照护",
                 "洗澡安抚",
                 "Bath care",
@@ -1284,7 +1284,7 @@ class PracticeGeneratedContentServiceTest {
         );
     }
 
-    private GeneratedCareMomentBundle bundle(CustomSceneGenerator.GeneratedPracticeContentCandidate candidate) {
+    private GeneratedCareMomentBundle bundle(SceneContentGenerator.GeneratedPracticeContentCandidate candidate) {
         return GeneratedCareMomentBundle.fakeFixture(candidate);
     }
 
@@ -1322,8 +1322,8 @@ class PracticeGeneratedContentServiceTest {
         return row;
     }
 
-    private CustomSceneGenerator.GeneratedPracticeContentCandidate shoesCandidate() {
-        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+    private SceneContentGenerator.GeneratedPracticeContentCandidate shoesCandidate() {
+        return new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "出门准备",
                 "穿鞋出门",
                 "Shoes on",
@@ -1337,8 +1337,8 @@ class PracticeGeneratedContentServiceTest {
         );
     }
 
-    private CustomSceneGenerator.GeneratedPracticeContentCandidate unsafeCandidate() {
-        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+    private SceneContentGenerator.GeneratedPracticeContentCandidate unsafeCandidate() {
+        return new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "学习任务",
                 "答题打分",
                 "Lesson quiz",
@@ -1352,8 +1352,8 @@ class PracticeGeneratedContentServiceTest {
         );
     }
 
-    private CustomSceneGenerator.GeneratedPracticeContentCandidate invalidCandidate() {
-        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+    private SceneContentGenerator.GeneratedPracticeContentCandidate invalidCandidate() {
+        return new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "日常照护",
                 "洗澡安抚",
                 "Bath care",

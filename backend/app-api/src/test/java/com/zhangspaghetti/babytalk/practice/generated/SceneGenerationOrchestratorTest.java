@@ -18,14 +18,14 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner.ProvidersExhaustedException;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneGeneratedContentValidator;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneIntentClassifier;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.ProviderOrigin;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle.ProviderProvenance;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratorRequest;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratorRequest;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.CustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceBundleFactory;
@@ -63,7 +63,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.core.io.DefaultResourceLoader;
 import tools.jackson.databind.json.JsonMapper;
 
-class CustomSceneGenerationOrchestratorTest {
+class SceneGenerationOrchestratorTest {
 
     private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-07-18T12:00:00Z");
 
@@ -93,6 +93,7 @@ class CustomSceneGenerationOrchestratorTest {
         assertThat(harness.judgeRequests).singleElement().satisfies(request -> {
             assertThat(request.attemptNumber()).isEqualTo(1);
             assertThat(request.evidenceBundleId()).isEqualTo(harness.bundle(1).evidenceBundleId());
+            assertThat(request.context()).isEqualTo(harness.generatorRequests.get(0).context());
         });
     }
 
@@ -147,6 +148,10 @@ class CustomSceneGenerationOrchestratorTest {
         });
         assertThat(harness.judgeRequests).singleElement().satisfies(request ->
                 assertThat(request.attemptNumber()).isEqualTo(2));
+        assertThat(harness.judgeRequests).singleElement().satisfies(request ->
+                assertThat(request.context()).isEqualTo(harness.generatorRequests.get(0).context()));
+        assertThat(harness.repairRequests).singleElement().satisfies(request ->
+                assertThat(request.context()).isEqualTo(harness.generatorRequests.get(0).context()));
     }
 
     @Test
@@ -220,19 +225,19 @@ class CustomSceneGenerationOrchestratorTest {
                 2));
         harness.judges.add(pass());
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
-        var gateValidator = new CustomSceneGeneratedContentValidator(
+        var gateValidator = new SceneGeneratedContentValidator(
                 policy,
                 new CustomSceneIntentClassifier(policy));
         var starterGate = gateValidator.evaluate(
                 harness.generatedMoment.starter(),
                 harness.execution.contentConstraints(),
-                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"));
+                new SceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"));
         assertThat(starterGate.repairableViolations())
                 .contains(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
         harness.generatedMoment.mapCandidates(candidate -> gateValidator.evaluate(
                 candidate,
                 harness.execution.contentConstraints(),
-                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"))
+                new SceneGeneratedContentValidator.GeneratedOutputValidationContext("给宝宝穿鞋"))
                 .normalizedCandidate());
 
         var result = harness.execute();
@@ -703,7 +708,7 @@ class CustomSceneGenerationOrchestratorTest {
     void disabledJudgePersistsUnavailableCodeAndRetainsProviderDetailInAudit() {
         var harness = new Harness(2);
         harness.gates.add(GateSpec.pass());
-        harness.judgeUnavailableReason = CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_DISABLED;
+        harness.judgeUnavailableReason = SceneContentGenerator.GenerationUnavailableReason.PROVIDER_DISABLED;
 
         var result = harness.execute();
 
@@ -857,7 +862,7 @@ class CustomSceneGenerationOrchestratorTest {
         rejectedHarness.notLiveReloadStatus = "rejected";
 
         assertThatThrownBy(rejectedHarness::execute)
-                .isInstanceOf(CustomSceneGenerationOrchestrator.GenerationExecutionException.class)
+                .isInstanceOf(SceneGenerationOrchestrator.GenerationExecutionException.class)
                 .hasMessage("generation_not_live");
         assertThat(rejectedHarness.generatorRequests).isEmpty();
     }
@@ -1053,7 +1058,7 @@ class CustomSceneGenerationOrchestratorTest {
                     "gpt-test",
                     providerResult.providerTraceId());
         });
-        var generator = new AgenticCustomSceneGenerator(runner, caller, registry);
+        var generator = new AgenticSceneContentGenerator(runner, caller, registry);
         var sourceBundle = harness.bundle(1);
         var matchedBundle = new FrozenEvidenceBundle(
                 sourceBundle.evidenceBundleId(),
@@ -1077,7 +1082,7 @@ class CustomSceneGenerationOrchestratorTest {
                 "zh-CN",
                 matchedBundle,
                 profile,
-                CustomSceneGenerator.ContentConstraints.defaults()));
+                SceneContentGenerator.ContentConstraints.defaults()));
     }
 
     private static String wireJsonWithOverflows(
@@ -1227,13 +1232,13 @@ class CustomSceneGenerationOrchestratorTest {
         private final List<GenerationAttemptAuditPort.AttemptCompleted> completedAttempts = new ArrayList<>();
         private final List<FrozenEvidenceBundle> bundles = new ArrayList<>();
         private final FrozenEvidenceBundle refreshedBundle;
-        private final CustomSceneGenerationOrchestrator orchestrator;
-        private final CustomSceneGenerationOrchestrator.GenerationExecution execution;
+        private final SceneGenerationOrchestrator orchestrator;
+        private final SceneGenerationOrchestrator.GenerationExecution execution;
         private int gateNumber;
         private boolean generatorExhausted;
         private boolean generatorTimeout;
         private boolean judgeExhausted;
-        private CustomSceneGenerator.GenerationUnavailableReason judgeUnavailableReason;
+        private SceneContentGenerator.GenerationUnavailableReason judgeUnavailableReason;
         private boolean repairExhausted;
         private boolean generatorFallback;
         private GeneratedCareMomentBundle generatedMoment = moment();
@@ -1256,15 +1261,15 @@ class CustomSceneGenerationOrchestratorTest {
         private Harness(int attemptLimit, boolean useRealGate) {
             var commands = mock(PracticeGeneratedContentCommands.class);
             var queryMapper = mock(PracticeGeneratedContentQueryMapper.class);
-            var generator = mock(CustomSceneGenerator.class);
+            var generator = mock(SceneContentGenerator.class);
             var repairer = mock(CustomSceneRepairer.class);
             var policy = PracticeDiscoveryPolicyTestFixture.properties();
-            var realValidator = new CustomSceneGeneratedContentValidator(
+            var realValidator = new SceneGeneratedContentValidator(
                     policy,
                     new CustomSceneIntentClassifier(policy));
             var validator = useRealGate
                     ? realValidator
-                    : mock(CustomSceneGeneratedContentValidator.class);
+                    : mock(SceneGeneratedContentValidator.class);
             var judge = mock(CustomSceneQualityJudge.class);
             var retriever = mock(CustomSceneEvidenceRetriever.class);
             var bundleFactory = mock(EvidenceBundleFactory.class);
@@ -1349,7 +1354,7 @@ class CustomSceneGenerationOrchestratorTest {
                     throw new ProvidersExhaustedException(UUID.randomUUID());
                 }
                 if (generatorTimeout) {
-                    throw new CustomSceneGenerator.GenerationTimeoutException();
+                    throw new SceneContentGenerator.GenerationTimeoutException();
                 }
                 return generatedMoment;
             });
@@ -1363,8 +1368,8 @@ class CustomSceneGenerationOrchestratorTest {
                 return repairedMoment;
             });
             if (!useRealGate) {
-                when(validator.evaluate(any(), any(CustomSceneGenerator.ContentConstraints.class),
-                        any(CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext.class)))
+                when(validator.evaluate(any(), any(SceneContentGenerator.ContentConstraints.class),
+                        any(SceneGeneratedContentValidator.GeneratedOutputValidationContext.class)))
                         .thenAnswer(invocation -> {
                         gateNumber++;
                         if ((gateNumber - 1) % GeneratedCareMomentBundle.UTTERANCE_COUNT == 0) {
@@ -1396,7 +1401,7 @@ class CustomSceneGenerationOrchestratorTest {
                     throw new ProvidersExhaustedException(UUID.randomUUID());
                 }
                 if (judgeUnavailableReason != null) {
-                    throw new CustomSceneGenerator.GenerationUnavailableException(judgeUnavailableReason);
+                    throw new SceneContentGenerator.GenerationUnavailableException(judgeUnavailableReason);
                 }
                 return judges.removeFirst();
             });
@@ -1425,7 +1430,7 @@ class CustomSceneGenerationOrchestratorTest {
             }).when(commands).expire(anyString(), anyString(), anyBoolean(), any(), any());
             when(queryMapper.findByGeneratedContentId(anyString())).thenAnswer(invocation -> executionDraft);
 
-            orchestrator = new CustomSceneGenerationOrchestrator(
+            orchestrator = new SceneGenerationOrchestrator(
                     commands,
                     queryMapper,
                     generator,
@@ -1438,14 +1443,14 @@ class CustomSceneGenerationOrchestratorTest {
                     attemptAudit,
                     keyFactory,
                     clock);
-            execution = new CustomSceneGenerationOrchestrator.GenerationExecution(
+            execution = new SceneGenerationOrchestrator.GenerationExecution(
                     executionDraft,
                     NOW.minusDays(1),
                     10,
                     registry.currentGenerationProfile(),
                     registry.qualityRubric(),
                     Set.copyOf(registry.minimumEvidencePolicy().requiredClaimCoverage()),
-                    CustomSceneGenerator.ContentConstraints.defaults());
+                    SceneContentGenerator.ContentConstraints.defaults());
         }
 
         private final PracticeGeneratedContentEntity executionDraft;

@@ -96,7 +96,7 @@ LocalSensitiveDataTarget.generatedAudioMemory
   );
   await _write(
     root,
-    'backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/discovery/FakeCustomSceneGenerationService.java',
+    'backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/discovery/FakeSceneContentGenerator.java',
     '@Profile({"dev", "test"})',
   );
   await _write(

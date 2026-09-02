@@ -51,6 +51,57 @@ public final class PracticeGeneratedContentKeyFactory {
                 "practice-request-fingerprint:v1|" + keyVersion + "|" + ownerKey + "|" + canonicalRequest);
     }
 
+    /**
+     * Builds the cache identity for the source-neutral scene-generation engine.
+     *
+     * <p>Only stable source/profile/policy lineage belongs in this material. In
+     * particular, actor account, actor role, baby name, resolved prompt text,
+     * and installation identity are deliberately absent.</p>
+     */
+    public String sceneGenerationFingerprint(String ownerKey, SceneFingerprintMaterial material) {
+        var canonicalRequest = String.join("|",
+                material.inputSource(),
+                material.contentIdentity(),
+                material.profileId(),
+                Integer.toString(material.profileVersion()),
+                material.weeklyContextVersion(),
+                material.generationProfileVersion(),
+                material.promptVersion(),
+                material.strategyVersion(),
+                material.rubricVersion(),
+                material.evidencePolicyVersion(),
+                Integer.toString(material.contentRefreshEpoch()));
+        return "fp_" + hmacHex(
+                "practice-scene-generation-fingerprint:v1|" + keyVersion + "|" + ownerKey + "|"
+                        + canonicalRequest);
+    }
+
+    /** Alias kept on key-factory seam so callers can request a source-neutral fingerprint directly. */
+    public String requestFingerprint(String ownerKey, SceneFingerprintMaterial material) {
+        return sceneGenerationFingerprint(ownerKey, material);
+    }
+
+    /**
+     * Binds retry identity to immutable source/profile facts without including
+     * actor or installation identity. The cache fingerprint remains the only
+     * identity used for cross-member bundle reuse.
+     */
+    public String sceneGenerationClientRequestFingerprint(
+            String ownerKey,
+            SceneClientRequestFingerprintMaterial material
+    ) {
+        var canonicalRequest = String.join("|",
+                material.inputSource(),
+                material.contentIdentity(),
+                material.profileId(),
+                Integer.toString(material.profileVersion()),
+                material.weeklyContextVersion(),
+                material.locale());
+        return "crf_" + hmacHex(
+                "practice-scene-generation-client-request:v1|" + keyVersion + "|" + ownerKey + "|"
+                        + canonicalRequest);
+    }
+
     public String clientRequestFingerprint(String ownerKey, ClientRequestFingerprintMaterial material) {
         var immutableFacts = String.join("|",
                 material.surface(),
@@ -131,5 +182,63 @@ public final class PracticeGeneratedContentKeyFactory {
             String parentGoal,
             String locale
     ) {
+    }
+
+    public record SceneFingerprintMaterial(
+            String inputSource,
+            String contentIdentity,
+            String profileId,
+            int profileVersion,
+            String weeklyContextVersion,
+            String generationProfileVersion,
+            String promptVersion,
+            String strategyVersion,
+            String rubricVersion,
+            String evidencePolicyVersion,
+            int contentRefreshEpoch
+    ) {
+        public SceneFingerprintMaterial {
+            requireNonBlank(inputSource, "inputSource");
+            requireNonBlank(contentIdentity, "contentIdentity");
+            requireNonBlank(profileId, "profileId");
+            if (profileVersion < 0) {
+                throw new IllegalArgumentException("profileVersion must not be negative");
+            }
+            requireNonBlank(weeklyContextVersion, "weeklyContextVersion");
+            requireNonBlank(generationProfileVersion, "generationProfileVersion");
+            requireNonBlank(promptVersion, "promptVersion");
+            requireNonBlank(strategyVersion, "strategyVersion");
+            requireNonBlank(rubricVersion, "rubricVersion");
+            requireNonBlank(evidencePolicyVersion, "evidencePolicyVersion");
+            if (contentRefreshEpoch < 1) {
+                throw new IllegalArgumentException("contentRefreshEpoch must be positive");
+            }
+        }
+    }
+
+    public record SceneClientRequestFingerprintMaterial(
+            String inputSource,
+            String contentIdentity,
+            String profileId,
+            int profileVersion,
+            String weeklyContextVersion,
+            String locale
+    ) {
+        public SceneClientRequestFingerprintMaterial {
+            requireNonBlank(inputSource, "inputSource");
+            requireNonBlank(contentIdentity, "contentIdentity");
+            requireNonBlank(profileId, "profileId");
+            if (profileVersion < 0) {
+                throw new IllegalArgumentException("profileVersion must not be negative");
+            }
+            requireNonBlank(weeklyContextVersion, "weeklyContextVersion");
+            requireNonBlank(locale, "locale");
+        }
+    }
+
+    private static void requireNonBlank(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must be non-blank");
+        }
     }
 }

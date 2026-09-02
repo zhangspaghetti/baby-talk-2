@@ -3,10 +3,10 @@ package com.zhangspaghetti.babytalk.practice.generated;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner.ProvidersExhaustedException;
 import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.agentic.config.QualityRubric;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratorRequest;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.ContentConstraints;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratorRequest;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.CompositeCustomSceneEvidenceRetriever;
@@ -49,9 +49,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-public class CustomSceneGenerationOrchestrator {
+public class SceneGenerationOrchestrator {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CustomSceneGenerationOrchestrator.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SceneGenerationOrchestrator.class);
     private static final Duration INSTALLATION_ACTIVE_RETENTION = Duration.ofDays(30);
     private static final Duration TERMINAL_RETENTION = Duration.ofDays(7);
     private static final String JUDGE_EVIDENCE_ACTION_INCONSISTENT = "judge_evidence_action_inconsistent";
@@ -64,9 +64,9 @@ public class CustomSceneGenerationOrchestrator {
 
     private final PracticeGeneratedContentCommands commands;
     private final PracticeGeneratedContentQueryMapper queryMapper;
-    private final CustomSceneGenerator generator;
+    private final SceneContentGenerator generator;
     private final CustomSceneRepairer repairer;
-    private final CustomSceneGeneratedContentValidator validator;
+    private final SceneGeneratedContentValidator validator;
     private final CustomSceneQualityJudge judge;
     private final JudgeVerdictCalculator verdictCalculator;
     private final CustomSceneEvidenceRetriever retriever;
@@ -76,12 +76,12 @@ public class CustomSceneGenerationOrchestrator {
     private final Clock clock;
 
     @Autowired
-    public CustomSceneGenerationOrchestrator(
+    public SceneGenerationOrchestrator(
             PracticeGeneratedContentCommands commands,
             PracticeGeneratedContentQueryMapper queryMapper,
-            CustomSceneGenerator generator,
+            SceneContentGenerator generator,
             CustomSceneRepairer repairer,
-            CustomSceneGeneratedContentValidator validator,
+            SceneGeneratedContentValidator validator,
             CustomSceneQualityJudge judge,
             JudgeVerdictCalculator verdictCalculator,
             CompositeCustomSceneEvidenceRetriever retriever,
@@ -93,12 +93,12 @@ public class CustomSceneGenerationOrchestrator {
                 retriever, bundleFactory, attemptAudit, keyFactory, Clock.systemUTC());
     }
 
-    CustomSceneGenerationOrchestrator(
+    SceneGenerationOrchestrator(
             PracticeGeneratedContentCommands commands,
             PracticeGeneratedContentQueryMapper queryMapper,
-            CustomSceneGenerator generator,
+            SceneContentGenerator generator,
             CustomSceneRepairer repairer,
-            CustomSceneGeneratedContentValidator validator,
+            SceneGeneratedContentValidator validator,
             CustomSceneQualityJudge judge,
             JudgeVerdictCalculator verdictCalculator,
             CustomSceneEvidenceRetriever retriever,
@@ -145,7 +145,7 @@ public class CustomSceneGenerationOrchestrator {
             try {
                 if (attemptNumber == 1) {
                     var retrieval = retriever.retrieve(new EvidenceRetrievalRequest(
-                            reserved.normalizedSceneText(),
+                            execution.resolvedSceneText(),
                             reserved.ageRange(),
                             reserved.parentGoal(),
                             execution.requiredEvidenceClaimTypes(),
@@ -168,8 +168,8 @@ public class CustomSceneGenerationOrchestrator {
                         bundle = bundleFactory.createRefreshed(
                                 reserved.generatedContentId(),
                                 attemptNumber,
-                                new EvidenceRetrievalRequest(
-                                        reserved.normalizedSceneText(),
+                        new EvidenceRetrievalRequest(
+                                        execution.resolvedSceneText(),
                                         reserved.ageRange(),
                                         reserved.parentGoal(),
                                         decision.claimTypes(),
@@ -221,13 +221,14 @@ public class CustomSceneGenerationOrchestrator {
                     var generatorRequest = new GeneratorRequest(
                             reserved.generatedContentId(),
                             attemptNumber,
-                            reserved.normalizedSceneText(),
+                            execution.resolvedSceneText(),
                             reserved.ageRange(),
                             reserved.parentGoal(),
                             reserved.locale(),
                             bundle,
                             execution.generationProfile(),
-                            execution.contentConstraints());
+                            execution.contentConstraints(),
+                            execution.context());
                     careMoment = generator.generateCareMoment(generatorRequest);
                     if (careMoment == null) {
                         throw new GenerationExecutionException("complete_bundle_missing", false);
@@ -239,7 +240,8 @@ public class CustomSceneGenerationOrchestrator {
                             bundle.evidenceBundleId(),
                             reserved.locale(),
                             execution.contentConstraints(),
-                            repairPackage(execution, repairContext, bundle, repairInputCodes)));
+                            repairPackage(execution, repairContext, bundle, repairInputCodes),
+                            execution.context()));
                     if (careMoment == null) {
                         throw new GenerationExecutionException("complete_bundle_missing", false);
                     }
@@ -247,10 +249,10 @@ public class CustomSceneGenerationOrchestrator {
             } catch (ProvidersExhaustedException exception) {
                 complete(attemptId, attemptNumber, "providers_exhausted", attemptCodes);
                 return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
-            } catch (CustomSceneGenerator.GenerationTimeoutException exception) {
+            } catch (SceneContentGenerator.GenerationTimeoutException exception) {
                 complete(attemptId, attemptNumber, ERROR_GENERATION_TIMEOUT, attemptCodes);
                 return expire(reserved, ERROR_GENERATION_TIMEOUT, true);
-            } catch (CustomSceneGenerator.GenerationUnavailableException exception) {
+            } catch (SceneContentGenerator.GenerationUnavailableException exception) {
                 complete(attemptId, attemptNumber, exception.reason(), attemptCodes);
                 return expire(reserved, exception.reason(), exception.retryable());
             } catch (RuntimeException exception) {
@@ -260,7 +262,7 @@ public class CustomSceneGenerationOrchestrator {
 
             BundleGateResult gate;
             try {
-                gate = evaluateBundle(careMoment, execution.contentConstraints(), reserved.normalizedSceneText());
+                gate = evaluateBundle(careMoment, execution.contentConstraints(), execution.resolvedSceneText());
             } catch (RuntimeException exception) {
                 complete(attemptId, attemptNumber, "validation_failure", attemptCodes);
                 return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
@@ -306,7 +308,7 @@ public class CustomSceneGenerationOrchestrator {
             } catch (ProvidersExhaustedException exception) {
                 complete(attemptId, attemptNumber, "providers_exhausted", attemptCodes);
                 return expire(reserved, ERROR_GENERATION_UNAVAILABLE, true);
-            } catch (CustomSceneGenerator.GenerationUnavailableException exception) {
+            } catch (SceneContentGenerator.GenerationUnavailableException exception) {
                 complete(attemptId, attemptNumber, exception.reason(), attemptCodes);
                 return expire(reserved, ERROR_GENERATION_UNAVAILABLE, exception.retryable());
             } catch (RuntimeException exception) {
@@ -317,7 +319,7 @@ public class CustomSceneGenerationOrchestrator {
             if (effective.effectiveVerdict() == JudgeVerdict.PASS) {
                 try {
                     return commands.activateWithCompletedAttempt(
-                            activeRow(reserved, careMoment),
+                            activeRow(execution, careMoment),
                             new GenerationAttemptAuditPort.AttemptCompleted(
                                     attemptId, attemptNumber, "passed", stableCodes(judgeCodes), now()))
                             .orElseThrow(() -> new GenerationExecutionException("activation_failure", true));
@@ -371,7 +373,7 @@ public class CustomSceneGenerationOrchestrator {
             List<String> repairInputCodes
     ) {
         return new TypedRepairPackage(
-                execution.reservedContent().normalizedSceneText(),
+                execution.resolvedSceneText(),
                 execution.reservedContent().ageRange(),
                 execution.reservedContent().parentGoal(),
                 context.previousBundle().completeBundle(),
@@ -407,7 +409,7 @@ public class CustomSceneGenerationOrchestrator {
                 reserved.generatedContentId(),
                 attemptNumber,
                 bundle.evidenceBundleId(),
-                reserved.normalizedSceneText(),
+                execution.resolvedSceneText(),
                 reserved.ageRange(),
                 reserved.parentGoal(),
                 careMoment.starter(),
@@ -418,12 +420,13 @@ public class CustomSceneGenerationOrchestrator {
                 safetyTags,
                 bundle.items().stream().map(item -> item.sanitizedSummary()).toList(),
                 execution.qualityRubric().version(),
-                execution.qualityRubric().contentHash());
+                execution.qualityRubric().contentHash(),
+                execution.context());
     }
 
     private BundleGateResult evaluateBundle(
             GeneratedCareMomentBundle bundle,
-            CustomSceneGenerator.ContentConstraints constraints,
+            SceneContentGenerator.ContentConstraints constraints,
             String normalizedSceneText
     ) {
         var terminal = new ArrayList<GeneratedOutputViolationCode>();
@@ -441,7 +444,7 @@ public class CustomSceneGenerationOrchestrator {
             var result = validator.evaluate(
                     candidate,
                     constraints,
-                    new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(normalizedSceneText));
+                    new SceneGeneratedContentValidator.GeneratedOutputValidationContext(normalizedSceneText));
             var provenanceResult = validator.evaluateProvenance(utterance.providerProvenance());
             terminal.addAll(result.terminalViolations());
             terminal.addAll(provenanceResult.terminalViolations());
@@ -608,9 +611,10 @@ public class CustomSceneGenerationOrchestrator {
     }
 
     private PracticeGeneratedContentEntity activeRow(
-            PracticeGeneratedContentEntity draft,
+            GenerationExecution execution,
             GeneratedCareMomentBundle careMoment
     ) {
+        var draft = execution.reservedContent();
         var candidate = careMoment.starter();
         var slugHash = keyFactory.stableDigest(
                 draft.ownerKey() + "|" + draft.requestFingerprint() + "|"
@@ -626,12 +630,23 @@ public class CustomSceneGenerationOrchestrator {
         active.setProfileId(draft.profileId());
         active.setSurface(draft.surface());
         active.setMode(draft.mode());
+        active.setInputSource(draft.inputSource());
+        active.setPresetActivityId(draft.presetActivityId());
+        active.setPresetSceneVersionId(draft.presetSceneVersionId());
+        active.setProfileVersion(draft.profileVersion());
+        active.setHouseholdContextVersion(draft.householdContextVersion());
         active.setRequestFingerprint(draft.requestFingerprint());
+        active.setClientRequestId(draft.clientRequestId());
+        active.setClientRequestFingerprint(draft.clientRequestFingerprint());
         active.setAgeRange(draft.ageRange());
         active.setParentGoal(draft.parentGoal());
         active.setLocale(draft.locale());
-        active.setSpaceSlug("gen_scene_" + slugHash.substring(0, 20));
-        active.setActivitySlug("gen_activity_" + slugHash.substring(20, 40));
+        active.setSpaceSlug(isPreset(draft)
+                ? execution.stableSpaceId()
+                : "gen_scene_" + slugHash.substring(0, 20));
+        active.setActivitySlug(isPreset(draft)
+                ? execution.stableActivityId()
+                : "gen_activity_" + slugHash.substring(20, 40));
         active.setPhraseSlug("gen_phrase_" + slugHash.substring(40, 60));
         active.setSpaceTitleZh(candidate.spaceTitleZh());
         active.setActivityTitleZh(candidate.activityTitleZh());
@@ -662,6 +677,10 @@ public class CustomSceneGenerationOrchestrator {
         active.setUpdatedAt(now());
         active.setApprovedUtterances(toApprovedUtterances(active, careMoment));
         return active;
+    }
+
+    private boolean isPreset(PracticeGeneratedContentEntity row) {
+        return "scene_generation".equals(row.mode()) && "preset".equals(row.inputSource());
     }
 
     private List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
@@ -801,7 +820,12 @@ public class CustomSceneGenerationOrchestrator {
                 || !profile.rubric().version().equals(rubric.version())
                 || !profile.rubric().contentHash().equals(rubric.contentHash())
                 || !reserved.evidencePolicyVersion().equals(profile.evidencePolicy().version())
-                || !reserved.evidencePolicyContentHash().equals(profile.evidencePolicy().contentHash())) {
+                || !reserved.evidencePolicyContentHash().equals(profile.evidencePolicy().contentHash())
+                || !Objects.equals(reserved.ageRange(), execution.context().ageRange())
+                || !Objects.equals(reserved.parentGoal(), execution.context().parentGoal())
+                || !Objects.equals(reserved.locale(), execution.context().locale())
+                || (isPreset(reserved)
+                        && (execution.stableSpaceId() == null || execution.stableActivityId() == null))) {
             throw new IllegalArgumentException("generation execution lineage must match reserved snapshot");
         }
     }
@@ -817,8 +841,59 @@ public class CustomSceneGenerationOrchestrator {
             GenerationProfile generationProfile,
             QualityRubric qualityRubric,
             Set<String> requiredEvidenceClaimTypes,
-            ContentConstraints contentConstraints
+            ContentConstraints contentConstraints,
+            String resolvedSceneText,
+            String stableSpaceId,
+            String stableActivityId,
+            GenerationRequestContext context
     ) {
+        public GenerationExecution(
+                PracticeGeneratedContentEntity reservedContent,
+                OffsetDateTime dailyQuotaFrom,
+                int dailyGenerationLimit,
+                GenerationProfile generationProfile,
+                QualityRubric qualityRubric,
+                Set<String> requiredEvidenceClaimTypes,
+                ContentConstraints contentConstraints
+        ) {
+            this(
+                    reservedContent,
+                    dailyQuotaFrom,
+                    dailyGenerationLimit,
+                    generationProfile,
+                    qualityRubric,
+                    requiredEvidenceClaimTypes,
+                    contentConstraints,
+                    legacySceneText(reservedContent),
+                    null,
+                    null,
+                    legacyContext(reservedContent));
+        }
+
+        public GenerationExecution(
+                PracticeGeneratedContentEntity reservedContent,
+                OffsetDateTime dailyQuotaFrom,
+                int dailyGenerationLimit,
+                GenerationProfile generationProfile,
+                QualityRubric qualityRubric,
+                Set<String> requiredEvidenceClaimTypes,
+                ContentConstraints contentConstraints,
+                GenerationRequestContext context
+        ) {
+            this(
+                    reservedContent,
+                    dailyQuotaFrom,
+                    dailyGenerationLimit,
+                    generationProfile,
+                    qualityRubric,
+                    requiredEvidenceClaimTypes,
+                    contentConstraints,
+                    legacySceneText(reservedContent),
+                    null,
+                    null,
+                    context);
+        }
+
         public GenerationExecution {
             Objects.requireNonNull(reservedContent, "reservedContent");
             Objects.requireNonNull(dailyQuotaFrom, "dailyQuotaFrom");
@@ -830,6 +905,39 @@ public class CustomSceneGenerationOrchestrator {
             requiredEvidenceClaimTypes = Set.copyOf(
                     Objects.requireNonNull(requiredEvidenceClaimTypes, "requiredEvidenceClaimTypes"));
             Objects.requireNonNull(contentConstraints, "contentConstraints");
+            if (resolvedSceneText == null || resolvedSceneText.isBlank()) {
+                throw new IllegalArgumentException("resolvedSceneText must be non-blank");
+            }
+            Objects.requireNonNull(context, "context");
+        }
+
+        @Override
+        public String toString() {
+            return "GenerationExecution{"
+                    + "generatedContentId='" + reservedContent.generatedContentId() + '\''
+                    + ", dailyGenerationLimit=" + dailyGenerationLimit
+                    + ", generationProfileVersion='" + generationProfile.version() + '\''
+                    + ", context=" + context
+                    + '}';
+        }
+
+        private static String legacySceneText(PracticeGeneratedContentEntity reservedContent) {
+            Objects.requireNonNull(reservedContent, "reservedContent");
+            var value = reservedContent.normalizedSceneText();
+            return value == null || value.isBlank() ? "legacy scene" : value;
+        }
+
+        private static GenerationRequestContext legacyContext(PracticeGeneratedContentEntity reservedContent) {
+            Objects.requireNonNull(reservedContent, "reservedContent");
+            return new GenerationRequestContext(
+                    "legacy",
+                    reservedContent.ageRange() == null ? "unknown" : reservedContent.ageRange(),
+                    reservedContent.parentGoal() == null ? "unknown" : reservedContent.parentGoal(),
+                    reservedContent.locale() == null ? "unknown" : reservedContent.locale(),
+                    "legacy",
+                    0,
+                    null,
+                    "");
         }
     }
 

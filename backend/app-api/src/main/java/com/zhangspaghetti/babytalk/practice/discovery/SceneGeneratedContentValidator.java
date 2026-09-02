@@ -1,7 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.ContentConstraints;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.ContentConstraints;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputGateResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic;
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationDiagnostic.FieldPath;
@@ -15,7 +15,7 @@ import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CustomSceneGeneratedContentValidator {
+public class SceneGeneratedContentValidator {
 
     private static final int MAX_NEGATION_PREFIX_CODE_POINTS = 32;
     private static final int GENERATION_SOURCE_MAX_CODE_POINTS = 32;
@@ -34,14 +34,14 @@ public class CustomSceneGeneratedContentValidator {
     private final List<Pattern> dangerousMedicalCommandPatterns;
     private final List<Pattern> dangerousMedicalNegationPatterns;
 
-    public CustomSceneGeneratedContentValidator(
+    public SceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
             CustomSceneIntentClassifier intentClassifier
     ) {
         this(policyProperties, intentClassifier, new SceneTextCanonicalizer());
     }
 
-    private CustomSceneGeneratedContentValidator(
+    private SceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
             CustomSceneIntentClassifier intentClassifier,
             SceneTextCanonicalizer canonicalizer
@@ -49,7 +49,7 @@ public class CustomSceneGeneratedContentValidator {
         this(policyProperties, intentClassifier, new PolicyTextMatcher(canonicalizer), canonicalizer);
     }
 
-    public CustomSceneGeneratedContentValidator(
+    public SceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
             CustomSceneIntentClassifier intentClassifier,
             PolicyTextMatcher policyTextMatcher
@@ -57,7 +57,7 @@ public class CustomSceneGeneratedContentValidator {
         this(policyProperties, intentClassifier, policyTextMatcher, new SceneTextCanonicalizer());
     }
 
-    public CustomSceneGeneratedContentValidator(
+    public SceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
             CustomSceneIntentClassifier intentClassifier,
             PolicyTextMatcher policyTextMatcher,
@@ -72,7 +72,7 @@ public class CustomSceneGeneratedContentValidator {
     }
 
     @org.springframework.beans.factory.annotation.Autowired
-    public CustomSceneGeneratedContentValidator(
+    public SceneGeneratedContentValidator(
             PracticeDiscoveryPolicyProperties policyProperties,
             CustomSceneIntentClassifier intentClassifier,
             PolicyTextMatcher policyTextMatcher,

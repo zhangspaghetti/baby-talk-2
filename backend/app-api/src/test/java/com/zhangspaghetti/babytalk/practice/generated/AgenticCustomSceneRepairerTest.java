@@ -29,7 +29,7 @@ import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage
 import com.zhangspaghetti.babytalk.practice.generated.quality.GeneratedOutputViolationCode;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneGeneratedContentValidator;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneIntentClassifier;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
 import java.util.Arrays;
@@ -124,7 +124,7 @@ class AgenticCustomSceneRepairerTest {
 
         var candidate = repairer.repairCareMoment(request()).starter();
 
-        assertThat(candidate).isEqualTo(new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+        assertThat(candidate).isEqualTo(new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。", "Shoes on.", "穿鞋出门。",
                 "shoes on", "starter", "agentic_search"));
         var operation = (OperationRequest<CompleteGeneratedBundle.ProviderResponse>) operationCaptor.getValue();
@@ -154,6 +154,12 @@ class AgenticCustomSceneRepairerTest {
                         "给宝宝穿鞋",
                         "m7_11",
                         "calmer_care",
+                        "小满",
+                        "caregiver",
+                        "recentPracticeCount",
+                        "7",
+                        "hesitant",
+                        "daily_care/bath_time=7",
                         "Shoes on.",
                         "MISSING_TPR_ACTION",
                         "先轻声说。",
@@ -235,14 +241,14 @@ class AgenticCustomSceneRepairerTest {
     @SuppressWarnings("unchecked")
     void coachTipOverflowRepairConvergesThroughRealValidatorWithoutTruncation() {
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
-        var validator = new CustomSceneGeneratedContentValidator(
+        var validator = new SceneGeneratedContentValidator(
                 policy, new CustomSceneIntentClassifier(policy));
-        var constraints = CustomSceneGenerator.ContentConstraints.defaults();
+        var constraints = SceneContentGenerator.ContentConstraints.defaults();
         var overlong = coachTipOverflowCandidate();
         var before = validator.evaluate(
                 overlong,
                 constraints,
-                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(
+                new SceneGeneratedContentValidator.GeneratedOutputValidationContext(
                         "synthetic sleep care moment"));
         assertThat(before.repairableViolations())
                 .contains(GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW);
@@ -285,7 +291,7 @@ class AgenticCustomSceneRepairerTest {
         var after = validator.evaluate(
                 repaired,
                 constraints,
-                new CustomSceneGeneratedContentValidator.GeneratedOutputValidationContext(
+                new SceneGeneratedContentValidator.GeneratedOutputValidationContext(
                         "synthetic sleep care moment"));
 
         assertThat(after.repairableViolations())
@@ -400,7 +406,7 @@ class AgenticCustomSceneRepairerTest {
 
     private static CustomSceneRepairer.RepairRequest request() {
         return new CustomSceneRepairer.RepairRequest("pgc_repair_test", 2, EVIDENCE_BUNDLE_ID, "zh-CN",
-                CustomSceneGenerator.ContentConstraints.defaults(),
+                SceneContentGenerator.ContentConstraints.defaults(),
                 repairPackage(List.of(
                                 requirement(
                                         Branch.STARTER,
@@ -416,18 +422,19 @@ class AgenticCustomSceneRepairerTest {
                                 requirement(
                                         Branch.OTHER,
                                         GeneratedOutputViolationCode.MISSING_TPR_ACTION,
-                                        GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE))));
+                                        GeneratedOutputViolationCode.MISSING_DELIVERY_GUIDANCE))),
+                context());
     }
 
     private static CustomSceneRepairer.RepairRequest requestForCoachTipOverflow(
-            CustomSceneGenerator.GeneratedPracticeContentCandidate overlong
+            SceneContentGenerator.GeneratedPracticeContentCandidate overlong
     ) {
         return new CustomSceneRepairer.RepairRequest(
                 "pgc_repair_test",
                 2,
                 EVIDENCE_BUNDLE_ID,
                 "zh-CN",
-                CustomSceneGenerator.ContentConstraints.defaults(),
+                SceneContentGenerator.ContentConstraints.defaults(),
                 new TypedRepairPackage(
                         "synthetic care moment",
                         "m7_11",
@@ -444,8 +451,9 @@ class AgenticCustomSceneRepairerTest {
                                 Branch.STARTER,
                                 GeneratedOutputViolationCode.PROVIDER_CONTENT_OVERFLOW)),
                         List.of(RepairDirective.REPAIR_PARENT_SPEAKABILITY),
-                        List.of(new EvidenceSummary("synthetic low pressure guidance", "a".repeat(64))),
-                        profile()));
+                         List.of(new EvidenceSummary("synthetic low pressure guidance", "a".repeat(64))),
+                         profile()),
+                 context());
     }
 
     private static TypedRepairPackage repairPackage(List<BranchRequirement> branchRequirements) {
@@ -461,6 +469,12 @@ class AgenticCustomSceneRepairerTest {
                 List.of(RepairDirective.REPAIR_TPR_QUALITY),
                 List.of(new EvidenceSummary("先轻声说。", "a".repeat(64))),
                 profile());
+    }
+
+    private static GenerationRequestContext context() {
+        return new GenerationRequestContext(
+                "小满", "m7_11", "calmer_care", "zh-CN", "caregiver", 7,
+                "hesitant", "daily_care/bath_time=7");
     }
 
     private static BranchRequirement requirement(
@@ -523,7 +537,7 @@ class AgenticCustomSceneRepairerTest {
     }
 
     private static CompleteGeneratedBundle previousBundle() {
-        return GeneratedCareMomentBundle.fakeFixture(new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+        return GeneratedCareMomentBundle.fakeFixture(new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。", "Shoes on.", "穿鞋出门。",
                 "shoes on", "starter", "provider_generated")).completeBundle();
     }
@@ -538,11 +552,11 @@ class AgenticCustomSceneRepairerTest {
                 "starter", displayOrder);
     }
 
-    private static CustomSceneGenerator.GeneratedPracticeContentCandidate candidateWithCoachTip(
+    private static SceneContentGenerator.GeneratedPracticeContentCandidate candidateWithCoachTip(
             String tprActionZh,
             String deliveryGuidanceZh
     ) {
-        return new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+        return new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "日常照护",
                 "安静陪伴",
                 "Quiet settling",
@@ -555,7 +569,7 @@ class AgenticCustomSceneRepairerTest {
                 "agentic_search");
     }
 
-    private static CustomSceneGenerator.GeneratedPracticeContentCandidate coachTipOverflowCandidate() {
+    private static SceneContentGenerator.GeneratedPracticeContentCandidate coachTipOverflowCandidate() {
         return candidateWithCoachTip(
                 "抱稳" + "宝宝".repeat(19),
                 "轻声" + "等宝宝".repeat(13) + "慢慢");

@@ -38,7 +38,7 @@ SECURITY_TEXT_APPROVED = {
     "SceneTextSecurityPolicy.java",
     "PolicyTextMatcher.java",
     "EvidenceSanitizer.java",
-    "CustomSceneGeneratedContentValidator.java",
+    "SceneGeneratedContentValidator.java",
 }
 CURRENT_GENERATED_CONTENT_MIGRATION = "V27__upgrade_practice_generated_content_agentic_contract.sql"
 GENERATED_AUDIO_JAVA_ROOT = "backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/generated/audio"

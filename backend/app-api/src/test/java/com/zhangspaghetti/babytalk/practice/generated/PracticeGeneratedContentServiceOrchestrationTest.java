@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.discovery.PolicyTextMatcher;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneGeneratedContentValidator;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
@@ -37,7 +37,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     void delegatesNewDraftToBoundedOrchestratorWithoutLegacyDailyStart() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
-        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        var orchestrator = mock(SceneGenerationOrchestrator.class);
         var registry = new VersionedResourceRegistry(new DefaultResourceLoader());
         var providerManager = mock(ObjectProvider.class);
         when(providerManager.getIfAvailable()).thenReturn(null);
@@ -45,7 +45,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                 new DraftReservation(invocation.getArgument(0, PracticeGeneratedContentEntity.class), true));
         var active = new PracticeGeneratedContentEntity();
         active.setStatus("active");
-        var executionCaptor = ArgumentCaptor.forClass(CustomSceneGenerationOrchestrator.GenerationExecution.class);
+        var executionCaptor = ArgumentCaptor.forClass(SceneGenerationOrchestrator.GenerationExecution.class);
         when(orchestrator.execute(executionCaptor.capture())).thenReturn(active);
 
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
@@ -53,8 +53,8 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var service = new PracticeGeneratedContentService(
                 queries,
                 commands,
-                mock(CustomSceneGenerator.class),
-                mock(CustomSceneGeneratedContentValidator.class),
+                mock(SceneContentGenerator.class),
+                mock(SceneGeneratedContentValidator.class),
                 orchestrator,
                 registry,
                 providerManager,
@@ -91,7 +91,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     void fakeModeDelegatesNewDraftToTheSameBoundedOrchestratorWithoutProviderManager() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
-        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        var orchestrator = mock(SceneGenerationOrchestrator.class);
         when(commands.reserveDraft(any(), any())).thenAnswer(invocation ->
                 new DraftReservation(invocation.getArgument(0, PracticeGeneratedContentEntity.class), true));
         var active = new PracticeGeneratedContentEntity();
@@ -110,7 +110,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     void activeResultWithSameOwnerFingerprintProfileAndEpochReusesWithoutOrchestratorExecution() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
-        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        var orchestrator = mock(SceneGenerationOrchestrator.class);
         var active = new PracticeGeneratedContentEntity();
         active.setGeneratedContentId("pgc_supported_active");
         active.setStatus("active");
@@ -142,7 +142,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     void unsupportedLegacyActiveIsQuarantinedBeforeFingerprintReuse() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
-        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        var orchestrator = mock(SceneGenerationOrchestrator.class);
         var legacy = active("pgc_legacy_reuse");
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(legacy);
@@ -170,7 +170,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var legacy = active("pgc_legacy_read");
         when(queries.findActiveByGeneratedContentId(eq("pgc_legacy_read"), any(), any())).thenReturn(legacy);
         when(queries.findApprovedUtterances("pgc_legacy_read")).thenReturn(List.of());
-        var service = orchestratedService(queries, commands, mock(CustomSceneGenerationOrchestrator.class));
+        var service = orchestratedService(queries, commands, mock(SceneGenerationOrchestrator.class));
 
         assertThatThrownBy(() -> service.findActiveOrPromotedByGeneratedContentId("pgc_legacy_read"))
                 .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
@@ -187,7 +187,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     void qualityAttemptAndJudgeRejectsNormalizeToNonRetryableInvalidOutput() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
-        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        var orchestrator = mock(SceneGenerationOrchestrator.class);
         when(commands.reserveDraft(any(), any())).thenAnswer(invocation ->
                 new DraftReservation(invocation.getArgument(0, PracticeGeneratedContentEntity.class), true));
         var rejected = terminal("rejected", "generation_invalid_output", false);
@@ -211,8 +211,8 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     void activationFallbackReusesWinnerByGenerationProfileInsteadOfLegacyPromptVersion() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
-        var generator = mock(CustomSceneGenerator.class);
-        var validator = mock(CustomSceneGeneratedContentValidator.class);
+        var generator = mock(SceneContentGenerator.class);
+        var validator = mock(SceneGeneratedContentValidator.class);
         var registry = new VersionedResourceRegistry(new DefaultResourceLoader());
         var providerManager = mock(ObjectProvider.class);
         when(providerManager.getIfAvailable()).thenReturn(null);
@@ -220,7 +220,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                 new DraftReservation(invocation.getArgument(0, PracticeGeneratedContentEntity.class), true));
         when(commands.startGeneration(any(), any(), anyInt(), any()))
                 .thenReturn(GenerationStartDecision.STARTED);
-        var candidate = new CustomSceneGenerator.GeneratedPracticeContentCandidate(
+        var candidate = new SceneContentGenerator.GeneratedPracticeContentCandidate(
                 "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
                 "Shoes on.", "穿鞋出门。", "shoes on", "starter", "fake");
         when(generator.generateCareMoment(any())).thenReturn(GeneratedCareMomentBundle.fakeFixture(candidate));
@@ -271,7 +271,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     void orchestratorTerminalsUsePersistedCodeRetryabilityForPublicSemantics() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
-        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        var orchestrator = mock(SceneGenerationOrchestrator.class);
         when(commands.reserveDraft(any(), any())).thenAnswer(invocation ->
                 new DraftReservation(invocation.getArgument(0, PracticeGeneratedContentEntity.class), true));
         when(orchestrator.execute(any()))
@@ -325,7 +325,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     private PracticeGeneratedContentService orchestratedService(
             PracticeGeneratedContentQueryMapper queries,
             PracticeGeneratedContentCommands commands,
-            CustomSceneGenerationOrchestrator orchestrator
+            SceneGenerationOrchestrator orchestrator
     ) {
         return orchestratedService(queries, commands, orchestrator, "agentic");
     }
@@ -334,7 +334,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     private PracticeGeneratedContentService orchestratedService(
             PracticeGeneratedContentQueryMapper queries,
             PracticeGeneratedContentCommands commands,
-            CustomSceneGenerationOrchestrator orchestrator,
+            SceneGenerationOrchestrator orchestrator,
             String providerMode
     ) {
         var registry = new VersionedResourceRegistry(new DefaultResourceLoader());
@@ -346,8 +346,8 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         return new PracticeGeneratedContentService(
                 queries,
                 commands,
-                mock(CustomSceneGenerator.class),
-                mock(CustomSceneGeneratedContentValidator.class),
+                mock(SceneContentGenerator.class),
+                mock(SceneGeneratedContentValidator.class),
                 orchestrator,
                 registry,
                 providerManager,

@@ -67,8 +67,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
         "app.ai.capabilities.custom-scene-repair.provider-names[0]=primary"
 })
 @AutoConfigureMockMvc
-@Import(CustomSceneAgenticGenerationIntegrationTest.StubProviderConfiguration.class)
-class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
+@Import(SceneAgenticGenerationIntegrationTest.StubProviderConfiguration.class)
+class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

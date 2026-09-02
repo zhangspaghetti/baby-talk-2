@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
+import com.zhangspaghetti.babytalk.practice.scene.GenerationSubject;
+import com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContext;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -64,7 +66,7 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
     private PracticeGeneratedContentKeyFactory keyFactory;
 
     @Autowired
-    private RecordingCustomSceneGenerator provider;
+    private RecordingSceneContentGenerator provider;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -361,9 +363,101 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         assertThat(provider.ownerLockWasAvailableForEveryCall()).isTrue();
     }
 
+    @Test
+    void concurrentPrimaryAndCaregiverPresetRequestsShareOneProfileOwnedRow() throws Exception {
+        var ownerAccountId = "acct_unified_generation_owner";
+        var caregiverAccountId = "acct_unified_generation_caregiver";
+        var profileId = "profile_unified_generation";
+        insertAccount(ownerAccountId);
+        insertAccount(caregiverAccountId);
+        insertProfile(ownerAccountId, profileId);
+        var activityId = jdbcTemplate.queryForObject(
+                "select id from practice_activities where slug = 'bath_time'", Long.class);
+        var versionId = jdbcTemplate.queryForObject(
+                "select version_id from practice_preset_scene_versions "
+                        + "where activity_id = ? and state = 'published' order by version desc limit 1",
+                Long.class,
+                activityId);
+        provider.reset(true);
+        var primaryInput = sceneInput(
+                ownerAccountId,
+                ownerAccountId,
+                profileId,
+                "primary_caregiver",
+                "install_unified_primary",
+                "request-unified-primary",
+                activityId,
+                versionId);
+        var caregiverInput = sceneInput(
+                caregiverAccountId,
+                ownerAccountId,
+                profileId,
+                "caregiver",
+                "install_unified_caregiver",
+                "request-unified-caregiver",
+                activityId,
+                versionId);
+        var ownerKey = keyFactory.ownerKey("profile", ownerAccountId + ":" + profileId);
+
+        try (var heldOwnerLock = holdOwnerLock(ownerKey)) {
+            var futures = startConcurrentSceneCalls(primaryInput, caregiverInput);
+            awaitAdvisoryWaiters(heldOwnerLock, 2);
+            heldOwnerLock.commit();
+
+            assertThat(provider.awaitEntered()).isTrue();
+            awaitCompletedCalls(futures, 1);
+            assertThat(provider.callCount()).isEqualTo(1);
+            assertThat(countOwnerRows(ownerKey)).isEqualTo(1);
+
+            provider.release();
+            var results = collectScene(futures);
+            assertThat(results).filteredOn(CallResult::succeeded).hasSize(1);
+            assertThat(results)
+                    .filteredOn(result -> result.error() != null)
+                    .extracting(result -> result.error().code())
+                    .containsExactly("generation_in_progress");
+            var active = results.stream().filter(CallResult::succeeded).findFirst().orElseThrow().row();
+            assertThat(active.ownerScope()).isEqualTo("profile");
+            assertThat(active.accountId()).isEqualTo(ownerAccountId);
+            assertThat(active.profileId()).isEqualTo(profileId);
+            assertThat(active.inputSource()).isEqualTo("preset");
+            assertThat(active.presetActivityId()).isEqualTo(activityId);
+            assertThat(active.presetSceneVersionId()).isEqualTo(versionId);
+            assertThat(active.spaceSlug()).isEqualTo("daily_care");
+            assertThat(active.activitySlug()).isEqualTo("bath_time");
+            assertThat(active.installationRefHash()).isNull();
+            assertThat(jdbcTemplate.queryForObject(
+                    "select count(*) from practice_generated_content "
+                            + "where owner_key = ? and status = 'active'",
+                    Integer.class,
+                    ownerKey)).isEqualTo(1);
+            assertThat(jdbcTemplate.queryForObject(
+                    "select normalized_scene_text from practice_generated_content "
+                            + "where generated_content_id = ?",
+                    String.class,
+                    active.generatedContentId())).isNull();
+
+            var reused = service.generateScene(caregiverInput);
+            assertThat(reused.generatedContentId()).isEqualTo(active.generatedContentId());
+            assertThat(provider.callCount()).isEqualTo(1);
+        }
+    }
+
     private List<Future<CallResult>> startConcurrentCalls(
             PracticeGeneratedContentService.CustomSceneDiscoveryRequest first,
             PracticeGeneratedContentService.CustomSceneDiscoveryRequest second
+    ) {
+        var barrier = new CyclicBarrier(2);
+        var executor = Executors.newFixedThreadPool(2);
+        executors.add(executor);
+        return List.of(
+                executor.submit(() -> callAfterBarrier(barrier, first)),
+                executor.submit(() -> callAfterBarrier(barrier, second)));
+    }
+
+    private List<Future<CallResult>> startConcurrentSceneCalls(
+            SceneGenerationInput first,
+            SceneGenerationInput second
     ) {
         var barrier = new CyclicBarrier(2);
         var executor = Executors.newFixedThreadPool(2);
@@ -385,12 +479,28 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         }
     }
 
+    private CallResult callAfterBarrier(
+            CyclicBarrier barrier,
+            SceneGenerationInput input
+    ) throws Exception {
+        barrier.await(5, TimeUnit.SECONDS);
+        try {
+            return new CallResult(service.generateScene(input), null);
+        } catch (ContractException error) {
+            return new CallResult(null, error);
+        }
+    }
+
     private List<CallResult> collect(List<Future<CallResult>> futures) throws Exception {
         var results = new ArrayList<CallResult>();
         for (var future : futures) {
             results.add(future.get(10, TimeUnit.SECONDS));
         }
         return results;
+    }
+
+    private List<CallResult> collectScene(List<Future<CallResult>> futures) throws Exception {
+        return collect(futures);
     }
 
     private Connection holdOwnerLock(String ownerKey) throws SQLException {
@@ -470,6 +580,74 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
     private String ownerKey(String installationId) {
         return keyFactory.ownerKey("installation", installationId);
+    }
+
+    private SceneGenerationInput sceneInput(
+            String actorAccountId,
+            String ownerAccountId,
+            String profileId,
+            String actorRole,
+            String installationId,
+            String clientRequestId,
+            long activityId,
+            long versionId
+    ) {
+        var subject = new GenerationSubject(
+                actorAccountId,
+                ownerAccountId,
+                profileId,
+                1,
+                "小满",
+                "m7_11",
+                "calmer_care",
+                "household_unified_generation",
+                actorRole);
+        var personalization = new ScenePersonalizationContext(
+                "小满",
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                actorRole,
+                7,
+                "hesitant",
+                "daily_care/bath_time=7",
+                "2026-W36");
+        return new SceneGenerationInput(
+                "preset",
+                "给宝宝穿鞋",
+                subject,
+                personalization,
+                activityId,
+                versionId,
+                "daily_care",
+                "bath_time",
+                "zh-CN",
+                installationId,
+                clientRequestId);
+    }
+
+    private void insertAccount(String accountId) {
+        jdbcTemplate.update(
+                """
+                insert into accounts (
+                    account_id, phone_lookup_ref, phone_mask, status,
+                    latest_consent_status, created_at, deleted_at
+                ) values (?, ?, '138****8000', 'active', 'accepted', now(), null)
+                """,
+                accountId,
+                "unified-test-phone:" + accountId);
+    }
+
+    private void insertProfile(String accountId, String profileId) {
+        jdbcTemplate.update(
+                """
+                insert into baby_profiles (
+                    profile_id, account_id, baby_name, age_range, parent_goal,
+                    onboarding_state, version, created_at, updated_at
+                ) values (?, ?, '小满', 'm7_11', 'calmer_care', 'draft', 1, now(), now())
+                """,
+                profileId,
+                accountId);
     }
 
     private String createExpiredTerminal(PracticeGeneratedContentService.CustomSceneDiscoveryRequest request) {
@@ -600,12 +778,12 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
 
         @Bean
         @Primary
-        RecordingCustomSceneGenerator recordingCustomSceneGenerator(DataSource dataSource) {
-            return new RecordingCustomSceneGenerator(dataSource);
+        RecordingSceneContentGenerator recordingSceneContentGenerator(DataSource dataSource) {
+            return new RecordingSceneContentGenerator(dataSource);
         }
     }
 
-    static class RecordingCustomSceneGenerator implements CustomSceneGenerator {
+    static class RecordingSceneContentGenerator implements SceneContentGenerator {
 
         private final DataSource dataSource;
         private final AtomicInteger calls = new AtomicInteger();
@@ -615,7 +793,7 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
         private volatile CountDownLatch entered = new CountDownLatch(1);
         private volatile CountDownLatch release = new CountDownLatch(0);
 
-        RecordingCustomSceneGenerator(DataSource dataSource) {
+        RecordingSceneContentGenerator(DataSource dataSource) {
             this.dataSource = dataSource;
         }
 
@@ -642,8 +820,8 @@ class PracticeGeneratedContentConcurrencyTest extends AbstractIntegrationTest {
                 throw new IllegalStateException("test provider interrupted", exception);
             }
             if (failNext.getAndSet(false)) {
-                throw new CustomSceneGenerator.GenerationUnavailableException(
-                        CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
+                throw new SceneContentGenerator.GenerationUnavailableException(
+                        SceneContentGenerator.GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
             }
             if (request.displayText().contains("鞋")) {
                 return GeneratedCareMomentBundle.fakeFixture(candidate(
