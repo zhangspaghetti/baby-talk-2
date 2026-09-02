@@ -82,6 +82,28 @@ class PracticeGenerationPrivacyVerifierTest(unittest.TestCase):
 
         self.assertTrue(any("generated audio must not persist" in failure for failure in failures))
 
+    def test_preset_catalog_mapper_may_persist_coach_tip(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapper = root / "backend/app-api/src/main/resources/mapper/practice/PresetSceneCatalogMapper.xml"
+            mapper.parent.mkdir(parents=True)
+            mapper.write_text("select v.coach_tip_zh as coach_tip from practice_preset_scene_version v;\n", encoding="utf-8")
+            failures = VERIFIER.collect_violations(root)
+
+        self.assertFalse(any("PresetSceneCatalogMapper.xml" in failure and "coach_tip_zh" in failure
+                             for failure in failures))
+
+    def test_generated_content_mapper_coach_tip_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapper = root / "backend/app-api/src/main/resources/mapper/practice/generated/PracticeAuditMapper.xml"
+            mapper.parent.mkdir(parents=True)
+            mapper.write_text("<result column=\"coach_tip_zh\"/>\n", encoding="utf-8")
+            failures = VERIFIER.collect_violations(root)
+
+        self.assertTrue(any("PracticeAuditMapper.xml" in failure and "coach_tip_zh" in failure
+                            for failure in failures))
+
 
 if __name__ == "__main__":
     unittest.main()

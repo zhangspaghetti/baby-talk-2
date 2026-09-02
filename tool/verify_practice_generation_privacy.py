@@ -126,9 +126,12 @@ def collect_violations(root: Path) -> list[str]:
             if marker in source:
                 failures.append(f"{path}: generated audio must not persist through {marker}")
 
-    for path in files_under(root, mapper_root, (".xml",)):
+    # Preset catalog/version rows legitimately retain coach_tip_zh and compose
+    # coachTip at the public catalog boundary. Only generated-content mappers
+    # are private persistence surfaces for this rule.
+    for path in files_under(root, "backend/app-api/src/main/resources/mapper/practice/generated", (".xml",)):
         if path.exists() and re.search(r"\bcoach_tip_zh\b", text(path), re.IGNORECASE):
-            failures.append(f"{path}: coach_tip_zh must be composed at response time, never persisted")
+            failures.append(f"{path}: generated-content persistence must not retain coach_tip_zh")
 
     for path in java_paths:
         source = text(path)

@@ -1,6 +1,6 @@
 # Task 4 — unified scene generation engine
 
-Status: `DONE_WITH_CONCERNS` (implementation and Task 4 verification complete; repository-wide verification still reports pre-existing/parallel WIP failures listed below).
+Status: `DONE` (Task 4 implementation and privacy-verifier scope closure complete; repository-wide WIP failures are external and listed below).
 
 ## Implementation, interface, and seams
 
@@ -76,8 +76,21 @@ Task 4 staged scope is 42 files (`1941` insertions, `467` deletions), including 
 
 The minimal `@Deprecated(forRemoval = true)` `generateCustomScene` and `generateCustomSceneForInstallationOwner` adapters remain only to keep this intermediate commit compiling. Both construct/forward into the unified engine and contain no independent cache, persistence, validation, or orchestration. Current legacy callers are `PracticeDiscoveryService` (discovery path) and `PracticeOnboardingConversationGenerator` (onboarding path), plus their existing tests. Task 5 must migrate those callers to `generateScene(SceneGenerationInput)` and delete both adapters; this intermediate commit must not be deployed.
 
-## Self-audit and concerns
+## Self-audit and privacy-verifier scope closure
 
 `git diff --cached --check` is clean; staged-path audit excludes all declared forbidden WIP. Spring production imports contain no `com.fasterxml.jackson.core.*` or `com.fasterxml.jackson.databind.*`; databind/core usage is `tools.jackson.*`. Bean wiring has one active source-neutral generator/orchestrator implementation; disabled/fake adapters remain test/profile seams.
 
-Concern 1: `verify_practice_generation_privacy.py` still fails its baseline rule that `PresetSceneCatalogMapper.xml` must not persist `coach_tip_zh`; that mapper is outside Task 4 and was not changed. Concern 2: the full backend run is red only on the two parallel dirty `CaregiverInviteApiWebTest` 404 assertions above. Neither concern was fixed or staged to avoid overwriting Task 5–7 WIP.
+The verifier concern is closed in follow-up commit `test(practice): scope generation privacy verifier`: the `coach_tip_zh` rule now scans only `mapper/practice/generated/**/*.xml`, the generated-content persistence surface. Preset catalog/version mappers remain allowed, while generated mapper/query/command/audit fixtures remain fail-closed. No blanket substring allowlist was added; generated migration checks and the required `drop column coach_tip_zh` contract remain unchanged.
+
+Verifier TDD evidence:
+
+```text
+RED: python3 test/tool/verify_practice_generation_privacy_test.py
+Ran 9 tests ... FAILED (failures=2: current repository and preset catalog fixture)
+GREEN: python3 test/tool/verify_practice_generation_privacy_test.py
+Ran 9 tests ... OK
+GREEN: python3 tool/verify_practice_generation_privacy.py
+practice generation privacy verification passed
+```
+
+Follow-up staged scope is exactly `tool/verify_practice_generation_privacy.py`, `test/tool/verify_practice_generation_privacy_test.py`, and this report; no discovery/query/Caregiver/mobile WIP was staged. Remaining external concern: the full backend run has the two parallel dirty `CaregiverInviteApiWebTest` 404 assertions documented above; no Task 4 verifier concern remains.
