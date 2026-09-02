@@ -1074,6 +1074,9 @@ class DbMigrationSmokeTest {
         assertThat(indexExists("idx_practice_generated_content_installation_cleanup")).isTrue();
         assertThat(indexExists("idx_practice_generated_content_stale_draft_cleanup")).isTrue();
         assertThat(indexExists("idx_practice_generated_content_account_cleanup")).isTrue();
+        assertThat(indexExists("idx_interaction_events_account_client_timestamp")).isTrue();
+        assertThat(indexDefinition("idx_interaction_events_account_client_timestamp"))
+                .containsIgnoringCase("(account_id, client_timestamp)");
         assertThat(indexDefinition("uq_practice_generated_content_live_fingerprint"))
                 .containsIgnoringCase("owner_key_version")
                 .containsIgnoringCase("generation_profile_version")

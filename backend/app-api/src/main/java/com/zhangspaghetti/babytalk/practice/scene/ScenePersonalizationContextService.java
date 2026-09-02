@@ -8,6 +8,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,8 @@ public class ScenePersonalizationContextService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ScenePersonalizationContextService.class);
     private static final int MAX_ACTIVITY_SUMMARY_ENTRIES = 5;
+    private static final int MAX_ACTIVITY_SUMMARY_LENGTH = 512;
+    private static final Pattern SAFE_ACTIVITY_ID = Pattern.compile("[a-z0-9][a-z0-9_-]{0,95}");
     /** Stable tie-break order for equal reaction counts. */
     private static final List<String> REACTION_PRIORITY = List.of(
             "cooperating",
@@ -152,15 +155,30 @@ public class ScenePersonalizationContextService {
         }
         return activities.stream()
                 .filter(Objects::nonNull)
-                .filter(activity -> activity.spaceId() != null && activity.activityId() != null)
+                .filter(activity -> isSafeActivityId(activity.spaceId()) && isSafeActivityId(activity.activityId()))
                 .sorted(Comparator.comparingInt(ScenePersonalizationContextMapper.ActivityCount::eventCount)
                         .reversed()
                         .thenComparing(ScenePersonalizationContextMapper.ActivityCount::spaceId)
                         .thenComparing(ScenePersonalizationContextMapper.ActivityCount::activityId))
                 .limit(MAX_ACTIVITY_SUMMARY_ENTRIES)
                 .map(activity -> activity.spaceId() + "/" + activity.activityId() + "=" + activity.eventCount())
-                .reduce((left, right) -> left + "," + right)
-                .orElse("");
+                .collect(StringBuilder::new, this::appendBoundedActivityEntry, StringBuilder::append)
+                .toString();
+    }
+
+    private boolean isSafeActivityId(String value) {
+        return value != null && SAFE_ACTIVITY_ID.matcher(value).matches();
+    }
+
+    private void appendBoundedActivityEntry(StringBuilder summary, String entry) {
+        var separatorLength = summary.isEmpty() ? 0 : 1;
+        if (summary.length() + separatorLength + entry.length() > MAX_ACTIVITY_SUMMARY_LENGTH) {
+            return;
+        }
+        if (separatorLength == 1) {
+            summary.append(',');
+        }
+        summary.append(entry);
     }
 
     private String isoWeekVersion(OffsetDateTime utcNow) {

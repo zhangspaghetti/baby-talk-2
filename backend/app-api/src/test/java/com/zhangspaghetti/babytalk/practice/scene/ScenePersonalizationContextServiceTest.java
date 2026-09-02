@@ -11,6 +11,7 @@ import com.zhangspaghetti.babytalk.practice.generated.SceneGenerationInput;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -215,6 +216,58 @@ class ScenePersonalizationContextServiceTest extends AbstractIntegrationTest {
         var context = service.build(standaloneSubject("acct_reaction_tie"), "zh-CN", NOW);
 
         assertThat(context.dominantReaction()).isEqualTo("cooperating");
+    }
+
+    @Test
+    void activitySummarySkipsUnsafeIdsInsteadOfEmbeddingPromptOrIdentifierText() {
+        // Catches prompt/diagnostic injection through commas, delimiters, newlines, spaces, and account-like values.
+        var mapper = mock(ScenePersonalizationContextMapper.class);
+        when(mapper.findWeeklyReactionCounts(any(), any(), any(), any()))
+                .thenReturn(new ScenePersonalizationContextMapper.WeeklyReactionCounts(6, 6, 0, 0, 0, 0));
+        when(mapper.findTopWeeklyActivities(any(), any(), any(), any()))
+                .thenReturn(List.of(
+                        new ScenePersonalizationContextMapper.ActivityCount("safe-space", "safe-activity", 1),
+                        new ScenePersonalizationContextMapper.ActivityCount("unsafe,space", "safe-activity", 1),
+                        new ScenePersonalizationContextMapper.ActivityCount("unsafe=space", "safe-activity", 1),
+                        new ScenePersonalizationContextMapper.ActivityCount("unsafe\nspace", "safe-activity", 1),
+                        new ScenePersonalizationContextMapper.ActivityCount("prompt injection", "safe-activity", 1),
+                        new ScenePersonalizationContextMapper.ActivityCount("acct_secret!", "safe-activity", 1)
+                ));
+
+        var context = new ScenePersonalizationContextService(mapper)
+                .build(standaloneSubject("acct_summary_safety"), "zh-CN", NOW);
+
+        assertThat(context.recentPracticeCount()).isEqualTo(6);
+        assertThat(context.dominantReaction()).isEqualTo("cooperating");
+        assertThat(context.recentActivitySummary()).isEqualTo("safe-space/safe-activity=1");
+        assertThat(context.recentActivitySummary())
+                .doesNotContain("unsafe,space", "unsafe=space", "unsafe\nspace", "prompt injection", "acct_secret!");
+    }
+
+    @Test
+    void activitySummaryCapsTotalLengthWithoutTruncatingAnEntry() {
+        // Catches a five-entry summary that exceeds the prompt boundary or truncates a legal entry halfway.
+        var mapper = mock(ScenePersonalizationContextMapper.class);
+        when(mapper.findWeeklyReactionCounts(any(), any(), any(), any()))
+                .thenReturn(new ScenePersonalizationContextMapper.WeeklyReactionCounts(5, 5, 0, 0, 0, 0));
+        var longActivities = new ArrayList<ScenePersonalizationContextMapper.ActivityCount>();
+        for (int index = 0; index < 5; index++) {
+            longActivities.add(new ScenePersonalizationContextMapper.ActivityCount(
+                    "s" + "a".repeat(94) + index,
+                    "a" + "b".repeat(94) + index,
+                    1
+            ));
+        }
+        when(mapper.findTopWeeklyActivities(any(), any(), any(), any())).thenReturn(longActivities);
+
+        var summary = new ScenePersonalizationContextService(mapper)
+                .build(standaloneSubject("acct_summary_cap"), "zh-CN", NOW)
+                .recentActivitySummary();
+
+        assertThat(summary).hasSizeLessThanOrEqualTo(512);
+        assertThat(summary.split(",", -1))
+                .allMatch(entry -> entry.matches("[a-z0-9][a-z0-9_-]{0,95}/[a-z0-9][a-z0-9_-]{0,95}=1"));
+        assertThat(summary.split(",", -1)).hasSizeLessThan(5);
     }
 
     @Test

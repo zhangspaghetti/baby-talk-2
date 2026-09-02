@@ -63,3 +63,8 @@ create unique index uq_practice_generated_content_active_phrase_slug
     on practice_generated_content(phrase_slug)
     where status = 'active'
       and (mode <> 'scene_generation' or input_source is distinct from 'preset');
+
+-- Weekly personalization filters interaction events by account and timestamp;
+-- keep those equality/range predicates contiguous for historical event growth.
+create index idx_interaction_events_account_client_timestamp
+    on interaction_events(account_id, client_timestamp);
