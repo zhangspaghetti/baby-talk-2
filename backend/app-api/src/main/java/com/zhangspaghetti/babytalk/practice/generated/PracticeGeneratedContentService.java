@@ -14,7 +14,6 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.scene.GenerationSubject;
-import com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContext;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -39,7 +38,6 @@ public class PracticeGeneratedContentService {
     private static final String STATUS_DRAFT = "draft";
     private static final String STATUS_ACTIVE = "active";
     private static final String OWNER_INSTALLATION = "installation";
-    private static final String OWNER_ACCOUNT = "account";
     private static final String OWNER_PROFILE = "profile";
     private static final String SOURCE_CUSTOM = "custom";
     private static final String SOURCE_PRESET = "preset";
@@ -313,44 +311,6 @@ public class PracticeGeneratedContentService {
         return generateScene(input, owner, SCENE_GENERATION_SURFACE, SCENE_GENERATION_MODE);
     }
 
-    /**
-     * Transitional adapter for callers removed by Task 5. It deliberately has
-     * no generation behavior of its own and delegates to the unified engine.
-     */
-    @Deprecated(forRemoval = true)
-    public PracticeGeneratedContentEntity generateCustomScene(
-            CustomSceneDiscoveryRequest request
-    ) {
-        requireCustomSceneGenerationAvailable();
-        Objects.requireNonNull(request, "custom scene request");
-        return generateScene(legacyInput(request), resolveOwner(request), request.surface(), request.mode());
-    }
-
-    @Deprecated(forRemoval = true)
-    public PracticeGeneratedContentEntity generateCustomSceneForInstallationOwner(
-            CustomSceneDiscoveryRequest request,
-            String installationOwnerKey,
-            String installationRefHash
-    ) {
-        requireCustomSceneGenerationAvailable();
-        var normalizedRef = trimToNull(installationRefHash);
-        var normalizedOwnerKey = trimToNull(installationOwnerKey);
-        if (normalizedRef == null || !normalizedRef.matches("^installation_[0-9a-f]{64}$")
-                || normalizedOwnerKey == null || !normalizedOwnerKey.matches("^owner_[0-9a-f]{64}$")
-                || trimToNull(request.installationId()) != null
-                || trimToNull(request.accountId()) != null
-                || trimToNull(request.profileId()) != null) {
-            throw new ContractException(
-                    HttpStatus.BAD_REQUEST,
-                    "invalid_generated_content_owner",
-                    "installation owner ref 不合法。"
-            );
-        }
-        return generateScene(legacyInput(request), new OwnerContext(
-                OWNER_INSTALLATION, normalizedOwnerKey, null, normalizedRef, null),
-                request.surface(), request.mode());
-    }
-
     private void validateUnifiedInput(SceneGenerationInput input) {
         var source = input.inputSource();
         if (!SOURCE_CUSTOM.equals(source) && !SOURCE_PRESET.equals(source)) {
@@ -619,51 +579,6 @@ public class PracticeGeneratedContentService {
                 accountId,
                 null,
                 profileId);
-    }
-
-    private SceneGenerationInput legacyInput(CustomSceneDiscoveryRequest request) {
-        var ageRange = legacyValue(request.ageRange(), "unknown");
-        var parentGoal = legacyValue(request.parentGoal(), "unknown");
-        var locale = legacyValue(request.locale(), "unknown");
-        var accountId = legacyValue(request.accountId(), "legacy-account");
-        var profileId = legacyValue(request.profileId(), "legacy-profile");
-        var subject = new GenerationSubject(
-                accountId,
-                accountId,
-                profileId,
-                0,
-                "legacy",
-                ageRange,
-                parentGoal,
-                null,
-                "legacy");
-        var personalization = new ScenePersonalizationContext(
-                subject.babyName(),
-                subject.ageRange(),
-                subject.parentGoal(),
-                locale,
-                subject.actorRole(),
-                0,
-                null,
-                "",
-                "legacy-week");
-        return new SceneGenerationInput(
-                SOURCE_CUSTOM,
-                request.customSceneText(),
-                subject,
-                personalization,
-                null,
-                null,
-                null,
-                null,
-                locale,
-                request.installationId(),
-                request.clientRequestId());
-    }
-
-    private String legacyValue(String value, String fallback) {
-        var normalized = trimToNull(value);
-        return normalized == null ? fallback : normalized;
     }
 
     private ReservationPolicy reservationPolicy(String ownerScope) {
@@ -1007,53 +922,6 @@ public class PracticeGeneratedContentService {
         row.setProviderAttemptNumber(content.providerProvenance().attemptNumber());
         row.setCreatedAt(active.updatedAt());
         return row;
-    }
-
-    private OwnerContext resolveOwner(CustomSceneDiscoveryRequest request) {
-        if (trimToNull(request.profileId()) != null) {
-            var accountId = trimToNull(request.accountId());
-            if (accountId == null) {
-                throw new ContractException(
-                        HttpStatus.BAD_REQUEST,
-                        "invalid_generated_content_owner",
-                        "profile owner 缺少 accountId。"
-                );
-            }
-            return new OwnerContext(
-                    OWNER_PROFILE,
-                    keyFactory.ownerKey(OWNER_PROFILE, accountId + ":" + request.profileId()),
-                    accountId,
-                    null,
-                    request.profileId()
-            );
-        }
-
-        var accountId = trimToNull(request.accountId());
-        if (accountId != null) {
-            return new OwnerContext(
-                    OWNER_ACCOUNT,
-                    keyFactory.ownerKey(OWNER_ACCOUNT, accountId),
-                    accountId,
-                    null,
-                    null
-            );
-        }
-
-        var installationId = trimToNull(request.installationId());
-        if (installationId == null) {
-            throw new ContractException(
-                    HttpStatus.BAD_REQUEST,
-                    "invalid_installation_id",
-                    "installationId 不合法。",
-                    Map.of("field", "installationId")
-            );
-        }
-        return new OwnerContext(
-                OWNER_INSTALLATION,
-                keyFactory.ownerKey(OWNER_INSTALLATION, installationId),
-                null,
-                keyFactory.installationRefHash(installationId),
-                null);
     }
 
     private String generatedContentId(OwnerContext owner, String requestFingerprint, int reservationAttempt) {
@@ -1426,43 +1294,6 @@ public class PracticeGeneratedContentService {
 
     private OffsetDateTime nowUtc() {
         return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
-    }
-
-    public record CustomSceneDiscoveryRequest(
-            String surface,
-            String mode,
-            String installationId,
-            String accountId,
-            String profileId,
-            String ageRange,
-            String parentGoal,
-            String locale,
-            String customSceneText,
-            String clientRequestId
-    ) {
-        public CustomSceneDiscoveryRequest(
-                String surface,
-                String mode,
-                String installationId,
-                String accountId,
-                String profileId,
-                String ageRange,
-                String parentGoal,
-                String locale,
-                String customSceneText
-        ) {
-            this(surface, mode, installationId, accountId, profileId, ageRange, parentGoal, locale,
-                    customSceneText, null);
-        }
-
-        @Override
-        public String toString() {
-            return "CustomSceneDiscoveryRequest{"
-                    + "surface='" + surface + '\''
-                    + ", mode='" + mode + '\''
-                    + ", clientRequestIdPresent=" + (clientRequestId != null)
-                    + '}';
-        }
     }
 
     private record PreparedScene(

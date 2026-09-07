@@ -24,6 +24,7 @@ import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
 import com.zhangspaghetti.babytalk.practice.generated.quality.RepairDirective;
+import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -42,6 +43,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -53,6 +55,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
         "babytalk.practice.discovery.custom-scene.max-generation-attempts=2",
         "babytalk.practice.discovery.custom-scene.installation-burst-limit=10",
         "babytalk.practice.discovery.custom-scene.installation-daily-limit=1",
+        "babytalk.practice.discovery.custom-scene.account-burst-limit=10",
+        "babytalk.practice.discovery.custom-scene.account-daily-limit=1",
+        "app.contract.min-supported-version=1.2.0",
+        "app.sms.provider-mode=dev",
+        "app.sms.dev-code=246810",
         "babytalk.practice.discovery.owner.key-version=v1",
         "babytalk.practice.discovery.owner.key-secret=integration-owner-key-secret-at-least-32-bytes",
         "app.ai.routing-policy.version=integration-routing-v1",
@@ -82,10 +89,29 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     private final StubResponses caller = new StubResponses();
 
     @Autowired
+    private AuthConsentSyncService authConsentSyncService;
+
+    @Autowired
     private StubEvidenceRetriever evidenceRetriever;
+
+    private AuthConsentSyncService.SessionResponse session;
 
     @BeforeEach
     void resetStub() {
+        var challenge = authConsentSyncService.createChallenge("13800139999");
+        session = authConsentSyncService.verifyChallenge(
+                challenge.challengeId(), "246810", "install-agentic-session");
+        authConsentSyncService.acceptConsent(session.sessionId(), "pipl-v1");
+        jdbcTemplate.update(
+                """
+                insert into baby_profiles (
+                    profile_id, account_id, baby_name, age_range, parent_goal,
+                    onboarding_state, version, created_at, updated_at
+                ) values ('profile-agentic-integration', ?, '小满', 'm7_11', 'calmer_care',
+                          'draft', 1, now(), now())
+                """,
+                session.accountId());
+
         caller.mode(StubMode.PASS);
         evidenceRetriever.mode(EvidenceMode.SUFFICIENT);
         doAnswer(invocation -> caller.callRaw(
@@ -110,11 +136,12 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void firstEndpointRequestAuditsEveryStepActivatesAndExactReuseMakesNoExtraProviderCalls() throws Exception {
-        var first = mockMvc.perform(discovery("install_agentic_1", "出门前宝宝不想穿鞋"))
+        var first = mockMvc.perform(generation("install_agentic_1", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.source").value("generated"))
+                .andExpect(jsonPath("$.source.type").value("custom"))
                 .andExpect(jsonPath("$.generatedContentId").isNotEmpty())
-                .andExpect(jsonPath("$.moments[0].coachTip").value("拿起鞋子。 慢慢说一遍。"))
+                .andExpect(jsonPath("$.scene.activityTitle").value("穿鞋出门"))
+                .andExpect(jsonPath("$.starter.chinese").value("穿鞋出门。"))
                 .andReturn();
         var generatedContentId = new tools.jackson.databind.ObjectMapper()
                 .readTree(first.getResponse().getContentAsString())
@@ -134,7 +161,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 String.class,
                 generatedContentId)).isNull();
 
-        mockMvc.perform(discovery("install_agentic_1", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_1", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.generatedContentId").value(generatedContentId));
 
@@ -144,9 +171,9 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void bidiInputIsRejectedBeforeDraftOrProviderCall() throws Exception {
-        mockMvc.perform(discovery("install_agentic_bidi", "出门前\u202E宝宝不想穿鞋"))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
+        mockMvc.perform(generation("install_agentic_bidi", "出门前\u202E宝宝不想穿鞋"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("invalid_custom_scene_text"));
 
         assertThat(count("practice_generated_content")).isZero();
         assertThat(count("practice_ai_provider_calls")).isZero();
@@ -154,11 +181,11 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void dailyQuotaDenialExpiresSecondDraftBeforeGeneratorCall() throws Exception {
-        mockMvc.perform(discovery("install_agentic_daily", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_daily", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isOk());
         var callsAfterFirst = count("practice_ai_provider_calls");
 
-        mockMvc.perform(discovery("install_agentic_daily", "睡前宝宝想抱抱"))
+        mockMvc.perform(generation("install_agentic_daily", "睡前宝宝想抱抱"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.code").value("custom_scene_rate_limited"));
 
@@ -172,7 +199,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     void judgeProviderExhaustionExpiresRetryableExecution() throws Exception {
         caller.mode(StubMode.JUDGE_EXHAUSTED);
 
-        mockMvc.perform(discovery("install_agentic_judge", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_judge", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("generation_unavailable"))
                 .andExpect(jsonPath("$.details.retryable").value(true));
@@ -185,7 +212,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     void insufficientEvidenceExpiresBeforeProviderCall() throws Exception {
         evidenceRetriever.mode(EvidenceMode.INSUFFICIENT);
 
-        mockMvc.perform(discovery("install_agentic_evidence", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_evidence", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("generation_unavailable"))
                 .andExpect(jsonPath("$.details.reason").value("insufficient_evidence"))
@@ -200,7 +227,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     void terminalPiiOutputIsRejectedWithoutJudge() throws Exception {
         caller.mode(StubMode.PII);
 
-        mockMvc.perform(discovery("install_agentic_pii", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_pii", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value("generation_invalid_output"));
 
@@ -215,7 +242,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     void duplicateProviderKeysExpireWithoutActivationOrJudge() throws Exception {
         caller.mode(StubMode.DUPLICATE_KEY);
 
-        mockMvc.perform(discovery("install_agentic_duplicate", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_duplicate", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("generation_unavailable"));
 
@@ -230,7 +257,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     void trailingProviderTokensExpireWithoutActivationOrJudge() throws Exception {
         caller.mode(StubMode.TRAILING_TOKENS);
 
-        mockMvc.perform(discovery("install_agentic_trailing", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_trailing", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("generation_unavailable"));
 
@@ -245,9 +272,9 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     void repairThenPassCreatesFreshAttemptAndEvidenceBundle() throws Exception {
         caller.mode(StubMode.REPAIR_THEN_PASS);
 
-        mockMvc.perform(discovery("install_agentic_repair", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_repair", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.source").value("generated"));
+                .andExpect(jsonPath("$.source.type").value("custom"));
 
         assertThat(count("practice_generated_content_attempts")).isEqualTo(2);
         assertThat(count("practice_generated_content_evidence_bundles")).isEqualTo(2);
@@ -258,9 +285,9 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     void judgeTprFailureRepairsWithEvidenceActionContractThenFreshJudgeActivates() throws Exception {
         caller.mode(StubMode.JUDGE_TPR_REPAIR_THEN_PASS);
 
-        mockMvc.perform(discovery("install_agentic_tpr_repair", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_tpr_repair", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.source").value("generated"));
+                .andExpect(jsonPath("$.source.type").value("custom"));
 
         assertThat(count("practice_generated_content_attempts")).isEqualTo(2);
         assertThat(count("practice_ai_provider_calls")).isEqualTo(4);
@@ -293,7 +320,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     void attemptsExhaustedRejectsTerminalRow() throws Exception {
         caller.mode(StubMode.ATTEMPT_EXHAUSTED);
 
-        mockMvc.perform(discovery("install_agentic_exhaust", "出门前宝宝不想穿鞋"))
+        mockMvc.perform(generation("install_agentic_exhaust", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.code").value("generation_invalid_output"));
 
@@ -302,17 +329,22 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         assertThat(count("practice_generated_content_attempts")).isEqualTo(2);
     }
 
-    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder discovery(
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder generation(
             String installationId,
             String scene
     ) {
-        return post("/api/v1/practice/discovery")
+        return post("/api/v1/practice/scene-generations")
                 .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + session.accessToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"surface":"onboarding","mode":"custom_scene","installationId":"%s",
-                        "ageRange":"m7_11","parentGoal":"calmer_care","locale":"zh-CN","customSceneText":"%s"}
-                        """.formatted(installationId, scene));
+                        {"source":{"type":"custom","text":"%s"},"locale":"zh-CN",
+                        "installationId":"%s","clientRequestId":"request_%s_%s"}
+                        """.formatted(
+                                scene,
+                                installationId,
+                                installationId,
+                                Integer.toUnsignedString(scene.hashCode())));
     }
 
     private int count(String table) {

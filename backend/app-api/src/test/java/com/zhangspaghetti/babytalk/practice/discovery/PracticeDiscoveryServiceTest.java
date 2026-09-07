@@ -4,15 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
-import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
-import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryRequest;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.MomentResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.SceneResponse;
@@ -35,7 +31,6 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -56,9 +51,6 @@ class PracticeDiscoveryServiceTest {
     @Mock
     private BabyProfileMapper babyProfileMapper;
 
-    @Mock
-    private PracticeGeneratedContentService generatedContentService;
-
     private PracticeDiscoveryService service;
 
     @BeforeEach
@@ -66,8 +58,7 @@ class PracticeDiscoveryServiceTest {
         service = new PracticeDiscoveryService(
                 catalogMapper,
                 authConsentSyncService,
-                babyProfileMapper,
-                generatedContentService
+                babyProfileMapper
         );
     }
 
@@ -425,137 +416,6 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
-    void customSceneModeHydratesGeneratedRow() {
-        var generated = generatedRow("pgc_service_generated");
-        stubApprovedBundle(generated);
-        when(generatedContentService.generateCustomScene(any()))
-                .thenReturn(generated);
-
-        var response = service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                "install_1",
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), null);
-
-        assertThat(response.source()).isEqualTo("generated");
-        assertThat(response.generatedContentId()).isEqualTo("pgc_service_generated");
-        assertThat(response.starter().source()).isEqualTo("generated");
-        assertThat(response.starter().sceneId()).startsWith("gen_scene_");
-        assertThat(response.starter().activityId()).startsWith("gen_activity_");
-        assertThat(response.starter().phraseId()).startsWith("gen_phrase_");
-        assertThat(response.scenes().get(0).reasonCode()).isEqualTo("custom_scene_match");
-        verify(catalogMapper, never()).findSpaces(any(), eq(50));
-    }
-
-    @Test
-    void customSceneCoachTipConcatenatesPersistedFieldsDirectly() {
-        assertThat(discoverGeneratedCoachTip("看着宝宝。", "慢慢说一遍。"))
-                .isEqualTo("看着宝宝。 慢慢说一遍。");
-        assertThat(discoverGeneratedCoachTip("轻声说。", "轻声说。"))
-                .isEqualTo("轻声说。 轻声说。");
-    }
-
-    @Test
-    void acceptedAuthenticatedCustomSceneUsesAccountOwnerWithoutBabyProfileIdOrInstallationId() {
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_accepted", "生成自定义练习场景"))
-                .thenReturn(new AuthConsentSyncService.ConsumerSessionView(
-                        "acct_custom_scene_owner",
-                        "sess_accepted",
-                        "install_1",
-                        "accepted"
-                ));
-        var generated = generatedRow("pgc_service_generated_account");
-        stubApprovedBundle(generated);
-        when(generatedContentService.generateCustomScene(any()))
-                .thenReturn(generated);
-        var captor = ArgumentCaptor.forClass(PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
-
-        var response = service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                null,
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), "sess_accepted");
-
-        assertThat(response.profileMode()).isEqualTo("authenticated_request");
-        verify(generatedContentService).generateCustomScene(captor.capture());
-        assertThat(captor.getValue().accountId()).isEqualTo("acct_custom_scene_owner");
-        assertThat(captor.getValue().profileId()).isNull();
-        assertThat(captor.getValue().installationId()).isNull();
-    }
-
-    @Test
-    void disabledCustomSceneFailsBeforeJwtConsentOrProfileLookup() {
-        var failure = new ContractException(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "generation_unavailable",
-                "自定义场景生成当前不可用。"
-        );
-        doThrow(failure).when(generatedContentService).requireCustomSceneGenerationAvailable();
-
-        assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                "install_1",
-                "babyprof_1",
-                null,
-                null,
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), "sess_disabled"))
-                .isSameAs(failure);
-
-        verify(generatedContentService).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
-        verifyNoInteractions(authConsentSyncService, babyProfileMapper);
-    }
-
-    @Test
-    void authenticatedCustomScenePropagatesConsentRequiredInsteadOfUsingInstallationScope() {
-        var failure = new ContractException(
-                HttpStatus.CONFLICT,
-                "consent_required",
-                "当前账号尚未完成同意。"
-        );
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_required", "生成自定义练习场景"))
-                .thenThrow(failure);
-
-        assertThatThrownBy(() -> service.discover(customSceneRequest("_bad"), "sess_required"))
-                .isSameAs(failure);
-        verify(generatedContentService, never()).generateCustomScene(any());
-    }
-
-    @Test
-    void authenticatedCustomScenePropagatesConsentRevokedInsteadOfUsingInstallationScope() {
-        var failure = new ContractException(
-                HttpStatus.FORBIDDEN,
-                "consent_revoked",
-                "同意已撤回。"
-        );
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_revoked", "生成自定义练习场景"))
-                .thenThrow(failure);
-
-        assertThatThrownBy(() -> service.discover(customSceneRequest(), "sess_revoked"))
-                .isSameAs(failure);
-        verify(generatedContentService, never()).generateCustomScene(any());
-    }
-
-    @Test
     void invalidOrMissingSurfaceRejected() {
         assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
                 null,
@@ -638,6 +498,29 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
+    void customSceneDiscoveryModeIsRemovedWithoutCatalogOrProfileLookup() {
+        assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
+                "onboarding",
+                "custom_scene",
+                "install_1",
+                null,
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                6,
+                null,
+                "洗澡后哄睡"
+        ), null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(contract.code()).isEqualTo("invalid_discovery_mode");
+                });
+        verifyNoInteractions(catalogMapper, authConsentSyncService, babyProfileMapper);
+    }
+
+    @Test
     void serviceConstructorDoesNotDependOnAiOrMentorTypes() {
         assertThat(List.of(PracticeDiscoveryService.class.getDeclaredConstructors()).stream()
                 .map(Constructor::getParameterTypes)
@@ -682,137 +565,6 @@ class PracticeDiscoveryServiceTest {
                 "trace_1",
                 null
         );
-    }
-
-    private PracticeDiscoveryRequest customSceneRequest() {
-        return customSceneRequest(null);
-    }
-
-    private PracticeDiscoveryRequest customSceneRequest(String installationId) {
-        return new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                installationId,
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        );
-    }
-
-    private PracticeGeneratedContentEntity generatedRow(String generatedContentId) {
-        var row = new PracticeGeneratedContentEntity();
-        row.setGeneratedContentId(generatedContentId);
-        row.setOwnerScope("installation");
-        row.setOwnerKey("owner_service_generated");
-        row.setOwnerKeyVersion("v1");
-        row.setInstallationRefHash("install_1");
-        row.setSurface("onboarding");
-        row.setMode("custom_scene");
-        row.setRequestFingerprint("fp_service_generated");
-        row.setAgeRange("m7_11");
-        row.setParentGoal("calmer_care");
-        row.setLocale("zh-CN");
-        row.setSpaceSlug("gen_scene_abc1234567890");
-        row.setActivitySlug("gen_activity_abc1234567890");
-        row.setPhraseSlug("gen_phrase_abc1234567890");
-        row.setSpaceTitleZh("日常照护");
-        row.setActivityTitleZh("洗澡安抚");
-        row.setSceneTagEn("Bath care");
-        row.setTprActionZh("看着宝宝");
-        row.setDeliveryGuidanceZh("慢慢说一遍。");
-        row.setEnglishText("Warm water.");
-        row.setChineseText("水暖暖的。");
-        row.setPronunciationHint("warm water");
-        row.setDifficulty("starter");
-        row.setGenerationSource("agentic_search");
-        row.setStatus("active");
-        row.setContentVersion(1);
-        row.setGenerationStartedAt(NOW_DB);
-        row.setCreatedAt(NOW_DB);
-        row.setUpdatedAt(NOW_DB);
-        return row;
-    }
-
-    private String discoverGeneratedCoachTip(String tprActionZh, String deliveryGuidanceZh) {
-        var row = generatedRow("pgc_service_generated_tip");
-        row.setTprActionZh(tprActionZh);
-        row.setDeliveryGuidanceZh(deliveryGuidanceZh);
-        stubApprovedBundle(row);
-        when(generatedContentService.generateCustomScene(any())).thenReturn(row);
-        var response = service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                "install_1",
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), null);
-        return response.moments().get(0).coachTip();
-    }
-
-    private void stubApprovedBundle(PracticeGeneratedContentEntity row) {
-        when(generatedContentService.findApprovedUtterances(row.generatedContentId()))
-                .thenReturn(List.of(
-                        approvedUtterance(row, "starter", null, 1,
-                                row.englishText(), row.chineseText(), row.pronunciationHint(),
-                                row.tprActionZh(), row.deliveryGuidanceZh()),
-                        approvedUtterance(row, "reaction_support", "cooperating", 2,
-                                "We can do this together.", "我们一起做。", "we can do this together",
-                                "一起做动作。", "轻声邀请。"),
-                        approvedUtterance(row, "reaction_support", "hesitant", 3,
-                                "You can try slowly.", "你可以慢慢试。", "you can try slowly",
-                                "把物品放近。", "留出等待。"),
-                        approvedUtterance(row, "reaction_support", "resisting", 4,
-                                "It is okay to pause.", "可以先停一下。", "it is okay to pause",
-                                "手掌向外停一停。", "接住拒绝。"),
-                        approvedUtterance(row, "reaction_support", "no_response", 5,
-                                "I will wait with you.", "我陪你等一等。", "i will wait with you",
-                                "安静停留。", "不重复追问。"),
-                        approvedUtterance(row, "reaction_support", "other", 6,
-                                "We can take a pause.", "我们先停一会儿。", "we can take a pause",
-                                "做深呼吸动作。", "平静收束。")));
-    }
-
-    private PracticeGeneratedContentUtteranceEntity approvedUtterance(
-            PracticeGeneratedContentEntity row,
-            String role,
-            String reaction,
-            int displayOrder,
-            String englishText,
-            String chineseText,
-            String pronunciationHint,
-            String tprActionZh,
-            String deliveryGuidanceZh
-    ) {
-        var utterance = new PracticeGeneratedContentUtteranceEntity();
-        utterance.setUtteranceId(row.generatedContentId() + "_" + displayOrder);
-        utterance.setGeneratedContentId(row.generatedContentId());
-        utterance.setRole(role);
-        utterance.setReactionType(reaction);
-        utterance.setEnglishText(englishText);
-        utterance.setChineseText(chineseText);
-        utterance.setPronunciationHint(pronunciationHint);
-        utterance.setTprActionZh(tprActionZh);
-        utterance.setDeliveryGuidanceZh(deliveryGuidanceZh);
-        utterance.setDifficulty("starter");
-        utterance.setDisplayOrder(displayOrder);
-        utterance.setApprovalStatus("approved");
-        utterance.setApprovedContentVersion(row.contentVersion());
-        utterance.setBundleSchemaVersion("custom-scene-generated-output-v1");
-        utterance.setProviderOrigin("provider_generated");
-        utterance.setProviderName("test-provider");
-        utterance.setProviderModelName("test-model");
-        utterance.setProviderAttemptNumber(1);
-        utterance.setCreatedAt(NOW_DB);
-        return utterance;
     }
 
     private PracticeSpaceRow space(String spaceId, int sortOrder) {

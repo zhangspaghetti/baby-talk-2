@@ -1,7 +1,5 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
-import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
-import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryRequest;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.MomentResponse;
@@ -39,22 +37,18 @@ public class PracticeDiscoveryService {
     private static final String SURFACE_ONBOARDING = "onboarding";
     private static final String SURFACE_CARE_PATH = "care_path";
     private static final String MODE_CATALOG = "catalog";
-    private static final String MODE_CUSTOM_SCENE = "custom_scene";
     private static final String SUPPORTED_LOCALE = "zh-CN";
     private static final String SOURCE_CATALOG = "catalog";
-    private static final String SOURCE_GENERATED = "generated";
     private static final String SOURCE_SEED = "seed";
     private static final String DIFFICULTY_STARTER = "starter";
     private static final String PROFILE_MODE_DRAFT = "draft";
     private static final String PROFILE_MODE_AUTHENTICATED_REQUEST = "authenticated_request";
     private static final String PROFILE_MODE_AUTHENTICATED_PROFILE = "authenticated_profile";
     private static final String TRACE_STRATEGY_CATALOG_RANKED = "catalog_ranked";
-    private static final String TRACE_STRATEGY_CUSTOM_SCENE_GENERATED = "custom_scene_generated";
     private static final String REASON_STARTER_MATCH = "starter_match";
     private static final String REASON_GOAL_MATCH = "goal_match";
     private static final String REASON_AGE_MATCH = "age_match";
     private static final String REASON_FALLBACK_FIRST_CATALOG = "fallback_first_catalog";
-    private static final String REASON_CUSTOM_SCENE_MATCH = "custom_scene_match";
     private static final String ERROR_INVALID_DISCOVERY_SURFACE = "invalid_discovery_surface";
     private static final String ERROR_INVALID_DISCOVERY_MODE = "invalid_discovery_mode";
     private static final String ERROR_UNSUPPORTED_SURFACE_MODE = "unsupported_surface_mode";
@@ -79,19 +73,16 @@ public class PracticeDiscoveryService {
     private final PracticeCatalogService catalogService;
     private final AuthConsentSyncService authConsentSyncService;
     private final BabyProfileMapper babyProfileMapper;
-    private final PracticeGeneratedContentService generatedContentService;
 
     @Autowired
     public PracticeDiscoveryService(
             PracticeCatalogService catalogService,
             AuthConsentSyncService authConsentSyncService,
-            BabyProfileMapper babyProfileMapper,
-            PracticeGeneratedContentService generatedContentService
+            BabyProfileMapper babyProfileMapper
     ) {
         this.catalogService = catalogService;
         this.authConsentSyncService = authConsentSyncService;
         this.babyProfileMapper = babyProfileMapper;
-        this.generatedContentService = generatedContentService;
     }
 
     public PracticeDiscoveryResponse discover(PracticeDiscoveryRequest request, String sessionId) {
@@ -100,35 +91,12 @@ public class PracticeDiscoveryService {
         }
         var surface = validateSurface(request.surface());
         var mode = validateMode(request.mode());
-        if (mode == PracticeDiscoveryMode.CUSTOM_SCENE) {
-            generatedContentService.requireCustomSceneGenerationAvailable();
-        }
         validateModeSpecificFields(request, surface, mode);
         validateLocale(request.locale());
         var limit = normalizeLimit(request.limit());
         validateClientTraceId(request.clientTraceId());
 
         var context = resolveContext(request, sessionId);
-        if (mode == PracticeDiscoveryMode.CUSTOM_SCENE) {
-            var generatedContext = resolveGeneratedContentContext(context, sessionId);
-            validateInstallationId(
-                    request.installationId(),
-                    generatedContext.accountId() == null && generatedContext.profileId() == null);
-            var generated = generatedContentService.generateCustomScene(new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                    surface.wireValue(),
-                    mode.wireValue(),
-                    StrUtil.trimToNull(request.installationId()),
-                    generatedContext.accountId(),
-                    generatedContext.profileId(),
-                    generatedContext.ageRange(),
-                    generatedContext.parentGoal(),
-                    SUPPORTED_LOCALE,
-                    request.customSceneText(),
-                    request.clientRequestId()
-            ));
-            return toGeneratedResponse(generatedContext, generated, surface, mode);
-        }
-
         validateInstallationId(request.installationId(), context.profileId() == null);
 
         var candidates = rankedCandidates(context);
@@ -172,8 +140,8 @@ public class PracticeDiscoveryService {
             throw new ContractException(
                     HttpStatus.BAD_REQUEST,
                     ERROR_INVALID_DISCOVERY_MODE,
-                    "mode 仅支持 catalog 或 custom_scene。",
-                    Map.of("supportedModes", List.of(MODE_CATALOG, MODE_CUSTOM_SCENE))
+                    "mode 仅支持 catalog。",
+                    Map.of("supportedModes", List.of(MODE_CATALOG))
             );
         }
         return parsed;
@@ -184,10 +152,7 @@ public class PracticeDiscoveryService {
                 HttpStatus.BAD_REQUEST,
                 ERROR_UNSUPPORTED_SURFACE_MODE,
                 "surface/mode 组合暂不支持。",
-                Map.of("supportedPairs", List.of(
-                        SupportedPair.onboardingCatalog(),
-                        SupportedPair.onboardingCustomScene(),
-                        SupportedPair.carePathCustomScene()))
+                Map.of("supportedPairs", List.of(SupportedPair.onboardingCatalog()))
         );
     }
 
@@ -196,14 +161,14 @@ public class PracticeDiscoveryService {
             PracticeDiscoverySurface surface,
             PracticeDiscoveryMode mode
     ) {
-        if (surface == PracticeDiscoverySurface.CARE_PATH && mode != PracticeDiscoveryMode.CUSTOM_SCENE) {
+        if (surface != PracticeDiscoverySurface.ONBOARDING || mode != PracticeDiscoveryMode.CATALOG) {
             throw unsupportedSurfaceMode();
         }
         if (mode == PracticeDiscoveryMode.CATALOG && StrUtil.trimToNull(request.customSceneText()) != null) {
             throw new ContractException(
                     HttpStatus.BAD_REQUEST,
                     "invalid_request_body",
-                    "customSceneText 仅支持 custom_scene mode。"
+                    "customSceneText 仅支持统一场景生成接口。"
             );
         }
     }
@@ -311,6 +276,14 @@ public class PracticeDiscoveryService {
                 .filter(candidate -> babyProfileId.equals(candidate.profileId()))
                 .orElseThrow(this::profileNotFound);
 
+        return resolveSavedProfileContext(request, session, profile);
+    }
+
+    private DiscoveryContext resolveSavedProfileContext(
+            PracticeDiscoveryRequest request,
+            AuthConsentSyncService.ConsumerSessionView session,
+            com.zhangspaghetti.babytalk.profile.model.BabyProfileRow profile
+    ) {
         var requestedAgeRange = optionalAllowed(
                 request.ageRange(),
                 BabyProfileOptions.AGE_RANGES,
@@ -341,22 +314,8 @@ public class PracticeDiscoveryService {
                 PROFILE_MODE_AUTHENTICATED_PROFILE,
                 ageRange,
                 parentGoal,
-                session.accountId(),
+                profile.accountId(),
                 profile.profileId()
-        );
-    }
-
-    private DiscoveryContext resolveGeneratedContentContext(DiscoveryContext context, String sessionId) {
-        if (context.profileId() != null || sessionId == null) {
-            return context;
-        }
-        var session = authConsentSyncService.requireAcceptedConsumerSession(sessionId, "生成自定义练习场景");
-        return new DiscoveryContext(
-                context.profileMode(),
-                context.ageRange(),
-                context.parentGoal(),
-                session.accountId(),
-                null
         );
     }
 
@@ -612,134 +571,6 @@ public class PracticeDiscoveryService {
         );
     }
 
-    private PracticeDiscoveryResponse toGeneratedResponse(
-            DiscoveryContext context,
-            PracticeGeneratedContentEntity row,
-            PracticeDiscoverySurface surface,
-            PracticeDiscoveryMode mode
-    ) {
-        var approvedUtterances = generatedContentService.findApprovedUtterances(row.generatedContentId());
-        requireCompleteGeneratedBundle(approvedUtterances);
-        var starterRow = approvedUtterances.stream()
-                .filter(value -> "starter".equals(value.role()) && value.reactionType() == null)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("complete generated bundle is missing starter"));
-        var starterUtteranceId = row.phraseSlug();
-        var utterance = new StarterUtteranceResponse(
-                starterUtteranceId,
-                row.phraseSlug(),
-                starterRow.englishText(),
-                starterRow.chineseText(),
-                starterRow.pronunciationHint(),
-                starterRow.difficulty(),
-                SOURCE_GENERATED,
-                starterRow.role(),
-                null,
-                starterRow.tprActionZh(),
-                starterRow.deliveryGuidanceZh(),
-                starterRow.displayOrder(),
-                provenance(starterRow)
-        );
-        var reactionSupports = approvedUtterances.stream()
-                .filter(value -> "reaction_support".equals(value.role()))
-                .map(value -> new PracticeDiscoveryResponse.ReactionSupportResponse(
-                        value.reactionType(),
-                        value.utteranceId(),
-                        value.utteranceId(),
-                        value.englishText(),
-                        value.chineseText(),
-                        value.pronunciationHint(),
-                        value.tprActionZh(),
-                        value.deliveryGuidanceZh(),
-                        value.difficulty(),
-                        SOURCE_GENERATED,
-                        value.role(),
-                        value.displayOrder(),
-                        provenance(value)))
-                .toList();
-        return new PracticeDiscoveryResponse(
-                "disc_" + UUID.randomUUID().toString().replace("-", ""),
-                surface.wireValue(),
-                mode.wireValue(),
-                context.profileMode(),
-                SOURCE_GENERATED,
-                row.generatedContentId(),
-                starterRow.bundleSchemaVersion(),
-                List.of(new SceneResponse(
-                        row.spaceSlug(),
-                        row.spaceSlug(),
-                        row.spaceTitleZh(),
-                        1,
-                        REASON_CUSTOM_SCENE_MATCH
-                )),
-                List.of(new MomentResponse(
-                        row.activitySlug(),
-                        row.spaceSlug(),
-                        row.spaceSlug(),
-                        row.activitySlug(),
-                        row.activityTitleZh(),
-                        row.sceneTagEn(),
-                        row.tprActionZh() + " " + row.deliveryGuidanceZh(),
-                        1,
-                        List.of(utterance)
-                )),
-                new StarterResponse(
-                        row.spaceSlug(),
-                        row.spaceSlug(),
-                        row.activitySlug(),
-                        row.activitySlug(),
-                        starterUtteranceId,
-                        row.phraseSlug(),
-                        SOURCE_GENERATED
-                ),
-                reactionSupports,
-                new TraceResponse(
-                        TRACE_STRATEGY_CUSTOM_SCENE_GENERATED,
-                        null,
-                        1,
-                        1
-                )
-        );
-    }
-
-    private void requireCompleteGeneratedBundle(
-            List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity> utterances
-    ) {
-        var reactions = utterances.stream()
-                .filter(value -> "reaction_support".equals(value.role()))
-                .map(value -> value.reactionType())
-                .collect(java.util.stream.Collectors.toSet());
-        var canonical = Set.of("cooperating", "hesitant", "resisting", "no_response", "other");
-        if (utterances.size() != 6
-                || utterances.stream().filter(value -> "starter".equals(value.role())
-                        && value.reactionType() == null && value.displayOrder() == 1).count() != 1
-                || reactions.size() != 5
-                || !reactions.equals(canonical)
-                || utterances.stream().anyMatch(value ->
-                        !"custom-scene-generated-output-v1".equals(value.bundleSchemaVersion())
-                                || value.providerOrigin() == null
-                                || !("provider_generated".equals(value.providerOrigin())
-                                || "provider_repaired".equals(value.providerOrigin()))
-                                || value.providerName() == null
-                                || value.providerName().isBlank()
-                                || value.providerModelName() == null
-                                || value.providerModelName().isBlank()
-                                || value.providerAttemptNumber() < 1
-                                || value.providerAttemptNumber() > 5)) {
-            throw new IllegalStateException("active generated content lacks complete bundle contract or provenance");
-        }
-    }
-
-    private PracticeDiscoveryResponse.ProviderProvenanceResponse provenance(
-            com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity utterance
-    ) {
-        return new PracticeDiscoveryResponse.ProviderProvenanceResponse(
-                utterance.providerOrigin(),
-                utterance.providerName(),
-                utterance.providerModelName(),
-                utterance.providerAttemptNumber());
-    }
-
     private StarterUtteranceResponse toUtterance(PracticePhraseRow phrase) {
         return new StarterUtteranceResponse(
                 phrase.phraseId(),
@@ -823,13 +654,6 @@ public class PracticeDiscoveryService {
             return new SupportedPair(SURFACE_ONBOARDING, MODE_CATALOG);
         }
 
-        public static SupportedPair onboardingCustomScene() {
-            return new SupportedPair(SURFACE_ONBOARDING, MODE_CUSTOM_SCENE);
-        }
-
-        public static SupportedPair carePathCustomScene() {
-            return new SupportedPair(SURFACE_CARE_PATH, MODE_CUSTOM_SCENE);
-        }
     }
 
     private record DiscoveryContext(

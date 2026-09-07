@@ -1,72 +1,108 @@
 package com.zhangspaghetti.babytalk.onboarding.conversation;
 
-import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 
+/**
+ * Server-curated onboarding copy. Guest onboarding must remain usable before a profile exists,
+ * so it deliberately has no dependency on scene generation or an AI provider.
+ */
 @Component
 public class PracticeOnboardingConversationGenerator implements OnboardingConversationGenerator {
 
-    private static final Map<String, String> SERVER_SCENES = Map.of(
-            "bedtime", "宝宝准备睡觉，需要温柔安抚",
-            "feeding", "宝宝正在进食，需要简短陪伴",
-            "post_cry", "宝宝刚哭过，需要温柔安抚",
-            "diaper_change", "宝宝正在换尿布，需要简短陪伴");
-
-    private final PracticeGeneratedContentService generatedContentService;
-
-    public PracticeOnboardingConversationGenerator(PracticeGeneratedContentService generatedContentService) {
-        this.generatedContentService = generatedContentService;
-    }
+    private static final Map<String, SceneScript> SERVER_SCENES = Map.of(
+            "bedtime", new SceneScript("bedtime",
+                    "Time for bed.", "该睡觉啦。", "time for bed",
+                    Map.of(
+                            "cooperating", utterance("Great job together.", "我们一起做得很好。", "great job together"),
+                            "hesitant", utterance("You can try slowly.", "你可以慢慢试。", "you can try slowly"),
+                            "resisting", utterance("It is okay to pause.", "可以先停一下。", "it is okay to pause"),
+                            "no_response", utterance("I will wait with you.", "我陪你等一等。", "i will wait with you"),
+                            "other", utterance("We can take a pause.", "我们先停一会儿。", "we can take a pause"))),
+            "feeding", new SceneScript("feeding",
+                    "Let's eat.", "我们吃饭吧。", "lets eat",
+                    commonSupports()),
+            "post_cry", new SceneScript("post_cry",
+                    "I am here with you.", "我陪着你。", "i am here with you",
+                    commonSupports()),
+            "diaper_change", new SceneScript("diaper_change",
+                    "Let's change your diaper.", "我们换尿布吧。", "lets change your diaper",
+                    commonSupports()));
 
     @Override
     public GeneratedUtterance generate(GenerationRequest request) {
-        var safeScene = SERVER_SCENES.get(request.sceneKey());
-        if (safeScene == null) {
-            throw new IllegalArgumentException("unsupported server-owned onboarding scene");
-        }
-        var generated = generatedContentService.generateCustomScene(
-                new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                        "onboarding", "custom_scene", request.installationId(), null, null,
-                        "12_18m", "daily_care", request.locale(), safeScene, request.localEventId()));
-        var starter = generatedContentService.findApprovedUtterances(generated.generatedContentId()).stream()
-                .filter(utterance -> "starter".equals(utterance.role()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("generated onboarding starter is unavailable"));
-        return new GeneratedUtterance(
-                generated.generatedContentId(), starter.utteranceId(), starter.englishText(),
-                starter.chineseText(), starter.pronunciationHint(), null);
+        var scene = scene(request == null ? null : request.sceneKey());
+        return scene.starter();
     }
 
     @Override
     public GeneratedUtterance generateNext(NextGenerationRequest request) {
-        var safeScene = SERVER_SCENES.get(request.sceneKey());
-        if (safeScene == null) {
+        var scene = scene(request == null ? null : request.sceneKey());
+        var reaction = request != null && request.reactionProvided() && request.reaction() != null
+                ? request.reaction()
+                : "no_response";
+        var selected = scene.supports().get(reaction);
+        if (selected == null) {
+            throw new IllegalArgumentException("unsupported onboarding reaction");
+        }
+        return new GeneratedUtterance(
+                scene.generatedContentId(),
+                scene.generatedContentId() + "_" + reaction,
+                selected.englishText(),
+                selected.chineseText(),
+                selected.pronunciationHint(),
+                null);
+    }
+
+    private SceneScript scene(String sceneKey) {
+        var scene = SERVER_SCENES.get(sceneKey);
+        if (scene == null) {
             throw new IllegalArgumentException("unsupported server-owned onboarding scene");
         }
-        var reactionContext = request.reactionProvided()
-                ? "，宝宝反应类型为" + request.reaction()
-                : "，宝宝暂时没有明显反应";
-        var generated = generatedContentService.generateCustomSceneForInstallationOwner(
-                new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                        "onboarding", "custom_scene", null, null, null,
-                        "12_18m", "daily_care", request.locale(),
-                        safeScene + "，家长刚才说了英文：" + request.previousEnglishText() + reactionContext,
-                        request.localEventId()), request.installationOwnerKey(),
-                request.installationRefHash());
-        var utterances = generatedContentService.findApprovedUtterances(generated.generatedContentId());
-        var selected = request.reactionProvided()
-                ? utterances.stream()
-                        .filter(utterance -> "reaction_support".equals(utterance.role()))
-                        .filter(utterance -> request.reaction().equals(utterance.reactionType()))
-                        .findFirst()
-                        .orElseThrow(() -> new IllegalStateException("generated onboarding support is unavailable"))
-                : utterances.stream()
-                        .filter(utterance -> "starter".equals(utterance.role()))
-                        .findFirst()
-                        .orElseThrow(() -> new IllegalStateException("generated onboarding support is unavailable"));
-        return new GeneratedUtterance(
-                generated.generatedContentId(), selected.utteranceId(), selected.englishText(),
-                selected.chineseText(), selected.pronunciationHint(), null);
+        return scene;
+    }
+
+    private static Map<String, CuratedUtterance> commonSupports() {
+        return Map.of(
+                "cooperating", utterance("Great job together.", "我们一起做得很好。", "great job together"),
+                "hesitant", utterance("You can try slowly.", "你可以慢慢试。", "you can try slowly"),
+                "resisting", utterance("It is okay to pause.", "可以先停一下。", "it is okay to pause"),
+                "no_response", utterance("I will wait with you.", "我陪你等一等。", "i will wait with you"),
+                "other", utterance("We can take a pause.", "我们先停一会儿。", "we can take a pause"));
+    }
+
+    private static CuratedUtterance utterance(String englishText, String chineseText, String pronunciationHint) {
+        return new CuratedUtterance(englishText, chineseText, pronunciationHint);
+    }
+
+    private record SceneScript(
+            String sceneKey,
+            String starterEnglish,
+            String starterChinese,
+            String starterPronunciation,
+            Map<String, CuratedUtterance> supports
+    ) {
+        private SceneScript {
+            Objects.requireNonNull(supports, "supports");
+        }
+
+        private String generatedContentId() {
+            return "onboarding_" + sceneKey;
+        }
+
+        private GeneratedUtterance starter() {
+            var generatedContentId = generatedContentId();
+            return new GeneratedUtterance(
+                    generatedContentId,
+                    generatedContentId + "_starter",
+                    starterEnglish,
+                    starterChinese,
+                    starterPronunciation,
+                    null);
+        }
+    }
+
+    private record CuratedUtterance(String englishText, String chineseText, String pronunciationHint) {
     }
 }

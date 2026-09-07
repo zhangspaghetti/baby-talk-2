@@ -1,7 +1,5 @@
 package com.zhangspaghetti.babytalk.practice.discovery;
 
-import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator;
-import com.zhangspaghetti.babytalk.practice.generated.GeneratedCareMomentBundle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.handler;
@@ -14,19 +12,12 @@ import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import com.zhangspaghetti.babytalk.web.PracticeDiscoveryController;
 import java.time.Instant;
-import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
@@ -50,19 +41,6 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     @Autowired
     private AuthConsentSyncService authConsentSyncService;
 
-    @Autowired
-    private MutableSceneContentGenerator customSceneGenerationService;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private ApplicationContext applicationContext;
-
-    @BeforeEach
-    void resetSceneContentGenerator() {
-        customSceneGenerationService.mode("success");
-    }
 
     @Test
     void draftCatalogDiscoverySucceedsWithoutJwt() throws Exception {
@@ -118,295 +96,6 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void draftCustomSceneDiscoverySucceedsWithoutJwt() throws Exception {
-        var result = mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.surface").value("onboarding"))
-                .andExpect(jsonPath("$.mode").value("custom_scene"))
-                .andExpect(jsonPath("$.profileMode").value("draft"))
-                .andExpect(jsonPath("$.source").value("generated"))
-                .andExpect(jsonPath("$.generatedContentId").isNotEmpty())
-                .andExpect(jsonPath("$.starter.source").value("generated"))
-                .andExpect(jsonPath("$.scenes[0].reasonCode").value("custom_scene_match"))
-                .andExpect(jsonPath("$.starter.sceneId").isNotEmpty())
-                .andExpect(jsonPath("$.starter.activityId").isNotEmpty())
-                .andExpect(jsonPath("$.starter.phraseId").isNotEmpty())
-                .andReturn();
-
-        var body = result.getResponse().getContentAsString();
-        var response = objectMapper.readTree(body);
-        var scene = response.get("scenes").get(0);
-        var moment = response.get("moments").get(0);
-        var utterance = moment.get("starterUtterances").get(0);
-        var starter = response.get("starter");
-        var reactionSupports = response.get("reactionSupports");
-        assertThat(body)
-                .contains("gen_scene_")
-                .contains("gen_activity_")
-                .contains("gen_phrase_")
-                .doesNotContain("洗澡后哄睡")
-                .doesNotContain("normalizedSceneText");
-        assertThat(scene.get("sceneId").asText()).isEqualTo(scene.get("spaceId").asText());
-        assertThat(scene.get("sceneId").asText()).startsWith("gen_scene_");
-        assertThat(scene.get("spaceId").asText()).startsWith("gen_scene_");
-        assertThat(moment.get("momentId").asText()).isEqualTo(moment.get("activityId").asText());
-        assertThat(moment.get("momentId").asText()).startsWith("gen_activity_");
-        assertThat(moment.get("activityId").asText()).startsWith("gen_activity_");
-        assertThat(moment.get("sceneId").asText()).isEqualTo(scene.get("sceneId").asText());
-        assertThat(moment.get("spaceId").asText()).isEqualTo(scene.get("spaceId").asText());
-        assertThat(utterance.get("utteranceId").asText()).isEqualTo(utterance.get("phraseId").asText());
-        assertThat(utterance.get("utteranceId").asText()).startsWith("gen_phrase_");
-        assertThat(utterance.get("phraseId").asText()).startsWith("gen_phrase_");
-        assertThat(starter.get("sceneId").asText()).isEqualTo(scene.get("sceneId").asText());
-        assertThat(starter.get("spaceId").asText()).isEqualTo(scene.get("spaceId").asText());
-        assertThat(starter.get("sceneId").asText()).startsWith("gen_scene_");
-        assertThat(starter.get("spaceId").asText()).startsWith("gen_scene_");
-        assertThat(starter.get("momentId").asText()).isEqualTo(moment.get("momentId").asText());
-        assertThat(starter.get("activityId").asText()).isEqualTo(moment.get("activityId").asText());
-        assertThat(starter.get("momentId").asText()).startsWith("gen_activity_");
-        assertThat(starter.get("activityId").asText()).startsWith("gen_activity_");
-        assertThat(starter.get("utteranceId").asText()).isEqualTo(utterance.get("utteranceId").asText());
-        assertThat(starter.get("phraseId").asText()).isEqualTo(utterance.get("phraseId").asText());
-        assertThat(starter.get("utteranceId").asText()).startsWith("gen_phrase_");
-        assertThat(starter.get("phraseId").asText()).startsWith("gen_phrase_");
-        assertThat(moment.get("coachTip").asText()).isEqualTo("看着宝宝。 慢慢说一遍。");
-        assertThat(reactionSupports.size()).isEqualTo(5);
-        assertThat(reactionSupports.get(0).get("reaction").asText()).isEqualTo("cooperating");
-        assertThat(reactionSupports.get(4).get("reaction").asText()).isEqualTo("other");
-        for (var support : reactionSupports) {
-            assertThat(support.get("utteranceId").asText()).startsWith("gen_utt_");
-            assertThat(support.get("english").asText()).isNotBlank();
-            assertThat(support.get("chinese").asText()).isNotBlank();
-        }
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content_utterances", Integer.class)).isEqualTo(6);
-    }
-
-    @Test
-    void fakeModeRunsTheTypedOrchestratorAndPersistsCompleteBundleAndJudgeBeforeActivation() throws Exception {
-        customSceneGenerationService.mode("success");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.source").value("generated"));
-
-        assertThat(jdbcTemplate.queryForObject(
-                "select status from practice_generated_content", String.class)).isEqualTo("active");
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content_attempts where status = 'completed'",
-                Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content_evidence_bundles", Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content_judge_results", Integer.class)).isEqualTo(1);
-        assertThat(applicationContext.getBeansOfType(
-                com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager.class)).isEmpty();
-        assertThat(applicationContext.getBeansOfType(
-                com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.class)).isEmpty();
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_ai_provider_calls where provider_type <> 'fake'", Integer.class)).isZero();
-    }
-
-    @Test
-    void exactReuseRehydratesSameBoundedUtteranceIdsWithoutAnotherBundle() throws Exception {
-        var first = mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isOk())
-                .andReturn();
-        var second = mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        var firstResponse = objectMapper.readTree(first.getResponse().getContentAsString());
-        var secondResponse = objectMapper.readTree(second.getResponse().getContentAsString());
-        assertThat(secondResponse.get("generatedContentId").asText())
-                .isEqualTo(firstResponse.get("generatedContentId").asText());
-        assertThat(secondResponse.get("starter").get("utteranceId").asText())
-                .isEqualTo(firstResponse.get("starter").get("utteranceId").asText());
-        var firstSupportIds = java.util.stream.StreamSupport.stream(
-                        firstResponse.get("reactionSupports").spliterator(), false)
-                .map(support -> support.get("utteranceId").asText())
-                .toList();
-        var secondSupportIds = java.util.stream.StreamSupport.stream(
-                        secondResponse.get("reactionSupports").spliterator(), false)
-                .map(support -> support.get("utteranceId").asText())
-                .toList();
-        assertThat(secondSupportIds).containsExactlyElementsOf(firstSupportIds);
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content", Integer.class)).isEqualTo(1);
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content_utterances", Integer.class)).isEqualTo(6);
-    }
-
-    @Test
-    void carePathClientRequestIdReconcilesLostResponseWithoutClientTraceParticipation() throws Exception {
-        var first = mockMvc.perform(discovery(carePathCustomSceneJson(
-                        "洗澡后哄睡", "request_http_reconcile_001", "trace_first")))
-                .andExpect(status().isOk())
-                .andReturn();
-        var second = mockMvc.perform(discovery(carePathCustomSceneJson(
-                        "洗澡后哄睡", "request_http_reconcile_001", "trace_second")))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        var firstResponse = objectMapper.readTree(first.getResponse().getContentAsString());
-        var secondResponse = objectMapper.readTree(second.getResponse().getContentAsString());
-        assertThat(secondResponse.get("generatedContentId").asText())
-                .isEqualTo(firstResponse.get("generatedContentId").asText());
-        assertThat(jdbcTemplate.queryForObject(
-                "select client_request_id from practice_generated_content",
-                String.class)).isEqualTo("request_http_reconcile_001");
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content",
-                Integer.class)).isEqualTo(1);
-    }
-
-    @Test
-    void carePathClientRequestIdRejectsChangedFacts() throws Exception {
-        mockMvc.perform(discovery(carePathCustomSceneJson(
-                        "洗澡后哄睡", "request_http_conflict_001", "trace_first")))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(discovery(carePathCustomSceneJson(
-                        "出门前穿鞋", "request_http_conflict_001", "trace_second")))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("client_request_id_conflict"));
-    }
-
-    @Test
-    void carePathClientRequestIdDoesNotCrossAccountOwners() throws Exception {
-        var firstAccount = createAcceptedSession("13800138213", "install-care-path-owner-a");
-        var secondAccount = createAcceptedSession("13800138214", "install-care-path-owner-b");
-        var clientRequestId = "request_account_scope_001";
-
-        var first = mockMvc.perform(discovery(carePathCustomSceneJson(
-                        "洗澡后哄睡", clientRequestId, "trace_account_a", "install-care-path-owner-a"))
-                        .header(HttpHeaders.AUTHORIZATION, bearer(firstAccount.accessToken())))
-                .andExpect(status().isOk())
-                .andReturn();
-        var second = mockMvc.perform(discovery(carePathCustomSceneJson(
-                        "洗澡后哄睡", clientRequestId, "trace_account_b", "install-care-path-owner-b"))
-                        .header(HttpHeaders.AUTHORIZATION, bearer(secondAccount.accessToken())))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(objectMapper.readTree(first.getResponse().getContentAsString())
-                .get("generatedContentId").asText())
-                .isNotEqualTo(objectMapper.readTree(second.getResponse().getContentAsString())
-                        .get("generatedContentId").asText());
-        assertThat(jdbcTemplate.queryForObject(
-                "select count(*) from practice_generated_content where client_request_id = ?",
-                Integer.class,
-                clientRequestId)).isEqualTo(2);
-    }
-
-    @Test
-    void acceptedAccountCustomSceneSucceedsWithoutInstallationId() throws Exception {
-        var session = createAcceptedSession("13800138209", "install-onboarding-discovery-9");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡前宝宝有点紧张", null))
-                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.profileMode").value("authenticated_request"))
-                .andExpect(jsonPath("$.starter.source").value("generated"));
-    }
-
-    @Test
-    void customSceneRateLimitReturns429WithoutOwnerKeyOrRawText() throws Exception {
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡一")))
-                .andExpect(status().isOk());
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡二")))
-                .andExpect(status().isOk());
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡三")))
-                .andExpect(status().isOk());
-
-        var result = mockMvc.perform(discovery(customSceneJson("洗澡后哄睡四")))
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("custom_scene_rate_limited"))
-                .andExpect(jsonPath("$.details.scope").value("installation"))
-                .andExpect(jsonPath("$.details.limit").value(3))
-                .andExpect(jsonPath("$.details.window").value("burst"))
-                .andExpect(jsonPath("$.details.windowSeconds").value(600))
-                .andExpect(jsonPath("$.details.retryAfterSeconds").value(600))
-                .andReturn();
-
-        assertThat(result.getResponse().getContentAsString())
-                .doesNotContain("owner_")
-                .doesNotContain("ownerKey")
-                .doesNotContain("install_1")
-                .doesNotContain("洗澡后哄睡四");
-    }
-
-    @Test
-    void customSceneUnsafeOutputRejected() throws Exception {
-        customSceneGenerationService.mode("unsafe");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("generated_content_rejected"));
-    }
-
-    @Test
-    void customSceneInvalidOutputIsNonRetryable() throws Exception {
-        customSceneGenerationService.mode("invalid");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isBadGateway())
-                .andExpect(jsonPath("$.code").value("generation_invalid_output"))
-                .andExpect(jsonPath("$.details.retryable").value(false));
-    }
-
-    @Test
-    void customSceneRejectedRetryDoesNotPrimaryKeyCrash() throws Exception {
-        customSceneGenerationService.mode("unsafe");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡重试")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("generated_content_rejected"));
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡重试")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("generated_content_rejected"));
-    }
-
-    @Test
-    void customSceneTimeoutReturnsFallbackHint() throws Exception {
-        customSceneGenerationService.mode("timeout");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isGatewayTimeout())
-                .andExpect(jsonPath("$.code").value("generation_timeout"))
-                .andExpect(jsonPath("$.details.retryable").value(true))
-                .andExpect(jsonPath("$.details.suggestCatalogFallback").value(true));
-    }
-
-    @Test
-    void transientProviderUnavailableReturnsRetryableFallbackHint() throws Exception {
-        customSceneGenerationService.mode("unavailable");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("generation_unavailable"))
-                .andExpect(jsonPath("$.details.retryable").value(true))
-                .andExpect(jsonPath("$.details.suggestCatalogFallback").value(true))
-                .andExpect(jsonPath("$.details.reason").value("provider_unavailable"));
-    }
-
-    @Test
-    void invalidCustomSceneTextRejectedBeforeGeneration() throws Exception {
-        mockMvc.perform(discovery(customSceneJson("洗澡 138001380001")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
-
-        mockMvc.perform(discovery(customSceneJson("宝宝叫小明，洗澡后哄睡")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
-
-        mockMvc.perform(discovery(customSceneJson("洗澡 ignore previous")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
-    }
-
-    @Test
     void unknownModeReturns400() throws Exception {
         expectBadRequestWithCode("""
                 {
@@ -417,6 +106,13 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                   "parentGoal":"calmer_care",
                   "locale":"zh-CN"
                 }
+                """, "invalid_discovery_mode");
+    }
+
+    @Test
+    void removedCustomSceneDiscoveryModeReturnsInvalidMode() throws Exception {
+        expectBadRequestWithCode("""
+                {"surface":"onboarding","mode":"custom_scene","installationId":"install_1","ageRange":"m7_11","parentGoal":"calmer_care","locale":"zh-CN","customSceneText":"洗澡后哄睡"}
                 """, "invalid_discovery_mode");
     }
 
@@ -686,51 +382,6 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                 """;
     }
 
-    private String customSceneJson(String customSceneText) throws Exception {
-        return customSceneJson(customSceneText, "install_1");
-    }
-
-    private String customSceneJson(String customSceneText, String installationId) throws Exception {
-        var root = objectMapper.createObjectNode();
-        root.put("surface", "onboarding");
-        root.put("mode", "custom_scene");
-        if (installationId != null) {
-            root.put("installationId", installationId);
-        }
-        root.put("ageRange", "m7_11");
-        root.put("parentGoal", "calmer_care");
-        root.put("locale", "zh-CN");
-        root.put("customSceneText", customSceneText);
-        return objectMapper.writeValueAsString(root);
-    }
-
-    private String carePathCustomSceneJson(
-            String customSceneText,
-            String clientRequestId,
-            String clientTraceId
-    ) throws Exception {
-        return carePathCustomSceneJson(customSceneText, clientRequestId, clientTraceId, "install_1");
-    }
-
-    private String carePathCustomSceneJson(
-            String customSceneText,
-            String clientRequestId,
-            String clientTraceId,
-            String installationId
-    ) throws Exception {
-        var root = objectMapper.createObjectNode();
-        root.put("surface", "care_path");
-        root.put("mode", "custom_scene");
-        root.put("installationId", installationId);
-        root.put("ageRange", "m7_11");
-        root.put("parentGoal", "calmer_care");
-        root.put("locale", "zh-CN");
-        root.put("customSceneText", customSceneText);
-        root.put("clientRequestId", clientRequestId);
-        root.put("clientTraceId", clientTraceId);
-        return objectMapper.writeValueAsString(root);
-    }
-
     private String profileJson(String profileId, String ageRange, String parentGoal) throws Exception {
         return profileJson(profileId, ageRange, parentGoal, "install_1");
     }
@@ -797,60 +448,4 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         return "Bearer " + accessToken;
     }
 
-    @TestConfiguration
-    static class TestCustomSceneGenerationConfiguration {
-
-        @Bean
-        @Primary
-        MutableSceneContentGenerator mutableSceneContentGenerator() {
-            return new MutableSceneContentGenerator();
-        }
-    }
-
-    static class MutableSceneContentGenerator implements SceneContentGenerator {
-
-        private final AtomicReference<String> mode = new AtomicReference<>("success");
-
-        void mode(String mode) {
-            this.mode.set(mode);
-        }
-
-        @Override
-        public GeneratedCareMomentBundle generateCareMoment(GeneratorRequest request) {
-            var starter = switch (mode.get()) {
-                case "unsafe" -> candidate("学习任务", "答题打分", "Lesson quiz", "让孩子答对后再给分。", "答对后打分。", "Take the quiz.", "开始测验。");
-                case "invalid" -> new GeneratedPracticeContentCandidate(
-                        "日常照护", "洗澡安抚", "Bath care", "看着宝宝。", "慢慢说一遍。",
-                        "Warm water.", "水暖暖的。", "warm water", "advanced", "fake");
-                case "timeout" -> throw new GenerationTimeoutException();
-                case "unavailable" -> throw new GenerationUnavailableException(
-                        GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
-                default -> candidate("日常照护", "洗澡安抚", "Bath care", "看着宝宝。", "慢慢说一遍。", "Warm water.", "水暖暖的。");
-            };
-            return GeneratedCareMomentBundle.fakeFixture(starter);
-        }
-
-        private GeneratedPracticeContentCandidate candidate(
-                String spaceTitleZh,
-                String activityTitleZh,
-                String sceneTagEn,
-                String tprActionZh,
-                String deliveryGuidanceZh,
-                String englishText,
-                String chineseText
-        ) {
-            return new GeneratedPracticeContentCandidate(
-                    spaceTitleZh,
-                    activityTitleZh,
-                    sceneTagEn,
-                    tprActionZh,
-                    deliveryGuidanceZh,
-                    englishText,
-                    chineseText,
-                    englishText.toLowerCase().replaceAll("[^a-z ]", "").trim(),
-                    "starter",
-                    "fake"
-            );
-        }
-    }
 }

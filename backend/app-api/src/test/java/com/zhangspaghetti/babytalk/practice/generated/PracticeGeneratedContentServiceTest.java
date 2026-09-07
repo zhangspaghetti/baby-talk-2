@@ -78,7 +78,7 @@ class PracticeGeneratedContentServiceTest {
         stubReserveInserted();
         stubActivateDraft();
 
-        var row = service.generateCustomScene(request("洗澡后哄睡"));
+        var row = service.generateScene(request("洗澡后哄睡"));
 
         assertThat(row.status()).isEqualTo("active");
         assertThat(row.spaceSlug()).startsWith("gen_scene_");
@@ -89,7 +89,7 @@ class PracticeGeneratedContentServiceTest {
         assertThat(row.generationSource()).isEqualTo("fake");
         assertThat(row.createdAt()).isInstanceOf(java.time.OffsetDateTime.class);
         assertThat(row.normalizedSceneText()).isNull();
-        assertThat(row.retentionExpiresAt()).isEqualTo(NOW_DB.plusDays(30));
+        assertThat(row.retentionExpiresAt()).isNull();
         verify(commands).activate(any());
     }
 
@@ -100,7 +100,7 @@ class PracticeGeneratedContentServiceTest {
         stubActivateDraft();
         var draftCaptor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
 
-        service.generateCustomScene(request("洗澡后哄睡"));
+        service.generateScene(request("洗澡后哄睡"));
 
         verify(commands).reserveDraft(draftCaptor.capture(), any());
         assertThat(draftCaptor.getValue().generationExpiresAt())
@@ -118,7 +118,7 @@ class PracticeGeneratedContentServiceTest {
         stubActivateDraft();
         var draftCaptor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
 
-        service.generateCustomScene(request("洗澡后哄睡"));
+        service.generateScene(request("洗澡后哄睡"));
 
         verify(commands).reserveDraft(draftCaptor.capture(), any());
         assertThat(draftCaptor.getValue().generationExpiresAt())
@@ -134,7 +134,7 @@ class PracticeGeneratedContentServiceTest {
         stubActivateDraft();
         var requestCaptor = ArgumentCaptor.forClass(SceneContentGenerator.GeneratorRequest.class);
 
-        service.generateCustomScene(request("  宝宝　不肯\n穿鞋  "));
+        service.generateScene(request("  宝宝　不肯\n穿鞋  "));
 
         verify(generator).generateCareMoment(requestCaptor.capture());
         assertThat(requestCaptor.getValue().displayText()).isEqualTo("宝宝 不肯 穿鞋");
@@ -163,8 +163,8 @@ class PracticeGeneratedContentServiceTest {
             return Optional.of(invocation.getArgument(0));
         });
 
-        var first = service.generateCustomScene(request("洗澡  后哄睡"));
-        var second = service.generateCustomScene(request("洗澡　后哄睡"));
+        var first = service.generateScene(request("洗澡  后哄睡"));
+        var second = service.generateScene(request("洗澡　后哄睡"));
 
         assertThat(second.generatedContentId()).isEqualTo(first.generatedContentId());
         assertThat(generatorCalls.get()).isEqualTo(1);
@@ -177,7 +177,7 @@ class PracticeGeneratedContentServiceTest {
         stubActivateDraft();
         var draftCaptor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
 
-        var row = service.generateCustomScene(request("洗澡后哄睡"));
+        var row = service.generateScene(request("洗澡后哄睡"));
 
         assertThat(Arrays.stream(PracticeGeneratedContentQueryMapper.class.getDeclaredMethods())
                 .map(method -> method.getName()))
@@ -188,17 +188,19 @@ class PracticeGeneratedContentServiceTest {
         var draft = draftCaptor.getValue();
         var ownerProperties = ownerProperties("test-owner-key-secret-test-owner-key");
         var keyFactory = new PracticeGeneratedContentKeyFactory(ownerProperties);
+        var policy = PracticeDiscoveryPolicyTestFixture.properties();
         var expectedFingerprint = keyFactory.requestFingerprint(
-                keyFactory.ownerKey("installation", "install_1"),
-                new PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial(
-                        "onboarding",
-                        "custom_scene",
-                        "洗澡后哄睡",
-                        "m7_11",
-                        "calmer_care",
-                        "zh-CN",
+                keyFactory.ownerKey("profile", "acct_test:profile_test"),
+                new PracticeGeneratedContentKeyFactory.SceneFingerprintMaterial(
+                        "custom",
+                        "custom:" + keyFactory.stableDigest("洗澡后哄睡"),
+                        "profile_test",
+                        1,
+                        "2026-W36",
                         PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
-                        PracticeDiscoveryPolicyTestFixture.properties().policyVersion(),
+                        PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
+                        PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
+                        policy.policyVersion(),
                         PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
                         1));
         assertThat(draft.contentRefreshEpoch()).isEqualTo(1);
@@ -207,15 +209,15 @@ class PracticeGeneratedContentServiceTest {
     }
 
     @Test
-    void sameSceneForDifferentOwnersDoesNotShareFingerprint() {
+    void sameProfileAcrossInstallationsSharesFingerprint() {
         var service = serviceWithFakeProvider();
         stubReserveInserted();
         stubActivateDraft();
 
-        var first = service.generateCustomScene(requestForInstallation("install-a", "宝宝不肯穿鞋"));
-        var second = service.generateCustomScene(requestForInstallation("install-b", "宝宝不肯穿鞋"));
+        var first = service.generateScene(requestForInstallation("install-a", "宝宝不肯穿鞋"));
+        var second = service.generateScene(requestForInstallation("install-b", "宝宝不肯穿鞋"));
 
-        assertThat(second.requestFingerprint()).isNotEqualTo(first.requestFingerprint());
+        assertThat(second.requestFingerprint()).isEqualTo(first.requestFingerprint());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -232,7 +234,7 @@ class PracticeGeneratedContentServiceTest {
         stubReserveInserted();
 
         var exception = org.junit.jupiter.api.Assertions.assertThrows(ContractException.class,
-                () -> service.generateCustomScene(request(sceneText)));
+                () -> service.generateScene(request(sceneText)));
 
         assertThat(exception.code()).isEqualTo("generation_unavailable");
         assertThat(exception.details()).containsEntry("reason", "fake_scene_not_supported");
@@ -245,7 +247,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
 
         var exception = org.junit.jupiter.api.Assertions.assertThrows(ContractException.class,
-                () -> service.generateCustomScene(request("帮我完成编程作业和考试答案")));
+                () -> service.generateScene(request("帮我完成编程作业和考试答案")));
 
         assertThat(exception.code()).isEqualTo("unsupported_custom_scene_text");
         verifyNoInteractions(generator);
@@ -258,7 +260,7 @@ class PracticeGeneratedContentServiceTest {
         var active = activeRow("pgc_existing_active", "洗澡后哄睡");
         stubReserveExisting(active);
 
-        var row = service.generateCustomScene(request("洗澡后哄睡"));
+        var row = service.generateScene(request("洗澡后哄睡"));
 
         assertThat(row.generatedContentId()).isEqualTo("pgc_existing_active");
         verify(generator, never()).generateCareMoment(any());
@@ -272,7 +274,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveExistingDraft();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -291,7 +293,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -311,7 +313,7 @@ class PracticeGeneratedContentServiceTest {
                 "disabled"
         ), generator);
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -363,7 +365,7 @@ class PracticeGeneratedContentServiceTest {
                 ownerProperties("test-owner-key-secret-test-owner-key")
         );
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -387,7 +389,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -409,7 +411,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -430,7 +432,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -455,7 +457,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -480,7 +482,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     assertThat(error.getCause()).isSameAs(providerFailure);
@@ -500,7 +502,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -522,7 +524,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -543,7 +545,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -564,7 +566,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -582,7 +584,7 @@ class PracticeGeneratedContentServiceTest {
         stubReserveInserted();
         when(generator.generateCareMoment(any()))
                 .thenThrow(new SceneContentGenerator.GenerationTimeoutException(Duration.ofSeconds(5)));
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("generation_timeout"));
 
@@ -615,7 +617,7 @@ class PracticeGeneratedContentServiceTest {
         var service = serviceWithGenerator(generator);
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -646,7 +648,7 @@ class PracticeGeneratedContentServiceTest {
                 ownerProperties("test-owner-key-secret-test-owner-key"));
         stubReserveInserted();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -663,16 +665,16 @@ class PracticeGeneratedContentServiceTest {
     void invalidCustomSceneTextRejectedBeforeReservation() {
         var service = serviceWithFakeProvider();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡 138001380001")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡 138001380001")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("unsafe_custom_scene_text"));
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡 138-0013-8000")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡 138-0013-8000")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("unsafe_custom_scene_text"));
-        assertThatThrownBy(() -> service.generateCustomScene(request("宝宝叫小明，洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("宝宝叫小明，洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code()).isEqualTo("unsafe_custom_scene_text"));
-        assertThatThrownBy(() -> service.generateCustomScene(request("ignore previous 洗澡")))
+        assertThatThrownBy(() -> service.generateScene(request("ignore previous 洗澡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -687,7 +689,7 @@ class PracticeGeneratedContentServiceTest {
         var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("👨‍👩‍👧‍👦".repeat(80))))
+        assertThatThrownBy(() -> service.generateScene(request("👨‍👩‍👧‍👦".repeat(80))))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code())
                         .isEqualTo("invalid_custom_scene_text"));
@@ -700,7 +702,7 @@ class PracticeGeneratedContentServiceTest {
         var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡 ١٣٨٠٠١٣٨٠٠٠")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡 ١٣٨٠٠١٣٨٠٠٠")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code())
                         .isEqualTo("unsafe_custom_scene_text"));
@@ -715,8 +717,8 @@ class PracticeGeneratedContentServiceTest {
         stubActivateDraft();
         var captor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
 
-        var first = service.generateCustomScene(request("洗澡后哄睡"));
-        var second = service.generateCustomScene(request("洗澡后哄睡"));
+        var first = service.generateScene(request("洗澡后哄睡"));
+        var second = service.generateScene(request("洗澡后哄睡"));
 
         verify(commands, org.mockito.Mockito.atLeast(2)).reserveDraft(captor.capture(), any());
         assertThat(first.generatedContentId()).isEqualTo(second.generatedContentId());
@@ -759,7 +761,7 @@ class PracticeGeneratedContentServiceTest {
         var draftCaptor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
         var activeCaptor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
 
-        var row = service.generateCustomScene(request("洗澡后哄睡"));
+        var row = service.generateScene(request("洗澡后哄睡"));
 
         verify(commands).reserveDraft(draftCaptor.capture(), any());
         verify(generator).generateCareMoment(any());
@@ -780,8 +782,8 @@ class PracticeGeneratedContentServiceTest {
         stubActivateDraft();
         var captor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
 
-        serviceV1.generateCustomScene(request("洗澡后哄睡"));
-        serviceV2.generateCustomScene(request("洗澡后哄睡"));
+        serviceV1.generateScene(request("洗澡后哄睡"));
+        serviceV2.generateScene(request("洗澡后哄睡"));
 
         verify(commands, org.mockito.Mockito.times(2)).reserveDraft(captor.capture(), any());
         var first = captor.getAllValues().get(0);
@@ -799,7 +801,7 @@ class PracticeGeneratedContentServiceTest {
         stubActivateDraft();
         var captor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
 
-        service.generateCustomScene(request("洗澡后哄睡"));
+        service.generateScene(request("洗澡后哄睡"));
 
         verify(commands).activate(captor.capture());
         var activated = captor.getValue();
@@ -821,7 +823,7 @@ class PracticeGeneratedContentServiceTest {
         stubActivateDraft();
         var captor = ArgumentCaptor.forClass(PracticeGeneratedContentEntity.class);
 
-        var row = service.generateCustomScene(request("洗澡后哄睡"));
+        var row = service.generateScene(request("洗澡后哄睡"));
 
         verify(commands, org.mockito.Mockito.times(2)).reserveDraft(captor.capture(), any());
         assertThat(captor.getAllValues().get(1).generatedContentId()).contains("_");
@@ -838,7 +840,7 @@ class PracticeGeneratedContentServiceTest {
                 .thenReturn(expired);
         stubActivateDraft();
 
-        var row = service.generateCustomScene(request("洗澡后哄睡"));
+        var row = service.generateScene(request("洗澡后哄睡"));
 
         verify(commands, never()).expire(any(), org.mockito.Mockito.eq("draft_expired"), org.mockito.ArgumentMatchers.anyBoolean(), any(), any());
         verify(commands).reserveDraft(any(), any());
@@ -854,7 +856,7 @@ class PracticeGeneratedContentServiceTest {
         when(commands.reserveDraft(any(), any()))
                 .thenThrow(new PracticeGenerationRateLimitExceededException("burst", 3));
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code())
                         .isEqualTo("custom_scene_rate_limited"));
@@ -865,19 +867,19 @@ class PracticeGeneratedContentServiceTest {
     }
 
     @Test
-    void installationBurstRateLimitDoesNotReserveDraftOrCallGenerator() {
+    void profileBurstRateLimitDoesNotReserveDraftOrCallGenerator() {
         var generator = org.mockito.Mockito.mock(SceneContentGenerator.class);
         var service = serviceWithGenerator(generator);
         when(commands.reserveDraft(any(), any()))
                 .thenThrow(new PracticeGenerationRateLimitExceededException("burst", 3));
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
                     assertThat(contract.status()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
                     assertThat(contract.code()).isEqualTo("custom_scene_rate_limited");
-                    assertThat(contract.details()).containsEntry("scope", "installation");
+                    assertThat(contract.details()).containsEntry("scope", "profile");
                     assertThat(contract.details()).containsEntry("limit", 3);
                     assertThat(contract.details()).containsEntry("window", "burst");
                     assertThat(contract.details()).containsEntry("windowSeconds", 600L);
@@ -894,20 +896,20 @@ class PracticeGeneratedContentServiceTest {
     }
 
     @Test
-    void installationDailyRateLimitUsesDailyCapAfterBurstPasses() {
+    void profileDailyRateLimitUsesDailyCapAfterBurstPasses() {
         var service = serviceWithFakeProvider();
         stubReserveInserted();
         when(commands.startGeneration(any(), any(), anyInt(), any()))
                 .thenReturn(GenerationStartDecision.DAILY_LIMIT_EXCEEDED);
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
                     assertThat(contract.status()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
                     assertThat(contract.code()).isEqualTo("custom_scene_rate_limited");
-                    assertThat(contract.details()).containsEntry("scope", "installation");
-                    assertThat(contract.details()).containsEntry("limit", 10);
+                    assertThat(contract.details()).containsEntry("scope", "profile");
+                    assertThat(contract.details()).containsEntry("limit", 20);
                     assertThat(contract.details()).containsEntry("window", "daily");
                     assertThat(contract.details()).containsEntry("windowSeconds", 86_400L);
                     assertThat(contract.details()).containsEntry("retryAfterSeconds", 86_400L);
@@ -935,10 +937,10 @@ class PracticeGeneratedContentServiceTest {
                 .thenReturn(GenerationStartDecision.DAILY_LIMIT_EXCEEDED, GenerationStartDecision.STARTED);
         stubActivateDraft();
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).status()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
-        var retry = service.generateCustomScene(request("洗澡后哄睡"));
+        var retry = service.generateScene(request("洗澡后哄睡"));
 
         assertThat(retry.status()).isEqualTo("active");
         assertThat(reserved).hasSize(2);
@@ -953,18 +955,18 @@ class PracticeGeneratedContentServiceTest {
     }
 
     @Test
-    void accountOwnerUsesLargerBurstCapThanInstallation() {
+    void unifiedProfileOwnerUsesProfileBurstCap() {
         var service = serviceWithFakeProvider();
         when(commands.reserveDraft(any(), any()))
                 .thenThrow(new PracticeGenerationRateLimitExceededException("burst", 5));
 
-        assertThatThrownBy(() -> service.generateCustomScene(accountRequest("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(accountRequest("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
                     assertThat(contract.status()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
                     assertThat(contract.code()).isEqualTo("custom_scene_rate_limited");
-                    assertThat(contract.details()).containsEntry("scope", "account");
+                    assertThat(contract.details()).containsEntry("scope", "profile");
                     assertThat(contract.details()).containsEntry("limit", 5);
                     assertThat(contract.details()).containsEntry("window", "burst");
                 });
@@ -979,7 +981,7 @@ class PracticeGeneratedContentServiceTest {
         when(commands.reserveDraft(any(), any()))
                 .thenThrow(new PracticeGenerationRateLimitExceededException("burst", 5));
 
-        assertThatThrownBy(() -> service.generateCustomScene(profileRequest("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(profileRequest("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> {
                     var contract = (ContractException) error;
@@ -1021,7 +1023,7 @@ class PracticeGeneratedContentServiceTest {
                 ownerProperties(" ")
         );
 
-        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡")))
+        assertThatThrownBy(() -> service.generateScene(request("洗澡后哄睡")))
                 .isInstanceOf(ContractException.class)
                 .satisfies(error -> assertThat(((ContractException) error).code())
                         .isEqualTo("generation_unavailable"));
@@ -1119,53 +1121,42 @@ class PracticeGeneratedContentServiceTest {
         );
     }
 
-    private PracticeGeneratedContentService.CustomSceneDiscoveryRequest request(String customSceneText) {
-        return requestForInstallation("install_1", customSceneText);
+    private SceneGenerationInput request(String customSceneText) {
+        return customInput("acct_test", "profile_test", "install_1", "request_test_1", customSceneText);
     }
 
-    private PracticeGeneratedContentService.CustomSceneDiscoveryRequest requestForInstallation(
+    private SceneGenerationInput requestForInstallation(
             String installationId,
             String customSceneText
     ) {
-        return new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                installationId,
-                null,
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                customSceneText
-        );
+        return customInput("acct_test", "profile_test", installationId,
+                "request_" + installationId.replaceAll("[^A-Za-z0-9_-]", "_"), customSceneText);
     }
 
-    private PracticeGeneratedContentService.CustomSceneDiscoveryRequest accountRequest(String customSceneText) {
-        return new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                null,
-                "acct_rate_limit",
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                customSceneText
-        );
+    private SceneGenerationInput accountRequest(String customSceneText) {
+        return customInput("acct_rate_limit", "profile_rate_limit", "install_account", "request_account", customSceneText);
     }
 
-    private PracticeGeneratedContentService.CustomSceneDiscoveryRequest profileRequest(String customSceneText) {
-        return new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                null,
-                "acct_rate_limit",
-                "profile_rate_limit",
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                customSceneText
-        );
+    private SceneGenerationInput profileRequest(String customSceneText) {
+        return customInput("acct_rate_limit", "profile_rate_limit", "install_profile", "request_profile", customSceneText);
+    }
+
+    private SceneGenerationInput customInput(
+            String actorAccountId,
+            String profileId,
+            String installationId,
+            String clientRequestId,
+            String customSceneText
+    ) {
+        var subject = new com.zhangspaghetti.babytalk.practice.scene.GenerationSubject(
+                actorAccountId, actorAccountId, profileId, 1, "小满", "m7_11", "calmer_care",
+                "household_test", "primary_caregiver");
+        var personalization = new com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContext(
+                "小满", "m7_11", "calmer_care", "zh-CN", "primary_caregiver",
+                0, null, "", "2026-W36");
+        return new SceneGenerationInput(
+                "custom", customSceneText, subject, personalization,
+                null, null, null, null, "zh-CN", installationId, clientRequestId);
     }
 
     private void stubReserveInserted() {

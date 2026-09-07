@@ -3,8 +3,7 @@ package com.zhangspaghetti.babytalk.practice.discovery;
 import cn.hutool.core.util.StrUtil;
 
 public enum PracticeDiscoveryMode {
-    CATALOG("catalog"),
-    CUSTOM_SCENE("custom_scene");
+    CATALOG("catalog");
 
     private final String wireValue;
 

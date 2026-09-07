@@ -72,8 +72,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                         SceneTextSecurityConfiguration.configuredSpoofChecker()),
                 new PolicyTextMatcher(canonicalizer));
 
-        var result = service.generateCustomScene(new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                "onboarding", "custom_scene", "install_test", null, null, "m7_11", "calmer_care", "zh-CN", "出门前穿鞋"));
+        var result = service.generateScene(request());
 
         assertThat(result).isSameAs(active);
         var execution = executionCaptor.getValue();
@@ -100,7 +99,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
 
         var service = orchestratedService(queries, commands, orchestrator, "fake");
 
-        assertThat(service.generateCustomScene(request())).isSameAs(active);
+        assertThat(service.generateScene(request())).isSameAs(active);
         verify(orchestrator).execute(any());
         verify(commands, never()).startGeneration(any(), any(), anyInt(), any());
     }
@@ -122,17 +121,21 @@ class PracticeGeneratedContentServiceOrchestrationTest {
 
         var service = orchestratedService(queries, commands, orchestrator);
 
-        assertThat(service.generateCustomScene(request())).isSameAs(active);
+        assertThat(service.generateScene(request())).isSameAs(active);
+        var registry = new VersionedResourceRegistry(new DefaultResourceLoader());
         var owner = new PracticeGeneratedContentOwnerProperties("owner-v1", "x".repeat(32));
         var keyFactory = new PracticeGeneratedContentKeyFactory(owner);
         var expectedFingerprint = keyFactory.requestFingerprint(
-                keyFactory.ownerKey("installation", "install_test"),
-                new PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial(
-                        "onboarding", "custom_scene", "出门前穿鞋", "m7_11", "calmer_care", "zh-CN",
-                        "custom-scene-generation-v7", "custom-scene-quality-v1", "custom-scene-evidence-v1", 1));
+                keyFactory.ownerKey("profile", "acct_test:profile_test"),
+                new PracticeGeneratedContentKeyFactory.SceneFingerprintMaterial(
+                        "custom", "custom:" + keyFactory.stableDigest("出门前穿鞋"), "profile_test", 1,
+                        "2026-W36", registry.currentGenerationProfile().version(),
+                        registry.currentGenerationProfile().generatorPrompt().version(),
+                        registry.currentGenerationProfile().strategyVersion(),
+                        registry.qualityRubric().version(), registry.minimumEvidencePolicy().version(), 1));
         verify(queries).findLiveByFingerprint(
-                eq(keyFactory.ownerKey("installation", "install_test")), eq("owner-v1"),
-                eq("onboarding"), eq("custom_scene"), eq(expectedFingerprint),
+                eq(keyFactory.ownerKey("profile", "acct_test:profile_test")), eq("owner-v1"),
+                eq("care_path"), eq("scene_generation"), eq(expectedFingerprint),
                 eq("custom-scene-generation-v7"), eq(1));
         verify(orchestrator, never()).execute(any());
         verify(commands, never()).reserveDraft(any(), any());
@@ -149,7 +152,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         when(queries.findApprovedUtterances("pgc_legacy_reuse")).thenReturn(List.of());
         var service = orchestratedService(queries, commands, orchestrator);
 
-        assertThatThrownBy(() -> service.generateCustomScene(request()))
+        assertThatThrownBy(() -> service.generateScene(request()))
                 .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
                 .satisfies(error -> {
                     var contract = (com.zhangspaghetti.babytalk.web.ContractException) error;
@@ -194,7 +197,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         when(orchestrator.execute(any())).thenReturn(rejected);
         var service = orchestratedService(queries, commands, orchestrator);
 
-        assertThatThrownBy(() -> service.generateCustomScene(request()))
+        assertThatThrownBy(() -> service.generateScene(request()))
                 .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
                 .satisfies(error -> {
                     var contract = (com.zhangspaghetti.babytalk.web.ContractException) error;
@@ -259,10 +262,10 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                         SceneTextSecurityConfiguration.configuredSpoofChecker()),
                 new PolicyTextMatcher(canonicalizer));
 
-        assertThat(service.generateCustomScene(request())).isSameAs(winner);
+        assertThat(service.generateScene(request())).isSameAs(winner);
         assertThat(registry.currentGenerationProfile().version()).isNotEqualTo("legacy-prompt");
         verify(queries).findActiveByFingerprint(
-                any(), eq("owner-v1"), eq("onboarding"), eq("custom_scene"), any(),
+                any(), eq("owner-v1"), eq("care_path"), eq("scene_generation"), any(),
                 eq(registry.currentGenerationProfile().version()), eq(1), any());
     }
 
@@ -281,7 +284,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                 .thenReturn(terminal("expired", "generation_unavailable", false));
         var service = orchestratedService(queries, commands, orchestrator);
 
-        assertThatThrownBy(() -> service.generateCustomScene(request()))
+        assertThatThrownBy(() -> service.generateScene(request()))
                 .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
                 .satisfies(error -> {
                     var contract = (com.zhangspaghetti.babytalk.web.ContractException) error;
@@ -289,7 +292,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                     assertThat(contract.code()).isEqualTo("generation_timeout");
                     assertThat(contract.details()).containsEntry("retryable", true);
                 });
-        assertThatThrownBy(() -> service.generateCustomScene(request()))
+        assertThatThrownBy(() -> service.generateScene(request()))
                 .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
                 .satisfies(error -> {
                     var contract = (com.zhangspaghetti.babytalk.web.ContractException) error;
@@ -299,7 +302,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                             .containsEntry("reason", "insufficient_evidence")
                             .containsEntry("retryable", true);
                 });
-        assertThatThrownBy(() -> service.generateCustomScene(request()))
+        assertThatThrownBy(() -> service.generateScene(request()))
                 .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
                 .satisfies(error -> {
                     var contract = (com.zhangspaghetti.babytalk.web.ContractException) error;
@@ -309,7 +312,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                             .containsEntry("reason", "generation_interrupted")
                             .containsEntry("retryable", true);
                 });
-        assertThatThrownBy(() -> service.generateCustomScene(request()))
+        assertThatThrownBy(() -> service.generateScene(request()))
                 .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
                 .satisfies(error -> {
                     var contract = (com.zhangspaghetti.babytalk.web.ContractException) error;
@@ -365,10 +368,16 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                 new PolicyTextMatcher(canonicalizer));
     }
 
-    private PracticeGeneratedContentService.CustomSceneDiscoveryRequest request() {
-        return new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                "onboarding", "custom_scene", "install_test", null, null,
-                "m7_11", "calmer_care", "zh-CN", "出门前穿鞋");
+    private SceneGenerationInput request() {
+        var subject = new com.zhangspaghetti.babytalk.practice.scene.GenerationSubject(
+                "acct_test", "acct_test", "profile_test", 1,
+                "小满", "m7_11", "calmer_care", "household_test", "primary_caregiver");
+        var personalization = new com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContext(
+                "小满", "m7_11", "calmer_care", "zh-CN", "primary_caregiver",
+                0, null, "", "2026-W36");
+        return new SceneGenerationInput(
+                "custom", "出门前穿鞋", subject, personalization,
+                null, null, null, null, "zh-CN", "install_test", "request_test");
     }
 
     private PracticeGeneratedContentEntity terminal(String status, String code, boolean retryable) {
