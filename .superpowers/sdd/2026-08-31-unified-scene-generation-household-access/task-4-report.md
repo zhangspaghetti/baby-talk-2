@@ -1,6 +1,6 @@
 # Task 4 — unified scene generation engine
 
-Status: `DONE` (Task 4 implementation and privacy-verifier scope closure complete; repository-wide WIP failures are external and listed below).
+Status: `DONE_WITH_CONCERNS` (this review round is implemented and verified; PostgreSQL/Testcontainers rerun is blocked by the unavailable local Docker daemon, and parallel WIP failures remain external).
 
 ## Implementation, interface, and seams
 
@@ -42,7 +42,7 @@ bash ./mvnw -pl app-api '-Dtest=PracticeGeneratedContentServiceTest,PracticeGene
 SceneGenerationInputTest.java:[13,21] constructor SceneGenerationInput ... needs 10 args, found 11
 ```
 
-After mechanical renames, the focused compatibility suite was GREEN: `108` tests. The unified provider/context/key suite was GREEN: `151` tests. Provider wiring, validator, mapper, and concurrency suite was GREEN: `108` tests. The new real PostgreSQL/Testcontainers test `concurrentPrimaryAndCaregiverPresetRequestsShareOneProfileOwnedRow` was GREEN: `1` test; it proves one provider call, one profile-owned live row, shared fingerprint/reuse, and no duplicate reservation. The complete generated-bundle verifier ran `311` tests and passed.
+After mechanical renames, the focused compatibility suite was GREEN: `108` tests. The unified provider/context/key suite was GREEN: `151` tests. Provider wiring, validator, mapper, and concurrency suite was GREEN: `108` tests. The new real PostgreSQL/Testcontainers test `concurrentPrimaryAndCaregiverPresetRequestsShareOneProfileOwnedRow` was GREEN: `1` test in the prior Task 4 run; the review-round rerun was attempted but Docker was unavailable. The complete generated-bundle verifier previously ran `311` tests and passed; its review-round rerun reached `311` tests but had `15` Docker initialization errors.
 
 Commands used (from `backend`):
 
@@ -80,7 +80,7 @@ The minimal `@Deprecated(forRemoval = true)` `generateCustomScene` and `generate
 
 `git diff --cached --check` is clean; staged-path audit excludes all declared forbidden WIP. Spring production imports contain no `com.fasterxml.jackson.core.*` or `com.fasterxml.jackson.databind.*`; databind/core usage is `tools.jackson.*`. Bean wiring has one active source-neutral generator/orchestrator implementation; disabled/fake adapters remain test/profile seams.
 
-The verifier concern is closed in follow-up commit `test(practice): scope generation privacy verifier`: the `coach_tip_zh` rule now scans only `mapper/practice/generated/**/*.xml`, the generated-content persistence surface. Preset catalog/version mappers remain allowed, while generated mapper/query/command/audit fixtures remain fail-closed. No blanket substring allowlist was added; generated migration checks and the required `drop column coach_tip_zh` contract remain unchanged.
+The verifier concern is closed in follow-up commit `test(practice): scope generation privacy verifier`: the `coach_tip_zh` rule now scans every app-api mapper XML and migration SQL whose content operates on `practice_generated_content` (including non-standard paths), rather than relying on one directory. Preset catalog/version mappers remain allowed; immutable V25 history and the approved V27 backfill/drop transition are explicit exceptions, while future generated persistence remains fail-closed. No blanket substring allowlist was added.
 
 Verifier TDD evidence:
 
@@ -94,3 +94,86 @@ practice generation privacy verification passed
 ```
 
 Follow-up staged scope is exactly `tool/verify_practice_generation_privacy.py`, `test/tool/verify_practice_generation_privacy_test.py`, and this report; no discovery/query/Caregiver/mobile WIP was staged. Remaining external concern: the full backend run has the two parallel dirty `CaregiverInviteApiWebTest` 404 assertions documented above; no Task 4 verifier concern remains.
+
+## Review round 1 — three findings
+
+### A. Palace logging privacy
+
+Root cause: `PalaceSearchService`, `PalaceKeywordRepository`, and `PalaceHybridRetrievalService` interpolated raw vector queries/keywords into success and fallback logs; the keyword metadata warning logged exception messages, and Hybrid fallback copied an exception message into its temporal trace. The real Logback capture test was intentionally added before the fix:
+
+```text
+bash ./mvnw -pl app-api '-Dtest=PalaceRetrievalLoggingPrivacyTest' test
+Tests run: 5, Failures: 5, Errors: 0
+```
+
+The minimum fix keeps real retrieval input unchanged and emits only safe diagnostics. Vector logs use `queryLength`, `topK`, `filterPresent`, `resultCount`, and `exceptionType`; keyword logs use `keywordsLength`, filter-presence booleans, `limit`, `resultCount`, and `exceptionType`; Hybrid logs use `queryLength`, vector/keyword/result counts, phase-presence booleans, and `exceptionType`. No raw query, derived keywords, filter expression, exception message, throwable, or stack is passed to these loggers. Hybrid persisted error-fallback trace now carries only the exception class name.
+
+GREEN:
+
+```text
+bash ./mvnw -pl app-api '-Dtest=PalaceRetrievalLoggingPrivacyTest,PalaceHybridRetrievalServiceTest,PalaceKeywordRepositoryTest' test
+Tests run: 21, Failures: 0, Errors: 0
+```
+
+The capture fixture includes distinct preset-brief/custom-prompt/keyword and exception-message markers and asserts their absence across success, fallback, and error events.
+
+### B. Coach-tip verifier completeness
+
+Root cause: the prior checker only inspected the fixed V27 migration and `mapper/practice/generated`. RED fixtures proved both blind spots:
+
+```text
+python3 test/tool/verify_practice_generation_privacy_test.py
+Ran 12 tests ... FAILED (failures=2: future generated migration and non-standard mapper)
+```
+
+The verifier now discovers all migration SQL that operates on a generated-content table and all app-api mapper XML, then applies a table-content check. It permits the preset catalog/version surface, immutable V25 baseline, and only the safe V27 `coalesce` backfill plus `drop column` transition; a future V38/V99 generated migration or mapper query/command/audit field is rejected.
+
+GREEN:
+
+```text
+python3 test/tool/verify_practice_generation_privacy_test.py
+Ran 12 tests ... OK
+python3 tool/verify_practice_generation_privacy.py
+practice generation privacy verification passed
+python3 test/ci/test_full_ci_contract.py
+Ran 15 tests ... OK
+```
+
+### C. Deterministic fake preset coverage
+
+Root cause: `FakeSceneContentGenerator` inferred only from display text, so the five V37 stable published IDs were not all representable (notably `bath_time` and `post_cry_soothing`). RED first compiled the desired internal request seam and failed because no stable-ID constructor existed:
+
+```text
+bash ./mvnw -pl app-api '-Dtest=SceneContentGeneratorProviderWiringTest#fakeProviderSupportsEveryPublishedPresetByStableActivityId' test
+Compilation error: no suitable GeneratorRequest constructor (11 arguments)
+```
+
+`SceneContentGenerator.GeneratorRequest` now carries validated safe `stableActivityId`; the orchestrator and direct path pass it through, and the Agentic prompt payload deliberately omits it. Fake deterministic mappings cover exactly V37 `bath_time`, `diaper_change`, `post_cry_soothing`, `feeding_time`, and `bedtime`; null ID retains the existing custom keyword fallback. Each parameterized fake result is a six-utterance bundle and passes the deterministic validator.
+
+GREEN:
+
+```text
+bash ./mvnw -pl app-api '-Dtest=SceneContentGeneratorProviderWiringTest,AgenticSceneContentGeneratorTest' test
+Tests run: 29, Failures: 0, Errors: 0
+```
+
+The Agentic prompt test asserts the stable-ID marker is absent from serialized provider payload while existing personalization remains present.
+
+### Review-round verification and scope
+
+Final non-PostgreSQL Task 4 focused run passed `164/164`: Palace logging `5`, Hybrid `6`, keyword `10`, unified engine `4`, key factory `10`, orchestrator `41`, service `50`, service orchestration `8`, input `1`, Agentic generator `15`, and provider wiring `14`. The Spring AI platform gate passed:
+
+```text
+python3 tool/verify_spring_ai_2_backend_platform.py
+Spring AI 2 backend platform contract verified
+```
+
+Required PG rerun was attempted:
+
+```text
+bash ./mvnw -q -pl app-api '-Dtest=PracticeGeneratedContentConcurrencyTest#concurrentPrimaryAndCaregiverPresetRequestsShareOneProfileOwnedRow' test
+Tests run: 1, Failures: 0, Errors: 1
+Could not find a valid Docker environment ... dockerDesktopLinuxEngine ... daemon is not running
+```
+
+The same environment caused the review-round complete-bundle verifier to report `311` tests with `15` initialization errors. No Testcontainers skip/disable was used. Current round staged files are limited to the three Palace production classes plus their capture test, the stable fake/request forwarding production/test files, the privacy verifier and its unit test, and this report. `PracticeDiscoveryService.java`, `PracticeDiscoveryServiceTest.java`, `PracticeGeneratedContentQueryMapper.xml`, `CaregiverInviteApiWebTest.java`, and all mobile/windows WIP remain unstaged.

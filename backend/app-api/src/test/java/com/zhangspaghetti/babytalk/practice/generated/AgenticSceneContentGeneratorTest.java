@@ -80,6 +80,7 @@ class AgenticSceneContentGeneratorTest {
                         "generatedContentId",
                         "attemptNumber",
                         "displayText",
+                        "stableActivityId",
                         "ageRange",
                         "parentGoal",
                         "locale",
@@ -196,7 +197,8 @@ class AgenticSceneContentGeneratorTest {
                         "bundleHash",
                         "sanitizedSummaryHash",
                         "providerTraceId",
-                        "modelName");
+                        "modelName",
+                        "stable-preset-activity-marker");
         assertThat(userPrompt.indexOf("先轻声说。"))
                 .isLessThan(userPrompt.indexOf("再停下来观察。"));
     }
@@ -452,6 +454,7 @@ class AgenticSceneContentGeneratorTest {
                 "pgc_generator_test",
                 2,
                 "给宝宝穿鞋",
+                "stable-preset-activity-marker",
                 "m7_11",
                 "calmer_care",
                 "zh-CN",

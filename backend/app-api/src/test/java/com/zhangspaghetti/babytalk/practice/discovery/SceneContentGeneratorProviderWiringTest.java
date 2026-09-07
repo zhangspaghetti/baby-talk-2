@@ -22,6 +22,8 @@ import com.zhangspaghetti.babytalk.practice.generated.FakeCustomSceneQualityJudg
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeResultAuditPort;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdictCalculator;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -96,6 +98,36 @@ class SceneContentGeneratorProviderWiringTest {
                                 assertThat(unavailable.reason()).isEqualTo("fake_scene_not_supported");
                                 assertThat(unavailable.retryable()).isFalse();
                             });
+                });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"bath_time", "diaper_change", "post_cry_soothing", "feeding_time", "bedtime"})
+    void fakeProviderSupportsEveryPublishedPresetByStableActivityId(String stableActivityId) {
+        contextRunner
+                .withPropertyValues(
+                        "spring.profiles.active=test",
+                        "babytalk.practice.discovery.custom-scene.provider-mode=fake")
+                .run(context -> {
+                    var bundle = context.getBean(SceneContentGenerator.class)
+                            .generateCareMoment(requestForPreset(stableActivityId));
+
+                    assertThat(bundle.completeBundle().utterances()).hasSize(6);
+                    assertThat(bundle.utterances()).allSatisfy(utterance -> {
+                        assertThat(utterance.englishText()).isNotBlank();
+                        assertThat(utterance.chineseText()).isNotBlank();
+                        assertThat(utterance.tprActionZh()).isNotBlank();
+                        assertThat(utterance.deliveryGuidanceZh()).isNotBlank();
+                    });
+                    var policy = PracticeDiscoveryPolicyTestFixture.properties();
+                    var validator = new SceneGeneratedContentValidator(
+                            policy, new CustomSceneIntentClassifier(policy));
+                    assertThat(validator.normalizeAndValidate(
+                            bundle.starter(),
+                            SceneContentGenerator.ContentConstraints.fakeProviderDefaults(),
+                            new SceneGeneratedContentValidator.GeneratedOutputValidationContext(null)))
+                            .isNotNull();
+                    assertThat(bundle.starter().generationSource()).isEqualTo("fake");
                 });
     }
 
@@ -203,6 +235,29 @@ class SceneContentGeneratorProviderWiringTest {
                 null,
                 SceneContentGenerator.ContentConstraints.defaults()
         );
+    }
+
+    private SceneContentGenerator.GeneratorRequest requestForPreset(String stableActivityId) {
+        return new SceneContentGenerator.GeneratorRequest(
+                "pgc_preset_wiring_test",
+                1,
+                "published preset brief for " + stableActivityId,
+                stableActivityId,
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                null,
+                null,
+                SceneContentGenerator.ContentConstraints.fakeProviderDefaults(),
+                new com.zhangspaghetti.babytalk.practice.generated.GenerationRequestContext(
+                        "小满",
+                        "m7_11",
+                        "calmer_care",
+                        "zh-CN",
+                        "primary",
+                        0,
+                        null,
+                        ""));
     }
 
     private ApplicationContextRunner agenticContextRunner() {

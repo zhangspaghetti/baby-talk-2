@@ -112,7 +112,10 @@ public class PalaceHybridRetrievalService {
         try {
             return retrieveInternal(safeRequest);
         } catch (Exception e) {
-            log.error("hybrid retrieval failed, falling back to vector-only path: query='{}'", safeRequest.query(), e);
+            log.error(
+                    "event=palace_hybrid_retrieval_failed queryLength={} exceptionType={}",
+                    safeTextLength(safeRequest.query()),
+                    e.getClass().getSimpleName());
             return fallbackVectorOnly(safeRequest, e);
         }
     }
@@ -161,13 +164,13 @@ public class PalaceHybridRetrievalService {
         persistTrace(trace, null);
 
         log.info(
-                "hybrid retrieval complete: query='{}', vectorCount={}, keywordCount={}, resultCount={}, temporalRule='{}', projectionVersion='{}'",
-                request.query(),
+                "event=palace_hybrid_retrieval_complete queryLength={} vectorCount={} keywordCount={} resultCount={} temporalRuleApplied={} projectionVersionPresent={}",
+                safeTextLength(request.query()),
                 vectorCandidates.size(),
                 keywordCandidates.size(),
                 rankingOutcome.candidates().size(),
-                trace.temporalRuleApplied(),
-                trace.projectionVersionUsed());
+                trace.temporalRuleApplied() != null,
+                trace.projectionVersionUsed() != null);
 
         return new RetrievalResult(rankingOutcome.candidates(), trace);
     }
@@ -184,14 +187,17 @@ public class PalaceHybridRetrievalService {
                     null);
             candidates = rankingOutcome.candidates();
         } catch (Exception vectorFailure) {
-            log.error("vector-only fallback also failed: query='{}'", request.query(), vectorFailure);
+            log.error(
+                    "event=palace_hybrid_vector_fallback_failed queryLength={} exceptionType={}",
+                    safeTextLength(request.query()),
+                    vectorFailure.getClass().getSimpleName());
             candidates = List.of();
         }
 
         String baseTemporalRule = request.childAgeMonths() == null
                 ? "skipped"
                 : "soft-boost: child=%dmo".formatted(request.childAgeMonths());
-        String temporalRule = "error-fallback: %s; %s".formatted(compactMessage(cause), baseTemporalRule);
+        String temporalRule = "error-fallback: %s; %s".formatted(cause.getClass().getSimpleName(), baseTemporalRule);
         QueryTrace trace = new QueryTrace(
                 inferEntryRoomLabels(request),
                 List.of(),
@@ -465,7 +471,10 @@ public class PalaceHybridRetrievalService {
             int max = matches.stream().map(KgEntity::validToMonths).max(Integer::compareTo).orElse(min);
             return new AgeWindow(min, max, "kg:%d-%dmo".formatted(min, max));
         } catch (Exception e) {
-            log.warn("kg entity hint lookup failed for query='{}': {}", request.query(), e.getMessage());
+            log.warn(
+                    "event=palace_kg_hint_lookup_failed queryLength={} exceptionType={}",
+                    safeTextLength(request.query()),
+                    e.getClass().getSimpleName());
             return null;
         }
     }
@@ -590,13 +599,8 @@ public class PalaceHybridRetrievalService {
         return "fallback-%d-%d".formatted(index, Objects.hashCode(content));
     }
 
-    private String compactMessage(Exception exception) {
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            return exception.getClass().getSimpleName();
-        }
-        String compact = message.replaceAll("\\s+", " ").trim();
-        return compact.length() <= 120 ? compact : compact.substring(0, 120);
+    private int safeTextLength(String value) {
+        return value == null ? 0 : value.codePointCount(0, value.length());
     }
 
     private List<String> inferEntryRoomLabels(RetrievalRequest request) {

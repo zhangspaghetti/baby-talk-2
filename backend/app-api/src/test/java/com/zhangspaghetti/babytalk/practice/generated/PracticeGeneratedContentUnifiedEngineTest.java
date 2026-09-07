@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.DefaultResourceLoader;
 
@@ -92,7 +93,9 @@ class PracticeGeneratedContentUnifiedEngineTest {
                 "daily_care", "bath_time", "request-caregiver", "caregiver"));
 
         assertThat(caregiver.generatedContentId()).isEqualTo(primary.generatedContentId());
-        verify(generator).generateCareMoment(any());
+        var requestCaptor = ArgumentCaptor.forClass(SceneContentGenerator.GeneratorRequest.class);
+        verify(generator).generateCareMoment(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().stableActivityId()).isEqualTo("bath_time");
         assertThat(primary.ownerScope()).isEqualTo("profile");
         assertThat(primary.spaceSlug()).isEqualTo("daily_care");
         assertThat(primary.activitySlug()).isEqualTo("bath_time");

@@ -4,6 +4,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.FrozenEvidenceBundle;
 import java.time.Duration;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public interface SceneContentGenerator {
 
@@ -14,6 +15,7 @@ public interface SceneContentGenerator {
             String generatedContentId,
             int attemptNumber,
             String displayText,
+            String stableActivityId,
             String ageRange,
             String parentGoal,
             String locale,
@@ -22,6 +24,8 @@ public interface SceneContentGenerator {
             ContentConstraints constraints,
             GenerationRequestContext context
     ) {
+        private static final Pattern SAFE_STABLE_ACTIVITY_ID = Pattern.compile("[a-z0-9][a-z0-9_-]{0,95}");
+
         public GeneratorRequest(
                 String generatedContentId,
                 int attemptNumber,
@@ -33,13 +37,50 @@ public interface SceneContentGenerator {
                 GenerationProfile generationProfile,
                 ContentConstraints constraints
         ) {
-            this(generatedContentId, attemptNumber, displayText, ageRange, parentGoal, locale,
+            this(generatedContentId, attemptNumber, displayText, null, ageRange, parentGoal, locale,
+                    evidenceBundle, generationProfile, constraints,
+                    legacyContext(ageRange, parentGoal, locale));
+        }
+
+        public GeneratorRequest(
+                String generatedContentId,
+                int attemptNumber,
+                String displayText,
+                String ageRange,
+                String parentGoal,
+                String locale,
+                FrozenEvidenceBundle evidenceBundle,
+                GenerationProfile generationProfile,
+                ContentConstraints constraints,
+                GenerationRequestContext context
+        ) {
+            this(generatedContentId, attemptNumber, displayText, null, ageRange, parentGoal, locale,
+                    evidenceBundle, generationProfile, constraints, context);
+        }
+
+        public GeneratorRequest(
+                String generatedContentId,
+                int attemptNumber,
+                String displayText,
+                String stableActivityId,
+                String ageRange,
+                String parentGoal,
+                String locale,
+                FrozenEvidenceBundle evidenceBundle,
+                GenerationProfile generationProfile,
+                ContentConstraints constraints
+        ) {
+            this(generatedContentId, attemptNumber, displayText, stableActivityId, ageRange, parentGoal, locale,
                     evidenceBundle, generationProfile, constraints,
                     legacyContext(ageRange, parentGoal, locale));
         }
 
         public GeneratorRequest {
             java.util.Objects.requireNonNull(context, "context");
+            if (stableActivityId != null
+                    && !SAFE_STABLE_ACTIVITY_ID.matcher(stableActivityId).matches()) {
+                throw new IllegalArgumentException("stableActivityId must be a safe stable identifier");
+            }
             if (!java.util.Objects.equals(ageRange, context.ageRange())
                     || !java.util.Objects.equals(parentGoal, context.parentGoal())
                     || !java.util.Objects.equals(locale, context.locale())) {

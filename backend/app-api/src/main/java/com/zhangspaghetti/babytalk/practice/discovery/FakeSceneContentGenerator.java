@@ -31,6 +31,9 @@ public class FakeSceneContentGenerator implements SceneContentGenerator {
     }
 
     private GeneratedPracticeContentCandidate successCandidate(GeneratorRequest request) {
+        if (request.stableActivityId() != null) {
+            return presetCandidate(request.stableActivityId());
+        }
         var scene = normalizeMode(request.displayText());
         if (scene.contains("shoe") || scene.contains("鞋") || scene.contains("出门")) {
             return candidate("出门准备", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说一遍。", "Shoes on.", "穿鞋出门。");
@@ -59,6 +62,27 @@ public class FakeSceneContentGenerator implements SceneContentGenerator {
             return candidate("日常照护", "如厕时间", "Potty time", "陪着宝宝坐稳。", "轻声说一遍。", "Potty time.", "如厕时间。");
         }
         throw new GenerationUnavailableException(GenerationUnavailableReason.FAKE_SCENE_NOT_SUPPORTED);
+    }
+
+    private GeneratedPracticeContentCandidate presetCandidate(String stableActivityId) {
+        return switch (stableActivityId) {
+            case "bath_time" -> candidate(
+                    "日常照护", "洗澡时间", "Bath time", "拿起毛巾。", "慢慢说一遍。",
+                    "Warm water.", "暖水暖暖。");
+            case "diaper_change" -> candidate(
+                    "日常照护", "换尿布", "Diaper change", "换上干净尿布。",
+                    "轻声说，等宝宝看过来再重复。", "Fresh diaper.", "干净尿布。");
+            case "post_cry_soothing" -> candidate(
+                    "日常照护", "哭后安抚", "Post-cry soothing", "抱抱宝宝。",
+                    "放慢声音，先说短句。", "I am here.", "我在这里。");
+            case "feeding_time" -> candidate(
+                    "日常照护", "吃饭时间", "Feeding time", "抱稳宝宝。", "慢慢说一遍。",
+                    "Meal time.", "吃饭时间。");
+            case "bedtime" -> candidate(
+                    "家庭节奏", "睡前时间", "Bedtime", "抱抱宝宝。", "放慢声音，先说短句。",
+                    "Bedtime now.", "睡前时间。");
+            default -> throw new GenerationUnavailableException(GenerationUnavailableReason.FAKE_SCENE_NOT_SUPPORTED);
+        };
     }
 
     private GeneratedPracticeContentCandidate candidate(

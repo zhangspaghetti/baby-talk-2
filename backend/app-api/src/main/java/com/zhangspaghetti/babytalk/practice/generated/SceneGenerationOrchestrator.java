@@ -222,6 +222,7 @@ public class SceneGenerationOrchestrator {
                             reserved.generatedContentId(),
                             attemptNumber,
                             execution.resolvedSceneText(),
+                            execution.stableActivityId(),
                             reserved.ageRange(),
                             reserved.parentGoal(),
                             reserved.locale(),

@@ -741,6 +741,7 @@ public class PracticeGeneratedContentService {
                     reserved.generatedContentId(),
                     1,
                     prepared.normalizedSceneText(),
+                    input.stableActivityId(),
                     prepared.context().ageRange(),
                     prepared.context().parentGoal(),
                     prepared.context().locale(),
