@@ -177,3 +177,31 @@ Could not find a valid Docker environment ... dockerDesktopLinuxEngine ... daemo
 ```
 
 The same environment caused the review-round complete-bundle verifier to report `311` tests with `15` initialization errors. No Testcontainers skip/disable was used. Current round staged files are limited to the three Palace production classes plus their capture test, the stable fake/request forwarding production/test files, the privacy verifier and its unit test, and this report. `PracticeDiscoveryService.java`, `PracticeDiscoveryServiceTest.java`, `PracticeGeneratedContentQueryMapper.xml`, `CaregiverInviteApiWebTest.java`, and all mobile/windows WIP remain unstaged.
+
+## Review round 2 — cross-module mapper discovery
+
+Root cause: the prior verifier used an app-api-only mapper root, so a common-module account purge mapper (and a future admin-api mapper) operating on `practice_generated_content` could add `coach_tip_zh` without detection.
+
+TDD RED, before the scope change:
+
+```text
+python3 test/tool/verify_practice_generation_privacy_test.py
+Ran 13 tests ... FAILED (cross-module generated-content mapper fixture)
+```
+
+The test fixture covers both `backend/common/src/main/resources/mapper/account/AccountDataPurgeMapper.xml` and an admin-api mapper, with actual generated-content SQL and `coach_tip_zh`; the existing app-api non-standard mapper fixture remains in place.
+
+The minimal fix discovers XML only under production mapper paths matching every backend module's `src/main/resources/**/mapper/**/*.xml`, excludes `target`/test outputs, and applies the coach-tip rule only when the SQL operates on a `practice_generated_content` table. Preset catalog/version mapper exceptions remain content/surface-specific, not blanket path or substring allows. Migration discovery remains content-based across the migration root.
+
+TDD GREEN:
+
+```text
+python3 test/tool/verify_practice_generation_privacy_test.py
+Ran 13 tests ... OK
+python3 tool/verify_practice_generation_privacy.py
+practice generation privacy verification passed
+python3 test/ci/test_full_ci_contract.py
+Ran 15 tests ... OK
+```
+
+Round-2 commit `test(practice): scan cross-module privacy mappers` stages only `tool/verify_practice_generation_privacy.py`, `test/tool/verify_practice_generation_privacy_test.py`, and this report. `tool/__pycache__` was removed after the final Python runs; no discovery/query/Caregiver/mobile/windows WIP was staged.

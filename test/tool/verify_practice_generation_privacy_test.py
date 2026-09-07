@@ -147,6 +147,24 @@ class PracticeGenerationPrivacyVerifierTest(unittest.TestCase):
                              and "drop" not in failure.lower()
                              for failure in failures))
 
+    def test_cross_module_generated_content_mappers_reject_coach_tip(self) -> None:
+        mapper_paths = (
+            "backend/common/src/main/resources/mapper/account/AccountDataPurgeMapper.xml",
+            "backend/admin-api/src/main/resources/mapper/practice/GeneratedContentMapper.xml",
+        )
+        for relative_path in mapper_paths:
+            with self.subTest(relative_path=relative_path), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                mapper = root / relative_path
+                mapper.parent.mkdir(parents=True)
+                mapper.write_text(
+                    "delete from practice_generated_content where coach_tip_zh = #{coachTip};\n",
+                    encoding="utf-8")
+                failures = VERIFIER.collect_violations(root)
+
+            self.assertTrue(any(Path(relative_path).name in failure and "coach_tip_zh" in failure
+                                for failure in failures))
+
 
 if __name__ == "__main__":
     unittest.main()

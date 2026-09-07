@@ -43,7 +43,7 @@ SECURITY_TEXT_APPROVED = {
 CURRENT_GENERATED_CONTENT_MIGRATION = "V27__upgrade_practice_generated_content_agentic_contract.sql"
 LEGACY_GENERATED_CONTENT_MIGRATION = "V25__create_practice_generated_content.sql"
 GENERATED_CONTENT_MIGRATION_ROOT = "backend/db-migration/src/main/resources/db/migration"
-APP_MAPPER_ROOT = "backend/app-api/src/main/resources/mapper"
+BACKEND_MODULES_ROOT = "backend"
 GENERATED_CONTENT_TABLE_PATTERN = re.compile(r"\bpractice_generated_content(?:\b|_)", re.IGNORECASE)
 COACH_TIP_PATTERN = re.compile(r"\bcoach_tip_zh\b", re.IGNORECASE)
 GENERATED_AUDIO_JAVA_ROOT = "backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/generated/audio"
@@ -116,6 +116,27 @@ def generated_content_migration_paths(root: Path) -> list[Path]:
     ]
 
 
+def production_mapper_paths(root: Path) -> list[Path]:
+    backend_root = root / BACKEND_MODULES_ROOT
+    if not backend_root.exists():
+        return []
+
+    paths = []
+    for path in backend_root.rglob("*.xml"):
+        if "target" in path.parts or not any(parent.name == "mapper" for parent in path.parents):
+            continue
+        parts = path.parts
+        try:
+            source_index = parts.index("src")
+            main_index = parts.index("main", source_index + 1)
+            resources_index = parts.index("resources", main_index + 1)
+        except ValueError:
+            continue
+        if source_index < main_index < resources_index:
+            paths.append(path)
+    return sorted(paths)
+
+
 def generated_content_coach_tip_failures(path: Path, source: str) -> list[str]:
     if not COACH_TIP_PATTERN.search(source):
         return []
@@ -148,7 +169,7 @@ def collect_violations(root: Path) -> list[str]:
 
     failures: list[str] = []
     java_paths = custom_scene_java_paths(root)
-    mapper_paths = files_under(root, APP_MAPPER_ROOT, (".xml",))
+    mapper_paths = production_mapper_paths(root)
     generated_migration_paths = generated_content_migration_paths(root)
     production_paths = java_paths + mapper_paths + generated_migration_paths
     if migration.exists() and migration not in generated_migration_paths:
