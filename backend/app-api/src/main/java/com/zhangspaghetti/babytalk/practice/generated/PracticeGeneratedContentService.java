@@ -838,6 +838,9 @@ public class PracticeGeneratedContentService {
         row.setRequestFingerprint(draft.requestFingerprint());
         row.setClientRequestId(draft.clientRequestId());
         row.setClientRequestFingerprint(draft.clientRequestFingerprint());
+        row.setNormalizedSceneText(SOURCE_CUSTOM.equals(input.inputSource())
+                ? prepared.normalizedSceneText()
+                : null);
         row.setAgeRange(draft.ageRange());
         row.setParentGoal(draft.parentGoal());
         row.setLocale(draft.locale());

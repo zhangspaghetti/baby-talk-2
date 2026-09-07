@@ -131,6 +131,7 @@ class PracticeGeneratedContentUnifiedEngineTest {
         assertThat(custom.profileVersion()).isEqualTo(4);
         assertThat(custom.householdContextVersion()).isEqualTo("2026-W36");
         assertThat(custom.installationRefHash()).isNull();
+        assertThat(custom.normalizedSceneText()).isEqualTo("洗澡后哄睡");
         assertThat(custom.spaceSlug()).startsWith("gen_scene_");
 
         assertThat(preset.mode()).isEqualTo("scene_generation");

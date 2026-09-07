@@ -639,6 +639,9 @@ public class SceneGenerationOrchestrator {
         active.setRequestFingerprint(draft.requestFingerprint());
         active.setClientRequestId(draft.clientRequestId());
         active.setClientRequestFingerprint(draft.clientRequestFingerprint());
+        active.setNormalizedSceneText("custom".equals(draft.inputSource())
+                ? draft.normalizedSceneText()
+                : null);
         active.setAgeRange(draft.ageRange());
         active.setParentGoal(draft.parentGoal());
         active.setLocale(draft.locale());

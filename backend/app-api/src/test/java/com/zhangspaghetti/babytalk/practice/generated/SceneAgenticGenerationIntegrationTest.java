@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.core.read.ListAppender;
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
@@ -180,7 +181,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select normalized_scene_text from practice_generated_content where generated_content_id = ?",
                 String.class,
-                generatedContentId)).isNull();
+                generatedContentId)).isEqualTo("出门前宝宝不想穿鞋");
 
         mockMvc.perform(generation("install_agentic_1", "出门前宝宝不想穿鞋"))
                 .andExpect(status().isOk())
@@ -394,6 +395,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         var appender = attachRootLogger();
         String presetBody;
         String customBody;
+        String reusedPresetBody;
         String outsiderErrorBody;
         try {
             presetBody = mockMvc.perform(familyGeneration(
@@ -425,7 +427,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                     .getResponse()
                     .getContentAsString();
 
-            var reusedPresetBody = mockMvc.perform(familyGeneration(
+            reusedPresetBody = mockMvc.perform(familyGeneration(
                             primary.accessToken(),
                             "family-primary-reuse-install",
                             "family-preset-primary-reuse",
@@ -456,9 +458,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                     "daily_care", "bath_time", "bath_time_warm_water", "resisting",
                     java.time.Instant.now().minusSeconds(10).toString());
         } finally {
-            var rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
-            rootLogger.detachAppender(appender);
-            appender.stop();
+            detachRootLogger(appender);
         }
 
         var presetJson = new tools.jackson.databind.ObjectMapper().readTree(presetBody);
@@ -469,30 +469,43 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         assertPrivacySafe(
                 presetBody,
                 primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
+                invite.householdId(), invite.token(),
                 "13800139999", "13900139998", "13700137777", "install-agentic-session",
                 "family-caregiver-install", "family-caregiver-custom-install", "family-primary-reuse-install",
-                "family-outsider-install", "family-preset-caregiver", "family-custom-caregiver",
+                "family-outsider-install", "family-primary-event", "family-caregiver-event",
+                "family-preset-caregiver", "family-custom-caregiver",
                 "family-preset-primary-reuse", "family-outsider-request", "出门前宝宝不想穿鞋",
                 presetBrief, "ScenePersonalizationContext{");
         assertPrivacySafe(
                 customBody,
                 primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
+                invite.householdId(), invite.token(),
                 "13800139999", "13900139998", "13700137777", "family-caregiver-custom-install",
-                "family-custom-caregiver", "出门前宝宝不想穿鞋", presetBrief, "ScenePersonalizationContext{");
+                "family-custom-caregiver", "family-caregiver-event", "出门前宝宝不想穿鞋", presetBrief,
+                "ScenePersonalizationContext{");
+        assertPrivacySafe(
+                reusedPresetBody,
+                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
+                invite.householdId(), invite.token(),
+                "13800139999", "13900139998", "13700137777", "install-agentic-session",
+                "family-caregiver-install", "family-primary-reuse-install", "family-primary-event",
+                "family-caregiver-event", "family-preset-caregiver", "family-preset-primary-reuse",
+                "出门前宝宝不想穿鞋", presetBrief, "ScenePersonalizationContext{");
         assertPrivacySafe(
                 outsiderErrorBody,
                 primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
-                invite.householdId(), "13800139999", "13900139998", "13700137777",
+                invite.householdId(), invite.token(), "13800139999", "13900139998", "13700137777",
                 "family-outsider-install", "family-outsider-request", "出门前宝宝不想穿鞋",
                 presetBrief, "ScenePersonalizationContext{");
         var logs = appenderText(appender);
         assertPrivacySafe(
                 logs,
                 primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
-                invite.householdId(), "13800139999", "13900139998", "13700137777",
+                invite.householdId(), invite.token(), "13800139999", "13900139998", "13700137777",
                 "install-agentic-session", "family-caregiver-install", "family-caregiver-custom-install",
-                "family-primary-reuse-install", "family-outsider-install", "family-preset-caregiver",
-                "family-custom-caregiver", "family-preset-primary-reuse", "family-outsider-request",
+                "family-primary-reuse-install", "family-outsider-install", "family-primary-event",
+                "family-caregiver-event", "family-preset-caregiver", "family-custom-caregiver",
+                "family-preset-primary-reuse", "family-outsider-request",
                 "出门前宝宝不想穿鞋", presetBrief, "ScenePersonalizationContext{");
 
         var rows = jdbcTemplate.queryForList(
@@ -500,7 +513,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 select generated_content_id, owner_scope, account_id, profile_id, profile_version,
                        household_context_version, input_source, preset_activity_id,
                        preset_scene_version_id, normalized_scene_text, status, mode, surface,
-                       installation_ref_hash, generation_profile_version
+                       installation_ref_hash, generation_profile_version, space_slug, activity_slug
                 from practice_generated_content
                 order by input_source asc
                 """);
@@ -523,6 +536,8 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 .containsEntry("preset_activity_id", presetActivityId)
                 .containsEntry("preset_scene_version_id", presetVersionId)
                 .containsEntry("normalized_scene_text", null)
+                .containsEntry("space_slug", "daily_care")
+                .containsEntry("activity_slug", "bath_time")
                 .containsEntry("status", "active")
                 .containsEntry("mode", "scene_generation")
                 .containsEntry("surface", "care_path");
@@ -535,7 +550,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 .containsEntry("input_source", "custom")
                 .containsEntry("preset_activity_id", null)
                 .containsEntry("preset_scene_version_id", null)
-                .containsEntry("normalized_scene_text", null)
+                .containsEntry("normalized_scene_text", "出门前宝宝不想穿鞋")
                 .containsEntry("status", "active")
                 .containsEntry("mode", "scene_generation")
                 .containsEntry("surface", "care_path");
@@ -543,9 +558,15 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 .matches("\\d{4}-W\\d{2}");
         assertThat(customRow.get("household_context_version"))
                 .isEqualTo(presetRow.get("household_context_version"));
+        assertThat(customRow.get("space_slug").toString())
+                .matches("gen_scene_[a-f0-9]{20}");
+        assertThat(customRow.get("activity_slug").toString())
+                .matches("gen_activity_[a-f0-9]{20}");
         assertThat(presetRow.get("installation_ref_hash")).isNull();
         assertThat(customRow.get("installation_ref_hash")).isNull();
         assertThat(presetRow.get("generation_profile_version")).isNotNull();
+        assertThat(customRow.get("generation_profile_version"))
+                .isEqualTo(presetRow.get("generation_profile_version"));
         assertThat(rows)
                 .allSatisfy(row -> assertThat(row.get("account_id"))
                         .isEqualTo(primary.accountId())
@@ -580,6 +601,10 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 generatedPresetId, caregiver.accountId())).isNotNull();
         assertThat(generatedContentQueryMapper.findActiveAccessibleByAccountId(
                 generatedPresetId, outsider.accountId())).isNull();
+        var audioAppender = attachRootLogger();
+        String outsiderAudio;
+        String revokedAudio;
+        try {
         mockMvc.perform(get("/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
                         generatedPresetId, starterUtteranceId)
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
@@ -592,7 +617,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + caregiver.accessToken()))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("audio/mpeg")));
-        var outsiderAudio = mockMvc.perform(get(
+        outsiderAudio = mockMvc.perform(get(
                         "/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
                         generatedPresetId, starterUtteranceId)
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
@@ -609,7 +634,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 invite.householdId(), caregiver.accountId());
         assertThat(generatedContentQueryMapper.findActiveAccessibleByAccountId(
                 generatedPresetId, caregiver.accountId())).isNull();
-        var revokedAudio = mockMvc.perform(get(
+        revokedAudio = mockMvc.perform(get(
                         "/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
                         generatedPresetId, starterUtteranceId)
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
@@ -625,21 +650,56 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
                         generatedPresetId, starterUtteranceId)
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + primary.accessToken()))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + primary.accessToken()))
                 .andExpect(status().isOk());
+        } finally {
+            detachRootLogger(audioAppender);
+        }
+        assertPrivacySafe(
+                appenderText(audioAppender),
+                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
+                invite.householdId(), invite.token(), "13800139999", "13900139998", "13700137777",
+                "install-agentic-session", "family-caregiver-install", "family-caregiver-custom-install",
+                "family-primary-reuse-install", "family-outsider-install", "family-primary-event",
+                "family-caregiver-event", "family-preset-caregiver", "family-custom-caregiver",
+                "family-preset-primary-reuse", "family-outsider-request", "出门前宝宝不想穿鞋",
+                presetBrief, "ScenePersonalizationContext{");
     }
 
     private ListAppender<ILoggingEvent> attachRootLogger() {
+        return attachLogger(Logger.ROOT_LOGGER_NAME);
+    }
+
+    private ListAppender<ILoggingEvent> attachLogger(String loggerName) {
+        return attachLogger(LoggerFactory.getLogger(loggerName));
+    }
+
+    private ListAppender<ILoggingEvent> attachLogger(org.slf4j.Logger logger) {
         var appender = new ListAppender<ILoggingEvent>();
         appender.start();
-        ((Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).addAppender(appender);
+        ((Logger) logger).addAppender(appender);
         return appender;
+    }
+
+    private void detachRootLogger(ListAppender<ILoggingEvent> appender) {
+        ((Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).detachAppender(appender);
+        appender.stop();
     }
 
     private String appenderText(ListAppender<ILoggingEvent> appender) {
         return appender.list.stream()
-                .map(ILoggingEvent::getFormattedMessage)
+                .map(event -> event.getFormattedMessage()
+                        + "|mdc=" + event.getMDCPropertyMap()
+                        + "|throwable=" + throwableText(event.getThrowableProxy()))
                 .collect(Collectors.joining("\n"));
+    }
+
+    private String throwableText(IThrowableProxy throwable) {
+        if (throwable == null) {
+            return "";
+        }
+        return throwable.getClassName() + ":" + throwable.getMessage()
+                + "|cause=" + throwableText(throwable.getCause());
     }
 
     private void assertPrivacySafe(String value, String... forbiddenValues) {

@@ -38,6 +38,11 @@ ADMIN_ACCESS_TOKEN="${ADMIN_ACCESS_TOKEN:-}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-super_admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-SuperAdmin123!}"
 
+if [[ "${1:-}" == "--print-app-version" ]]; then
+    printf '%s\n' "$APP_VERSION"
+    exit 0
+fi
+
 # ── 颜色 ──
 RED='\033[0;31m'
 GREEN='\033[0;32m'

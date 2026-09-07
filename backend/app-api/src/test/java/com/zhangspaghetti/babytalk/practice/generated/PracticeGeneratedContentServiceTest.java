@@ -88,7 +88,7 @@ class PracticeGeneratedContentServiceTest {
         assertThat(row.chineseText()).isEqualTo("宝宝困了。");
         assertThat(row.generationSource()).isEqualTo("fake");
         assertThat(row.createdAt()).isInstanceOf(java.time.OffsetDateTime.class);
-        assertThat(row.normalizedSceneText()).isNull();
+        assertThat(row.normalizedSceneText()).isEqualTo("洗澡后哄睡");
         assertThat(row.retentionExpiresAt()).isNull();
         verify(commands).activate(any());
     }

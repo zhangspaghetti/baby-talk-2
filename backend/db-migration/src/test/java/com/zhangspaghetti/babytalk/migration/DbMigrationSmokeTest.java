@@ -414,6 +414,27 @@ class DbMigrationSmokeTest {
                 "space-v38-stable",
                 "activity-v38-stable",
                 "phrase-v38-week-37");
+        insertV38GeneratedContent(
+                schema,
+                "pgc_v38_custom_active_text",
+                "custom",
+                null,
+                null,
+                "2026-W38",
+                "space-v38-custom-text",
+                "activity-v38-custom-text",
+                "phrase-v38-custom-text");
+        assertThat(jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set normalized_scene_text = 'custom scene text'"
+                        + " where generated_content_id = 'pgc_v38_custom_active_text'"))
+                .isEqualTo(1);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set normalized_scene_text = 'preset scene text'"
+                        + " where generated_content_id = 'pgc_v38_preset_week_36'"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("chk_practice_generated_content_terminal_input_cleared");
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from " + schema
                         + ".practice_generated_content where activity_slug = 'activity-v38-stable'",
@@ -1261,7 +1282,16 @@ class DbMigrationSmokeTest {
                 .generationAttemptLimit(6)
                 .build());
 
-        for (String terminalStatus : List.of("active", "rejected", "expired")) {
+        insertGeneratedContent(generatedContentFixture("pgc_db_active_custom_text")
+                .status("active")
+                .normalizedSceneText("custom rows retain canonical text")
+                .build());
+        assertThat(jdbcTemplate.queryForObject(
+                "select normalized_scene_text from practice_generated_content"
+                        + " where generated_content_id = 'pgc_db_active_custom_text'",
+                String.class))
+                .isEqualTo("custom rows retain canonical text");
+        for (String terminalStatus : List.of("rejected", "expired")) {
             assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_terminal_text_" + terminalStatus)
                     .status(terminalStatus)
                     .normalizedSceneText("terminal rows must clear display text")

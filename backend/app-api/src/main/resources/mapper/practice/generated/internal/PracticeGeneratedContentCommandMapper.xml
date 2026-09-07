@@ -88,7 +88,10 @@
             pronunciation_hint = #{et.pronunciationHint}, difficulty = #{et.difficulty},
             generation_source = #{et.generationSource}, status = 'active',
             generation_error_code = null, generation_error_retryable = null,
-            generation_expires_at = null, normalized_scene_text = null,
+            generation_expires_at = null,
+            normalized_scene_text = case when input_source = 'custom'
+                then #{et.normalizedSceneText}
+                else null end,
             retention_expires_at = case when owner_scope = 'installation'
                 then cast(
                     #{et.retentionExpiresAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}

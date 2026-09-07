@@ -41,6 +41,13 @@ alter table practice_generated_content
                         and preset_scene_version_id is not null)
                 )
             )
+        ),
+    drop constraint chk_practice_generated_content_terminal_input_cleared,
+    add constraint chk_practice_generated_content_terminal_input_cleared
+        check (
+            status in ('draft', 'generating')
+            or (status = 'active' and input_source = 'custom')
+            or normalized_scene_text is null
         );
 
 -- Legacy custom rows remain subject to the old slug uniqueness contract;

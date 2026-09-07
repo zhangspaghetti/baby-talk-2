@@ -146,6 +146,53 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void activationKeepsCanonicalCustomTextButClearsPresetText() {
+        var custom = row("pgc_repo_activate_custom")
+                .profile("acct_pgc_repo_activate_custom", "profile_pgc_repo_activate_custom")
+                .mode("scene_generation")
+                .inputSource("custom")
+                .profileVersion(7)
+                .householdContextVersion("2026-W36")
+                .active()
+                .build();
+        custom.setStatus("generating");
+        custom.setNormalizedSceneText("洗澡后哄睡");
+        custom.setGenerationStartedAt(NOW_DB);
+        custom.setGenerationExpiresAt(NOW_DB.plusMinutes(5));
+        insert(custom);
+
+        assertThat(commands.activate(custom)).isPresent();
+        assertThat(queries.findByGeneratedContentId(custom.generatedContentId()).normalizedSceneText())
+                .isEqualTo("洗澡后哄睡");
+
+        var activityId = jdbcTemplate.queryForObject(
+                "select id from practice_activities where slug = 'bath_time'", Long.class);
+        var versionId = jdbcTemplate.queryForObject(
+                "select version_id from practice_preset_scene_versions"
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                activityId);
+        var preset = row("pgc_repo_activate_preset")
+                .profile("acct_pgc_repo_activate_preset", "profile_pgc_repo_activate_preset")
+                .mode("scene_generation")
+                .inputSource("preset")
+                .presetIds(activityId, versionId)
+                .profileVersion(8)
+                .householdContextVersion("2026-W36")
+                .active()
+                .build();
+        preset.setStatus("generating");
+        preset.setNormalizedSceneText("preset:" + activityId + ":" + versionId);
+        preset.setGenerationStartedAt(NOW_DB);
+        preset.setGenerationExpiresAt(NOW_DB.plusMinutes(5));
+        insert(preset);
+
+        assertThat(commands.activate(preset)).isPresent();
+        assertThat(queries.findByGeneratedContentId(preset.generatedContentId()).normalizedSceneText())
+                .isNull();
+    }
+
+    @Test
     void constraintsRejectUnsupportedEnumsAndAllowExpiredStatus() {
         insert(row("pgc_repo_expired").expired().build());
 
