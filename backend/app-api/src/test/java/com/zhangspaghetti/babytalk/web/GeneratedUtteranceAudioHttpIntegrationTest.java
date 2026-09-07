@@ -59,6 +59,10 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
             "utt_audio_other_1"
     );
     private static final byte[] FAKE_MP3_BYTES = {0x49, 0x44, 0x33, 0x04, 0x00, 0x00};
+    private static final String PROFILE_CONTENT_ID = "pgc_audio_http_profile_1";
+    private static final String PROFILE_ID = "profile_audio_http_1";
+    private static final String PROFILE_HOUSEHOLD_ID = "household_audio_http_1";
+    private static final String PROFILE_STARTER_UTTERANCE_ID = "utt_audio_profile_starter_1";
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -127,6 +131,52 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
         var denied = getAudio(otherOwner.accessToken(), CONTENT_ID, STARTER_UTTERANCE_ID);
         assertThat(denied.statusCode()).isEqualTo(404);
         assertThat(readJson(denied.body()).get("code").asText()).isEqualTo("generated_audio_not_found");
+    }
+
+    @Test
+    void activeHouseholdCaregiverReadsProfileAudioUntilRevokedWhileOwnerKeepsDirectAccess() throws Exception {
+        var owner = authenticate("13800138023", "generated-audio-profile-owner");
+        acceptConsent(owner.accessToken());
+        var caregiver = authenticate("13800138024", "generated-audio-profile-caregiver");
+        acceptConsent(caregiver.accessToken());
+        seedActiveProfileCarePathContent(owner.accountId(), caregiver.accountId());
+
+        var caregiverAudio = getAudio(
+                caregiver.accessToken(), PROFILE_CONTENT_ID, PROFILE_STARTER_UTTERANCE_ID);
+        assertThat(caregiverAudio.statusCode()).isEqualTo(200);
+        assertThat(caregiverAudio.headers().firstValue("content-type")).contains("audio/mpeg");
+        assertThat(caregiverAudio.headers().firstValue("cache-control")).hasValueSatisfying(value -> {
+            assertThat(value).contains("private").contains("no-store");
+        });
+        assertThat(caregiverAudio.headers().firstValue("vary")).hasValue("Authorization");
+        assertThat(caregiverAudio.body()).containsExactly(FAKE_MP3_BYTES);
+
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
+                PROFILE_HOUSEHOLD_ID,
+                caregiver.accountId());
+        var revokedCaregiver = getAudio(
+                caregiver.accessToken(), PROFILE_CONTENT_ID, PROFILE_STARTER_UTTERANCE_ID);
+        assertThat(revokedCaregiver.statusCode()).isEqualTo(404);
+        assertThat(readJson(revokedCaregiver.body()).get("code").asText())
+                .isEqualTo("generated_audio_not_found");
+
+        jdbcTemplate.update(
+                "update household_members set status = 'active' where household_id = ? and account_id = ?",
+                PROFILE_HOUSEHOLD_ID,
+                caregiver.accountId());
+        jdbcTemplate.update(
+                "update households set status = 'revoked' where household_id = ?",
+                PROFILE_HOUSEHOLD_ID);
+        var inactiveHousehold = getAudio(
+                caregiver.accessToken(), PROFILE_CONTENT_ID, PROFILE_STARTER_UTTERANCE_ID);
+        assertThat(inactiveHousehold.statusCode()).isEqualTo(404);
+        assertThat(readJson(inactiveHousehold.body()).get("code").asText())
+                .isEqualTo("generated_audio_not_found");
+
+        var ownerAudio = getAudio(owner.accessToken(), PROFILE_CONTENT_ID, PROFILE_STARTER_UTTERANCE_ID);
+        assertThat(ownerAudio.statusCode()).isEqualTo(200);
+        assertThat(ownerAudio.body()).containsExactly(FAKE_MP3_BYTES);
     }
 
     private TokenView authenticate(String phoneNumber, String installationId) throws Exception {
@@ -232,7 +282,82 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
         });
     }
 
+    private void seedActiveProfileCarePathContent(String ownerAccountId, String caregiverAccountId) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            var now = Timestamp.from(Instant.now());
+            jdbcTemplate.update("""
+                    insert into baby_profiles (
+                        profile_id, account_id, baby_name, age_range, parent_goal,
+                        onboarding_state, version, created_at, updated_at
+                    ) values (?, ?, null, 'm7_11', 'calmer_care', 'draft', 1, ?, ?)
+                    """, PROFILE_ID, ownerAccountId, now, now);
+            jdbcTemplate.update("""
+                    insert into households (household_id, owner_account_id, status, created_at, revoked_at)
+                    values (?, ?, 'active', ?, null)
+                    """, PROFILE_HOUSEHOLD_ID, ownerAccountId, now);
+            jdbcTemplate.update("""
+                    insert into household_members (
+                        household_id, account_id, role, status, invited_by_account_id,
+                        joined_at, last_accepted_at
+                    ) values (?, ?, 'primary_caregiver', 'active', null, ?, null)
+                    """, PROFILE_HOUSEHOLD_ID, ownerAccountId, now);
+            jdbcTemplate.update("""
+                    insert into household_members (
+                        household_id, account_id, role, status, invited_by_account_id,
+                        joined_at, last_accepted_at
+                    ) values (?, ?, 'caregiver', 'active', ?, ?, null)
+                    """, PROFILE_HOUSEHOLD_ID, caregiverAccountId, ownerAccountId, now);
+            jdbcTemplate.update("""
+                    insert into practice_generated_content (
+                        generated_content_id, owner_scope, owner_key, owner_key_version,
+                        account_id, installation_ref_hash, profile_id, surface, mode,
+                        request_fingerprint, client_request_id, client_request_fingerprint,
+                        normalized_scene_text, age_range, parent_goal, locale,
+                        space_slug, activity_slug, phrase_slug, space_title_zh, activity_title_zh,
+                        scene_tag_en, tpr_action_zh, delivery_guidance_zh, english_text, chinese_text,
+                        pronunciation_hint, difficulty, generation_source, status,
+                        generation_profile_version, generation_profile_hash, rubric_version,
+                        rubric_content_hash, evidence_policy_version, evidence_policy_content_hash,
+                        provider_routing_policy_version, provider_routing_policy_hash,
+                        generation_attempt_limit, content_refresh_epoch, content_version,
+                        generation_error_code, generation_error_retryable, generation_started_at,
+                        generation_expires_at, retention_expires_at, created_at, updated_at
+                    ) values (
+                        ?, 'profile', 'test_hmac_profile_owner_key', 'v1', ?, null, ?, 'care_path', 'custom_scene',
+                        'test_audio_profile_fingerprint', null, null, '洗澡前宝宝有点紧张', 'm7_11', 'calmer_care', 'zh-CN',
+                        'gen_audio_profile_space', 'gen_audio_profile_activity', 'gen_audio_profile_phrase', '日常照护', '洗澡',
+                        'bath time', '指向水。', '慢一点说。', 'Warm water.', '水暖暖的。', 'warm water', 'starter', 'fake', 'generating',
+                        'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
+                        'evidence-policy-v1', repeat('c', 64), 'routing-policy-v1', repeat('d', 64),
+                        3, 1, 1, null, null, now(), now() + interval '5 minutes', null, now(), now()
+                    )
+                    """, PROFILE_CONTENT_ID, ownerAccountId, PROFILE_ID);
+            insertUtterance(PROFILE_CONTENT_ID, PROFILE_STARTER_UTTERANCE_ID, "starter", null, 1);
+            insertUtterance(PROFILE_CONTENT_ID, "utt_audio_profile_cooperating_1", "reaction_support", "cooperating", 2);
+            insertUtterance(PROFILE_CONTENT_ID, "utt_audio_profile_hesitant_1", "reaction_support", "hesitant", 3);
+            insertUtterance(PROFILE_CONTENT_ID, "utt_audio_profile_resisting_1", "reaction_support", "resisting", 4);
+            insertUtterance(PROFILE_CONTENT_ID, "utt_audio_profile_no_response_1", "reaction_support", "no_response", 5);
+            insertUtterance(PROFILE_CONTENT_ID, "utt_audio_profile_other_1", "reaction_support", "other", 6);
+            jdbcTemplate.update("""
+                    update practice_generated_content
+                    set status = 'active', normalized_scene_text = null,
+                        generation_started_at = null, generation_expires_at = null, updated_at = now()
+                    where generated_content_id = ?
+                    """, PROFILE_CONTENT_ID);
+        });
+    }
+
     private void insertUtterance(String utteranceId, String role, String reactionType, int displayOrder) {
+        insertUtterance(CONTENT_ID, utteranceId, role, reactionType, displayOrder);
+    }
+
+    private void insertUtterance(
+            String generatedContentId,
+            String utteranceId,
+            String role,
+            String reactionType,
+            int displayOrder
+    ) {
         jdbcTemplate.update("""
                 insert into practice_generated_content_utterances (
                     utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
@@ -242,7 +367,7 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
                 ) values (?, ?, ?, ?, 'Warm water.', '水暖暖的。', 'warm water', '指向水。', '慢一点说。',
                           'starter', ?, 'approved', 1, 'custom-scene-generated-output-v1',
                           'provider_generated', 'test-provider', 'test-model', 1, ?)
-                """, utteranceId, CONTENT_ID, role, reactionType, displayOrder, Timestamp.from(Instant.now()));
+                """, utteranceId, generatedContentId, role, reactionType, displayOrder, Timestamp.from(Instant.now()));
     }
 
     private record TokenView(String accountId, String accessToken) {

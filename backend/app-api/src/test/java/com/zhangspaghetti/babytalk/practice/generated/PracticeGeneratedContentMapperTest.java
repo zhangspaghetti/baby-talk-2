@@ -296,9 +296,9 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                         "utt_resisting_" + complete.generatedContentId(),
                         "utt_no_response_" + complete.generatedContentId(),
                         "utt_other_" + complete.generatedContentId());
-        assertThat(queries.findActiveOwnedByAccountId(
+        assertThat(queries.findActiveAccessibleByAccountId(
                 complete.generatedContentId(), complete.accountId())).isNotNull();
-        assertThat(queries.findActiveOwnedByAccountId(
+        assertThat(queries.findActiveAccessibleByAccountId(
                 complete.generatedContentId(), "acct_pgc_repo_other")).isNull();
         assertThat(queries.findPlayableApprovedUtterance(
                 complete.generatedContentId(), complete.phraseSlug()))
@@ -310,6 +310,141 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> transaction().executeWithoutResult(status ->
                 insertCarePathSupport(complete.generatedContentId(), "other", 6)))
                 .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void profileBundleIsReadableByActiveHouseholdMembersButRevocationCutsOnlyIndirectAccess() {
+        var ownerAccountId = "acct_pgc_repo_household_owner";
+        var caregiverAAccountId = "acct_pgc_repo_household_a";
+        var caregiverBAccountId = "acct_pgc_repo_household_b";
+        var primaryRequesterAccountId = "acct_pgc_repo_household_primary";
+        var outsiderAccountId = "acct_pgc_repo_household_outsider";
+        var crossHouseholdAccountId = "acct_pgc_repo_household_cross";
+        var profileContent = row("pgc_repo_household_profile")
+                .profile(ownerAccountId, "profile_pgc_repo_household")
+                .surface("care_path")
+                .active()
+                .build();
+        var accountContent = row("pgc_repo_household_account")
+                .account(ownerAccountId)
+                .surface("care_path")
+                .active()
+                .build();
+        var installationContent = row("pgc_repo_household_installation")
+                .surface("care_path")
+                .active()
+                .build();
+
+        insertActiveCarePathBundle(profileContent);
+        insertActiveCarePathBundle(accountContent);
+        insertActiveCarePathBundle(installationContent);
+        insertHousehold("household_pgc_repo_access", ownerAccountId, "active");
+        insertMember("household_pgc_repo_access", ownerAccountId, "primary_caregiver", "active");
+        insertMember("household_pgc_repo_access", caregiverAAccountId, "caregiver", "active");
+        insertMember("household_pgc_repo_access", caregiverBAccountId, "caregiver", "active");
+        insertMember("household_pgc_repo_access", primaryRequesterAccountId, "primary_caregiver", "active");
+        insertHousehold("household_pgc_repo_cross", crossHouseholdAccountId, "active");
+        insertMember("household_pgc_repo_cross", crossHouseholdAccountId, "primary_caregiver", "active");
+
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), ownerAccountId)).isNotNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverAAccountId)).isNotNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverBAccountId)).isNotNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), primaryRequesterAccountId)).isNotNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), outsiderAccountId)).isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), crossHouseholdAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId))
+                .isNotNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId))
+                .isNotNull();
+
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
+                "household_pgc_repo_access", caregiverAAccountId);
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverAAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId))
+                .isNull();
+
+        jdbcTemplate.update(
+                "update households set status = 'revoked' where household_id = ?",
+                "household_pgc_repo_access");
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverBAccountId)).isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), primaryRequesterAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId))
+                .isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId))
+                .isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), ownerAccountId)).isNotNull();
+
+        jdbcTemplate.update(
+                "update households set status = 'active' where household_id = ?",
+                "household_pgc_repo_access");
+        jdbcTemplate.update(
+                "update household_members set status = 'active' where household_id = ? and account_id = ?",
+                "household_pgc_repo_access", caregiverAAccountId);
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
+                "household_pgc_repo_access", ownerAccountId);
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverBAccountId)).isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), primaryRequesterAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId))
+                .isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), ownerAccountId)).isNotNull();
+
+        var inactiveProfileContent = row("pgc_repo_household_inactive")
+                .profile(ownerAccountId, profileContent.profileId())
+                .surface("care_path")
+                .rejected()
+                .build();
+        insert(inactiveProfileContent);
+        assertThat(queries.findActiveAccessibleByAccountId(
+                inactiveProfileContent.generatedContentId(), ownerAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                inactiveProfileContent.generatedContentId(), "utt_missing", ownerAccountId)).isNull();
+
+        assertThat(queries.findActiveAccessibleByAccountId(
+                accountContent.generatedContentId(), caregiverBAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                accountContent.generatedContentId(), accountContent.phraseSlug(), caregiverBAccountId))
+                .isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                installationContent.generatedContentId(), caregiverBAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                installationContent.generatedContentId(), installationContent.phraseSlug(), caregiverBAccountId))
+                .isNull();
+    }
+
+    @Test
+    void consumerQueriesShareOneAccountAccessFragment() throws Exception {
+        var xml = new String(
+                new org.springframework.core.io.ClassPathResource(
+                        "mapper/practice/generated/PracticeGeneratedContentQueryMapper.xml")
+                        .getInputStream()
+                        .readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(xml.split("<sql id=\"accountCanAccessProfileContent\">", -1).length - 1)
+                .isEqualTo(1);
+        assertThat(xml.split("<include refid=\"accountCanAccessProfileContent\"/>", -1).length - 1)
+                .isEqualTo(2);
     }
 
     @Test
@@ -1233,6 +1368,26 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         });
     }
 
+    private void insertActiveCarePathBundle(PracticeGeneratedContentEntity row) {
+        row.setStatus("generating");
+        row.setNormalizedSceneText("洗澡前宝宝有点紧张");
+        row.setGenerationStartedAt(NOW_DB);
+        row.setGenerationExpiresAt(NOW_DB.plusMinutes(5));
+        insert(row);
+        transaction().executeWithoutResult(status -> {
+            insertCarePathStarter(row.generatedContentId(), row.phraseSlug());
+            insertCarePathSupport(row.generatedContentId(), "cooperating", 2);
+            insertCarePathSupport(row.generatedContentId(), "hesitant", 3);
+            insertCarePathSupport(row.generatedContentId(), "resisting", 4);
+            insertCarePathSupport(row.generatedContentId(), "no_response", 5);
+            insertCarePathSupport(row.generatedContentId(), "other", 6);
+            jdbcTemplate.update(
+                    "update practice_generated_content set status = 'active', normalized_scene_text = null"
+                            + " where generated_content_id = ?",
+                    row.generatedContentId());
+        });
+    }
+
     private void insertCarePathStarter(String generatedContentId, String utteranceId) {
         insertCarePathUtterance(generatedContentId, utteranceId, "starter", null, 1);
     }
@@ -1398,6 +1553,29 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 profileId,
                 accountId,
                 Timestamp.from(NOW),
+                Timestamp.from(NOW));
+    }
+
+    private void insertHousehold(String householdId, String ownerAccountId, String status) {
+        insertAccount(ownerAccountId);
+        jdbcTemplate.update(
+                "insert into households (household_id, owner_account_id, status, created_at, revoked_at)"
+                        + " values (?, ?, ?, ?, null)",
+                householdId,
+                ownerAccountId,
+                status,
+                Timestamp.from(NOW));
+    }
+
+    private void insertMember(String householdId, String accountId, String role, String status) {
+        insertAccount(accountId);
+        jdbcTemplate.update(
+                "insert into household_members (household_id, account_id, role, status, invited_by_account_id, joined_at, last_accepted_at)"
+                        + " values (?, ?, ?, ?, null, ?, null)",
+                householdId,
+                accountId,
+                role,
+                status,
                 Timestamp.from(NOW));
     }
 

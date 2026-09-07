@@ -34,10 +34,14 @@ public class GeneratedUtteranceAudioService {
     @Transactional(readOnly = true)
     public GeneratedUtteranceAudio synthesize(String generatedContentId, String utteranceId, String sessionId) {
         var session = authConsentSyncService.requireAcceptedConsumerSession(sessionId, "播放已批准的自定义场景语音");
+        var accountId = session == null ? null : session.accountId();
+        if (accountId == null || accountId.isBlank()) {
+            throw audioNotFound();
+        }
         var contentId = requireSafeId(generatedContentId);
         var approvedUtteranceId = requireSafeId(utteranceId);
-        var utterance = queryMapper.findPlayableOwnedActiveBundleUtterance(
-                contentId, approvedUtteranceId, session.accountId());
+        var utterance = queryMapper.findPlayableAccessibleActiveBundleUtterance(
+                contentId, approvedUtteranceId, accountId);
         if (utterance == null) {
             throw audioNotFound();
         }

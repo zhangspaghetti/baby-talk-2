@@ -75,6 +75,30 @@
         generation_started_at, generation_expires_at, retention_expires_at, created_at, updated_at
     </sql>
 
+    <sql id="accountCanAccessProfileContent">
+        and (
+            c.account_id = #{accountId}
+            or (
+                c.owner_scope = 'profile'
+                and exists (
+                    select 1
+                    from households h
+                    join household_members requester
+                      on requester.household_id = h.household_id
+                     and requester.account_id = #{accountId}
+                     and requester.status = 'active'
+                    join household_members owner_member
+                      on owner_member.household_id = h.household_id
+                     and owner_member.account_id = c.account_id
+                     and owner_member.role = 'primary_caregiver'
+                     and owner_member.status = 'active'
+                    where h.owner_account_id = c.account_id
+                      and h.status = 'active'
+                )
+            )
+        )
+    </sql>
+
     <select id="findByGeneratedContentId" resultMap="generatedContentEntityMap">
         select <include refid="columns"/>
         from practice_generated_content
@@ -120,12 +144,12 @@
         order by display_order asc, utterance_id asc
     </select>
 
-    <select id="findActiveOwnedByAccountId" resultMap="generatedContentEntityMap">
+    <select id="findActiveAccessibleByAccountId" resultMap="generatedContentEntityMap">
         select <include refid="columns"/>
-        from practice_generated_content
-        where generated_content_id = #{generatedContentId}
-          and account_id = #{accountId}
-          and status = 'active'
+        from practice_generated_content c
+        where c.generated_content_id = #{generatedContentId}
+        <include refid="accountCanAccessProfileContent"/>
+          and c.status = 'active'
     </select>
 
     <select id="findPlayableApprovedUtterance" resultMap="generatedContentUtteranceEntityMap">
@@ -147,7 +171,7 @@
           and provider_attempt_number between 1 and 5
     </select>
 
-    <select id="findPlayableOwnedActiveBundleUtterance" resultMap="generatedContentUtteranceEntityMap">
+    <select id="findPlayableAccessibleActiveBundleUtterance" resultMap="generatedContentUtteranceEntityMap">
         select u.utterance_id, u.generated_content_id, u.role, u.reaction_type, u.english_text, u.chinese_text,
                u.pronunciation_hint, u.tpr_action_zh, u.delivery_guidance_zh, u.difficulty, u.display_order,
                u.approval_status, u.approved_content_version, u.bundle_schema_version, u.provider_origin,
@@ -155,7 +179,7 @@
         from practice_generated_content_utterances u
         join practice_generated_content c on c.generated_content_id = u.generated_content_id
         where c.generated_content_id = #{generatedContentId}
-          and c.account_id = #{accountId}
+        <include refid="accountCanAccessProfileContent"/>
           and c.status = 'active'
           and c.surface = 'care_path'
           and u.utterance_id = #{utteranceId}
