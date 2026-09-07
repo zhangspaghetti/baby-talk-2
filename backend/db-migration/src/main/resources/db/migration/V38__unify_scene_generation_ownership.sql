@@ -45,9 +45,20 @@ alter table practice_generated_content
     drop constraint chk_practice_generated_content_terminal_input_cleared,
     add constraint chk_practice_generated_content_terminal_input_cleared
         check (
-            status in ('draft', 'generating')
-            or (status = 'active' and input_source = 'custom')
-            or normalized_scene_text is null
+            case
+                when mode = 'custom_scene' then true
+                when mode = 'scene_generation' and status in ('draft', 'generating') then true
+                when mode = 'scene_generation'
+                    and status = 'active' and input_source = 'custom'
+                    then normalized_scene_text is not null
+                when mode = 'scene_generation'
+                    and status = 'active' and input_source = 'preset'
+                    then normalized_scene_text is null
+                when mode = 'scene_generation'
+                    and status in ('rejected', 'expired')
+                    then normalized_scene_text is null
+                else false
+            end
         );
 
 -- Legacy custom rows remain subject to the old slug uniqueness contract;

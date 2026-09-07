@@ -2,13 +2,17 @@ package com.zhangspaghetti.babytalk.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -429,12 +433,91 @@ class DbMigrationSmokeTest {
                         + ".practice_generated_content set normalized_scene_text = 'custom scene text'"
                         + " where generated_content_id = 'pgc_v38_custom_active_text'"))
                 .isEqualTo(1);
-        assertThatThrownBy(() -> jdbcTemplate.update(
+        assertThat(assertConstraintViolation(() -> jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set normalized_scene_text = null"
+                        + " where generated_content_id = 'pgc_v38_custom_active_text'")))
+                .isEqualTo("chk_practice_generated_content_terminal_input_cleared");
+        assertThat(assertConstraintViolation(() -> jdbcTemplate.update(
                 "update " + schema
                         + ".practice_generated_content set normalized_scene_text = 'preset scene text'"
-                        + " where generated_content_id = 'pgc_v38_preset_week_36'"))
-                .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("chk_practice_generated_content_terminal_input_cleared");
+                        + " where generated_content_id = 'pgc_v38_preset_week_36'")))
+                .isEqualTo("chk_practice_generated_content_terminal_input_cleared");
+        assertThat(jdbcTemplate.queryForObject(
+                "select normalized_scene_text from " + schema
+                        + ".practice_generated_content"
+                        + " where generated_content_id = 'pgc_v38_custom_active_text'",
+                String.class))
+                .isEqualTo("custom scene text");
+        assertThat(jdbcTemplate.queryForObject(
+                "select normalized_scene_text from " + schema
+                        + ".practice_generated_content"
+                        + " where generated_content_id = 'pgc_v38_preset_week_36'",
+                String.class))
+                .isNull();
+        insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_draft_transient",
+                "custom",
+                "draft",
+                "draft transient input",
+                null,
+                null,
+                "2026-W38",
+                "space-v38-draft",
+                "activity-v38-draft",
+                "phrase-v38-draft");
+        insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_generating_transient",
+                "custom",
+                "generating",
+                "generating transient input",
+                null,
+                null,
+                "2026-W38",
+                "space-v38-generating",
+                "activity-v38-generating",
+                "phrase-v38-generating");
+        assertThat(assertConstraintViolation(() -> insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_active_without_source",
+                null,
+                "active",
+                null,
+                null,
+                null,
+                "2026-W38",
+                "space-v38-no-source",
+                "activity-v38-no-source",
+                "phrase-v38-no-source")))
+                .isEqualTo("chk_practice_generated_content_scene_generation_shape");
+        assertThat(assertConstraintViolation(() -> insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_rejected_text",
+                "custom",
+                "rejected",
+                "terminal text",
+                null,
+                null,
+                "2026-W38",
+                "space-v38-rejected",
+                "activity-v38-rejected",
+                "phrase-v38-rejected")))
+                .isEqualTo("chk_practice_generated_content_terminal_input_cleared");
+        assertThat(assertConstraintViolation(() -> insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_expired_text",
+                "preset",
+                "expired",
+                "terminal text",
+                bathActivityId,
+                bathVersionId,
+                "2026-W38",
+                "space-v38-expired",
+                "activity-v38-expired",
+                "phrase-v38-expired")))
+                .isEqualTo("chk_practice_generated_content_terminal_input_cleared");
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from " + schema
                         + ".practice_generated_content where activity_slug = 'activity-v38-stable'",
@@ -1292,9 +1375,9 @@ class DbMigrationSmokeTest {
                 String.class))
                 .isEqualTo("custom rows retain canonical text");
         for (String terminalStatus : List.of("rejected", "expired")) {
-            assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_terminal_text_" + terminalStatus)
+            insertGeneratedContent(generatedContentFixture("pgc_db_legacy_terminal_text_" + terminalStatus)
                     .status(terminalStatus)
-                    .normalizedSceneText("terminal rows must clear display text")
+                    .normalizedSceneText("legacy rows retain historical text")
                     .build());
         }
 
@@ -2091,6 +2174,29 @@ class DbMigrationSmokeTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    private String assertConstraintViolation(Runnable operation) {
+        var failure = catchThrowable(() -> operation.run());
+        assertThat(failure).isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(sqlState(failure)).isEqualTo("23514");
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            Matcher matcher = Pattern.compile("constraint \\\"([^\\\"]+)\\\"")
+                    .matcher(String.valueOf(cause.getMessage()));
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
+        throw new AssertionError("PostgreSQL check constraint name was not reported", failure);
+    }
+
+    private String sqlState(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sqlException && sqlException.getSQLState() != null) {
+                return sqlException.getSQLState();
+            }
+        }
+        return null;
+    }
+
     private void assertSqlRejected(String sql, Object... arguments) {
         assertThatThrownBy(() -> jdbcTemplate.update(sql, arguments))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -2160,7 +2266,36 @@ class DbMigrationSmokeTest {
             String activitySlug,
             String phraseSlug
     ) {
+        insertV38GeneratedContentState(
+                schema,
+                generatedContentId,
+                inputSource,
+                "active",
+                "custom".equals(inputSource) ? "custom scene input" : null,
+                presetActivityId,
+                presetSceneVersionId,
+                householdContextVersion,
+                spaceSlug,
+                activitySlug,
+                phraseSlug);
+    }
+
+    private void insertV38GeneratedContentState(
+            String schema,
+            String generatedContentId,
+            String inputSource,
+            String status,
+            String normalizedSceneText,
+            Long presetActivityId,
+            Long presetSceneVersionId,
+            String householdContextVersion,
+            String spaceSlug,
+            String activitySlug,
+            String phraseSlug
+    ) {
         Timestamp now = Timestamp.from(Instant.parse("2026-08-31T12:00:00Z"));
+        boolean terminal = List.of("rejected", "expired").contains(status);
+        boolean transientGeneration = List.of("draft", "generating").contains(status);
         jdbcTemplate.update(
                 ("""
                 insert into %s.practice_generated_content (
@@ -2181,12 +2316,12 @@ class DbMigrationSmokeTest {
                 ) values (
                     ?, 'profile', 'hmac_v38_owner', 'v1', 'acct_v38_shape', null,
                     'profile_v38_shape', 'onboarding', 'scene_generation', ?, ?, ?, ?, ?,
-                    ?, null, 'm7_11', 'calmer_care', 'zh-CN', ?, ?, ?,
+                    ?, ?, 'm7_11', 'calmer_care', 'zh-CN', ?, ?, ?,
                     '日常照护', '洗澡时间', 'Bath time', '轻轻拍水。', '慢一点重复说。',
                     'Warm water.', '水暖暖的。', 'warm water', 'starter', 'agentic_search',
-                    'active', 'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
+                    ?, 'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
                     'evidence-policy-v1', repeat('c', 64), 'routing-policy-v1', repeat('d', 64),
-                    3, 1, 1, null, null, null, null, null, ?, ?
+                    3, 1, 1, ?, ?, ?, ?, ?, ?, ?
                 )
                 """).formatted(schema),
                 generatedContentId,
@@ -2196,9 +2331,16 @@ class DbMigrationSmokeTest {
                 1,
                 householdContextVersion,
                 "fp_v38_" + generatedContentId,
+                normalizedSceneText,
                 spaceSlug,
                 activitySlug,
                 phraseSlug,
+                status,
+                terminal ? "generation_failed" : null,
+                terminal ? Boolean.TRUE : null,
+                "generating".equals(status) ? now : null,
+                transientGeneration ? Timestamp.from(now.toInstant().plusSeconds(300)) : null,
+                terminal ? Timestamp.from(now.toInstant().plusSeconds(86400)) : null,
                 now,
                 now);
     }

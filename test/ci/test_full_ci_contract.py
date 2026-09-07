@@ -196,6 +196,19 @@ class FullCiScriptContractTest(unittest.TestCase):
         self.assertNotIn("stage 'mobile-test'", self.text)
         self.assertNotIn("cd mobile && flutter test", self.text)
 
+    def test_client_version_stage_delegates_to_behavioral_overlay_lint_contract(self) -> None:
+        client_contract = (REPO_ROOT / "test" / "ci" / "test_client_version_contract.py").read_text(
+            encoding="utf-8"
+        )
+        for marker in (
+            '"helm", "lint"',
+            '"helm", "template"',
+            "values-kind.yaml",
+            "values-kind-qa.yaml",
+            "values-production.yaml",
+        ):
+            self.assertIn(marker, client_contract)
+
     def test_stable_stage_markers_cover_every_gate_in_order(self) -> None:
         gate_ids = (
             "fetch-target",

@@ -391,6 +391,8 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         var caregiver = createAcceptedSession("13900139998", "family-caregiver-install");
         acceptInvite(caregiver.accessToken(), invite.token());
         var outsider = createAcceptedSession("13700137777", "family-outsider-install");
+        var privacyForbidden = familyPrivacyForbiddenValues(
+                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId, invite, presetBrief);
 
         var appender = attachRootLogger();
         String presetBody;
@@ -466,47 +468,12 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         var generatedPresetId = presetJson.get("generatedContentId").asText();
         var generatedCustomId = customJson.get("generatedContentId").asText();
         assertThat(generatedPresetId).isNotEqualTo(generatedCustomId);
-        assertPrivacySafe(
-                presetBody,
-                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
-                invite.householdId(), invite.token(),
-                "13800139999", "13900139998", "13700137777", "install-agentic-session",
-                "family-caregiver-install", "family-caregiver-custom-install", "family-primary-reuse-install",
-                "family-outsider-install", "family-primary-event", "family-caregiver-event",
-                "family-preset-caregiver", "family-custom-caregiver",
-                "family-preset-primary-reuse", "family-outsider-request", "出门前宝宝不想穿鞋",
-                presetBrief, "ScenePersonalizationContext{");
-        assertPrivacySafe(
-                customBody,
-                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
-                invite.householdId(), invite.token(),
-                "13800139999", "13900139998", "13700137777", "family-caregiver-custom-install",
-                "family-custom-caregiver", "family-caregiver-event", "出门前宝宝不想穿鞋", presetBrief,
-                "ScenePersonalizationContext{");
-        assertPrivacySafe(
-                reusedPresetBody,
-                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
-                invite.householdId(), invite.token(),
-                "13800139999", "13900139998", "13700137777", "install-agentic-session",
-                "family-caregiver-install", "family-primary-reuse-install", "family-primary-event",
-                "family-caregiver-event", "family-preset-caregiver", "family-preset-primary-reuse",
-                "出门前宝宝不想穿鞋", presetBrief, "ScenePersonalizationContext{");
-        assertPrivacySafe(
-                outsiderErrorBody,
-                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
-                invite.householdId(), invite.token(), "13800139999", "13900139998", "13700137777",
-                "family-outsider-install", "family-outsider-request", "出门前宝宝不想穿鞋",
-                presetBrief, "ScenePersonalizationContext{");
+        assertPrivacySafe(presetBody, privacyForbidden);
+        assertPrivacySafe(customBody, privacyForbidden);
+        assertPrivacySafe(reusedPresetBody, privacyForbidden);
+        assertPrivacySafe(outsiderErrorBody, privacyForbidden);
         var logs = appenderText(appender);
-        assertPrivacySafe(
-                logs,
-                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
-                invite.householdId(), invite.token(), "13800139999", "13900139998", "13700137777",
-                "install-agentic-session", "family-caregiver-install", "family-caregiver-custom-install",
-                "family-primary-reuse-install", "family-outsider-install", "family-primary-event",
-                "family-caregiver-event", "family-preset-caregiver", "family-custom-caregiver",
-                "family-preset-primary-reuse", "family-outsider-request",
-                "出门前宝宝不想穿鞋", presetBrief, "ScenePersonalizationContext{");
+        assertPrivacySafe(logs, privacyForbidden);
 
         var rows = jdbcTemplate.queryForList(
                 """
@@ -626,8 +593,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        assertPrivacySafe(outsiderAudio, primary.accountId(), caregiver.accountId(), outsider.accountId(),
-                profileId, invite.householdId());
+        assertPrivacySafe(outsiderAudio, privacyForbidden);
 
         jdbcTemplate.update(
                 "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
@@ -643,8 +609,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        assertPrivacySafe(revokedAudio, primary.accountId(), caregiver.accountId(), outsider.accountId(),
-                profileId, invite.householdId());
+        assertPrivacySafe(revokedAudio, privacyForbidden);
         assertThat(generatedContentQueryMapper.findActiveAccessibleByAccountId(
                 generatedPresetId, primary.accountId())).isNotNull();
         mockMvc.perform(get("/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
@@ -655,15 +620,50 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         } finally {
             detachRootLogger(audioAppender);
         }
-        assertPrivacySafe(
-                appenderText(audioAppender),
-                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
-                invite.householdId(), invite.token(), "13800139999", "13900139998", "13700137777",
-                "install-agentic-session", "family-caregiver-install", "family-caregiver-custom-install",
-                "family-primary-reuse-install", "family-outsider-install", "family-primary-event",
-                "family-caregiver-event", "family-preset-caregiver", "family-custom-caregiver",
-                "family-preset-primary-reuse", "family-outsider-request", "出门前宝宝不想穿鞋",
-                presetBrief, "ScenePersonalizationContext{");
+        assertPrivacySafe(appenderText(audioAppender), privacyForbidden);
+    }
+
+    @Test
+    void familyAudioPrivacyContractIncludesEveryGenerationIdentifier() {
+        var forbidden = familyPrivacyForbiddenValues(
+                "primary-account",
+                "caregiver-account",
+                "outsider-account",
+                "profile-id",
+                new InviteView("household-id", "invite-token"),
+                "preset brief");
+
+        assertThat(forbidden)
+                .contains(
+                        "primary-account", "caregiver-account", "outsider-account", "profile-id",
+                        "household-id", "invite-token", "13800139999", "13900139998", "13700137777",
+                        "install-agentic-session", "family-caregiver-install",
+                        "family-caregiver-custom-install", "family-primary-reuse-install",
+                        "family-outsider-install", "family-primary-event", "family-caregiver-event",
+                        "family-preset-caregiver", "family-custom-caregiver", "family-preset-primary-reuse",
+                        "family-outsider-request", "出门前宝宝不想穿鞋", "preset brief",
+                        "ScenePersonalizationContext{");
+    }
+
+    private String[] familyPrivacyForbiddenValues(
+            String primaryAccountId,
+            String caregiverAccountId,
+            String outsiderAccountId,
+            String profileId,
+            InviteView invite,
+            String presetBrief
+    ) {
+        return new String[] {
+            primaryAccountId, caregiverAccountId, outsiderAccountId, profileId,
+            invite.householdId(), invite.token(),
+            "13800139999", "13900139998", "13700137777",
+            "install-agentic-session", "family-caregiver-install",
+            "family-caregiver-custom-install", "family-primary-reuse-install",
+            "family-outsider-install", "family-primary-event", "family-caregiver-event",
+            "family-preset-caregiver", "family-custom-caregiver", "family-preset-primary-reuse",
+            "family-outsider-request", "出门前宝宝不想穿鞋", presetBrief,
+            "ScenePersonalizationContext{"
+        };
     }
 
     private ListAppender<ILoggingEvent> attachRootLogger() {

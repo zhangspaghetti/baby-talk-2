@@ -35,14 +35,27 @@ class ClientVersionContractTest(unittest.TestCase):
         self.assertEqual(MIN_VERSION, values["config"]["BABY_TALK_MIN_SUPPORTED_VERSION"])
 
         for overlay_name, overlay in HELM_OVERLAYS:
-            command = ["helm", "template", f"babytalk-app-{overlay_name}", str(APP_CHART), "-f", str(APP_VALUES)]
+            overlay_args = []
             if overlay is not None:
-                command.extend(["-f", str(overlay)])
+                overlay_args.extend(["-f", str(overlay)])
             if overlay_name in {"qa", "production"}:
-                command.extend([
+                overlay_args.extend([
                     "--set-string",
                     f"secret.BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET={HELM_AGENTIC_OWNER_KEY}",
                 ])
+            linted = subprocess.run(
+                ["helm", "lint", str(APP_CHART), "-f", str(APP_VALUES), *overlay_args],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, linted.returncode, f"{overlay_name}: {linted.stderr}")
+
+            command = [
+                "helm", "template", f"babytalk-app-{overlay_name}", str(APP_CHART),
+                "-f", str(APP_VALUES), *overlay_args,
+            ]
             rendered = subprocess.run(
                 command,
                 cwd=REPO_ROOT,
