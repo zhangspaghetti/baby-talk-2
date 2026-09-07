@@ -125,7 +125,7 @@ app:
     access-token-ttl: ${BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL:PT15M}
     refresh-token-ttl: ${BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL:P30D}
   contract:
-    min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.2.0}
+    min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.3.0}
     upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/upgrade?channel=stable&source=version_gate}
     consent-version: ${BABY_TALK_CONSENT_VERSION:pipl-v1}
     sync-max-batch-size: ${BABY_TALK_SYNC_MAX_BATCH_SIZE:100}

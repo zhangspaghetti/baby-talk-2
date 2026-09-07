@@ -18,7 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {
-        "app.contract.min-supported-version=1.2.0",
+        "app.contract.min-supported-version=1.3.0",
         "app.contract.upgrade-url=https://download.example.com/upgrade?channel=stable&source=version_gate",
         "app.sms.provider-mode=dev",
         "app.sms.dev-code=246810"
@@ -45,12 +45,12 @@ class ApiVersionHandshakeWebTest extends AbstractIntegrationTest {
     @Test
     void missingVersionHeaderReturns426WithUpgradeHeaders() throws Exception {
         mockMvc.perform(post("/api/v1/auth/challenges")
-                        .contentType(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phoneNumber":"13800138000"}
                                 """))
                 .andExpect(status().isUpgradeRequired())
-                .andExpect(header().string(ApiVersionInterceptor.MIN_VERSION_HEADER, "1.2.0"))
+                .andExpect(header().string(ApiVersionInterceptor.MIN_VERSION_HEADER, "1.3.0"))
                 .andExpect(header().string(ApiVersionInterceptor.UPGRADE_URL_HEADER, "https://download.example.com/upgrade?channel=stable&source=version_gate"))
                 .andExpect(header().exists("X-Correlation-Id"))
                 .andExpect(jsonPath("$.code").value("app_version_required"))
@@ -60,14 +60,27 @@ class ApiVersionHandshakeWebTest extends AbstractIntegrationTest {
     @Test
     void oldVersionHeaderReturns426() throws Exception {
         mockMvc.perform(post("/api/v1/auth/challenges")
-                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.1.9")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phoneNumber":"13800138000"}
                                 """))
                 .andExpect(status().isUpgradeRequired())
-                .andExpect(jsonPath("$.code").value("app_version_unsupported"))
-                .andExpect(jsonPath("$.minimumSupportedVersion").value("1.2.0"));
+                .andExpect(header().string(ApiVersionInterceptor.MIN_VERSION_HEADER, "1.3.0"))
+                .andExpect(jsonPath("$.code").value("app_version_required"))
+                .andExpect(jsonPath("$.minimumSupportedVersion").value("1.3.0"));
+    }
+
+    @Test
+    void currentVersionHeaderSucceeds() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/challenges")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phoneNumber":"13800138000"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.challengeId").isNotEmpty());
     }
 
     @Test

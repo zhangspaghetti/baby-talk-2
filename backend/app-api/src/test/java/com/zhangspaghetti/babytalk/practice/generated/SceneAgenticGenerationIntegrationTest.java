@@ -5,14 +5,21 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedAudioResponse;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedSpeechSynthesisPort;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.CompositeCustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.CustomSceneEvidenceRetriever;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceItem;
@@ -33,8 +40,10 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -56,8 +65,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
         "babytalk.practice.discovery.custom-scene.installation-burst-limit=10",
         "babytalk.practice.discovery.custom-scene.installation-daily-limit=1",
         "babytalk.practice.discovery.custom-scene.account-burst-limit=10",
-        "babytalk.practice.discovery.custom-scene.account-daily-limit=1",
-        "app.contract.min-supported-version=1.2.0",
+        "babytalk.practice.discovery.custom-scene.account-daily-limit=2",
+        "babytalk.practice.generated-audio.enabled=true",
+        "babytalk.practice.generated-audio.provider-mode=fake",
+        "app.contract.min-supported-version=1.3.0",
         "app.sms.provider-mode=dev",
         "app.sms.dev-code=246810",
         "babytalk.practice.discovery.owner.key-version=v1",
@@ -86,6 +97,9 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     @MockitoBean(name = "practiceAiStructuredOutputCaller")
     private PracticeAiStructuredOutputCaller structuredOutputCaller;
 
+    @MockitoBean
+    private GeneratedSpeechSynthesisPort speechSynthesisPort;
+
     private final StubResponses caller = new StubResponses();
 
     @Autowired
@@ -93,6 +107,9 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private StubEvidenceRetriever evidenceRetriever;
+
+    @Autowired
+    private PracticeGeneratedContentQueryMapper generatedContentQueryMapper;
 
     private AuthConsentSyncService.SessionResponse session;
 
@@ -132,6 +149,10 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 (Class<?>) invocation.getArgument(3)))
                 .when(structuredOutputCaller)
                 .call(any(), anyString(), anyString(), any(), anyInt());
+        doAnswer(invocation -> new GeneratedAudioResponse(
+                new byte[]{0x49, 0x44, 0x33, 0x04, 0x00, 0x00}, "audio/mpeg", "generated-tts-v1"))
+                .when(speechSynthesisPort)
+                .synthesize(any());
     }
 
     @Test
@@ -180,12 +201,14 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void dailyQuotaDenialExpiresSecondDraftBeforeGeneratorCall() throws Exception {
+    void dailyQuotaDenialExpiresDraftBeforeGeneratorCall() throws Exception {
         mockMvc.perform(generation("install_agentic_daily", "出门前宝宝不想穿鞋"))
+                .andExpect(status().isOk());
+        mockMvc.perform(generation("install_agentic_daily_2", "睡前宝宝想抱抱"))
                 .andExpect(status().isOk());
         var callsAfterFirst = count("practice_ai_provider_calls");
 
-        mockMvc.perform(generation("install_agentic_daily", "睡前宝宝想抱抱"))
+        mockMvc.perform(generation("install_agentic_daily_3", "喂饭时宝宝不愿张嘴"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.code").value("custom_scene_rate_limited"));
 
@@ -329,12 +352,399 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         assertThat(count("practice_generated_content_attempts")).isEqualTo(2);
     }
 
+    @Test
+    void caregiverPresetAndCustomGenerationUsePrimaryProfileAndRespectHouseholdAccess() throws Exception {
+        var primary = session;
+        var profileId = jdbcTemplate.queryForObject(
+                "select profile_id from baby_profiles where account_id = ?",
+                String.class,
+                primary.accountId());
+        var presetIdentity = jdbcTemplate.queryForMap(
+                """
+                select a.id as activity_id, v.version_id, v.version as published_version,
+                       a.slug as preset_scene_id, s.slug as space_id,
+                       v.generation_brief, v.state, v.enabled
+                from practice_activities a
+                join practice_spaces s on s.id = a.space_id
+                join practice_preset_scene_versions v
+                  on v.version_id = a.current_published_version_id
+                 and v.activity_id = a.id
+                where a.slug = 'bath_time'
+                  and v.state = 'published'
+                  and v.enabled = true
+                """);
+        assertThat(presetIdentity)
+                .containsEntry("preset_scene_id", "bath_time")
+                .containsEntry("space_id", "daily_care")
+                .containsEntry("published_version", 1)
+                .containsEntry("state", "published")
+                .containsEntry("enabled", true);
+        var presetActivityId = ((Number) presetIdentity.get("activity_id")).longValue();
+        var presetVersionId = ((Number) presetIdentity.get("version_id")).longValue();
+        var presetBrief = presetIdentity.get("generation_brief").toString();
+
+        syncEvent(primary.accessToken(), "install-agentic-session", "family-primary-event",
+                "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
+                java.time.Instant.now().minusSeconds(30).toString());
+        var invite = createInvite(primary.accessToken());
+        var caregiver = createAcceptedSession("13900139998", "family-caregiver-install");
+        acceptInvite(caregiver.accessToken(), invite.token());
+        var outsider = createAcceptedSession("13700137777", "family-outsider-install");
+
+        var appender = attachRootLogger();
+        String presetBody;
+        String customBody;
+        String outsiderErrorBody;
+        try {
+            presetBody = mockMvc.perform(familyGeneration(
+                            caregiver.accessToken(),
+                            "family-caregiver-install",
+                            "family-preset-caregiver",
+                            "{\"type\":\"preset\",\"presetSceneId\":\"bath_time\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.source.type").value("preset"))
+                    .andExpect(jsonPath("$.source.presetSceneId").value("bath_time"))
+                    .andExpect(jsonPath("$.source.presetSceneVersion").value(1))
+                    .andExpect(jsonPath("$.route.sceneId").value("daily_care"))
+                    .andExpect(jsonPath("$.route.spaceId").value("daily_care"))
+                    .andExpect(jsonPath("$.route.momentId").value("bath_time"))
+                    .andExpect(jsonPath("$.route.activityId").value("bath_time"))
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+
+            customBody = mockMvc.perform(familyGeneration(
+                            caregiver.accessToken(),
+                            "family-caregiver-custom-install",
+                            "family-custom-caregiver",
+                            "{\"type\":\"custom\",\"text\":\"出门前宝宝不想穿鞋\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.source.type").value("custom"))
+                    .andExpect(jsonPath("$.source.presetSceneId").doesNotExist())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+
+            var reusedPresetBody = mockMvc.perform(familyGeneration(
+                            primary.accessToken(),
+                            "family-primary-reuse-install",
+                            "family-preset-primary-reuse",
+                            "{\"type\":\"preset\",\"presetSceneId\":\"bath_time\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.source.presetSceneId").value("bath_time"))
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+
+            outsiderErrorBody = mockMvc.perform(familyGeneration(
+                            outsider.accessToken(),
+                            "family-outsider-install",
+                            "family-outsider-request",
+                            "{\"type\":\"custom\",\"text\":\"出门前宝宝不想穿鞋\"}"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("profile_unavailable"))
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+
+            assertThat(new tools.jackson.databind.ObjectMapper().readTree(reusedPresetBody)
+                    .get("generatedContentId").asText())
+                    .isEqualTo(new tools.jackson.databind.ObjectMapper().readTree(presetBody)
+                            .get("generatedContentId").asText());
+
+            syncEvent(caregiver.accessToken(), "family-caregiver-install", "family-caregiver-event",
+                    "daily_care", "bath_time", "bath_time_warm_water", "resisting",
+                    java.time.Instant.now().minusSeconds(10).toString());
+        } finally {
+            var rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+            rootLogger.detachAppender(appender);
+            appender.stop();
+        }
+
+        var presetJson = new tools.jackson.databind.ObjectMapper().readTree(presetBody);
+        var customJson = new tools.jackson.databind.ObjectMapper().readTree(customBody);
+        var generatedPresetId = presetJson.get("generatedContentId").asText();
+        var generatedCustomId = customJson.get("generatedContentId").asText();
+        assertThat(generatedPresetId).isNotEqualTo(generatedCustomId);
+        assertPrivacySafe(
+                presetBody,
+                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
+                "13800139999", "13900139998", "13700137777", "install-agentic-session",
+                "family-caregiver-install", "family-caregiver-custom-install", "family-primary-reuse-install",
+                "family-outsider-install", "family-preset-caregiver", "family-custom-caregiver",
+                "family-preset-primary-reuse", "family-outsider-request", "出门前宝宝不想穿鞋",
+                presetBrief, "ScenePersonalizationContext{");
+        assertPrivacySafe(
+                customBody,
+                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
+                "13800139999", "13900139998", "13700137777", "family-caregiver-custom-install",
+                "family-custom-caregiver", "出门前宝宝不想穿鞋", presetBrief, "ScenePersonalizationContext{");
+        assertPrivacySafe(
+                outsiderErrorBody,
+                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
+                invite.householdId(), "13800139999", "13900139998", "13700137777",
+                "family-outsider-install", "family-outsider-request", "出门前宝宝不想穿鞋",
+                presetBrief, "ScenePersonalizationContext{");
+        var logs = appenderText(appender);
+        assertPrivacySafe(
+                logs,
+                primary.accountId(), caregiver.accountId(), outsider.accountId(), profileId,
+                invite.householdId(), "13800139999", "13900139998", "13700137777",
+                "install-agentic-session", "family-caregiver-install", "family-caregiver-custom-install",
+                "family-primary-reuse-install", "family-outsider-install", "family-preset-caregiver",
+                "family-custom-caregiver", "family-preset-primary-reuse", "family-outsider-request",
+                "出门前宝宝不想穿鞋", presetBrief, "ScenePersonalizationContext{");
+
+        var rows = jdbcTemplate.queryForList(
+                """
+                select generated_content_id, owner_scope, account_id, profile_id, profile_version,
+                       household_context_version, input_source, preset_activity_id,
+                       preset_scene_version_id, normalized_scene_text, status, mode, surface,
+                       installation_ref_hash, generation_profile_version
+                from practice_generated_content
+                order by input_source asc
+                """);
+        assertThat(rows).hasSize(2);
+        var presetRow = rows.stream()
+                .filter(row -> "preset".equals(row.get("input_source")))
+                .findFirst()
+                .orElseThrow();
+        var customRow = rows.stream()
+                .filter(row -> "custom".equals(row.get("input_source")))
+                .findFirst()
+                .orElseThrow();
+        assertThat(presetRow)
+                .containsEntry("generated_content_id", generatedPresetId)
+                .containsEntry("owner_scope", "profile")
+                .containsEntry("account_id", primary.accountId())
+                .containsEntry("profile_id", profileId)
+                .containsEntry("profile_version", 1)
+                .containsEntry("input_source", "preset")
+                .containsEntry("preset_activity_id", presetActivityId)
+                .containsEntry("preset_scene_version_id", presetVersionId)
+                .containsEntry("normalized_scene_text", null)
+                .containsEntry("status", "active")
+                .containsEntry("mode", "scene_generation")
+                .containsEntry("surface", "care_path");
+        assertThat(customRow)
+                .containsEntry("generated_content_id", generatedCustomId)
+                .containsEntry("owner_scope", "profile")
+                .containsEntry("account_id", primary.accountId())
+                .containsEntry("profile_id", profileId)
+                .containsEntry("profile_version", 1)
+                .containsEntry("input_source", "custom")
+                .containsEntry("preset_activity_id", null)
+                .containsEntry("preset_scene_version_id", null)
+                .containsEntry("normalized_scene_text", null)
+                .containsEntry("status", "active")
+                .containsEntry("mode", "scene_generation")
+                .containsEntry("surface", "care_path");
+        assertThat(presetRow.get("household_context_version").toString())
+                .matches("\\d{4}-W\\d{2}");
+        assertThat(customRow.get("household_context_version"))
+                .isEqualTo(presetRow.get("household_context_version"));
+        assertThat(presetRow.get("installation_ref_hash")).isNull();
+        assertThat(customRow.get("installation_ref_hash")).isNull();
+        assertThat(presetRow.get("generation_profile_version")).isNotNull();
+        assertThat(rows)
+                .allSatisfy(row -> assertThat(row.get("account_id"))
+                        .isEqualTo(primary.accountId())
+                        .isNotEqualTo(caregiver.accountId())
+                        .isNotEqualTo(outsider.accountId()));
+
+        var event = jdbcTemplate.queryForMap(
+                """
+                select account_id, space_id, activity_id, phrase_id, reaction_type
+                from interaction_events
+                where account_id = ?
+                  and space_id = 'daily_care'
+                  and activity_id = 'bath_time'
+                  and phrase_id = 'bath_time_warm_water'
+                  and reaction_type = 'resisting'
+                """,
+                caregiver.accountId());
+        assertThat(event)
+                .containsEntry("account_id", caregiver.accountId())
+                .containsEntry("space_id", "daily_care")
+                .containsEntry("activity_id", "bath_time")
+                .containsEntry("phrase_id", "bath_time_warm_water")
+                .containsEntry("reaction_type", "resisting");
+        assertThat(event.get("account_id")).isNotEqualTo(primary.accountId());
+        var starterUtteranceId = jdbcTemplate.queryForObject(
+                "select utterance_id from practice_generated_content_utterances where generated_content_id = ? and role = 'starter'",
+                String.class,
+                generatedPresetId);
+        assertThat(generatedContentQueryMapper.findActiveAccessibleByAccountId(
+                generatedPresetId, primary.accountId())).isNotNull();
+        assertThat(generatedContentQueryMapper.findActiveAccessibleByAccountId(
+                generatedPresetId, caregiver.accountId())).isNotNull();
+        assertThat(generatedContentQueryMapper.findActiveAccessibleByAccountId(
+                generatedPresetId, outsider.accountId())).isNull();
+        mockMvc.perform(get("/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
+                        generatedPresetId, starterUtteranceId)
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + primary.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("audio/mpeg")));
+        mockMvc.perform(get("/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
+                        generatedPresetId, starterUtteranceId)
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + caregiver.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("audio/mpeg")));
+        var outsiderAudio = mockMvc.perform(get(
+                        "/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
+                        generatedPresetId, starterUtteranceId)
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + outsider.accessToken()))
+                .andExpect(status().isNotFound())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertPrivacySafe(outsiderAudio, primary.accountId(), caregiver.accountId(), outsider.accountId(),
+                profileId, invite.householdId());
+
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
+                invite.householdId(), caregiver.accountId());
+        assertThat(generatedContentQueryMapper.findActiveAccessibleByAccountId(
+                generatedPresetId, caregiver.accountId())).isNull();
+        var revokedAudio = mockMvc.perform(get(
+                        "/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
+                        generatedPresetId, starterUtteranceId)
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + caregiver.accessToken()))
+                .andExpect(status().isNotFound())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertPrivacySafe(revokedAudio, primary.accountId(), caregiver.accountId(), outsider.accountId(),
+                profileId, invite.householdId());
+        assertThat(generatedContentQueryMapper.findActiveAccessibleByAccountId(
+                generatedPresetId, primary.accountId())).isNotNull();
+        mockMvc.perform(get("/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
+                        generatedPresetId, starterUtteranceId)
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + primary.accessToken()))
+                .andExpect(status().isOk());
+    }
+
+    private ListAppender<ILoggingEvent> attachRootLogger() {
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        ((Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).addAppender(appender);
+        return appender;
+    }
+
+    private String appenderText(ListAppender<ILoggingEvent> appender) {
+        return appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .collect(Collectors.joining("\n"));
+    }
+
+    private void assertPrivacySafe(String value, String... forbiddenValues) {
+        assertThat(value).isNotNull();
+        for (var forbidden : forbiddenValues) {
+            assertThat(value).doesNotContain(forbidden);
+        }
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder familyGeneration(
+            String accessToken,
+            String installationId,
+            String clientRequestId,
+            String source
+    ) {
+        return post("/api/v1/practice/scene-generations")
+                .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"source":%s,"locale":"zh-CN","installationId":"%s","clientRequestId":"%s"}
+                        """.formatted(source, installationId, clientRequestId));
+    }
+
+    private AuthConsentSyncService.SessionResponse createAcceptedSession(
+            String phoneNumber,
+            String installationId
+    ) {
+        var challenge = authConsentSyncService.createChallenge(phoneNumber);
+        var created = authConsentSyncService.verifyChallenge(
+                challenge.challengeId(), "246810", installationId);
+        authConsentSyncService.acceptConsent(created.sessionId(), "pipl-v1");
+        return created;
+    }
+
+    private InviteView createInvite(String accessToken) throws Exception {
+        var response = mockMvc.perform(post("/api/v1/caregiver-invites")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"caregiver","source":"household_settings"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        var json = new tools.jackson.databind.ObjectMapper()
+                .readTree(response.getResponse().getContentAsString());
+        return new InviteView(json.get("householdId").asText(), json.get("token").asText());
+    }
+
+    private void acceptInvite(String accessToken, String token) throws Exception {
+        mockMvc.perform(post("/api/v1/caregiver-invites/accept")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","source":"invite_link"}
+                                """.formatted(token)))
+                .andExpect(status().isOk());
+    }
+
+    private void syncEvent(
+            String accessToken,
+            String installationId,
+            String localEventId,
+            String spaceId,
+            String activityId,
+            String phraseId,
+            String reactionType,
+            String clientTimestamp
+    ) throws Exception {
+        mockMvc.perform(post("/api/v1/sync/events")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "installationId":"%s",
+                                  "events":[{
+                                    "eventKey":"%s:%s",
+                                    "localEventId":"%s",
+                                    "installationId":"%s",
+                                    "spaceId":"%s",
+                                    "activityId":"%s",
+                                    "phraseId":"%s",
+                                    "reactionType":"%s",
+                                    "clientTimestamp":"%s"
+                                  }]
+                                }
+                                """.formatted(
+                                installationId, installationId, localEventId, localEventId, installationId,
+                                spaceId, activityId, phraseId, reactionType, clientTimestamp)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.acceptedCount").value(1));
+    }
+
+    private record InviteView(String householdId, String token) {
+    }
+
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder generation(
             String installationId,
             String scene
     ) {
         return post("/api/v1/practice/scene-generations")
-                .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + session.accessToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
