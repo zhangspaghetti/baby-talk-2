@@ -213,6 +213,19 @@ class SceneGenerationServiceTest {
     }
 
     @Test
+    void presetCatalogRuntimeFailurePropagatesWithoutPersonalizationOrGeneration() {
+        var subject = subject();
+        var outage = new IllegalStateException("catalog database connection secret");
+        when(access.resolve("sid-preset")).thenReturn(subject);
+        when(catalog.requirePublished("catalog_down")).thenThrow(outage);
+
+        assertThatThrownBy(() -> service.generate(preset("catalog_down"), "sid-preset"))
+                .isSameAs(outage);
+        verify(personalization, never()).build(any(), any(), any());
+        verify(generatedContent, never()).generateScene(any());
+    }
+
+    @Test
     void blankPresetIdIsUnavailableWithoutExposingCatalogState() {
         var subject = subject();
         when(access.resolve("sid-preset")).thenReturn(subject);

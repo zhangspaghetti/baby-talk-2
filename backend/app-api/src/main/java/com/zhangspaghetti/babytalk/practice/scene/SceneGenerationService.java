@@ -185,8 +185,11 @@ public class SceneGenerationService {
         final PresetSceneCatalogService.PublishedPresetScene preset;
         try {
             preset = catalog.requirePublished(presetSceneId);
-        } catch (RuntimeException exception) {
-            throw presetUnavailable();
+        } catch (ContractException exception) {
+            if (HttpStatus.NOT_FOUND.equals(exception.status())) {
+                throw presetUnavailable();
+            }
+            throw exception;
         }
         if (preset == null
                 || !presetSceneId.equals(preset.presetSceneId())
@@ -197,20 +200,22 @@ public class SceneGenerationService {
                 || !isSafeStableId(preset.presetSceneId())) {
             throw presetUnavailable();
         }
-        try {
-            var forms = canonicalizer.derive(preset.generationBrief());
-            requireSafeText(forms);
-            var brief = forms.displayText();
-            if (brief == null
-                    || canonicalizer.codePointLength(brief) > MAX_PRESET_BRIEF_CODE_POINTS
-                    || (policyProperties != null
-                    && policyTextMatcher.containsAny(brief, policyProperties.unsupportedIntents()))) {
-                throw presetUnavailable();
-            }
-            return new ResolvedSource(SOURCE_PRESET, brief, preset);
-        } catch (RuntimeException exception) {
+        var forms = canonicalizer.derive(preset.generationBrief());
+        if (forms == null || forms.displayText() == null) {
             throw presetUnavailable();
         }
+        try {
+            securityPolicy.requireSafe(forms);
+        } catch (ContractException exception) {
+            throw presetUnavailable();
+        }
+        var brief = forms.displayText();
+        if (canonicalizer.codePointLength(brief) > MAX_PRESET_BRIEF_CODE_POINTS
+                || (policyProperties != null
+                && policyTextMatcher.containsAny(brief, policyProperties.unsupportedIntents()))) {
+            throw presetUnavailable();
+        }
+        return new ResolvedSource(SOURCE_PRESET, brief, preset);
     }
 
     private void requireSafeText(SceneTextForms forms) {

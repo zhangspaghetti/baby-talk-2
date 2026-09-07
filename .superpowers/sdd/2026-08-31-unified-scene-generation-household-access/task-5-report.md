@@ -48,3 +48,13 @@ The four generated core test files were restored from the base commit and migrat
 ## Concerns
 
 The clean app-api result remains red only because of the explicitly out-of-scope Task 7 dirty test changes. Preset and custom response DTOs intentionally use a nested route/scene/utterance shape; `SourceView` follows the approved exact field contract. No deployment or minimum-version change was made.
+
+## Fix round 1/5
+
+RED first added `SceneGenerationRequestTest` (2 failures): default record `toString()` exposed custom text and preset/installation/client values. A preset catalog runtime-failure test also failed because `SceneGenerationService` converted an arbitrary `RuntimeException` into `404 preset_scene_unavailable`.
+
+GREEN now overrides both request records with type/presence-only diagnostics; no text or identifier value is rendered. Preset lookup maps only the catalog's expected not-found `ContractException` to the coarse 404; arbitrary runtime failures propagate to the existing generic 500 handler. Preset brief security `ContractException` remains coarse 404, while unrelated runtime failures propagate. Controller coverage asserts generic 500 response omits the catalog exception message.
+
+Fix round focused result: request 2/2, service 10/10, controller 34/34. Platform and privacy gates remained PASS. Changes are limited to `SceneGenerationRequest.java`, `SceneGenerationService.java`, their request/service/controller tests, and this report; Task 6 XML, Task 7 test, and mobile/windows WIP remain untouched and unstaged.
+
+Self-audit: no sensitive values appear in request `toString()` output or generic HTTP response; no broad preset lookup runtime catch remains. Existing base commit is `af756fef`; this fix is committed separately as `fix(api): protect scene request errors`.

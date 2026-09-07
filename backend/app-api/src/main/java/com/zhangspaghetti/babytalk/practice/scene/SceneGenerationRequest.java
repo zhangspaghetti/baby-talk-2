@@ -27,6 +27,18 @@ public record SceneGenerationRequest(
         }
     }
 
+    @Override
+    public String toString() {
+        return "SceneGenerationRequest{"
+                + "sourceType=" + (source == null ? null : source.type())
+                + ", sourceTextPresent=" + (source != null && source.text() != null)
+                + ", sourcePresetSceneIdPresent=" + (source != null && source.presetSceneId() != null)
+                + ", localePresent=" + (locale != null)
+                + ", installationIdPresent=" + (installationId != null)
+                + ", clientRequestIdPresent=" + (clientRequestId != null)
+                + '}';
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record SourceRequest(String type, String text, String presetSceneId) {
 
@@ -39,6 +51,15 @@ public record SceneGenerationRequest(
                     : presetSceneId == null || text != null) {
                 throw new InvalidSceneSourceException();
             }
+        }
+
+        @Override
+        public String toString() {
+            return "SourceRequest{"
+                    + "type=" + type
+                    + ", textPresent=" + (text != null)
+                    + ", presetSceneIdPresent=" + (presetSceneId != null)
+                    + '}';
         }
 
         @JsonAnySetter

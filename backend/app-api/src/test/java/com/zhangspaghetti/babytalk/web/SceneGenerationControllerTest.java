@@ -194,6 +194,25 @@ class SceneGenerationControllerTest {
                 .andExpect(jsonPath("$.code").value("invalid_session"));
     }
 
+    @Test
+    void unexpectedCatalogFailureUsesGenericPrivacySafeFiveHundredResponse() throws Exception {
+        when(service.generate(any(), eq("session-1")))
+                .thenThrow(new IllegalStateException("catalog database connection secret"));
+
+        var result = mockMvc.perform(post("/api/v1/practice/scene-generations")
+                        .with(authenticationWithSid("session-1"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"source":{"type":"preset","presetSceneId":"catalog_down"},"locale":"zh-CN","installationId":"i1","clientRequestId":"r1"}
+                                """))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("internal_error"))
+                .andExpect(jsonPath("$.message").value("服务端处理失败。"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString())
+                .doesNotContain("catalog database connection secret");
+    }
+
     private RequestPostProcessor authenticationWithSid(String sid) {
         var jwt = Jwt.withTokenValue("token")
                 .header("alg", "none")
