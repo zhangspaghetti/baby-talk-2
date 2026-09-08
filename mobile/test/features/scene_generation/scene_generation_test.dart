@@ -85,12 +85,13 @@ void main() {
       () {
         final moment = const SceneGenerationMapper().toGeneratedCareMoment(
           SceneGenerationResponseDto.fromJson(_validResponse()),
+          expectedSource: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
         );
 
         expect(moment.generatedContentId, 'gcn_1');
-        expect(moment.sceneId, 'scene_bath');
+        expect(moment.sceneId, 'space_bath');
         expect(moment.spaceId, 'space_bath');
-        expect(moment.momentId, 'moment_bath');
+        expect(moment.momentId, 'activity_bath');
         expect(moment.activityId, 'activity_bath');
         expect(moment.title, '洗澡安抚');
         expect(moment.sceneTag, 'bath');
@@ -118,6 +119,7 @@ void main() {
             },
           ),
         ),
+        expectedSource: const PresetSceneGenerationSource('bath_time'),
       );
 
       expect(moment.inputSource, SceneGenerationSourceType.preset);
@@ -154,6 +156,7 @@ void main() {
       expect(
         () => const SceneGenerationMapper().toGeneratedCareMoment(
           SceneGenerationResponseDto.fromJson(duplicateReaction),
+          expectedSource: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
         ),
         throwsA(isA<SceneGenerationMappingException>()),
       );
@@ -166,6 +169,7 @@ void main() {
       expect(
         () => const SceneGenerationMapper().toGeneratedCareMoment(
           SceneGenerationResponseDto.fromJson(duplicatePhrase),
+          expectedSource: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
         ),
         throwsA(isA<SceneGenerationMappingException>()),
       );
@@ -196,6 +200,110 @@ void main() {
         throwsFormatException,
       );
     });
+
+    test('rejects response source type that differs from requested source', () {
+      final response = SceneGenerationResponseDto.fromJson(_validResponse());
+
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          response,
+          expectedSource: const PresetSceneGenerationSource('activity_bath'),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+    });
+
+    test('rejects preset source ID that differs from requested source', () {
+      final response = SceneGenerationResponseDto.fromJson(
+        _validResponse(
+          source: <String, Object?>{
+            'type': 'preset',
+            'presetSceneId': 'activity_bath',
+            'presetSceneVersion': 3,
+          },
+        ),
+      );
+
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          response,
+          expectedSource: const PresetSceneGenerationSource('different_scene'),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+    });
+
+    test(
+      'rejects route identity that violates backend scene and activity invariants',
+      () {
+        final badScene = _validResponse()
+          ..['route'] = <String, Object?>{
+            'sceneId': 'not_space',
+            'spaceId': 'space_bath',
+            'momentId': 'activity_bath',
+            'activityId': 'activity_bath',
+            'phraseId': 'phrase_starter',
+          };
+        final badMoment = _validResponse()
+          ..['route'] = <String, Object?>{
+            'sceneId': 'space_bath',
+            'spaceId': 'space_bath',
+            'momentId': 'not_activity',
+            'activityId': 'activity_bath',
+            'phraseId': 'phrase_starter',
+          };
+        for (final invalid in <Map<String, dynamic>>[badScene, badMoment]) {
+          expect(
+            () => const SceneGenerationMapper().toGeneratedCareMoment(
+              SceneGenerationResponseDto.fromJson(invalid),
+              expectedSource: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+            ),
+            throwsA(isA<SceneGenerationMappingException>()),
+          );
+        }
+      },
+    );
+
+    test('rejects route phrase mismatch and preset activity mismatch', () {
+      final badPhrase = _validResponse()
+        ..['route'] = <String, Object?>{
+          'sceneId': 'space_bath',
+          'spaceId': 'space_bath',
+          'momentId': 'activity_bath',
+          'activityId': 'activity_bath',
+          'phraseId': 'different_phrase',
+        };
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          SceneGenerationResponseDto.fromJson(badPhrase),
+          expectedSource: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+
+      final badPreset =
+          _validResponse(
+              source: <String, Object?>{
+                'type': 'preset',
+                'presetSceneId': 'activity_bath',
+                'presetSceneVersion': 3,
+              },
+            )
+            ..['route'] = <String, Object?>{
+              'sceneId': 'space_bath',
+              'spaceId': 'space_bath',
+              'momentId': 'another_activity',
+              'activityId': 'another_activity',
+              'phraseId': 'phrase_starter',
+            };
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          SceneGenerationResponseDto.fromJson(badPreset),
+          expectedSource: const PresetSceneGenerationSource('activity_bath'),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+    });
   });
 
   group('SceneGenerationApi', () {
@@ -204,6 +312,7 @@ void main() {
       () async {
         final adapter = _SequenceAdapter(<_AdapterReply>[
           _AdapterReply(401, <String, Object?>{
+            'timestamp': '2026-09-08T00:00:00Z',
             'status': 401,
             'code': 'invalid_session',
             'message': 'private backend body',
@@ -256,6 +365,7 @@ void main() {
     test('does not expose backend body in API exception string', () async {
       final adapter = _SequenceAdapter(<_AdapterReply>[
         _AdapterReply(422, <String, Object?>{
+          'timestamp': '2026-09-08T00:00:00Z',
           'status': 422,
           'code': 'generated_content_rejected',
           'message': '宝宝洗澡时一直躲水。',
@@ -307,6 +417,158 @@ void main() {
         ),
       );
     });
+
+    test(
+      'accepts standard error envelope from a map and JSON string',
+      () async {
+        final standard = _standardError(
+          status: 503,
+          code: 'generation_unavailable',
+          details: <String, Object?>{
+            'generatedContentId': 'gcn_standard',
+            'retryable': true,
+          },
+        );
+        final mapError = await _apiErrorFor(status: 503, body: standard);
+        final stringError = await _apiErrorFor(
+          status: 503,
+          body: jsonEncode(standard),
+        );
+
+        expect(mapError.code, 'generation_unavailable');
+        expect(mapError.statusCode, 503);
+        expect(mapError.generatedContentId, 'gcn_standard');
+        expect(mapError.retryable, isTrue);
+        expect(stringError.code, 'generation_unavailable');
+        expect(stringError.statusCode, 503);
+        expect(stringError.generatedContentId, 'gcn_standard');
+      },
+    );
+
+    test(
+      'accepts version-gate envelope and uses HTTP status as authority',
+      () async {
+        final versionEnvelope = _versionError(
+          code: 'app_version_required',
+          details: const <String, Object?>{},
+        );
+        final mapError = await _apiErrorFor(status: 426, body: versionEnvelope);
+        final stringError = await _apiErrorFor(
+          status: 426,
+          body: jsonEncode(versionEnvelope),
+        );
+
+        expect(mapError.code, 'app_version_required');
+        expect(mapError.statusCode, 426);
+        expect(stringError.code, 'app_version_required');
+        expect(stringError.statusCode, 426);
+      },
+    );
+
+    test(
+      'rejects unknown and mixed error envelope keys as malformed',
+      () async {
+        final unknown = _versionError(
+          code: 'app_version_required',
+          details: const <String, Object?>{},
+        )..['debugBody'] = 'private';
+        final mixed = _versionError(
+          code: 'app_version_required',
+          details: const <String, Object?>{},
+        )..['status'] = 426;
+
+        final unknownError = await _apiErrorFor(status: 426, body: unknown);
+        final mixedError = await _apiErrorFor(status: 426, body: mixed);
+
+        expect(unknownError.kind, SceneGenerationApiFailureKind.malformed);
+        expect(mixedError.kind, SceneGenerationApiFailureKind.malformed);
+      },
+    );
+
+    test('refresh persistence callback receives refreshed session', () async {
+      final adapter = _SequenceAdapter(<_AdapterReply>[
+        _AdapterReply(
+          401,
+          _standardError(
+            status: 401,
+            code: 'invalid_session',
+            details: const <String, Object?>{},
+          ),
+        ),
+        _AdapterReply(200, _validResponse()),
+      ]);
+      final api = SceneGenerationApi(
+        authenticatedApiClient: AuthenticatedApiClient(
+          apiService: _RefreshingAccountApiService(),
+        ),
+        dio: Dio(BaseOptions(baseUrl: 'http://localhost:8080'))
+          ..httpClientAdapter = adapter,
+      );
+      AccountSession? persisted;
+
+      await api.generate(
+        session: _session(accessToken: 'access_old'),
+        persistRefreshedSession: (session) async {
+          persisted = session;
+          return session;
+        },
+        request: SceneGenerationRequestDto(
+          source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+          locale: 'zh-CN',
+          installationId: 'install_1',
+          clientRequestId: 'scene_request_persist',
+        ),
+      );
+
+      expect(persisted?.accessToken, 'access_new');
+      expect(persisted?.refreshToken, 'refresh_new');
+    });
+
+    test(
+      'repository forwards refreshed session to persistence callback',
+      () async {
+        final adapter = _SequenceAdapter(<_AdapterReply>[
+          _AdapterReply(
+            401,
+            _standardError(
+              status: 401,
+              code: 'invalid_session',
+              details: const <String, Object?>{},
+            ),
+          ),
+          _AdapterReply(200, _validResponse()),
+        ]);
+        final api = SceneGenerationApi(
+          authenticatedApiClient: AuthenticatedApiClient(
+            apiService: _RefreshingAccountApiService(),
+          ),
+          dio: Dio(BaseOptions(baseUrl: 'http://localhost:8080'))
+            ..httpClientAdapter = adapter,
+        );
+        AccountSession? persisted;
+        final repository = SceneGenerationRepositoryImpl(
+          api: api,
+          accountSnapshotLoader: () async => AccountLocalSnapshot(
+            consentState: AccountConsentState.acceptedPendingSync,
+            session: _session(accessToken: 'access_old'),
+          ),
+          persistRefreshedSession: (session) async {
+            persisted = session;
+            return session;
+          },
+          localeLoader: () async => 'zh-CN',
+          installationIdLoader: () async => 'install_1',
+        );
+
+        await repository.generate(
+          source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+          clientRequestId: 'scene_request_repository_persist',
+        );
+
+        expect(persisted?.accessToken, 'access_new');
+        expect(persisted?.refreshToken, 'refresh_new');
+      },
+    );
   });
 
   group('SceneGenerationRepositoryImpl', () {
@@ -391,6 +653,153 @@ void main() {
       );
       expect(gateway.callCount, 0);
     });
+
+    test(
+      'maps stable HTTP envelopes including version and policy codes',
+      () async {
+        const cases =
+            <
+              ({
+                int status,
+                String code,
+                SceneGenerationFailureKind kind,
+                bool retryable,
+                bool versionEnvelope,
+                bool includeDetails,
+              })
+            >[
+              (
+                status: 400,
+                code: 'unsafe_custom_scene_text',
+                kind: SceneGenerationFailureKind.invalidInput,
+                retryable: false,
+                versionEnvelope: false,
+                includeDetails: true,
+              ),
+              (
+                status: 400,
+                code: 'invalid_scene_input',
+                kind: SceneGenerationFailureKind.invalidInput,
+                retryable: false,
+                versionEnvelope: false,
+                includeDetails: true,
+              ),
+              (
+                status: 400,
+                code: 'validation_failed',
+                kind: SceneGenerationFailureKind.invalidInput,
+                retryable: false,
+                versionEnvelope: false,
+                includeDetails: true,
+              ),
+              (
+                status: 426,
+                code: 'app_version_required',
+                kind: SceneGenerationFailureKind.unavailable,
+                retryable: false,
+                versionEnvelope: true,
+                includeDetails: true,
+              ),
+              (
+                status: 400,
+                code: 'invalid_app_version',
+                kind: SceneGenerationFailureKind.invalidInput,
+                retryable: false,
+                versionEnvelope: true,
+                includeDetails: true,
+              ),
+              (
+                status: 422,
+                code: 'generated_content_rejected',
+                kind: SceneGenerationFailureKind.rejected,
+                retryable: false,
+                versionEnvelope: false,
+                includeDetails: true,
+              ),
+              (
+                status: 502,
+                code: 'generation_invalid_output',
+                kind: SceneGenerationFailureKind.rejected,
+                retryable: false,
+                versionEnvelope: false,
+                includeDetails: true,
+              ),
+              (
+                status: 429,
+                code: 'custom_scene_rate_limited',
+                kind: SceneGenerationFailureKind.rateLimited,
+                retryable: true,
+                versionEnvelope: false,
+                includeDetails: false,
+              ),
+              (
+                status: 429,
+                code: 'generation_rate_limited',
+                kind: SceneGenerationFailureKind.rateLimited,
+                retryable: true,
+                versionEnvelope: false,
+                includeDetails: true,
+              ),
+              (
+                status: 429,
+                code: 'unknown_rate_code',
+                kind: SceneGenerationFailureKind.rateLimited,
+                retryable: true,
+                versionEnvelope: false,
+                includeDetails: false,
+              ),
+            ];
+
+        for (final testCase in cases) {
+          final body = testCase.versionEnvelope
+              ? _versionError(
+                  code: testCase.code,
+                  details: testCase.includeDetails
+                      ? <String, Object?>{
+                          'generatedContentId': 'gcn_${testCase.code}',
+                          'retryable': false,
+                        }
+                      : null,
+                )
+              : _standardError(
+                  status: testCase.status,
+                  code: testCase.code,
+                  details: testCase.includeDetails
+                      ? <String, Object?>{
+                          'generatedContentId': 'gcn_${testCase.code}',
+                          'retryable': false,
+                        }
+                      : null,
+                );
+          final api = SceneGenerationApi(
+            authenticatedApiClient: AuthenticatedApiClient(
+              apiService: _RefreshingAccountApiService(),
+            ),
+            dio: Dio(BaseOptions(baseUrl: 'http://localhost:8080'))
+              ..httpClientAdapter = _SequenceAdapter(<_AdapterReply>[
+                _AdapterReply(testCase.status, body),
+              ]),
+          );
+          final repository = _repositoryForRealApi(api);
+
+          await expectLater(
+            repository.generate(
+              source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+              clientRequestId: 'scene_${testCase.code}',
+            ),
+            throwsA(
+              isA<SceneGenerationFailure>()
+                  .having((failure) => failure.kind, 'kind', testCase.kind)
+                  .having(
+                    (failure) => failure.retryable,
+                    'retryable',
+                    testCase.retryable,
+                  ),
+            ),
+          );
+        }
+      },
+    );
 
     test(
       'maps every stable backend error kind and preserves recovery metadata',
@@ -549,15 +958,97 @@ void main() {
   });
 }
 
+Future<SceneGenerationApiException> _apiErrorFor({
+  required int status,
+  required Object? body,
+}) async {
+  final api = SceneGenerationApi(
+    authenticatedApiClient: AuthenticatedApiClient(
+      apiService: _RefreshingAccountApiService(),
+    ),
+    dio: Dio(BaseOptions(baseUrl: 'http://localhost:8080'))
+      ..httpClientAdapter = _SequenceAdapter(<_AdapterReply>[
+        _AdapterReply(status, body),
+      ]),
+  );
+  try {
+    await api.generate(
+      session: _session(),
+      persistRefreshedSession: (session) async => session,
+      request: SceneGenerationRequestDto(
+        source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+        locale: 'zh-CN',
+        installationId: 'install_1',
+        clientRequestId: 'scene_request_error',
+      ),
+    );
+    fail('expected scene generation API failure');
+  } on SceneGenerationApiException catch (error) {
+    return error;
+  }
+}
+
+Map<String, Object?> _standardError({
+  required int status,
+  required String code,
+  Map<String, Object?>? details,
+}) {
+  final result = <String, Object?>{
+    'timestamp': '2026-09-08T00:00:00Z',
+    'status': status,
+    'code': code,
+    'message': 'controlled error',
+    'details': details,
+  };
+  if (details == null) {
+    result.remove('details');
+  }
+  return result;
+}
+
+Map<String, Object?> _versionError({
+  required String code,
+  required Map<String, Object?>? details,
+}) {
+  final result = <String, Object?>{
+    'code': code,
+    'message': 'upgrade required',
+    'minimumSupportedVersion': '1.3.0',
+    'upgradeUrl': 'https://example.test/upgrade',
+    'details': details,
+    'correlationId': 'err_1234567890abcdef',
+  };
+  if (details == null) {
+    result.remove('details');
+  }
+  return result;
+}
+
+SceneGenerationRepositoryImpl _repositoryForRealApi(SceneGenerationApi api) {
+  return SceneGenerationRepositoryImpl(
+    api: api,
+    accountSnapshotLoader: () async => AccountLocalSnapshot(
+      consentState: AccountConsentState.acceptedPendingSync,
+      session: _session(),
+    ),
+    persistRefreshedSession: (session) async => session,
+    localeLoader: () async => 'zh-CN',
+    installationIdLoader: () async => 'install_1',
+  );
+}
+
 Map<String, dynamic> _validResponse({Map<String, Object?>? source}) {
+  final routeActivityId = source?['type'] == 'preset'
+      ? source!['presetSceneId'] as String
+      : 'activity_bath';
   return <String, dynamic>{
     'generatedContentId': 'gcn_1',
     'bundleSchemaVersion': generatedCareMomentSchemaVersion,
     'route': <String, Object?>{
-      'sceneId': 'scene_bath',
+      'sceneId': 'space_bath',
       'spaceId': 'space_bath',
-      'momentId': 'moment_bath',
-      'activityId': 'activity_bath',
+      'momentId': routeActivityId,
+      'activityId': routeActivityId,
       'phraseId': 'phrase_starter',
     },
     'scene': <String, Object?>{

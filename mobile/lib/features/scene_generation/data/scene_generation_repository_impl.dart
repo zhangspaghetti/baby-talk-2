@@ -13,8 +13,6 @@ import 'package:mobile/features/scene_generation/domain/scene_generation_source.
 
 typedef SceneGenerationAccountSnapshotLoader =
     Future<AccountLocalSnapshot> Function();
-typedef SceneGenerationAccountSessionLoader =
-    Future<AccountSession?> Function();
 typedef SceneGenerationLocaleLoader = Future<String> Function();
 typedef SceneGenerationInstallationIdLoader = Future<String> Function();
 
@@ -22,31 +20,23 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
   SceneGenerationRepositoryImpl({
     required SceneGenerationApiGateway api,
     SceneGenerationMapper mapper = const SceneGenerationMapper(),
-    this.accountSnapshotLoader,
-    this.sessionLoader,
-    this.accountSessionLoader,
-    this.accountLocalStore,
-    PersistRefreshedSession? persistRefreshedSession,
-    this.localeLoader,
-    this.locale,
-    this.installationIdLoader,
-    this.installationIdService,
+    required SceneGenerationAccountSnapshotLoader accountSnapshotLoader,
+    required PersistRefreshedSession persistRefreshedSession,
+    required SceneGenerationLocaleLoader localeLoader,
+    required SceneGenerationInstallationIdLoader installationIdLoader,
   }) : _api = api,
        _mapper = mapper,
-       _persistRefreshedSession =
-           persistRefreshedSession ?? _identityPersistRefreshedSession;
+       _accountSnapshotLoader = accountSnapshotLoader,
+       _persistRefreshedSession = persistRefreshedSession,
+       _localeLoader = localeLoader,
+       _installationIdLoader = installationIdLoader;
 
   final SceneGenerationApiGateway _api;
   final SceneGenerationMapper _mapper;
-  final SceneGenerationAccountSnapshotLoader? accountSnapshotLoader;
-  final SceneGenerationAccountSessionLoader? sessionLoader;
-  final SceneGenerationAccountSessionLoader? accountSessionLoader;
-  final AccountLocalStore? accountLocalStore;
+  final SceneGenerationAccountSnapshotLoader _accountSnapshotLoader;
   final PersistRefreshedSession _persistRefreshedSession;
-  final SceneGenerationLocaleLoader? localeLoader;
-  final String? locale;
-  final SceneGenerationInstallationIdLoader? installationIdLoader;
-  final InstallationIdService? installationIdService;
+  final SceneGenerationLocaleLoader _localeLoader;
+  final SceneGenerationInstallationIdLoader _installationIdLoader;
 
   @override
   Future<GeneratedCareMoment> generate({
@@ -71,7 +61,7 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
         request: request,
       );
       try {
-        return _mapper.toGeneratedCareMoment(response);
+        return _mapper.toGeneratedCareMoment(response, expectedSource: source);
       } on SceneGenerationMappingException {
         throw const SceneGenerationFailure(
           kind: SceneGenerationFailureKind.malformedResponse,
@@ -109,32 +99,14 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
 
   Future<AccountSession> _loadAcceptedSession() async {
     try {
-      final AccountSession? session;
-      final snapshotLoader = accountSnapshotLoader;
-      final directLoader = sessionLoader ?? accountSessionLoader;
-      if (snapshotLoader != null) {
-        final snapshot = await snapshotLoader();
-        if (snapshot.consentState != AccountConsentState.acceptedPendingSync) {
-          throw const SceneGenerationFailure(
-            kind: SceneGenerationFailureKind.authenticationRequired,
-            retryable: false,
-          );
-        }
-        session = snapshot.session;
-      } else if (directLoader != null) {
-        session = await directLoader();
-      } else if (accountLocalStore != null) {
-        final snapshot = await accountLocalStore!.read();
-        if (snapshot.consentState != AccountConsentState.acceptedPendingSync) {
-          throw const SceneGenerationFailure(
-            kind: SceneGenerationFailureKind.authenticationRequired,
-            retryable: false,
-          );
-        }
-        session = snapshot.session;
-      } else {
-        session = null;
+      final snapshot = await _accountSnapshotLoader();
+      if (snapshot.consentState != AccountConsentState.acceptedPendingSync) {
+        throw const SceneGenerationFailure(
+          kind: SceneGenerationFailureKind.authenticationRequired,
+          retryable: false,
+        );
       }
+      final session = snapshot.session;
       if (session == null || !session.hasJwtTokens) {
         throw const SceneGenerationFailure(
           kind: SceneGenerationFailureKind.authenticationRequired,
@@ -154,9 +126,8 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
 
   Future<String> _loadLocale() async {
     try {
-      final loaded = localeLoader == null ? locale : await localeLoader!();
-      final normalized = loaded?.trim();
-      if (normalized == null || normalized.isEmpty) {
+      final normalized = (await _localeLoader()).trim();
+      if (normalized.isEmpty) {
         throw const SceneGenerationFailure(
           kind: SceneGenerationFailureKind.invalidInput,
           retryable: false,
@@ -175,12 +146,7 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
 
   Future<String> _loadInstallationId() async {
     try {
-      final loaded = installationIdLoader != null
-          ? await installationIdLoader!()
-          : installationIdService != null
-          ? await installationIdService!.getOrCreate()
-          : await InstallationIdService().getOrCreate();
-      final normalized = loaded.trim();
+      final normalized = (await _installationIdLoader()).trim();
       if (!isBackendCompatibleInstallationId(normalized)) {
         throw const SceneGenerationFailure(
           kind: SceneGenerationFailureKind.invalidInput,
@@ -295,6 +261,8 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
         );
       case 'invalid_scene_source':
       case 'invalid_custom_scene_text':
+      case 'unsafe_custom_scene_text':
+      case 'invalid_scene_input':
       case 'validation_failed':
       case 'unsupported_locale':
       case 'invalid_client_request_id':
@@ -322,10 +290,11 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
         );
       case 'custom_scene_rate_limited':
       case 'generation_rate_limited':
+      case 'scene_generation_rate_limited':
       case 'rate_limited':
         return _failure(
           SceneGenerationFailureKind.rateLimited,
-          retryable: error.retryable,
+          retryable: true,
           error: error,
         );
       case 'generation_timeout':
@@ -335,13 +304,18 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
           error: error,
         );
       case 'generated_content_rejected':
+      case 'generation_invalid_output':
       case 'unsupported_custom_scene_text':
         return _failure(SceneGenerationFailureKind.rejected, error: error);
-      case 'generation_invalid_output':
+      case 'app_version_required':
+      case 'app_version_unsupported':
         return _failure(
-          SceneGenerationFailureKind.malformedResponse,
+          SceneGenerationFailureKind.unavailable,
+          retryable: false,
           error: error,
         );
+      case 'invalid_app_version':
+        return _failure(SceneGenerationFailureKind.invalidInput, error: error);
       case 'generation_unavailable':
         return _failure(
           SceneGenerationFailureKind.unavailable,
@@ -424,10 +398,4 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
       requiresNewClientRequestId: error?.requiresNewClientRequestId ?? false,
     );
   }
-}
-
-Future<AccountSession> _identityPersistRefreshedSession(
-  AccountSession session,
-) async {
-  return session;
 }

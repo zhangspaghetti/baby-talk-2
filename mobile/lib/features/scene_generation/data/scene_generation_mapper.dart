@@ -1,6 +1,7 @@
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/scene_generation/data/scene_generation_dtos.dart';
 import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
 
 class SceneGenerationMappingException implements Exception {
   const SceneGenerationMappingException();
@@ -13,10 +14,12 @@ class SceneGenerationMapper {
   const SceneGenerationMapper();
 
   GeneratedCareMoment toGeneratedCareMoment(
-    SceneGenerationResponseDto response,
-  ) {
+    SceneGenerationResponseDto response, {
+    required SceneGenerationSource expectedSource,
+  }) {
     try {
       final sourceType = SceneGenerationSourceType.parse(response.source.type);
+      _validateSourceAndRoute(response, expectedSource, sourceType);
       final starter = _toUtterance(
         response.starter,
         expectedRole: GeneratedCareUtteranceRole.starter,
@@ -86,6 +89,29 @@ class SceneGenerationMapper {
       throw const SceneGenerationMappingException();
     } on Object {
       throw const SceneGenerationMappingException();
+    }
+  }
+
+  void _validateSourceAndRoute(
+    SceneGenerationResponseDto response,
+    SceneGenerationSource expectedSource,
+    SceneGenerationSourceType sourceType,
+  ) {
+    final expectedType = switch (expectedSource) {
+      CustomSceneGenerationSource() => SceneGenerationSourceType.custom,
+      PresetSceneGenerationSource() => SceneGenerationSourceType.preset,
+    };
+    if (sourceType != expectedType ||
+        response.route.sceneId != response.route.spaceId ||
+        response.route.momentId != response.route.activityId ||
+        response.route.phraseId != response.starter.phraseId) {
+      throw const SceneGenerationMappingException();
+    }
+    if (expectedSource case PresetSceneGenerationSource(:final presetSceneId)) {
+      if (response.source.presetSceneId != presetSceneId ||
+          response.route.activityId != presetSceneId) {
+        throw const SceneGenerationMappingException();
+      }
     }
   }
 

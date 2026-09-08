@@ -195,9 +195,9 @@ Map<String, Object?> _sceneGenerationResponseFor(RequestOptions options) {
     'generatedContentId': 'gcn_bearer',
     'bundleSchemaVersion': 'custom-scene-generated-output-v1',
     'route': <String, Object?>{
-      'sceneId': 'scene_bath',
+      'sceneId': 'space_bath',
       'spaceId': 'space_bath',
-      'momentId': 'moment_bath',
+      'momentId': 'activity_bath',
       'activityId': 'activity_bath',
       'phraseId': 'phrase_starter',
     },

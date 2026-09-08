@@ -9,6 +9,49 @@ import 'package:mobile/features/account/data/services/authenticated_api_client.d
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/scene_generation/data/scene_generation_dtos.dart';
 
+const _standardErrorKeys = <String>{
+  'timestamp',
+  'status',
+  'code',
+  'message',
+  'details',
+};
+const _standardErrorKeysWithCorrelation = <String>{
+  ..._standardErrorKeys,
+  'correlationId',
+};
+const _standardErrorKeysWithoutDetails = <String>{
+  'timestamp',
+  'status',
+  'code',
+  'message',
+};
+const _standardErrorKeysWithCorrelationWithoutDetails = <String>{
+  ..._standardErrorKeysWithoutDetails,
+  'correlationId',
+};
+const _versionErrorKeys = <String>{
+  'code',
+  'message',
+  'minimumSupportedVersion',
+  'upgradeUrl',
+  'details',
+  'correlationId',
+};
+const _versionErrorKeysWithoutDetails = <String>{
+  'code',
+  'message',
+  'minimumSupportedVersion',
+  'upgradeUrl',
+  'correlationId',
+};
+const _rateLimitCodes = <String>{
+  'custom_scene_rate_limited',
+  'generation_rate_limited',
+  'scene_generation_rate_limited',
+  'rate_limited',
+};
+
 enum SceneGenerationApiFailureKind {
   network,
   timeout,
@@ -188,28 +231,81 @@ class SceneGenerationApi implements SceneGenerationApiGateway {
     Map<String, dynamic> json,
     int statusCode,
   ) {
-    final responseStatus = json['status'];
+    final keys = json.keys.toSet();
     final code = json['code'];
-    final details = json['details'];
-    if (responseStatus is! int ||
-        responseStatus != statusCode ||
-        code is! String ||
-        code.trim().isEmpty ||
-        details is! Map) {
+    final isKnownRateLimit =
+        statusCode == 429 || code is String && _rateLimitCodes.contains(code);
+    final standard =
+        _isExactErrorKeys(keys, _standardErrorKeys) ||
+        _isExactErrorKeys(keys, _standardErrorKeysWithCorrelation);
+    final standardMissingDetails =
+        isKnownRateLimit &&
+        (_isExactErrorKeys(keys, _standardErrorKeysWithoutDetails) ||
+            _isExactErrorKeys(
+              keys,
+              _standardErrorKeysWithCorrelationWithoutDetails,
+            ));
+    final version = _isExactErrorKeys(keys, _versionErrorKeys);
+    final versionMissingDetails =
+        isKnownRateLimit &&
+        _isExactErrorKeys(keys, _versionErrorKeysWithoutDetails);
+
+    if (!standard &&
+        !standardMissingDetails &&
+        !version &&
+        !versionMissingDetails) {
       throw const SceneGenerationApiException.malformed();
     }
-    for (final field in const <String>[
-      'timestamp',
-      'message',
-      'correlationId',
-    ]) {
-      final value = json[field];
-      if (value != null && value is! String) {
+    if (code is! String || code.trim().isEmpty) {
+      throw const SceneGenerationApiException.malformed();
+    }
+
+    if (standard || standardMissingDetails) {
+      final responseStatus = json['status'];
+      final timestamp = json['timestamp'];
+      final message = json['message'];
+      final correlationId = json['correlationId'];
+      if (responseStatus is! int ||
+          responseStatus != statusCode ||
+          timestamp is! String ||
+          timestamp.trim().isEmpty ||
+          message is! String ||
+          message.trim().isEmpty ||
+          correlationId != null &&
+              (correlationId is! String || correlationId.trim().isEmpty)) {
+        throw const SceneGenerationApiException.malformed();
+      }
+    } else {
+      final message = json['message'];
+      final minimumSupportedVersion = json['minimumSupportedVersion'];
+      final upgradeUrl = json['upgradeUrl'];
+      final correlationId = json['correlationId'];
+      if (message is! String ||
+          message.trim().isEmpty ||
+          minimumSupportedVersion is! String ||
+          minimumSupportedVersion.trim().isEmpty ||
+          upgradeUrl is! String ||
+          upgradeUrl.trim().isEmpty ||
+          correlationId is! String ||
+          correlationId.trim().isEmpty) {
         throw const SceneGenerationApiException.malformed();
       }
     }
 
-    final detailsMap = _asStringKeyedMap(details);
+    final rawDetails = json['details'];
+    final Map<String, dynamic> detailsMap;
+    if (rawDetails is Map) {
+      try {
+        detailsMap = _asStringKeyedMap(rawDetails);
+      } on Object {
+        throw const SceneGenerationApiException.malformed();
+      }
+    } else if (isKnownRateLimit) {
+      detailsMap = const <String, dynamic>{};
+    } else {
+      throw const SceneGenerationApiException.malformed();
+    }
+
     final generatedContentId = detailsMap['generatedContentId'];
     final retryable = detailsMap['retryable'];
     final requiresNewClientRequestId = detailsMap['requiresNewClientRequestId'];
@@ -290,4 +386,8 @@ class SceneGenerationApi implements SceneGenerationApiGateway {
       _dio.close();
     }
   }
+}
+
+bool _isExactErrorKeys(Set<String> actual, Set<String> expected) {
+  return actual.length == expected.length && actual.containsAll(expected);
 }
