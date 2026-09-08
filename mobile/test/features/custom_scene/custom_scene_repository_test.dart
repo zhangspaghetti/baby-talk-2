@@ -11,8 +11,6 @@ void main() {
   test(
     'delegates one custom source request without profile or household preflight',
     () async {
-      var babyProfileLoadCount = 0;
-      var householdApiRequestCount = 0;
       final sceneGenerationRepository = _RecordingSceneGenerationRepository();
       final repository = CustomSceneRepositoryImpl(
         sceneGenerationRepository: sceneGenerationRepository,
@@ -21,7 +19,7 @@ void main() {
 
       await expectLater(repository.generate(draft), throwsA(isA<StateError>()));
 
-      expect(sceneGenerationRepository.sources, hasLength(1));
+      expect(sceneGenerationRepository.callCount, 1);
       expect(
         sceneGenerationRepository.sources.single,
         isA<CustomSceneGenerationSource>().having(
@@ -33,8 +31,6 @@ void main() {
       expect(sceneGenerationRepository.clientRequestIds, <String>[
         draft.requestIdentity.clientRequestId,
       ]);
-      expect(babyProfileLoadCount, 0);
-      expect(householdApiRequestCount, 0);
     },
   );
 
@@ -154,6 +150,8 @@ class _RecordingSceneGenerationRepository implements SceneGenerationRepository {
   final SceneGenerationFailure? failure;
   final List<SceneGenerationSource> sources = <SceneGenerationSource>[];
   final List<String> clientRequestIds = <String>[];
+
+  int get callCount => sources.length;
 
   @override
   Future<GeneratedCareMoment> generate({
