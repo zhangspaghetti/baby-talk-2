@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_dtos.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_mapper.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 void main() {

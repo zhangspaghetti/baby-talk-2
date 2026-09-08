@@ -18,7 +18,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_submission
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';

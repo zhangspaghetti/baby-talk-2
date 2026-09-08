@@ -1,5 +1,5 @@
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';

@@ -6,7 +6,7 @@ import 'package:mobile/features/account/data/services/authenticated_api_client.d
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_api.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_dtos.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 
 void main() {
   group('CustomSceneApi', () {

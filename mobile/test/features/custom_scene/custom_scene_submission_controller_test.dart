@@ -11,7 +11,7 @@ import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 void main() {
@@ -630,6 +630,7 @@ GeneratedCareMoment _moment() {
     sceneTag: 'bath',
     coachTip: '慢慢来',
     source: 'generated',
+    inputSource: SceneGenerationSourceType.custom,
     starter: utterance(
       'starter',
       role: GeneratedCareUtteranceRole.starter,

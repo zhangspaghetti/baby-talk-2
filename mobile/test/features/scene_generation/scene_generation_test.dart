@@ -1,0 +1,779 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/network/auth_headers.dart';
+import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/services/account_api_service.dart';
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_api.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_dtos.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_mapper.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_repository_impl.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_failure.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
+import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+
+void main() {
+  group('SceneGenerationRequestDto', () {
+    test('custom request emits only the unified privacy-safe keys', () {
+      final request = SceneGenerationRequestDto(
+        source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+        locale: 'zh-CN',
+        installationId: 'install_1',
+        clientRequestId: 'scene_request_1',
+      );
+
+      final json = request.toJson();
+
+      expect(json.keys.toSet(), <String>{
+        'source',
+        'locale',
+        'installationId',
+        'clientRequestId',
+      });
+      expect((json['source'] as Map<String, Object?>).keys.toSet(), <String>{
+        'type',
+        'text',
+      });
+      expect(json['source'], <String, Object?>{
+        'type': 'custom',
+        'text': '宝宝洗澡时一直躲水。',
+      });
+      expect(json.containsKey('babyProfileId'), isFalse);
+      expect(json.containsKey('ageRange'), isFalse);
+      expect(json.containsKey('parentGoal'), isFalse);
+      expect(json.containsKey('generationBrief'), isFalse);
+      expect(json.containsKey('babyName'), isFalse);
+      expect(json.containsKey('householdId'), isFalse);
+      expect(json.containsKey('role'), isFalse);
+    });
+
+    test('preset request emits only type and presetSceneId in source', () {
+      final request = SceneGenerationRequestDto(
+        source: const PresetSceneGenerationSource('bath_time'),
+        locale: 'zh-CN',
+        installationId: 'install_1',
+        clientRequestId: 'scene_request_2',
+      );
+
+      final json = request.toJson();
+
+      expect(json.keys.toSet(), <String>{
+        'source',
+        'locale',
+        'installationId',
+        'clientRequestId',
+      });
+      expect(json['source'], <String, Object?>{
+        'type': 'preset',
+        'presetSceneId': 'bath_time',
+      });
+      final source = json['source'] as Map<String, Object?>;
+      expect(source.containsKey('text'), isFalse);
+      expect(source.containsKey('generationBrief'), isFalse);
+    });
+  });
+
+  group('SceneGenerationMapper', () {
+    test(
+      'maps backend response to generated care moment with exact semantics',
+      () {
+        final moment = const SceneGenerationMapper().toGeneratedCareMoment(
+          SceneGenerationResponseDto.fromJson(_validResponse()),
+        );
+
+        expect(moment.generatedContentId, 'gcn_1');
+        expect(moment.sceneId, 'scene_bath');
+        expect(moment.spaceId, 'space_bath');
+        expect(moment.momentId, 'moment_bath');
+        expect(moment.activityId, 'activity_bath');
+        expect(moment.title, '洗澡安抚');
+        expect(moment.sceneTag, 'bath');
+        expect(moment.coachTip, '慢慢说');
+        expect(moment.source, 'generated');
+        expect(moment.inputSource, SceneGenerationSourceType.custom);
+        expect(moment.presetSceneId, isNull);
+        expect(moment.presetSceneVersion, isNull);
+        expect(moment.starter.utteranceId, 'utt_starter');
+        expect(
+          moment.reactionSupports[BabyReactionType.hesitant].phraseId,
+          'phrase_hesitant',
+        );
+      },
+    );
+
+    test('preserves preset attribution and version from source metadata', () {
+      final moment = const SceneGenerationMapper().toGeneratedCareMoment(
+        SceneGenerationResponseDto.fromJson(
+          _validResponse(
+            source: <String, Object?>{
+              'type': 'preset',
+              'presetSceneId': 'bath_time',
+              'presetSceneVersion': 3,
+            },
+          ),
+        ),
+      );
+
+      expect(moment.inputSource, SceneGenerationSourceType.preset);
+      expect(moment.presetSceneId, 'bath_time');
+      expect(moment.presetSceneVersion, 3);
+    });
+
+    test('rejects unknown, missing, and wrong-typed response fields', () {
+      final unknown = _validResponse()..['debugBody'] = 'private';
+      expect(
+        () => SceneGenerationResponseDto.fromJson(unknown),
+        throwsFormatException,
+      );
+
+      final missing = _validResponse()..remove('starter');
+      expect(
+        () => SceneGenerationResponseDto.fromJson(missing),
+        throwsFormatException,
+      );
+
+      final wrongType = _validResponse()..['bundleSchemaVersion'] = 1;
+      expect(
+        () => SceneGenerationResponseDto.fromJson(wrongType),
+        throwsFormatException,
+      );
+    });
+
+    test('rejects duplicate canonical reactions and duplicate identities', () {
+      final duplicateReaction = _validResponse();
+      final supports = duplicateReaction['reactionSupports'] as List<dynamic>;
+      final second = supports[1] as Map<String, dynamic>;
+      second['reaction'] = 'cooperating';
+      second['displayOrder'] = 2;
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          SceneGenerationResponseDto.fromJson(duplicateReaction),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+
+      final duplicatePhrase = _validResponse();
+      final duplicatePhraseSupport =
+          (duplicatePhrase['reactionSupports'] as List<dynamic>)[0]
+              as Map<String, dynamic>;
+      duplicatePhraseSupport['phraseId'] = 'phrase_starter';
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          SceneGenerationResponseDto.fromJson(duplicatePhrase),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+    });
+
+    test('rejects invalid source attribution metadata', () {
+      final customWithPreset = _validResponse(
+        source: <String, Object?>{
+          'type': 'custom',
+          'presetSceneId': 'bath_time',
+          'presetSceneVersion': null,
+        },
+      );
+      expect(
+        () => SceneGenerationResponseDto.fromJson(customWithPreset),
+        throwsFormatException,
+      );
+
+      final presetWithoutVersion = _validResponse(
+        source: <String, Object?>{
+          'type': 'preset',
+          'presetSceneId': 'bath_time',
+          'presetSceneVersion': 0,
+        },
+      );
+      expect(
+        () => SceneGenerationResponseDto.fromJson(presetWithoutVersion),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('SceneGenerationApi', () {
+    test(
+      'posts through authenticated client and refreshes once on 401',
+      () async {
+        final adapter = _SequenceAdapter(<_AdapterReply>[
+          _AdapterReply(401, <String, Object?>{
+            'status': 401,
+            'code': 'invalid_session',
+            'message': 'private backend body',
+            'details': <String, Object?>{},
+          }),
+          _AdapterReply(200, _validResponse()),
+        ]);
+        final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080'))
+          ..httpClientAdapter = adapter;
+        final accountApi = _RefreshingAccountApiService();
+        final api = SceneGenerationApi(
+          authenticatedApiClient: AuthenticatedApiClient(
+            apiService: accountApi,
+          ),
+          dio: dio,
+        );
+
+        final response = await api.generate(
+          session: _session(accessToken: 'access_old'),
+          persistRefreshedSession: (session) async => session,
+          request: SceneGenerationRequestDto(
+            source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+            locale: 'zh-CN',
+            installationId: 'install_1',
+            clientRequestId: 'scene_request_3',
+          ),
+        );
+
+        expect(response.generatedContentId, 'gcn_1');
+        expect(accountApi.refreshCallCount, 1);
+        expect(adapter.requests, hasLength(2));
+        expect(adapter.requests[0].path, '/api/v1/practice/scene-generations');
+        expect(adapter.requests[1].path, '/api/v1/practice/scene-generations');
+        expect(
+          adapter.requests.map(
+            (request) => request.headers[authorizationHeaderName],
+          ),
+          <String>['Bearer access_old', 'Bearer access_new'],
+        );
+        expect(adapter.requests[1].headers['X-App-Version'], '1.3.0');
+        expect(adapter.requests[1].data, <String, Object?>{
+          'source': <String, Object?>{'type': 'custom', 'text': '宝宝洗澡时一直躲水。'},
+          'locale': 'zh-CN',
+          'installationId': 'install_1',
+          'clientRequestId': 'scene_request_3',
+        });
+      },
+    );
+
+    test('does not expose backend body in API exception string', () async {
+      final adapter = _SequenceAdapter(<_AdapterReply>[
+        _AdapterReply(422, <String, Object?>{
+          'status': 422,
+          'code': 'generated_content_rejected',
+          'message': '宝宝洗澡时一直躲水。',
+          'details': <String, Object?>{
+            'generatedContentId': 'gcn_rejected',
+            'retryable': false,
+          },
+        }),
+      ]);
+      final api = SceneGenerationApi(
+        authenticatedApiClient: AuthenticatedApiClient(
+          apiService: _RefreshingAccountApiService(),
+        ),
+        dio: Dio(BaseOptions(baseUrl: 'http://localhost:8080'))
+          ..httpClientAdapter = adapter,
+      );
+
+      await expectLater(
+        api.generate(
+          session: _session(),
+          persistRefreshedSession: (session) async => session,
+          request: SceneGenerationRequestDto(
+            source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+            locale: 'zh-CN',
+            installationId: 'install_1',
+            clientRequestId: 'scene_request_4',
+          ),
+        ),
+        throwsA(
+          isA<SceneGenerationApiException>()
+              .having(
+                (error) => error.code,
+                'code',
+                'generated_content_rejected',
+              )
+              .having(
+                (error) => error.generatedContentId,
+                'content id',
+                'gcn_rejected',
+              )
+              .having(
+                (error) => error.toString(),
+                'safe toString',
+                allOf(
+                  isNot(contains('宝宝洗澡时一直躲水。')),
+                  isNot(contains('private backend body')),
+                ),
+              ),
+        ),
+      );
+    });
+  });
+
+  group('SceneGenerationRepositoryImpl', () {
+    test(
+      'loads only accepted JWT session, locale, and installation ID',
+      () async {
+        final gateway = _RecordingSceneGenerationGateway(
+          source: <String, Object?>{
+            'type': 'preset',
+            'presetSceneId': 'bath_time',
+            'presetSceneVersion': 3,
+          },
+        );
+        var accountLoads = 0;
+        var localeLoads = 0;
+        var installationLoads = 0;
+        final repository = SceneGenerationRepositoryImpl(
+          api: gateway,
+          mapper: const SceneGenerationMapper(),
+          accountSnapshotLoader: () async {
+            accountLoads += 1;
+            return AccountLocalSnapshot(
+              consentState: AccountConsentState.acceptedPendingSync,
+              session: _session(),
+            );
+          },
+          persistRefreshedSession: (session) async => session,
+          localeLoader: () async {
+            localeLoads += 1;
+            return 'zh-CN';
+          },
+          installationIdLoader: () async {
+            installationLoads += 1;
+            return 'install_1';
+          },
+        );
+
+        final result = await repository.generate(
+          source: const PresetSceneGenerationSource('bath_time'),
+          clientRequestId: 'scene_request_5',
+        );
+
+        expect(result.inputSource, SceneGenerationSourceType.preset);
+        expect(accountLoads, 1);
+        expect(localeLoads, 1);
+        expect(installationLoads, 1);
+        expect(gateway.request?.toJson(), <String, Object?>{
+          'source': <String, Object?>{
+            'type': 'preset',
+            'presetSceneId': 'bath_time',
+          },
+          'locale': 'zh-CN',
+          'installationId': 'install_1',
+          'clientRequestId': 'scene_request_5',
+        });
+        expect(gateway.request?.toJson().containsKey('babyProfileId'), isFalse);
+      },
+    );
+
+    test('fails without accepted JWT before API side effect', () async {
+      final gateway = _RecordingSceneGenerationGateway();
+      final repository = SceneGenerationRepositoryImpl(
+        api: gateway,
+        accountSnapshotLoader: () async => AccountLocalSnapshot.localOnly,
+        persistRefreshedSession: (session) async => session,
+        localeLoader: () async => 'zh-CN',
+        installationIdLoader: () async => 'install_1',
+      );
+
+      await expectLater(
+        repository.generate(
+          source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+          clientRequestId: 'scene_request_6',
+        ),
+        throwsA(
+          isA<SceneGenerationFailure>().having(
+            (failure) => failure.kind,
+            'kind',
+            SceneGenerationFailureKind.authenticationRequired,
+          ),
+        ),
+      );
+      expect(gateway.callCount, 0);
+    });
+
+    test(
+      'maps every stable backend error kind and preserves recovery metadata',
+      () async {
+        const cases =
+            <
+              ({
+                String code,
+                int status,
+                SceneGenerationFailureKind kind,
+                bool retryable,
+                bool requiresNewId,
+              })
+            >[
+              (
+                code: 'profile_unavailable',
+                status: 404,
+                kind: SceneGenerationFailureKind.profileUnavailable,
+                retryable: false,
+                requiresNewId: false,
+              ),
+              (
+                code: 'shared_profile_unavailable',
+                status: 404,
+                kind: SceneGenerationFailureKind.sharedProfileUnavailable,
+                retryable: false,
+                requiresNewId: false,
+              ),
+              (
+                code: 'household_access_required',
+                status: 403,
+                kind: SceneGenerationFailureKind.householdAccessRequired,
+                retryable: false,
+                requiresNewId: false,
+              ),
+              (
+                code: 'preset_scene_unavailable',
+                status: 404,
+                kind: SceneGenerationFailureKind.presetSceneUnavailable,
+                retryable: false,
+                requiresNewId: false,
+              ),
+              (
+                code: 'invalid_scene_source',
+                status: 400,
+                kind: SceneGenerationFailureKind.invalidInput,
+                retryable: false,
+                requiresNewId: false,
+              ),
+              (
+                code: 'client_request_id_conflict',
+                status: 409,
+                kind: SceneGenerationFailureKind.requestConflict,
+                retryable: false,
+                requiresNewId: false,
+              ),
+              (
+                code: 'client_request_terminal',
+                status: 409,
+                kind: SceneGenerationFailureKind.requestTerminal,
+                retryable: true,
+                requiresNewId: true,
+              ),
+              (
+                code: 'generation_in_progress',
+                status: 409,
+                kind: SceneGenerationFailureKind.generationInProgress,
+                retryable: true,
+                requiresNewId: false,
+              ),
+              (
+                code: 'custom_scene_rate_limited',
+                status: 429,
+                kind: SceneGenerationFailureKind.rateLimited,
+                retryable: true,
+                requiresNewId: false,
+              ),
+              (
+                code: 'generation_unavailable',
+                status: 503,
+                kind: SceneGenerationFailureKind.unavailable,
+                retryable: true,
+                requiresNewId: false,
+              ),
+              (
+                code: 'generation_timeout',
+                status: 504,
+                kind: SceneGenerationFailureKind.timeout,
+                retryable: true,
+                requiresNewId: false,
+              ),
+              (
+                code: 'generated_content_rejected',
+                status: 422,
+                kind: SceneGenerationFailureKind.rejected,
+                retryable: false,
+                requiresNewId: false,
+              ),
+            ];
+
+        for (final testCase in cases) {
+          final gateway = _RecordingSceneGenerationGateway(
+            error: SceneGenerationApiException.http(
+              statusCode: testCase.status,
+              code: testCase.code,
+              generatedContentId: 'gcn_error',
+              retryable: testCase.retryable,
+              requiresNewClientRequestId: testCase.requiresNewId,
+            ),
+          );
+          final repository = _repositoryFor(gateway);
+
+          await expectLater(
+            repository.generate(
+              source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+              clientRequestId: 'scene_request_${testCase.code}',
+            ),
+            throwsA(
+              isA<SceneGenerationFailure>()
+                  .having((failure) => failure.kind, 'kind', testCase.kind)
+                  .having(
+                    (failure) => failure.generatedContentId,
+                    'generatedContentId',
+                    'gcn_error',
+                  )
+                  .having(
+                    (failure) => failure.requiresNewClientRequestId,
+                    'requiresNewClientRequestId',
+                    testCase.requiresNewId,
+                  ),
+            ),
+          );
+        }
+      },
+    );
+
+    test('redacts sensitive fixture values from failure strings', () {
+      const sensitive = <String>[
+        'private message body',
+        '宝宝洗澡时一直躲水。',
+        'install_secret',
+        'account_secret',
+        'Bearer token_secret',
+        '13800138000',
+      ];
+      final failure = const SceneGenerationFailure(
+        kind: SceneGenerationFailureKind.unexpected,
+        generatedContentId: 'gcn_safe',
+      );
+
+      final rendered = failure.toString();
+      for (final value in sensitive) {
+        expect(rendered, isNot(contains(value)));
+      }
+    });
+  });
+}
+
+Map<String, dynamic> _validResponse({Map<String, Object?>? source}) {
+  return <String, dynamic>{
+    'generatedContentId': 'gcn_1',
+    'bundleSchemaVersion': generatedCareMomentSchemaVersion,
+    'route': <String, Object?>{
+      'sceneId': 'scene_bath',
+      'spaceId': 'space_bath',
+      'momentId': 'moment_bath',
+      'activityId': 'activity_bath',
+      'phraseId': 'phrase_starter',
+    },
+    'scene': <String, Object?>{
+      'spaceTitle': '日常照护',
+      'activityTitle': '洗澡安抚',
+      'sceneTag': 'bath',
+    },
+    'starter': _utterance(
+      utteranceId: 'utt_starter',
+      phraseId: 'phrase_starter',
+      role: 'starter',
+      reaction: null,
+      displayOrder: 1,
+      deliveryGuidanceZh: '慢慢说',
+    ),
+    'reactionSupports': <Map<String, Object?>>[
+      _utterance(
+        utteranceId: 'utt_cooperating',
+        phraseId: 'phrase_cooperating',
+        role: 'reaction_support',
+        reaction: 'cooperating',
+        displayOrder: 2,
+      ),
+      _utterance(
+        utteranceId: 'utt_hesitant',
+        phraseId: 'phrase_hesitant',
+        role: 'reaction_support',
+        reaction: 'hesitant',
+        displayOrder: 3,
+      ),
+      _utterance(
+        utteranceId: 'utt_resisting',
+        phraseId: 'phrase_resisting',
+        role: 'reaction_support',
+        reaction: 'resisting',
+        displayOrder: 4,
+      ),
+      _utterance(
+        utteranceId: 'utt_no_response',
+        phraseId: 'phrase_no_response',
+        role: 'reaction_support',
+        reaction: 'no_response',
+        displayOrder: 5,
+      ),
+      _utterance(
+        utteranceId: 'utt_other',
+        phraseId: 'phrase_other',
+        role: 'reaction_support',
+        reaction: 'other',
+        displayOrder: 6,
+      ),
+    ],
+    'source':
+        source ??
+        <String, Object?>{
+          'type': 'custom',
+          'presetSceneId': null,
+          'presetSceneVersion': null,
+        },
+  };
+}
+
+Map<String, Object?> _utterance({
+  required String utteranceId,
+  required String phraseId,
+  required String role,
+  required String? reaction,
+  required int displayOrder,
+  String deliveryGuidanceZh = '接住回应',
+}) {
+  return <String, Object?>{
+    'utteranceId': utteranceId,
+    'phraseId': phraseId,
+    'english': 'I am here.',
+    'chinese': '我在这里。',
+    'pronunciation': 'aɪ æm hɪr',
+    'tprActionZh': '靠近宝宝',
+    'deliveryGuidanceZh': deliveryGuidanceZh,
+    'difficulty': 'starter',
+    'role': role,
+    'reaction': reaction,
+    'displayOrder': displayOrder,
+    'providerProvenance': <String, Object?>{
+      'origin': 'provider_generated',
+      'providerName': 'provider',
+      'modelName': 'model',
+      'attemptNumber': 1,
+    },
+  };
+}
+
+AccountSession _session({String accessToken = 'access_live'}) {
+  return AccountSession(
+    accountId: 'account_1',
+    sessionId: 'session_1',
+    maskedPhoneNumber: '138****1234',
+    createdAt: DateTime.utc(2026, 7, 28),
+    accessToken: accessToken,
+    refreshToken: 'refresh_live',
+    tokenType: 'Bearer',
+    accessTokenExpiresAt: DateTime.utc(2026, 7, 28, 1),
+    refreshTokenExpiresAt: DateTime.utc(2026, 8, 28),
+  );
+}
+
+SceneGenerationRepositoryImpl _repositoryFor(
+  _RecordingSceneGenerationGateway gateway,
+) {
+  return SceneGenerationRepositoryImpl(
+    api: gateway,
+    accountSnapshotLoader: () async => AccountLocalSnapshot(
+      consentState: AccountConsentState.acceptedPendingSync,
+      session: _session(),
+    ),
+    persistRefreshedSession: (session) async => session,
+    localeLoader: () async => 'zh-CN',
+    installationIdLoader: () async => 'install_1',
+  );
+}
+
+class _RecordingSceneGenerationGateway implements SceneGenerationApiGateway {
+  _RecordingSceneGenerationGateway({this.error, this.source});
+
+  final SceneGenerationApiException? error;
+  final Map<String, Object?>? source;
+  SceneGenerationRequestDto? request;
+  int callCount = 0;
+
+  @override
+  Future<SceneGenerationResponseDto> generate({
+    required AccountSession session,
+    required PersistRefreshedSession persistRefreshedSession,
+    required SceneGenerationRequestDto request,
+  }) async {
+    callCount += 1;
+    this.request = request;
+    final failure = error;
+    if (failure != null) {
+      throw failure;
+    }
+    return SceneGenerationResponseDto.fromJson(_validResponse(source: source));
+  }
+}
+
+class _RefreshingAccountApiService extends AccountApiService {
+  int refreshCallCount = 0;
+
+  @override
+  Future<AccountSessionResponse> refreshSession({
+    required String refreshToken,
+  }) async {
+    refreshCallCount += 1;
+    return AccountSessionResponse(
+      accountId: 'account_1',
+      sessionId: 'session_1',
+      maskedPhoneNumber: '138****1234',
+      createdAt: DateTime.utc(2026, 7, 28),
+      consentStatus: 'accepted',
+      accessToken: 'access_new',
+      refreshToken: 'refresh_new',
+      tokenType: 'Bearer',
+      accessTokenExpiresAt: DateTime.utc(2026, 8, 28),
+      refreshTokenExpiresAt: DateTime.utc(2026, 9, 28),
+    );
+  }
+}
+
+class _AdapterReply {
+  const _AdapterReply(this.statusCode, this.data);
+
+  final int statusCode;
+  final Object? data;
+}
+
+class _RecordedRequest {
+  const _RecordedRequest({
+    required this.path,
+    required this.headers,
+    required this.data,
+  });
+
+  final String path;
+  final Map<String, Object?> headers;
+  final Object? data;
+}
+
+class _SequenceAdapter implements HttpClientAdapter {
+  _SequenceAdapter(this.replies);
+
+  final List<_AdapterReply> replies;
+  final List<_RecordedRequest> requests = <_RecordedRequest>[];
+  var _index = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(
+      _RecordedRequest(
+        path: options.path,
+        headers: Map<String, Object?>.from(options.headers),
+        data: options.data,
+      ),
+    );
+    final reply = replies[_index++];
+    return ResponseBody.fromString(
+      jsonEncode(reply.data),
+      reply.statusCode,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>[Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}

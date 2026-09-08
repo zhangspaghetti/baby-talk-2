@@ -1,0 +1,33 @@
+enum SceneGenerationSourceType {
+  custom('custom'),
+  preset('preset');
+
+  const SceneGenerationSourceType(this.wireValue);
+
+  final String wireValue;
+
+  static SceneGenerationSourceType parse(String value) {
+    for (final candidate in values) {
+      if (candidate.wireValue == value) {
+        return candidate;
+      }
+    }
+    throw const FormatException('unsupported scene generation source type');
+  }
+}
+
+sealed class SceneGenerationSource {
+  const SceneGenerationSource();
+}
+
+final class CustomSceneGenerationSource extends SceneGenerationSource {
+  const CustomSceneGenerationSource(this.text);
+
+  final String text;
+}
+
+final class PresetSceneGenerationSource extends SceneGenerationSource {
+  const PresetSceneGenerationSource(this.presetSceneId);
+
+  final String presetSceneId;
+}

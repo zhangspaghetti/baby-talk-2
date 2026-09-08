@@ -7,7 +7,7 @@ import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 
 /// #23 supplies the account-scoped, restart-safe implementation. The state
 /// machine deliberately refuses to delete its recovery record before this

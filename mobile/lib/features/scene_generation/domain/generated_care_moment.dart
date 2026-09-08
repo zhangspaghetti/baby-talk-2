@@ -1,4 +1,8 @@
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
+
+export 'package:mobile/features/scene_generation/domain/scene_generation_source.dart'
+    show SceneGenerationSourceType;
 
 const generatedCareMomentSchemaVersion = 'custom-scene-generated-output-v1';
 
@@ -143,6 +147,9 @@ class GeneratedCareMoment {
     required String sceneTag,
     required String coachTip,
     required String source,
+    required this.inputSource,
+    this.presetSceneId,
+    this.presetSceneVersion,
     required this.starter,
     required this.reactionSupports,
   }) : schemaVersion = _requiredSchemaVersion(schemaVersion),
@@ -155,6 +162,7 @@ class GeneratedCareMoment {
        sceneTag = _required(sceneTag, 'sceneTag'),
        coachTip = _required(coachTip, 'coachTip'),
        source = _required(source, 'source') {
+    _validateSourceMetadata();
     if (starter.role != GeneratedCareUtteranceRole.starter ||
         starter.reaction != null ||
         starter.displayOrder != 1) {
@@ -181,8 +189,31 @@ class GeneratedCareMoment {
   final String sceneTag;
   final String coachTip;
   final String source;
+  final SceneGenerationSourceType inputSource;
+  final String? presetSceneId;
+  final int? presetSceneVersion;
   final GeneratedCareUtterance starter;
   final GeneratedReactionSupportMap reactionSupports;
+
+  void _validateSourceMetadata() {
+    switch (inputSource) {
+      case SceneGenerationSourceType.custom:
+        if (presetSceneId != null || presetSceneVersion != null) {
+          throw ArgumentError(
+            'custom scene generation cannot have preset metadata',
+          );
+        }
+      case SceneGenerationSourceType.preset:
+        if (presetSceneId == null || presetSceneId!.trim().isEmpty) {
+          throw ArgumentError('preset scene generation requires preset ID');
+        }
+        if (presetSceneVersion == null || presetSceneVersion! < 1) {
+          throw ArgumentError(
+            'preset scene generation requires positive version',
+          );
+        }
+    }
+  }
 }
 
 String _required(String value, String fieldName) {

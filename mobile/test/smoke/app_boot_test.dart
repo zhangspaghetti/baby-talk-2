@@ -20,7 +20,7 @@ import 'package:mobile/features/account/data/repositories/account_repository.dar
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
 import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
 import 'package:mobile/features/garden/domain/models/fertilizer_flower_stage.dart';

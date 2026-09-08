@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -489,6 +489,7 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
       sceneTag: _requiredString(json['sceneTag'], 'sceneTag'),
       coachTip: _requiredString(json['coachTip'], 'coachTip'),
       source: source,
+      inputSource: SceneGenerationSourceType.custom,
       starter: _decodeUtterance(_stringKeyedMap(json['starter'], 'starter')),
       reactionSupports: GeneratedReactionSupportMap(
         <BabyReactionType, GeneratedCareUtterance>{

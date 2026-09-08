@@ -1,4 +1,4 @@
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 GeneratedCareMoment generatedCareMomentFixture({
@@ -60,6 +60,7 @@ GeneratedCareMoment generatedCareMomentFixture({
     sceneTag: sceneTag,
     coachTip: coachTip,
     source: 'generated',
+    inputSource: SceneGenerationSourceType.custom,
     starter: utterance(
       'starter',
       role: GeneratedCareUtteranceRole.starter,

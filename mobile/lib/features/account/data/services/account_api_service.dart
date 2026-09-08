@@ -9,7 +9,7 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 
 const String defaultAccountApiVersion = String.fromEnvironment(
   'BABY_TALK_API_VERSION',
-  defaultValue: '1.2.0',
+  defaultValue: '1.3.0',
 );
 const String defaultAccountApiBaseUrl = String.fromEnvironment(
   'BABY_TALK_API_BASE_URL',
