@@ -56,6 +56,9 @@ import 'package:mobile/features/care_path/data/audio/generated_audio_repository.
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
+import 'package:mobile/features/practice/data/remote/preset_scene_catalog_api.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
@@ -117,6 +120,12 @@ final dynamicPracticeApiServiceProvider = Provider<DynamicPracticeApiService>((
   ref,
 ) {
   final service = DynamicPracticeApiService();
+  ref.onDispose(service.close);
+  return service;
+});
+
+final presetSceneCatalogApiProvider = Provider<PresetSceneCatalogApi>((ref) {
+  final service = PresetSceneCatalogApi();
   ref.onDispose(service.close);
   return service;
 });
@@ -202,6 +211,21 @@ final assetPhraseServiceProvider = Provider<AssetPhraseService>((ref) {
   );
 });
 
+final presetSceneCatalogStoreProvider = Provider<PresetSceneCatalogStore>((ref) {
+  return PresetSceneCatalogStore(
+    directoryResolver: () => ref.read(appDirectoryProvider.future),
+  );
+});
+
+final presetSceneCatalogRepositoryProvider =
+    Provider<PresetSceneCatalogRepository>((ref) {
+      return PresetSceneCatalogRepository(
+        api: ref.watch(presetSceneCatalogApiProvider),
+        store: ref.watch(presetSceneCatalogStoreProvider),
+        assetPhraseService: ref.watch(assetPhraseServiceProvider),
+      );
+    });
+
 final generatedCareMomentLocalStoreProvider =
     Provider<GeneratedCareMomentLocalStore>((ref) {
       return GeneratedCareMomentLocalStore(
@@ -249,6 +273,9 @@ final practiceRepositoryProvider = FutureProvider<PracticeRepository>((
     localDataSource: localDataSource,
     dynamicPracticeApiService: dynamicPracticeApiService,
     contentResolver: ref.watch(generatedPracticeContentRegistryProvider),
+    presetSceneCatalogRepository: ref.watch(
+      presetSceneCatalogRepositoryProvider,
+    ),
     installationIdService: InstallationIdService(
       directoryResolver: () async => directory,
     ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 
 class AssetPhraseService {
   AssetPhraseService({
@@ -49,6 +50,33 @@ class AssetPhraseService {
           ),
         )
         .toList(growable: false);
+  }
+
+  /// Builds the offline catalog from the shipped seed content.
+  ///
+  /// The seed's activity order is the bundled order. No remote sorting rule is
+  /// applied here; remote/cache snapshots retain their own list order.
+  Future<List<PresetSceneDefinition>> loadBundledPresetScenes() async {
+    final content = await loadSeedContent();
+    var sortOrder = 0;
+    final scenes = <PresetSceneDefinition>[];
+    for (final space in content.spaces) {
+      for (final activity in space.activities) {
+        scenes.add(
+          PresetSceneDefinition(
+            presetSceneId: activity.id,
+            publishedVersion: 1,
+            spaceId: space.id,
+            title: activity.title,
+            summary: activity.summary,
+            sceneTag: activity.sceneTag,
+            coachTip: activity.coachTip,
+            sortOrder: sortOrder++,
+          ),
+        );
+      }
+    }
+    return List<PresetSceneDefinition>.unmodifiable(scenes);
   }
 
   Future<SeedContentBundle> _loadSeedContent() async {

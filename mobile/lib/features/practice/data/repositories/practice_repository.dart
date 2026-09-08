@@ -7,6 +7,7 @@ import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -14,6 +15,7 @@ import 'package:mobile/features/practice/domain/models/practice_activity_catalog
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
 
 class PracticeActivitySnapshot {
@@ -288,12 +290,14 @@ class PracticeRepository {
     required InstallationIdService installationIdService,
     DynamicPracticeApiService? dynamicPracticeApiService,
     PracticeContentResolver? contentResolver,
+    PresetSceneCatalogRepository? presetSceneCatalogRepository,
     Random? random,
   }) : _assetPhraseService = assetPhraseService,
        _localDataSource = localDataSource,
        _installationIdService = installationIdService,
        _dynamicPracticeApiService = dynamicPracticeApiService,
        _contentResolver = contentResolver,
+       _presetSceneCatalogRepository = presetSceneCatalogRepository,
        _random = random ?? Random();
 
   final AssetPhraseService _assetPhraseService;
@@ -301,10 +305,12 @@ class PracticeRepository {
   final InstallationIdService _installationIdService;
   final DynamicPracticeApiService? _dynamicPracticeApiService;
   final PracticeContentResolver? _contentResolver;
+  final PresetSceneCatalogRepository? _presetSceneCatalogRepository;
   final Random _random;
   bool _isClosed = false;
 
   Future<PracticeActivityCatalog> getActivityCatalog() async {
+    final presetCatalog = await _loadPresetSceneCatalog();
     final content = await _assetPhraseService.loadSeedContent();
     final installationId = await _safeEnsureInstallationId();
     late final List<PracticeActivitySnapshot> generatedActivities;
@@ -332,12 +338,36 @@ class PracticeRepository {
       scanErrorMessage = '本地事件读取失败：$error';
     }
 
-    final activityStates = <_CatalogActivityKey, _CatalogActivityState>{
+    final seedSpacesById = <String, SeedSpace>{
+      for (final space in content.spaces) space.id: space,
+    };
+    final seedActivitiesByRoute = <_CatalogActivityKey, SeedActivity>{
       for (final space in content.spaces)
         for (final activity in space.activities)
-          _CatalogActivityKey(space.id, activity.id):
-              _CatalogActivityState.fromSeed(space: space, activity: activity),
+          _CatalogActivityKey(space.id, activity.id): activity,
     };
+    final activityStates = <_CatalogActivityKey, _CatalogActivityState>{};
+    final orderedSpaceIds = <String>[];
+    for (final definition in presetCatalog.scenes) {
+      final seedActivity =
+          seedActivitiesByRoute[_CatalogActivityKey(
+            definition.spaceId,
+            definition.presetSceneId,
+          )];
+      final state = _CatalogActivityState.fromPublished(
+        definition: definition,
+        seedSpace: seedSpacesById[definition.spaceId],
+        seedActivity: seedActivity,
+      );
+      final key = _CatalogActivityKey(
+        definition.spaceId,
+        definition.presetSceneId,
+      );
+      activityStates[key] = state;
+      if (!orderedSpaceIds.contains(definition.spaceId)) {
+        orderedSpaceIds.add(definition.spaceId);
+      }
+    }
 
     var validEvents = 0;
     var knownGeneratedEvents = 0;
@@ -395,21 +425,30 @@ class PracticeRepository {
       }
     }
 
-    final spaces = <PracticeCatalogSpaceSummary>[];
     final activities = <PracticeCatalogActivitySummary>[];
-    for (final space in content.spaces) {
-      final spaceActivities = <PracticeCatalogActivitySummary>[];
+    final summariesBySpace = <String, List<PracticeCatalogActivitySummary>>{};
+    for (final definition in presetCatalog.scenes) {
+      final state = activityStates[_CatalogActivityKey(
+        definition.spaceId,
+        definition.presetSceneId,
+      )]!;
+      final summary = state.toSummary();
+      activities.add(summary);
+      (summariesBySpace[definition.spaceId] ??=
+            <PracticeCatalogActivitySummary>[])
+          .add(summary);
+    }
+
+    final spaces = <PracticeCatalogSpaceSummary>[];
+    for (final spaceId in orderedSpaceIds) {
+      final space = seedSpacesById[spaceId];
+      final spaceActivities = summariesBySpace[spaceId]!;
       DateTime? lastEventTime;
       var totalEvents = 0;
       var startedActivityCount = 0;
       var completedActivityCount = 0;
 
-      for (final activity in space.activities) {
-        final summary =
-            activityStates[_CatalogActivityKey(space.id, activity.id)]!
-                .toSummary();
-        spaceActivities.add(summary);
-        activities.add(summary);
+      for (final summary in spaceActivities) {
         totalEvents += summary.totalEvents;
         if (!summary.isEmpty) {
           startedActivityCount += 1;
@@ -427,9 +466,9 @@ class PracticeRepository {
 
       spaces.add(
         PracticeCatalogSpaceSummary(
-          spaceId: space.id,
-          title: space.title,
-          description: space.description,
+          spaceId: spaceId,
+          title: space?.title ?? spaceId,
+          description: space?.description ?? '',
           activities: List.unmodifiable(spaceActivities),
           totalEvents: totalEvents,
           startedActivityCount: startedActivityCount,
@@ -692,6 +731,49 @@ class PracticeRepository {
     if (generated != null) {
       return generated;
     }
+    if (_presetSceneCatalogRepository != null) {
+      final presetCatalog = await _loadPresetSceneCatalog();
+      PresetSceneDefinition? definition;
+      for (final candidate in presetCatalog.scenes) {
+        if (candidate.spaceId == spaceId &&
+            candidate.presetSceneId == activityId) {
+          definition = candidate;
+          break;
+        }
+      }
+      if (definition == null) {
+        throw FormatException('未知 preset scene: $spaceId/$activityId');
+      }
+      final content = await _assetPhraseService.loadSeedContent();
+      SeedActivity? seedActivity;
+      for (final space in content.spaces) {
+        if (space.id != definition.spaceId) {
+          continue;
+        }
+        for (final activity in space.activities) {
+          if (activity.id == definition.presetSceneId) {
+            seedActivity = activity;
+            break;
+          }
+        }
+        break;
+      }
+      final phrases = seedActivity == null
+          ? const <PracticePhrase>[]
+          : await _assetPhraseService.loadPracticePhrases(
+              spaceId: definition.spaceId,
+              activityId: definition.presetSceneId,
+            );
+      return PracticeActivitySnapshot(
+        spaceId: definition.spaceId,
+        activityId: definition.presetSceneId,
+        title: definition.title,
+        summary: definition.summary,
+        sceneTag: definition.sceneTag,
+        coachTip: definition.coachTip,
+        phrases: phrases,
+      );
+    }
     final activity = await _assetPhraseService.loadActivity(
       spaceId: spaceId,
       activityId: activityId,
@@ -708,6 +790,18 @@ class PracticeRepository {
       sceneTag: activity.sceneTag,
       coachTip: activity.coachTip,
       phrases: phrases,
+    );
+  }
+
+  Future<PresetSceneCatalogSnapshot> _loadPresetSceneCatalog() async {
+    final repository = _presetSceneCatalogRepository;
+    if (repository != null) {
+      return repository.loadCatalog();
+    }
+    final bundledScenes = await _assetPhraseService.loadBundledPresetScenes();
+    return PresetSceneCatalogSnapshot(
+      source: PresetSceneCatalogSource.bundled,
+      scenes: bundledScenes,
     );
   }
 
@@ -1475,18 +1569,43 @@ class PracticeRepository {
 }
 
 class _CatalogActivityState {
-  _CatalogActivityState({required this.space, required this.activity})
-    : _phraseById = {for (final phrase in activity.phrases) phrase.id: phrase};
+  _CatalogActivityState({
+    required this.spaceId,
+    required this.spaceTitle,
+    required this.activityId,
+    required this.title,
+    required this.summary,
+    required this.sceneTag,
+    required this.coachTip,
+    required List<SeedPhrase> phrases,
+  }) : _phrases = List<SeedPhrase>.unmodifiable(phrases),
+       _phraseById = {for (final phrase in phrases) phrase.id: phrase};
 
-  factory _CatalogActivityState.fromSeed({
-    required SeedSpace space,
-    required SeedActivity activity,
+  factory _CatalogActivityState.fromPublished({
+    required PresetSceneDefinition definition,
+    required SeedSpace? seedSpace,
+    required SeedActivity? seedActivity,
   }) {
-    return _CatalogActivityState(space: space, activity: activity);
+    return _CatalogActivityState(
+      spaceId: definition.spaceId,
+      spaceTitle: seedSpace?.title ?? definition.spaceId,
+      activityId: definition.presetSceneId,
+      title: definition.title,
+      summary: definition.summary,
+      sceneTag: definition.sceneTag,
+      coachTip: definition.coachTip,
+      phrases: seedActivity?.phrases ?? const <SeedPhrase>[],
+    );
   }
 
-  final SeedSpace space;
-  final SeedActivity activity;
+  final String spaceId;
+  final String spaceTitle;
+  final String activityId;
+  final String title;
+  final String summary;
+  final String sceneTag;
+  final String coachTip;
+  final List<SeedPhrase> _phrases;
   final Map<String, SeedPhrase> _phraseById;
   final Set<String> _completedPhraseIds = <String>{};
   int totalEvents = 0;
@@ -1524,33 +1643,33 @@ class _CatalogActivityState {
   }
 
   PracticeCatalogActivitySummary toSummary() {
-    final completedPhraseIds = activity.phrases
+    final completedPhraseIds = _phrases
         .where((phrase) => _completedPhraseIds.contains(phrase.id))
         .map((phrase) => phrase.id)
         .toList(growable: false);
 
     SeedPhrase? nextPhrase;
-    for (final phrase in activity.phrases) {
+    for (final phrase in _phrases) {
       if (!_completedPhraseIds.contains(phrase.id)) {
         nextPhrase = phrase;
         break;
       }
     }
-    nextPhrase ??= activity.phrases.isEmpty ? null : activity.phrases.last;
+    nextPhrase ??= _phrases.isEmpty ? null : _phrases.last;
 
     final latestPhrase = latestKnownEvent == null
         ? null
         : _phraseById[latestKnownEvent!.phraseId];
 
     return PracticeCatalogActivitySummary(
-      spaceId: space.id,
-      spaceTitle: space.title,
-      activityId: activity.id,
-      title: activity.title,
-      summary: activity.summary,
-      sceneTag: activity.sceneTag,
-      coachTip: activity.coachTip,
-      totalPhraseCount: activity.phrases.length,
+      spaceId: spaceId,
+      spaceTitle: spaceTitle,
+      activityId: activityId,
+      title: title,
+      summary: summary,
+      sceneTag: sceneTag,
+      coachTip: coachTip,
+      totalPhraseCount: _phrases.length,
       completedPhraseCount: completedPhraseIds.length,
       completedPhraseIds: List.unmodifiable(completedPhraseIds),
       nextPhraseId: nextPhrase?.id,
