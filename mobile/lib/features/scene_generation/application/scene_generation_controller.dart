@@ -1,0 +1,282 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_failure.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
+
+enum SceneGenerationControllerStatus {
+  idle,
+  submitting,
+  success,
+  recoverableError,
+  unknownOutcome,
+}
+
+typedef SceneGenerationControllerPhase = SceneGenerationControllerStatus;
+typedef SceneGenerationStatus = SceneGenerationControllerStatus;
+typedef SceneGenerationPhase = SceneGenerationControllerStatus;
+
+@immutable
+class SceneGenerationControllerState {
+  const SceneGenerationControllerState({
+    required this.status,
+    this.moment,
+    this.failure,
+  });
+
+  const SceneGenerationControllerState.idle()
+    : status = SceneGenerationControllerStatus.idle,
+      moment = null,
+      failure = null;
+
+  final SceneGenerationControllerStatus status;
+  final GeneratedCareMoment? moment;
+  final SceneGenerationFailure? failure;
+
+  SceneGenerationControllerStatus get phase => status;
+
+  SceneGenerationFailure? get error => failure;
+
+  String? get generatedContentId =>
+      moment?.generatedContentId ?? failure?.generatedContentId;
+
+  String? get message => failure?.presentationMessage;
+
+  bool get isBusy => status == SceneGenerationControllerStatus.submitting;
+
+  bool get canRetry =>
+      status == SceneGenerationControllerStatus.recoverableError ||
+      status == SceneGenerationControllerStatus.unknownOutcome;
+}
+
+typedef SceneGenerationApprovedBundleRegistrar =
+    Future<void> Function(GeneratedCareMoment moment);
+
+/// Owns one preset-generation attempt and its durable approved-content handoff.
+///
+/// A request identity is captured on the first [generate] call and reused by
+/// [retry]. Registration completes before [state] becomes [success]. If
+/// registration fails after generation, the approved moment stays pending so a
+/// retry repairs registration without issuing another logical generation.
+class SceneGenerationController extends ChangeNotifier {
+  SceneGenerationController({
+    required SceneGenerationRepository repository,
+    required SceneGenerationApprovedBundleRegistrar approvedBundleRegistrar,
+  }) : _repository = repository,
+       _approvedBundleRegistrar = approvedBundleRegistrar;
+
+  final SceneGenerationRepository _repository;
+  final SceneGenerationApprovedBundleRegistrar _approvedBundleRegistrar;
+
+  SceneGenerationControllerState _state =
+      const SceneGenerationControllerState.idle();
+  SceneGenerationSource? _source;
+  String? _clientRequestId;
+  GeneratedCareMoment? _pendingRegistration;
+  Future<void>? _activeOperation;
+  bool _disposed = false;
+
+  SceneGenerationControllerState get state => _state;
+
+  SceneGenerationControllerStatus get status => _state.status;
+
+  SceneGenerationControllerStatus get phase => _state.status;
+
+  SceneGenerationFailure? get failure => _state.failure;
+
+  SceneGenerationSource? get source => _source;
+
+  String? get clientRequestId => _clientRequestId;
+
+  Future<void> generate({
+    required SceneGenerationSource source,
+    required String clientRequestId,
+  }) {
+    final active = _activeOperation;
+    if (active != null) {
+      return active;
+    }
+    if (_state.status == SceneGenerationControllerStatus.success) {
+      return Future<void>.value();
+    }
+
+    _source ??= source;
+    _clientRequestId ??= clientRequestId;
+    final operation = _run();
+    _activeOperation = operation;
+    operation.then<void>(
+      (_) => _clearActive(operation),
+      onError: (Object _, StackTrace _) => _clearActive(operation),
+    );
+    return operation;
+  }
+
+  Future<void> retry() {
+    final active = _activeOperation;
+    if (active != null) {
+      return active;
+    }
+    final source = _source;
+    final clientRequestId = _clientRequestId;
+    if (source == null || clientRequestId == null) {
+      return Future<void>.value();
+    }
+    if (_state.status == SceneGenerationControllerStatus.success) {
+      return Future<void>.value();
+    }
+
+    final operation = _run();
+    _activeOperation = operation;
+    operation.then<void>(
+      (_) => _clearActive(operation),
+      onError: (Object _, StackTrace _) => _clearActive(operation),
+    );
+    return operation;
+  }
+
+  Future<void> _run() async {
+    _setState(
+      const SceneGenerationControllerState(
+        status: SceneGenerationControllerStatus.submitting,
+      ),
+    );
+
+    var moment = _pendingRegistration;
+    if (moment == null) {
+      final source = _source;
+      final clientRequestId = _clientRequestId;
+      if (source == null || clientRequestId == null) {
+        _setFailure(
+          const SceneGenerationFailure(
+            kind: SceneGenerationFailureKind.invalidInput,
+          ),
+        );
+        return;
+      }
+      try {
+        moment = await _repository.generate(
+          source: source,
+          clientRequestId: clientRequestId,
+        );
+        _pendingRegistration = moment;
+      } on SceneGenerationFailure catch (failure) {
+        _setFailure(failure);
+        return;
+      } on Object {
+        _setFailure(
+          const SceneGenerationFailure(
+            kind: SceneGenerationFailureKind.unexpected,
+            retryable: true,
+          ),
+        );
+        return;
+      }
+    }
+
+    try {
+      await _approvedBundleRegistrar(moment);
+    } on SceneGenerationFailure catch (failure) {
+      _setState(
+        SceneGenerationControllerState(
+          status: SceneGenerationControllerStatus.unknownOutcome,
+          failure: SceneGenerationFailure(
+            kind: failure.kind,
+            generatedContentId: moment.generatedContentId,
+            retryable: true,
+            requiresNewClientRequestId: failure.requiresNewClientRequestId,
+          ),
+        ),
+      );
+      return;
+    } on Object {
+      _setState(
+        SceneGenerationControllerState(
+          status: SceneGenerationControllerStatus.unknownOutcome,
+          failure: SceneGenerationFailure(
+            kind: SceneGenerationFailureKind.unexpected,
+            generatedContentId: moment.generatedContentId,
+            retryable: true,
+          ),
+        ),
+      );
+      return;
+    }
+
+    _pendingRegistration = null;
+    _setState(
+      SceneGenerationControllerState(
+        status: SceneGenerationControllerStatus.success,
+        moment: moment,
+      ),
+    );
+  }
+
+  void _setFailure(SceneGenerationFailure failure) {
+    final unknownOutcome =
+        failure.kind == SceneGenerationFailureKind.timeout ||
+        failure.kind == SceneGenerationFailureKind.network ||
+        failure.kind == SceneGenerationFailureKind.generationInProgress ||
+        (failure.kind == SceneGenerationFailureKind.unavailable &&
+            failure.retryable) ||
+        failure.kind == SceneGenerationFailureKind.unexpected;
+    _setState(
+      SceneGenerationControllerState(
+        status: unknownOutcome
+            ? SceneGenerationControllerStatus.unknownOutcome
+            : SceneGenerationControllerStatus.recoverableError,
+        failure: failure,
+      ),
+    );
+  }
+
+  void _setState(SceneGenerationControllerState state) {
+    if (_disposed) {
+      return;
+    }
+    _state = state;
+    notifyListeners();
+  }
+
+  void _clearActive(Future<void> operation) {
+    if (identical(_activeOperation, operation)) {
+      _activeOperation = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
+/// Default app-scoped controller. Tests and embedded flows can inject a
+/// controller directly into [PresetSceneGenerationGateScreen].
+final sceneGenerationControllerProvider =
+    FutureProvider.autoDispose<SceneGenerationController>((ref) async {
+      final repository = await ref.watch(
+        sceneGenerationRepositoryProvider.future,
+      );
+      final registry = ref.watch(generatedPracticeContentRegistryProvider);
+      final controller = SceneGenerationController(
+        repository: repository,
+        approvedBundleRegistrar: (moment) async {
+          final accountContext = await registry.loadCurrentAccountContext();
+          if (accountContext == null) {
+            throw const SceneGenerationFailure(
+              kind: SceneGenerationFailureKind.authenticationRequired,
+            );
+          }
+          await registry.register(
+            accountContext: accountContext,
+            moment: moment,
+          );
+        },
+      );
+      ref.onDispose(controller.dispose);
+      return controller;
+    });

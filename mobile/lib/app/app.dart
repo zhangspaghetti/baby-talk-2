@@ -39,6 +39,7 @@ import 'package:mobile/features/practice/presentation/garden_growth_notifier.dar
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
+import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show
@@ -440,10 +441,21 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           path: AppRouteNames.practice,
           builder: (context, state) {
             final routeEntry = PracticeRouteEntry.fromObject(state.extra);
-            return PracticeSessionScreen(
-              routeEntry: routeEntry,
-              audioControllerFactory: widget.audioControllerFactory,
-            );
+            return switch (routeEntry.kind) {
+              PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
+                routeEntry: routeEntry,
+                fallbackBuilder: (context, entry) => PracticeSessionScreen(
+                  routeEntry: entry,
+                  audioControllerFactory: widget.audioControllerFactory,
+                ),
+              ),
+              PracticeEntryKind.generated ||
+              PracticeEntryKind.onboarding ||
+              PracticeEntryKind.invalid => PracticeSessionScreen(
+                routeEntry: routeEntry,
+                audioControllerFactory: widget.audioControllerFactory,
+              ),
+            };
           },
         ),
         GoRoute(

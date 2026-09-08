@@ -57,7 +57,6 @@ class AppReentryOrchestrator {
        _goRouterProvider = goRouterProvider,
        _mountedCheck = mountedCheck,
        _launchDestinationProvider = launchDestinationProvider,
-       _seedContentProvider = seedContentProvider,
        _householdNotifierLookup = householdNotifierLookup,
        _continuityNotifierLookup = continuityNotifierLookup,
        _gardenGrowthNotifierLookup = gardenGrowthNotifierLookup,
@@ -71,7 +70,6 @@ class AppReentryOrchestrator {
   final GoRouterProvider _goRouterProvider;
   final MountedCheck _mountedCheck;
   final LaunchDestinationProvider _launchDestinationProvider;
-  final SeedContentProvider _seedContentProvider;
   final HouseholdNotifierLookup _householdNotifierLookup;
   final ContinuityNotifierLookup _continuityNotifierLookup;
   final GardenGrowthNotifierLookup _gardenGrowthNotifierLookup;
@@ -187,15 +185,9 @@ class AppReentryOrchestrator {
       return;
     }
 
-    final content = _seedContentProvider();
-    if (content == null || !practiceArgs.isSupportedBy(content)) {
-      router.go(AppRouteNames.shell);
-      _shareReentryCoordinator.markFallback(
-        message: '分享链接里的 activity 不受支持，已停留在首页安全入口。',
-      );
-      return;
-    }
-
+    // A valid route identity may refer to a newly published remote-only
+    // preset. The central practice route owns catalog/generation validation;
+    // bundled seed membership must not reject it before that gate runs.
     router.push(AppRouteNames.practice, extra: practiceArgs.normalized());
     _shareReentryCoordinator.markHandled(args: practiceArgs);
   }
@@ -280,15 +272,9 @@ class AppReentryOrchestrator {
       return;
     }
 
-    final content = _seedContentProvider();
-    if (content == null || !practiceArgs.isSupportedBy(content)) {
-      router.go(AppRouteNames.shell);
-      _inviteReentryCoordinator.markFallback(
-        message: '邀请返回的 activity 不受支持，已停留在首页安全入口。',
-      );
-      return;
-    }
-
+    // Household responses can point at a published scene absent from the
+    // bundled seed. Let central practice routing decide whether generation or
+    // a local fallback is possible.
     final continuityNotifier = _continuityNotifierLookup();
     if (continuityNotifier != null) {
       await continuityNotifier.configureStarterArgs(

@@ -6,6 +6,8 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 
 enum PracticeRouteEntrySource { inApp, shareReentry, inviteReentry }
 
+enum PracticeEntryKind { preset, generated, onboarding, invalid }
+
 abstract interface class PracticeRouteTarget {
   String get scopeLabel;
 
@@ -189,6 +191,19 @@ class PracticeRouteEntry {
   bool get hasValidArgs =>
       (args != null || generatedArgs != null || onboardingArgs != null) &&
       errorMessage == null;
+
+  PracticeEntryKind get kind {
+    if (args != null) {
+      return PracticeEntryKind.preset;
+    }
+    if (generatedArgs != null) {
+      return PracticeEntryKind.generated;
+    }
+    if (onboardingArgs != null) {
+      return PracticeEntryKind.onboarding;
+    }
+    return PracticeEntryKind.invalid;
+  }
 
   bool get isGeneratedCareTurn => generatedArgs != null;
 

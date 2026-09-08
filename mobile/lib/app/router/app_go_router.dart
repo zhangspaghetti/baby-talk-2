@@ -12,6 +12,7 @@ import 'package:mobile/features/custom_scene/presentation/custom_scene_input_scr
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
+import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
@@ -69,7 +70,16 @@ GoRouter createAppRouter({
         path: AppRouteNames.practice,
         builder: (context, state) {
           final routeEntry = PracticeRouteEntry.fromObject(state.extra);
-          return PracticeSessionScreen(routeEntry: routeEntry);
+          return switch (routeEntry.kind) {
+            PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
+              routeEntry: routeEntry,
+            ),
+            PracticeEntryKind.generated ||
+            PracticeEntryKind.onboarding ||
+            PracticeEntryKind.invalid => PracticeSessionScreen(
+              routeEntry: routeEntry,
+            ),
+          };
         },
       ),
       GoRoute(
