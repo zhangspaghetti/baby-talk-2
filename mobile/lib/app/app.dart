@@ -197,7 +197,6 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       goRouterProvider: () => _currentRouter,
       mountedCheck: () => mounted,
       launchDestinationProvider: () => _resolvedLaunchState?.destination,
-      seedContentProvider: () => widget.bootState.content,
       householdNotifierLookup: _lookupNotifier<HouseholdNotifier>,
       continuityNotifierLookup: _lookupNotifier<PracticeContinuityNotifier>,
       gardenGrowthNotifierLookup: _lookupNotifier<GardenGrowthNotifier>,
@@ -443,10 +442,16 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
             final routeEntry = PracticeRouteEntry.fromObject(state.extra);
             return switch (routeEntry.kind) {
               PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
+                key: ValueKey('preset-gate:${routeEntry.scopeLabel}'),
                 routeEntry: routeEntry,
                 fallbackBuilder: (context, entry) => PracticeSessionScreen(
                   routeEntry: entry,
                   audioControllerFactory: widget.audioControllerFactory,
+                  genericFallbackArgs: entry.args == null
+                      ? null
+                      : GenericFallbackPracticeRouteArgs(
+                          presetArgs: entry.args!,
+                        ),
                 ),
               ),
               PracticeEntryKind.generated ||

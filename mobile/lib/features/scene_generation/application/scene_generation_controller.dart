@@ -55,6 +55,7 @@ class SceneGenerationControllerState {
 
 typedef SceneGenerationApprovedBundleRegistrar =
     Future<void> Function(GeneratedCareMoment moment);
+typedef SceneGenerationRequestIdGenerator = String Function();
 
 /// Owns one preset-generation attempt and its durable approved-content handoff.
 ///
@@ -66,11 +67,15 @@ class SceneGenerationController extends ChangeNotifier {
   SceneGenerationController({
     required SceneGenerationRepository repository,
     required SceneGenerationApprovedBundleRegistrar approvedBundleRegistrar,
+    SceneGenerationRequestIdGenerator? clientRequestIdGenerator,
   }) : _repository = repository,
-       _approvedBundleRegistrar = approvedBundleRegistrar;
+       _approvedBundleRegistrar = approvedBundleRegistrar,
+       _clientRequestIdGenerator =
+           clientRequestIdGenerator ?? _defaultSceneGenerationClientRequestId;
 
   final SceneGenerationRepository _repository;
   final SceneGenerationApprovedBundleRegistrar _approvedBundleRegistrar;
+  final SceneGenerationRequestIdGenerator _clientRequestIdGenerator;
 
   SceneGenerationControllerState _state =
       const SceneGenerationControllerState.idle();
@@ -78,6 +83,7 @@ class SceneGenerationController extends ChangeNotifier {
   String? _clientRequestId;
   GeneratedCareMoment? _pendingRegistration;
   Future<void>? _activeOperation;
+  bool _requiresNewClientRequestIdOnRetry = false;
   bool _disposed = false;
 
   SceneGenerationControllerState get state => _state;
@@ -129,6 +135,11 @@ class SceneGenerationController extends ChangeNotifier {
       return Future<void>.value();
     }
 
+    if (_requiresNewClientRequestIdOnRetry && _pendingRegistration == null) {
+      _clientRequestId = _nextRequestId(clientRequestId);
+      _requiresNewClientRequestIdOnRetry = false;
+    }
+
     final operation = _run();
     _activeOperation = operation;
     operation.then<void>(
@@ -164,6 +175,7 @@ class SceneGenerationController extends ChangeNotifier {
         );
         _pendingRegistration = moment;
       } on SceneGenerationFailure catch (failure) {
+        _requiresNewClientRequestIdOnRetry = failure.requiresNewClientRequestId;
         _setFailure(failure);
         return;
       } on Object {
@@ -216,6 +228,8 @@ class SceneGenerationController extends ChangeNotifier {
   }
 
   void _setFailure(SceneGenerationFailure failure) {
+    _requiresNewClientRequestIdOnRetry =
+        failure.requiresNewClientRequestId && _pendingRegistration == null;
     final unknownOutcome =
         failure.kind == SceneGenerationFailureKind.timeout ||
         failure.kind == SceneGenerationFailureKind.network ||
@@ -231,6 +245,18 @@ class SceneGenerationController extends ChangeNotifier {
         failure: failure,
       ),
     );
+  }
+
+  String _nextRequestId(String previous) {
+    final candidate = _clientRequestIdGenerator().trim();
+    if (candidate.isNotEmpty && candidate != previous) {
+      return candidate;
+    }
+    const suffix = '_retry';
+    if (previous.length + suffix.length <= 96) {
+      return '$previous$suffix';
+    }
+    return '${previous.substring(0, 96 - suffix.length)}$suffix';
   }
 
   void _setState(SceneGenerationControllerState state) {
@@ -280,3 +306,8 @@ final sceneGenerationControllerProvider =
       ref.onDispose(controller.dispose);
       return controller;
     });
+
+String _defaultSceneGenerationClientRequestId() {
+  final nonce = DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(36);
+  return 'scene_$nonce';
+}

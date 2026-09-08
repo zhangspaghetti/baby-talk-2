@@ -55,6 +55,8 @@ class _PresetSceneGenerationGateScreenState
   bool _useGenericFallback = false;
   bool _started = false;
   bool _navigationScheduled = false;
+  bool _providerResolutionScheduled = false;
+  int _routeGeneration = 0;
 
   String get _clientRequestId =>
       widget.clientRequestId?.trim().isNotEmpty == true
@@ -76,28 +78,41 @@ class _PresetSceneGenerationGateScreenState
       });
       return;
     }
-    _resolveController();
   }
 
-  void _resolveController() {
-    ref
-        .read(sceneGenerationControllerProvider.future)
-        .then(
-          (controller) {
-            if (!mounted) {
-              return;
-            }
-            _bindController(controller);
-            _startGeneration();
-          },
-          onError: (Object error, StackTrace stackTrace) {
-            if (!mounted) {
-              return;
-            }
-            setState(() => _controllerError = error);
-            _loadFallbackAvailability();
-          },
-        );
+  @override
+  void didUpdateWidget(covariant PresetSceneGenerationGateScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final routeChanged =
+        oldWidget.routeEntry.scopeLabel != widget.routeEntry.scopeLabel ||
+        oldWidget.controller != widget.controller ||
+        oldWidget.clientRequestId != widget.clientRequestId;
+    if (!routeChanged) {
+      return;
+    }
+
+    _routeGeneration += 1;
+    _controller?.removeListener(_handleControllerChange);
+    _controller = null;
+    _controllerError = null;
+    _fallbackFuture = null;
+    _fallbackAvailable = false;
+    _useGenericFallback = false;
+    _started = false;
+    _navigationScheduled = false;
+    _providerResolutionScheduled = false;
+
+    final injected = widget.controller;
+    if (injected != null) {
+      _bindController(injected);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _startGeneration();
+        }
+      });
+    } else {
+      ref.invalidate(sceneGenerationControllerProvider);
+    }
   }
 
   void _bindController(SceneGenerationController controller) {
@@ -225,8 +240,10 @@ class _PresetSceneGenerationGateScreenState
     if (controller == null) {
       ref.invalidate(sceneGenerationControllerProvider);
       if (mounted) {
-        setState(() => _controllerError = null);
-        _resolveController();
+        setState(() {
+          _controllerError = null;
+          _providerResolutionScheduled = false;
+        });
       }
       return;
     }
@@ -242,10 +259,49 @@ class _PresetSceneGenerationGateScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (widget.controller == null) {
+      final providerValue = ref.watch(sceneGenerationControllerProvider);
+      if (!_providerResolutionScheduled &&
+          _controller == null &&
+          _controllerError == null) {
+        final providerController = providerValue.valueOrNull;
+        if (providerController != null) {
+          _providerResolutionScheduled = true;
+          final routeGeneration = _routeGeneration;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || routeGeneration != _routeGeneration) {
+              return;
+            }
+            _bindController(providerController);
+            _startGeneration();
+          });
+        } else if (providerValue.hasError) {
+          _providerResolutionScheduled = true;
+          final providerError = providerValue.error;
+          final routeGeneration = _routeGeneration;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || routeGeneration != _routeGeneration) {
+              return;
+            }
+            setState(() => _controllerError = providerError);
+            _loadFallbackAvailability();
+          });
+        }
+      }
+    }
+
     if (_useGenericFallback) {
       final builder = widget.fallbackBuilder;
-      return builder?.call(context, widget.routeEntry) ??
-          PracticeSessionScreen(routeEntry: widget.routeEntry);
+      if (builder != null) {
+        return builder(context, widget.routeEntry);
+      }
+      final args = widget.routeEntry.args;
+      return PracticeSessionScreen(
+        routeEntry: widget.routeEntry,
+        genericFallbackArgs: args == null
+            ? null
+            : GenericFallbackPracticeRouteArgs(presetArgs: args),
+      );
     }
 
     final controllerState = _controller?.state;

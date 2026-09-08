@@ -1915,9 +1915,14 @@ class _TrackingCarePathNotifier extends CarePathNotifier {
   Future<void> startMoment({
     required String spaceId,
     required String activityId,
+    bool bundledOnly = false,
   }) {
     startMomentCalls.add('$spaceId/$activityId');
-    return super.startMoment(spaceId: spaceId, activityId: activityId);
+    return super.startMoment(
+      spaceId: spaceId,
+      activityId: activityId,
+      bundledOnly: bundledOnly,
+    );
   }
 }
 

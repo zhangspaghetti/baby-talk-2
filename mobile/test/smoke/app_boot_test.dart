@@ -49,7 +49,13 @@ import 'package:mobile/features/practice/domain/models/practice_continuity_snaps
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
+import 'package:mobile/features/scene_generation/application/scene_generation_controller.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import '../support/isar_test_library.dart';
 import '../support/onboarding_test_fixtures.dart';
 import '../support/generated_care_moment_fixture.dart';
@@ -356,6 +362,101 @@ void main() {
 
     expect(find.byType(CustomSceneInputScreen), findsOneWidget);
   });
+
+  testWidgets(
+    'production app router gates preset entries and bypasses generated/onboarding',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          _onboardingRepositoryFor(created),
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bath_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          firstTraceEventKey: 'install_router_gate:evt_onboarding_first',
+          completedAt: DateTime.utc(2026, 9, 9, 8),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async => _disposeWidgetTree(tester));
+
+      final pendingRepository = _PendingSceneGenerationRepository();
+      final controller = SceneGenerationController(
+        repository: pendingRepository,
+        approvedBundleRegistrar: (_) async {},
+      );
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => completedSnapshot,
+          sceneGenerationController: controller,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+      final router = GoRouter.of(
+        tester.element(find.byKey(const Key('shell-ready'))),
+      );
+      router.push(
+        AppRouteNames.practice,
+        extra: const PracticeRouteArgs(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byType(PresetSceneGenerationGateScreen),
+      );
+      expect(controller.status, SceneGenerationControllerStatus.submitting);
+      expect(pendingRepository.generateCount, 1);
+      expect(pendingRepository.lastSource, isA<PresetSceneGenerationSource>());
+
+      router.pop();
+      await tester.pump();
+      router.push(
+        AppRouteNames.practice,
+        extra: GeneratedCareTurnRouteArgs(
+          generatedContentId: 'generated_router_bypass',
+        ),
+      );
+      for (var index = 0; index < 4; index += 1) {
+        await tester.pump();
+      }
+      expect(find.byType(PresetSceneGenerationGateScreen), findsNothing);
+      expect(find.byType(PracticeSessionScreen), findsOneWidget);
+
+      router.pop();
+      await tester.pump();
+      router.push(
+        AppRouteNames.practice,
+        extra: const OnboardingCareTurnRouteArgs(
+          completionId: 'completion_router_bypass',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          entryTitle: '洗澡',
+          utteranceId: 'utterance_router_bypass',
+          english: 'Warm water.',
+          chinese: '温水。',
+          source: OnboardingCareTurnSource.localFallback,
+        ),
+      );
+      for (var index = 0; index < 4; index += 1) {
+        await tester.pump();
+      }
+      expect(find.byType(PresetSceneGenerationGateScreen), findsNothing);
+      expect(find.byType(PracticeSessionScreen), findsOneWidget);
+      expect(pendingRepository.generateCount, 1);
+    },
+  );
 
   testWidgets('存在 completed snapshot 时冷启动直接进入 shell home', (
     WidgetTester tester,
@@ -1242,6 +1343,23 @@ class _SilentPracticeAudioController implements PracticeAudioController {
   }
 }
 
+class _PendingSceneGenerationRepository implements SceneGenerationRepository {
+  final Completer<GeneratedCareMoment> _pending =
+      Completer<GeneratedCareMoment>();
+  int generateCount = 0;
+  SceneGenerationSource? lastSource;
+
+  @override
+  Future<GeneratedCareMoment> generate({
+    required SceneGenerationSource source,
+    required String clientRequestId,
+  }) {
+    generateCount += 1;
+    lastSource = source;
+    return _pending.future;
+  }
+}
+
 class _FertilizerNotifierStub extends GardenFertilizerNotifier {
   _FertilizerNotifierStub(GardenGrowthNotifier growth)
     : super(
@@ -1273,6 +1391,7 @@ OnboardingRepository _onboardingRepositoryFor(_AppBootHarness harness) {
 Widget _bootApp(
   _AppBootHarness harness, {
   Future<OnboardingSnapshot?> Function()? completedSnapshotLoader,
+  SceneGenerationController? sceneGenerationController,
 }) {
   return ProviderScope(
     overrides: [
@@ -1306,6 +1425,10 @@ Widget _bootApp(
       onboardingRepositoryProvider.overrideWith(
         (ref) => _onboardingRepositoryFor(harness),
       ),
+      if (sceneGenerationController != null)
+        sceneGenerationControllerProvider.overrideWith(
+          (ref) => sceneGenerationController,
+        ),
     ],
     child: BabyTalkApp(
       bootState: harness.bootState,

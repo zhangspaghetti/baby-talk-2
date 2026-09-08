@@ -36,7 +36,6 @@ void main() {
         mountedCheck: () => overrideMounted ?? mounted,
         launchDestinationProvider: () =>
             overrideDestination ?? launchDestination,
-        seedContentProvider: () => null,
         householdNotifierLookup: () => null,
         continuityNotifierLookup: () => null,
         gardenGrowthNotifierLookup: () => null,
@@ -303,7 +302,6 @@ void main() {
         goRouterProvider: () => router,
         mountedCheck: () => mounted,
         launchDestinationProvider: () => launchDestination,
-        seedContentProvider: () => null,
         householdNotifierLookup: () => null,
         continuityNotifierLookup: () => null,
         gardenGrowthNotifierLookup: () => null,

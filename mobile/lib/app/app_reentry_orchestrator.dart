@@ -7,7 +7,6 @@ import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
-import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 
@@ -19,9 +18,6 @@ typedef MountedCheck = bool Function();
 
 /// 回调类型：获取启动目标（是否已进入 shell）
 typedef LaunchDestinationProvider = AppLaunchDestination? Function();
-
-/// 回调类型：获取种子内容包（用于练习支持性检查）
-typedef SeedContentProvider = SeedContentBundle? Function();
 
 /// 回调类型：按需查找 Notifier
 typedef HouseholdNotifierLookup = HouseholdNotifier? Function();
@@ -45,7 +41,6 @@ class AppReentryOrchestrator {
     required GoRouterProvider goRouterProvider,
     required MountedCheck mountedCheck,
     required LaunchDestinationProvider launchDestinationProvider,
-    required SeedContentProvider seedContentProvider,
     required HouseholdNotifierLookup householdNotifierLookup,
     required ContinuityNotifierLookup continuityNotifierLookup,
     required GardenGrowthNotifierLookup gardenGrowthNotifierLookup,

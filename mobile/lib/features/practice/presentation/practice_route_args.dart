@@ -102,6 +102,20 @@ class PracticeRouteArgs implements PracticeRouteTarget {
   }
 }
 
+/// Explicit in-gate fallback identity. It preserves the original preset route
+/// while telling the session loader to use Task 2's bundled-only seam.
+class GenericFallbackPracticeRouteArgs {
+  const GenericFallbackPracticeRouteArgs({required this.presetArgs});
+
+  final PracticeRouteArgs presetArgs;
+
+  bool get isValid => presetArgs.isValid;
+
+  String get scopeLabel => 'generic-fallback:${presetArgs.scopeLabel}';
+}
+
+typedef PracticeGenericFallbackArgs = GenericFallbackPracticeRouteArgs;
+
 /// The generated Care Turn route carries only durable approved-content
 /// identity. The formal Practice resolver supplies all display content.
 class GeneratedCareTurnRouteArgs implements PracticeRouteTarget {

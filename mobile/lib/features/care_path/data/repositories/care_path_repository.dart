@@ -134,7 +134,22 @@ class CarePathRepository {
   Future<CareTurnSnapshot> startMoment({
     required String spaceId,
     required String activityId,
+    bool bundledOnly = false,
   }) async {
+    if (bundledOnly) {
+      try {
+        return await _startBundledMoment(
+          spaceId: spaceId,
+          activityId: activityId,
+        );
+      } catch (_) {
+        return _unavailableSnapshot(
+          spaceId: spaceId,
+          activityId: activityId,
+          message: '当前通用照护内容暂时不可用。',
+        );
+      }
+    }
     try {
       final catalog = await _practiceRepository.getActivityCatalog();
       final activitySummary = catalog.findActivity(
@@ -547,6 +562,10 @@ class CarePathRepository {
       spaceId: spaceId,
       activityId: activityId,
     );
+    if (activity.contentSource != PracticeContentSource.seed ||
+        activity.generatedContentId != null) {
+      throw const FormatException('bundled fallback content source is invalid');
+    }
     final snapshot = _buildTurnSnapshot(
       activity: activity,
       summary: null,

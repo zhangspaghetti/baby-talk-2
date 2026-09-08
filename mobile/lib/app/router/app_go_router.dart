@@ -72,6 +72,7 @@ GoRouter createAppRouter({
           final routeEntry = PracticeRouteEntry.fromObject(state.extra);
           return switch (routeEntry.kind) {
             PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
+              key: ValueKey('preset-gate:${routeEntry.scopeLabel}'),
               routeEntry: routeEntry,
             ),
             PracticeEntryKind.generated ||
