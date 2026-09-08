@@ -23,87 +23,94 @@ void main() {
     );
   });
 
-  test('uses published metadata and preserves remote order while merging seed fallback phrases', () async {
-    final tempDir = await Directory.systemTemp.createTemp('practice_preset_catalog_');
-    final dbName = 'practice_${DateTime.now().microsecondsSinceEpoch}';
-    final localDataSource = await PracticeLocalDataSource.open(
-      directory: tempDir.path,
-      name: dbName,
-    );
-    try {
-      final remoteScenes = <PresetSceneDefinition>[
-        _definition('remote_only', spaceId: 'remote_space'),
-        _definition(
-          'bath_time',
-          spaceId: 'daily_care',
-          title: 'Published bath title',
-          summary: 'Published bath summary',
-          sceneTag: 'published-bath',
-          coachTip: 'Published bath tip',
-          sortOrder: 1,
-        ),
-        _definition('bedtime', spaceId: 'family_rhythm', sortOrder: 0),
-      ];
-      final store = PresetSceneCatalogStore(
-        directoryResolver: () async => tempDir,
+  test(
+    'uses published metadata and preserves remote order while merging seed fallback phrases',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'practice_preset_catalog_',
       );
-      final catalogRepository = PresetSceneCatalogRepository(
-        api: _RemoteApi(remoteScenes),
-        store: store,
-        assetPhraseService: AssetPhraseService(bundle: rootBundle),
+      final dbName = 'practice_${DateTime.now().microsecondsSinceEpoch}';
+      final localDataSource = await PracticeLocalDataSource.open(
+        directory: tempDir.path,
+        name: dbName,
       );
-      final repository = PracticeRepository(
-        assetPhraseService: AssetPhraseService(bundle: rootBundle),
-        localDataSource: localDataSource,
-        installationIdService: InstallationIdService(
+      try {
+        final remoteScenes = <PresetSceneDefinition>[
+          _definition('remote_only', spaceId: 'remote_space'),
+          _definition(
+            'bath_time',
+            spaceId: 'daily_care',
+            title: 'Published bath title',
+            summary: 'Published bath summary',
+            sceneTag: 'published-bath',
+            coachTip: 'Published bath tip',
+            sortOrder: 1,
+          ),
+          _definition('bedtime', spaceId: 'family_rhythm', sortOrder: 0),
+        ];
+        final store = PresetSceneCatalogStore(
           directoryResolver: () async => tempDir,
-          idGenerator: () => 'install_test',
-        ),
-        presetSceneCatalogRepository: catalogRepository,
-      );
+        );
+        final catalogRepository = PresetSceneCatalogRepository(
+          api: _RemoteApi(remoteScenes),
+          store: store,
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final repository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          presetSceneCatalogRepository: catalogRepository,
+        );
 
-      final catalog = await repository.getActivityCatalog();
-      final remoteOnly = catalog.activities.first;
-      final bath = catalog.activities[1];
+        final catalog = await repository.getActivityCatalog();
+        final remoteOnly = catalog.activities.first;
+        final bath = catalog.activities[1];
 
-      expect(catalog.activities.map((activity) => activity.activityId), [
-        'remote_only',
-        'bath_time',
-        'bedtime',
-      ]);
-      expect(remoteOnly.title, 'Remote title');
-      expect(remoteOnly.totalPhraseCount, 0);
-      expect(bath.title, 'Published bath title');
-      expect(bath.summary, 'Published bath summary');
-      expect(bath.sceneTag, 'published-bath');
-      expect(bath.coachTip, 'Published bath tip');
-      expect(bath.totalPhraseCount, 3);
-      expect(bath.nextPhraseEnglish, 'Warm water.');
+        expect(catalog.activities.map((activity) => activity.activityId), [
+          'remote_only',
+          'bath_time',
+          'bedtime',
+        ]);
+        expect(remoteOnly.title, 'Remote title');
+        expect(remoteOnly.totalPhraseCount, 0);
+        expect(bath.title, 'Published bath title');
+        expect(bath.summary, 'Published bath summary');
+        expect(bath.sceneTag, 'published-bath');
+        expect(bath.coachTip, 'Published bath tip');
+        expect(bath.totalPhraseCount, 3);
+        expect(bath.nextPhraseEnglish, 'Warm water.');
 
-      final snapshot = await repository.getActivitySnapshot(
-        spaceId: 'daily_care',
-        activityId: 'bath_time',
-      );
-      expect(snapshot.title, 'Published bath title');
-      expect(snapshot.phrases, hasLength(3));
-      expect(snapshot.phrases.first.english, 'Warm water.');
+        final snapshot = await repository.getActivitySnapshot(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+        expect(snapshot.title, 'Published bath title');
+        expect(snapshot.phrases, hasLength(3));
+        expect(snapshot.phrases.first.english, 'Warm water.');
 
-      final remoteOnlySnapshot = await repository.getActivitySnapshot(
-        spaceId: 'remote_space',
-        activityId: 'remote_only',
-      );
-      expect(remoteOnlySnapshot.title, 'Remote title');
-      expect(remoteOnlySnapshot.phrases, isEmpty);
-    } finally {
-      await localDataSource.close(deleteFromDisk: true);
-      if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
+        final remoteOnlySnapshot = await repository.getActivitySnapshot(
+          spaceId: 'remote_space',
+          activityId: 'remote_only',
+        );
+        expect(remoteOnlySnapshot.title, 'Remote title');
+        expect(remoteOnlySnapshot.phrases, isEmpty);
+      } finally {
+        await localDataSource.close(deleteFromDisk: true);
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
       }
-    }
-  });
+    },
+  );
 
   test('published empty catalog does not resurrect bundled scenes', () async {
-    final tempDir = await Directory.systemTemp.createTemp('practice_preset_empty_');
+    final tempDir = await Directory.systemTemp.createTemp(
+      'practice_preset_empty_',
+    );
     final localDataSource = await PracticeLocalDataSource.open(
       directory: tempDir.path,
       name: 'practice_${DateTime.now().microsecondsSinceEpoch}',
@@ -118,7 +125,9 @@ void main() {
         ),
         presetSceneCatalogRepository: PresetSceneCatalogRepository(
           api: _RemoteApi(const <PresetSceneDefinition>[]),
-          store: PresetSceneCatalogStore(directoryResolver: () async => tempDir),
+          store: PresetSceneCatalogStore(
+            directoryResolver: () async => tempDir,
+          ),
           assetPhraseService: AssetPhraseService(bundle: rootBundle),
         ),
       );

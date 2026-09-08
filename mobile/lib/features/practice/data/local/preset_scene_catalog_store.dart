@@ -5,6 +5,12 @@ import 'package:mobile/features/practice/domain/models/preset_scene_definition.d
 import 'package:path_provider/path_provider.dart';
 
 typedef PresetSceneCatalogDirectoryResolver = Future<Directory> Function();
+typedef PresetSceneCatalogFileExists = Future<bool> Function(File file);
+typedef PresetSceneCatalogFileDelete = Future<void> Function(File file);
+typedef PresetSceneCatalogFileRename =
+    Future<File> Function(File source, String targetPath);
+typedef PresetSceneCatalogFileWrite =
+    Future<void> Function(File file, String contents, {required bool flush});
 
 enum PresetSceneCatalogStoreReadStatus {
   notFound,
@@ -28,13 +34,24 @@ class PresetSceneCatalogStore {
   PresetSceneCatalogStore({
     PresetSceneCatalogDirectoryResolver? directoryResolver,
     this.fileName = 'preset_scene_catalog.json',
-  }) : _directoryResolver =
-           directoryResolver ?? getApplicationSupportDirectory;
+    PresetSceneCatalogFileExists? existsFile,
+    PresetSceneCatalogFileDelete? deleteFile,
+    PresetSceneCatalogFileRename? renameFile,
+    PresetSceneCatalogFileWrite? writeFile,
+  }) : _directoryResolver = directoryResolver ?? getApplicationSupportDirectory,
+       _existsFile = existsFile ?? _defaultExists,
+       _deleteFile = deleteFile ?? _defaultDelete,
+       _renameFile = renameFile ?? _defaultRename,
+       _writeFile = writeFile ?? _defaultWrite;
 
   static const int schemaVersion = 1;
   static const int maxQuarantineFiles = 3;
 
   final PresetSceneCatalogDirectoryResolver _directoryResolver;
+  final PresetSceneCatalogFileExists _existsFile;
+  final PresetSceneCatalogFileDelete _deleteFile;
+  final PresetSceneCatalogFileRename _renameFile;
+  final PresetSceneCatalogFileWrite _writeFile;
   final String fileName;
   Future<void> _mutationTail = Future<void>.value();
 
@@ -52,7 +69,10 @@ class PresetSceneCatalogStore {
     final File file;
     try {
       file = await _resolveFile();
-      if (!await file.exists()) {
+      if (!await _existsFile(file)) {
+        await _restoreBackupIfNeeded(file);
+      }
+      if (!await _existsFile(file)) {
         return const PresetSceneCatalogStoreReadResult(
           status: PresetSceneCatalogStoreReadStatus.notFound,
         );
@@ -63,13 +83,20 @@ class PresetSceneCatalogStore {
       );
     }
 
-    final String raw;
+    final List<int> bytes;
     try {
-      raw = await file.readAsString();
+      bytes = await file.readAsBytes();
     } on Object {
       return const PresetSceneCatalogStoreReadResult(
         status: PresetSceneCatalogStoreReadStatus.ioFailure,
       );
+    }
+
+    final String raw;
+    try {
+      raw = utf8.decode(bytes, allowMalformed: false);
+    } on FormatException {
+      return _malformedResult(file);
     }
 
     try {
@@ -95,16 +122,7 @@ class PresetSceneCatalogStore {
         ),
       );
     } on Object {
-      // Corrupt public metadata is retained under bounded quarantine names;
-      // callers can safely fall back without seeing the file body or path.
-      try {
-        await _quarantine(file);
-      } on Object {
-        // The malformed cache remains fail-closed when quarantine itself fails.
-      }
-      return const PresetSceneCatalogStoreReadResult(
-        status: PresetSceneCatalogStoreReadStatus.malformed,
-      );
+      return _malformedResult(file);
     }
   }
 
@@ -113,10 +131,12 @@ class PresetSceneCatalogStore {
   }
 
   Future<void> writeScenes(Iterable<PresetSceneDefinition> scenes) {
-    return write(PresetSceneCatalogSnapshot(
-      source: PresetSceneCatalogSource.remote,
-      scenes: scenes,
-    ));
+    return write(
+      PresetSceneCatalogSnapshot(
+        source: PresetSceneCatalogSource.remote,
+        scenes: scenes,
+      ),
+    );
   }
 
   Future<void> _write(PresetSceneCatalogSnapshot snapshot) async {
@@ -126,21 +146,48 @@ class PresetSceneCatalogStore {
       snapshot.scenes.map((scene) => scene.toJsonMap()).toList(growable: false),
     );
     File? temporaryFile;
+    File? backupFile;
+    var backupCreated = false;
     try {
       final file = await _resolveFile();
       temporaryFile = File('${file.path}.tmp');
+      backupFile = File('${file.path}.bak');
       await file.parent.create(recursive: true);
       await _deleteFileIfExists(temporaryFile);
       final root = <String, Object?>{
         'schemaVersion': schemaVersion,
-        'scenes': scenes.map((scene) => scene.toJsonMap()).toList(growable: false),
+        'scenes': scenes
+            .map((scene) => scene.toJsonMap())
+            .toList(growable: false),
       };
-      await temporaryFile.writeAsString(jsonEncode(root), flush: true);
-      if (Platform.isWindows && await file.exists()) {
-        await file.delete();
+      await _writeFile(temporaryFile, jsonEncode(root), flush: true);
+
+      // Recover an interrupted prior replacement before rotating the current
+      // last-good target into its backup.
+      if (!await _existsFile(file) && await _existsFile(backupFile)) {
+        await _renameFile(backupFile, file.path);
       }
-      await temporaryFile.rename(file.path);
+      await _deleteFileIfExists(backupFile);
+      if (await _existsFile(file)) {
+        await _renameFile(file, backupFile.path);
+        backupCreated = true;
+      }
+      await _renameFile(temporaryFile, file.path);
+      await _deleteFileIfExists(backupFile);
+      backupCreated = false;
     } on Object {
+      if (backupCreated && backupFile != null && temporaryFile != null) {
+        try {
+          final file = await _resolveFile();
+          if (await _existsFile(file)) {
+            await _deleteFileIfExists(file);
+          }
+          await _renameFile(backupFile, file.path);
+          backupCreated = false;
+        } on Object {
+          // Preserve backup for a later recovery attempt if restore is blocked.
+        }
+      }
       if (temporaryFile != null) {
         try {
           await _deleteFileIfExists(temporaryFile);
@@ -149,6 +196,37 @@ class PresetSceneCatalogStore {
         }
       }
       throw const PresetSceneCatalogStoreException();
+    } finally {
+      if (temporaryFile != null) {
+        try {
+          await _deleteFileIfExists(temporaryFile);
+        } on Object {
+          // Temporary cleanup is best effort after the primary operation.
+        }
+      }
+    }
+  }
+
+  Future<PresetSceneCatalogStoreReadResult> _malformedResult(File file) async {
+    try {
+      await _quarantine(file);
+    } on Object {
+      // The malformed cache remains fail-closed when quarantine itself fails.
+    }
+    return const PresetSceneCatalogStoreReadResult(
+      status: PresetSceneCatalogStoreReadStatus.malformed,
+    );
+  }
+
+  Future<void> _restoreBackupIfNeeded(File file) async {
+    final backup = File('${file.path}.bak');
+    if (await _existsFile(file) || !await _existsFile(backup)) {
+      return;
+    }
+    try {
+      await _renameFile(backup, file.path);
+    } on Object {
+      // Read remains a safe miss; leave backup in place for a future retry.
     }
   }
 
@@ -196,8 +274,8 @@ class PresetSceneCatalogStore {
   }
 
   Future<void> _deleteFileIfExists(File file) async {
-    if (await file.exists()) {
-      await file.delete();
+    if (await _existsFile(file)) {
+      await _deleteFile(file);
     }
   }
 
@@ -206,6 +284,18 @@ class PresetSceneCatalogStore {
     _mutationTail = running.then<void>((_) {}, onError: (_, _) {});
     return running;
   }
+}
+
+Future<bool> _defaultExists(File file) => file.exists();
+
+Future<void> _defaultDelete(File file) => file.delete();
+
+Future<File> _defaultRename(File source, String targetPath) {
+  return source.rename(targetPath);
+}
+
+Future<void> _defaultWrite(File file, String contents, {required bool flush}) {
+  return file.writeAsString(contents, flush: flush);
 }
 
 class PresetSceneCatalogStoreException implements Exception {

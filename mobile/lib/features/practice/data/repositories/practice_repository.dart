@@ -428,14 +428,15 @@ class PracticeRepository {
     final activities = <PracticeCatalogActivitySummary>[];
     final summariesBySpace = <String, List<PracticeCatalogActivitySummary>>{};
     for (final definition in presetCatalog.scenes) {
-      final state = activityStates[_CatalogActivityKey(
-        definition.spaceId,
-        definition.presetSceneId,
-      )]!;
+      final state =
+          activityStates[_CatalogActivityKey(
+            definition.spaceId,
+            definition.presetSceneId,
+          )]!;
       final summary = state.toSummary();
       activities.add(summary);
       (summariesBySpace[definition.spaceId] ??=
-            <PracticeCatalogActivitySummary>[])
+              <PracticeCatalogActivitySummary>[])
           .add(summary);
     }
 
@@ -774,6 +775,32 @@ class PracticeRepository {
         phrases: phrases,
       );
     }
+    final activity = await _assetPhraseService.loadActivity(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
+    final phrases = await _assetPhraseService.loadPracticePhrases(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
+    return PracticeActivitySnapshot(
+      spaceId: spaceId,
+      activityId: activityId,
+      title: activity.title,
+      summary: activity.summary,
+      sceneTag: activity.sceneTag,
+      coachTip: activity.coachTip,
+      phrases: phrases,
+    );
+  }
+
+  /// Loads only shipped seed content for static onboarding/registration
+  /// previews. This seam intentionally never consults published remote/cache
+  /// catalog state.
+  Future<PracticeActivitySnapshot> getBundledActivitySnapshot({
+    required String spaceId,
+    required String activityId,
+  }) async {
     final activity = await _assetPhraseService.loadActivity(
       spaceId: spaceId,
       activityId: activityId,

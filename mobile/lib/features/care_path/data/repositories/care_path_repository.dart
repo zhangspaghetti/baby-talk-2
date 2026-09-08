@@ -44,12 +44,7 @@ class CarePathRepository {
         throw StateError('onboarding continuation port 未配置。');
       }
       final verified = await port.verify(handoff);
-      final catalog = await _practiceRepository.getActivityCatalog();
-      final summary = catalog.findActivity(
-        spaceId: verified.spaceId,
-        activityId: verified.activityId,
-      );
-      final activity = await _practiceRepository.getActivitySnapshot(
+      final activity = await _loadBundledActivitySnapshot(
         spaceId: verified.spaceId,
         activityId: verified.activityId,
       );
@@ -60,7 +55,7 @@ class CarePathRepository {
       return CareTurnSnapshot(
         moment: _buildMoment(
           activity: activity,
-          summary: summary,
+          summary: null,
           nodeState: CarePathNodeState.current,
         ).copyWith(title: verified.entryTitle),
         currentUtterance: CareUtterance(
@@ -350,7 +345,7 @@ class CarePathRepository {
         reaction: reactionType.wireValue,
         occurredAt: (clientTimestamp ?? DateTime.now()).toUtc(),
       );
-      final nextTurn = await startMoment(
+      final nextTurn = await _startBundledMoment(
         spaceId: handoff.spaceId,
         activityId: handoff.activityId,
       );
@@ -362,7 +357,10 @@ class CarePathRepository {
             ? CareTurnPhase.heldWithFallback
             : CareTurnPhase.nextSupportReady,
         traceEventKey: record.eventId,
-        latestGardenImpact: await _loadLatestGardenImpact(),
+        // Onboarding continuation is a static seed path. Garden projection
+        // remains a signed-in catalog concern and must not trigger a remote
+        // or cache read here.
+        latestGardenImpact: null,
         message: nextSupport == null ? '刚才这句话已经记下了。下一句暂时没有准备好，先这样就好。' : null,
         failureKind: null,
       );
@@ -540,6 +538,40 @@ class CarePathRepository {
       return null;
     }
   }
+
+  Future<CareTurnSnapshot> _startBundledMoment({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    final activity = await _loadBundledActivitySnapshot(
+      spaceId: spaceId,
+      activityId: activityId,
+    );
+    final snapshot = _buildTurnSnapshot(
+      activity: activity,
+      summary: null,
+      nextPhraseId: null,
+      nodeState: CarePathNodeState.current,
+    );
+    if (snapshot.currentUtterance == null) {
+      return snapshot;
+    }
+    return snapshot.copyWith(
+      phase: CareTurnPhase.utteranceReady,
+      selectedReaction: null,
+      nextSupportUtterance: null,
+      traceEventKey: null,
+      latestGardenImpact: null,
+    );
+  }
+
+  Future<PracticeActivitySnapshot> _loadBundledActivitySnapshot({
+    required String spaceId,
+    required String activityId,
+  }) => _practiceRepository.getBundledActivitySnapshot(
+    spaceId: spaceId,
+    activityId: activityId,
+  );
 
   ({CareUtterance currentUtterance, CareUtterance? nextSupportUtterance})
   _reactionUtteranceState({

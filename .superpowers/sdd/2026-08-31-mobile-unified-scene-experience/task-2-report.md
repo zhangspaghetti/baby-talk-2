@@ -9,3 +9,11 @@
 - Practice merge: published metadata and API order preserved; matching seed phrases/audio remain generic fallback; remote-only scenes have empty fallback phrases.
 - Verification: `flutter analyze` clean; fresh `flutter test --no-pub --reporter compact` 953/953.
 - Scope audit: only Task2 files plus required DI/report; custom/household WIP and Windows generated files untouched/unstaged.
+
+## Fix Round 1
+
+- RED: reviewer regressions reproduced for Windows replacement loss, onboarding remote catalog access, uncapped/late remote loads, concurrent loads, invalid UTF-8, and release-disabled model invariants.
+- GREEN: backup restore replacement, bundled-only onboarding seam, 3-second cancelable remote budget, single-flight/memory cache/explicit refresh, strict byte decoding, and runtime ID/space/sort validation added.
+- Verification: catalog/API/store/repository focused plus care-path and PracticeRepository regressions pass; fresh full Flutter suite 953/953; `flutter analyze` clean.
+- Onboarding continuation now bypasses catalog/cache entirely, including reaction continuation and garden projection reads.
+- Store replacement tests inject final rename failure and verify old snapshot remains readable; invalid UTF-8 is quarantined as malformed while resolver I/O remains `ioFailure`.

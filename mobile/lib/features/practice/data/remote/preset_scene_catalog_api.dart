@@ -22,9 +22,8 @@ class PresetSceneCatalogApiException implements Exception {
     String message = '预置场景目录网络不可用。',
   }) : this(kind: PresetSceneCatalogFailureKind.network, message: message);
 
-  const PresetSceneCatalogApiException.timeout({
-    String message = '预置场景目录请求超时。',
-  }) : this(kind: PresetSceneCatalogFailureKind.timeout, message: message);
+  const PresetSceneCatalogApiException.timeout({String message = '预置场景目录请求超时。'})
+    : this(kind: PresetSceneCatalogFailureKind.timeout, message: message);
 
   const PresetSceneCatalogApiException.malformed({
     String message = '预置场景目录响应格式非法。',
@@ -51,7 +50,7 @@ class PresetSceneCatalogApi {
     Dio? dio,
     String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
-    this.timeout = const Duration(seconds: 8),
+    this.timeout = const Duration(seconds: 3),
     Future<List<PresetSceneDefinition>> Function()? loader,
   }) : _dio =
            dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
@@ -63,17 +62,41 @@ class PresetSceneCatalogApi {
   final Future<List<PresetSceneDefinition>> Function()? _loader;
   final String appVersion;
   final Duration timeout;
+  CancelToken? _cancelTokenForNextRequest;
 
-  Future<List<PresetSceneDefinition>> fetchPublishedScenes() async {
+  Future<List<PresetSceneDefinition>> fetchPublishedScenes() {
     final loader = _loader;
     if (loader != null) {
-      return List<PresetSceneDefinition>.unmodifiable(await loader());
+      return loader().then(List<PresetSceneDefinition>.unmodifiable);
     }
+    return _fetchPublishedScenes(cancelToken: _cancelTokenForNextRequest);
+  }
 
+  /// Runs the normal fetch while allowing a repository timeout to cancel the
+  /// underlying Dio request. Subclasses overriding [fetchPublishedScenes]
+  /// retain a simple fake seam; their late futures are still ignored by the
+  /// repository before any cache write.
+  Future<List<PresetSceneDefinition>> fetchPublishedScenesWithCancellation({
+    CancelToken? cancelToken,
+  }) {
+    final previous = _cancelTokenForNextRequest;
+    _cancelTokenForNextRequest = cancelToken;
+    final future = fetchPublishedScenes();
+    return future.whenComplete(() {
+      if (identical(_cancelTokenForNextRequest, cancelToken)) {
+        _cancelTokenForNextRequest = previous;
+      }
+    });
+  }
+
+  Future<List<PresetSceneDefinition>> _fetchPublishedScenes({
+    CancelToken? cancelToken,
+  }) async {
     Response<dynamic> response;
     try {
       response = await _dio.get<dynamic>(
         presetSceneCatalogPath,
+        cancelToken: cancelToken,
         options: Options(
           headers: <String, String>{
             'Accept': 'application/json',

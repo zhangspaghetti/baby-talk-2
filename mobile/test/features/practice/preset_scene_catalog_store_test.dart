@@ -33,73 +33,177 @@ void main() {
       expect(empty.snapshot!.scenes, isEmpty);
     });
 
-    test('round-trips exact fields and API order through versioned JSON', () async {
-      final snapshot = _snapshot(<PresetSceneDefinition>[
-        _definition('bedtime', sortOrder: 99),
-        _definition('bath_time', sortOrder: 1),
-      ]);
+    test(
+      'round-trips exact fields and API order through versioned JSON',
+      () async {
+        final snapshot = _snapshot(<PresetSceneDefinition>[
+          _definition('bedtime', sortOrder: 99),
+          _definition('bath_time', sortOrder: 1),
+        ]);
 
-      await store.write(snapshot);
+        await store.write(snapshot);
 
-      final raw = await File('${tempDir.path}/preset_scene_catalog.json').readAsString();
-      expect(jsonDecode(raw), <String, Object>{
-        'schemaVersion': 1,
-        'scenes': <Object>[
-          <String, Object>{
-            'presetSceneId': 'bedtime',
-            'publishedVersion': 1,
-            'spaceId': 'daily_care',
-            'title': 'Title bedtime',
-            'summary': 'Summary bedtime',
-            'sceneTag': 'tag_bedtime',
-            'coachTip': 'Tip bedtime',
-            'sortOrder': 99,
+        final raw = await File(
+          '${tempDir.path}/preset_scene_catalog.json',
+        ).readAsString();
+        expect(jsonDecode(raw), <String, Object>{
+          'schemaVersion': 1,
+          'scenes': <Object>[
+            <String, Object>{
+              'presetSceneId': 'bedtime',
+              'publishedVersion': 1,
+              'spaceId': 'daily_care',
+              'title': 'Title bedtime',
+              'summary': 'Summary bedtime',
+              'sceneTag': 'tag_bedtime',
+              'coachTip': 'Tip bedtime',
+              'sortOrder': 99,
+            },
+            <String, Object>{
+              'presetSceneId': 'bath_time',
+              'publishedVersion': 1,
+              'spaceId': 'daily_care',
+              'title': 'Title bath_time',
+              'summary': 'Summary bath_time',
+              'sceneTag': 'tag_bath_time',
+              'coachTip': 'Tip bath_time',
+              'sortOrder': 1,
+            },
+          ],
+        });
+        final roundTrip = await store.read();
+        expect(roundTrip!.scenes.map((scene) => scene.presetSceneId), [
+          'bedtime',
+          'bath_time',
+        ]);
+      },
+    );
+
+    test(
+      'uses temporary sibling and leaves no temporary file after atomic write',
+      () async {
+        await store.write(
+          _snapshot(<PresetSceneDefinition>[_definition('bath_time')]),
+        );
+
+        expect(
+          File('${tempDir.path}/preset_scene_catalog.json').existsSync(),
+          isTrue,
+        );
+        expect(
+          File('${tempDir.path}/preset_scene_catalog.json.tmp').existsSync(),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'quarantines malformed cache and bounds retained quarantine files',
+      () async {
+        final primary = File('${tempDir.path}/preset_scene_catalog.json');
+        await primary.parent.create(recursive: true);
+        await primary.writeAsString(
+          '{"schemaVersion":1,"scenes":[{"generationBrief":"secret"}]}',
+        );
+        for (
+          var index = 1;
+          index <= PresetSceneCatalogStore.maxQuarantineFiles + 1;
+          index++
+        ) {
+          await File(
+            '${primary.path}.quarantine.$index',
+          ).writeAsString('old $index');
+        }
+
+        final result = await store.readResult();
+
+        expect(result.status, PresetSceneCatalogStoreReadStatus.malformed);
+        expect(result.snapshot, isNull);
+        expect(primary.existsSync(), isFalse);
+        final retained = tempDir
+            .listSync()
+            .whereType<File>()
+            .where((file) => file.path.contains('.quarantine.'))
+            .toList();
+        expect(
+          retained.length,
+          lessThanOrEqualTo(PresetSceneCatalogStore.maxQuarantineFiles),
+        );
+      },
+    );
+
+    test(
+      'restores existing last-good cache when final replacement fails',
+      () async {
+        await store.write(
+          _snapshot(<PresetSceneDefinition>[_definition('old_scene')]),
+        );
+        var failFinalRename = true;
+        final failingStore = PresetSceneCatalogStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, target) async {
+            if (failFinalRename &&
+                source.path.endsWith('.tmp') &&
+                target.endsWith('preset_scene_catalog.json')) {
+              failFinalRename = false;
+              throw const FileSystemException(
+                'simulated final replace failure',
+              );
+            }
+            return source.rename(target);
           },
-          <String, Object>{
-            'presetSceneId': 'bath_time',
-            'publishedVersion': 1,
-            'spaceId': 'daily_care',
-            'title': 'Title bath_time',
-            'summary': 'Summary bath_time',
-            'sceneTag': 'tag_bath_time',
-            'coachTip': 'Tip bath_time',
-            'sortOrder': 1,
-          },
-        ],
-      });
-      final roundTrip = await store.read();
-      expect(roundTrip!.scenes.map((scene) => scene.presetSceneId), [
-        'bedtime',
-        'bath_time',
-      ]);
-    });
+        );
 
-    test('uses temporary sibling and leaves no temporary file after atomic write', () async {
-      await store.write(_snapshot(<PresetSceneDefinition>[_definition('bath_time')]));
+        await expectLater(
+          failingStore.write(
+            _snapshot(<PresetSceneDefinition>[_definition('new_scene')]),
+          ),
+          throwsA(isA<PresetSceneCatalogStoreException>()),
+        );
+        final restored = await store.read();
+        expect(restored!.scenes.single.presetSceneId, 'old_scene');
+        expect(
+          File('${tempDir.path}/preset_scene_catalog.json.tmp').existsSync(),
+          isFalse,
+        );
+        expect(
+          File('${tempDir.path}/preset_scene_catalog.json.bak').existsSync(),
+          isFalse,
+        );
+      },
+    );
 
-      expect(File('${tempDir.path}/preset_scene_catalog.json').existsSync(), isTrue);
-      expect(File('${tempDir.path}/preset_scene_catalog.json.tmp').existsSync(), isFalse);
-    });
+    test(
+      'strictly rejects invalid UTF-8 as malformed and quarantines it',
+      () async {
+        final file = File('${tempDir.path}/preset_scene_catalog.json');
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes(<int>[0x7b, 0xff, 0x7d]);
 
-    test('quarantines malformed cache and bounds retained quarantine files', () async {
-      final primary = File('${tempDir.path}/preset_scene_catalog.json');
-      await primary.parent.create(recursive: true);
-      await primary.writeAsString('{"schemaVersion":1,"scenes":[{"generationBrief":"secret"}]}');
-      for (var index = 1; index <= PresetSceneCatalogStore.maxQuarantineFiles + 1; index++) {
-        await File('${primary.path}.quarantine.$index').writeAsString('old $index');
-      }
+        final result = await store.readResult();
 
-      final result = await store.readResult();
+        expect(result.status, PresetSceneCatalogStoreReadStatus.malformed);
+        expect(file.existsSync(), isFalse);
+        expect(
+          tempDir.listSync().whereType<File>().any(
+            (entry) => entry.path.contains('.quarantine.'),
+          ),
+          isTrue,
+        );
+      },
+    );
 
-      expect(result.status, PresetSceneCatalogStoreReadStatus.malformed);
+    test('keeps I/O read failures distinct from malformed cache', () async {
+      final failingStore = PresetSceneCatalogStore(
+        directoryResolver: () async {
+          throw const FileSystemException('support directory unavailable');
+        },
+      );
+
+      final result = await failingStore.readResult();
+
+      expect(result.status, PresetSceneCatalogStoreReadStatus.ioFailure);
       expect(result.snapshot, isNull);
-      expect(primary.existsSync(), isFalse);
-      final retained = tempDir
-          .listSync()
-          .whereType<File>()
-          .where((file) => file.path.contains('.quarantine.'))
-          .toList();
-      expect(retained.length, lessThanOrEqualTo(PresetSceneCatalogStore.maxQuarantineFiles));
     });
   });
 }
