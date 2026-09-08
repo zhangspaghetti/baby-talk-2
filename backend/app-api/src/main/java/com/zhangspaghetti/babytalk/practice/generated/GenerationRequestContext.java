@@ -14,7 +14,6 @@ public record GenerationRequestContext(
         String ageRange,
         String parentGoal,
         String locale,
-        String actorRole,
         int recentPracticeCount,
         String dominantReaction,
         String recentActivitySummary
@@ -24,7 +23,6 @@ public record GenerationRequestContext(
         requireNonBlank(ageRange, "ageRange");
         requireNonBlank(parentGoal, "parentGoal");
         requireNonBlank(locale, "locale");
-        requireNonBlank(actorRole, "actorRole");
         if (recentPracticeCount < 0) {
             throw new IllegalArgumentException("recentPracticeCount must not be negative");
         }
@@ -40,7 +38,6 @@ public record GenerationRequestContext(
                 personalization.ageRange(),
                 personalization.parentGoal(),
                 personalization.locale(),
-                personalization.actorRole(),
                 personalization.recentPracticeCount(),
                 personalization.dominantReaction(),
                 personalization.recentActivitySummary());
@@ -50,7 +47,6 @@ public record GenerationRequestContext(
     public String toString() {
         return "GenerationRequestContext{"
                 + "locale='" + diagnosticValue(locale) + '\''
-                + ", actorRole='" + diagnosticValue(actorRole) + '\''
                 + ", recentPracticeCount=" + recentPracticeCount
                 + ", dominantReaction='" + diagnosticValue(dominantReaction) + '\''
                 + '}';

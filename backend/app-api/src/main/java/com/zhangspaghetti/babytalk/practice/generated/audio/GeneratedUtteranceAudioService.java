@@ -45,7 +45,12 @@ public class GeneratedUtteranceAudioService {
         if (utterance == null) {
             throw audioNotFound();
         }
-        return synthesizeApproved(contentId, approvedUtteranceId, utterance.englishText());
+        var response = synthesizeApprovedResponse(contentId, approvedUtteranceId, utterance.englishText());
+        if (queryMapper.findPlayableAccessibleActiveBundleUtterance(
+                contentId, approvedUtteranceId, accountId) == null) {
+            throw audioNotFound();
+        }
+        return toAudio(contentId, approvedUtteranceId, response);
     }
 
     public GeneratedUtteranceAudio synthesizeApproved(
@@ -58,12 +63,21 @@ public class GeneratedUtteranceAudioService {
         if (approvedEnglishText == null || approvedEnglishText.isBlank()) {
             throw audioNotFound();
         }
+        return toAudio(
+                contentId,
+                approvedUtteranceId,
+                synthesizeApprovedResponse(contentId, approvedUtteranceId, approvedEnglishText));
+    }
+
+    private GeneratedAudioResponse synthesizeApprovedResponse(
+            String generatedContentId,
+            String utteranceId,
+            String approvedEnglishText
+    ) {
         try {
-            var response = validateResponse(speechSynthesisPort.synthesize(
+            return validateResponse(speechSynthesisPort.synthesize(
                     new GeneratedSpeechSynthesisPort.GeneratedSpeechRequest(
-                            contentId, approvedUtteranceId, approvedEnglishText)));
-            return new GeneratedUtteranceAudio(
-                    response.bytes(), response.mimeType(), response.voiceVersion(), properties.configurationIdentity());
+                            generatedContentId, utteranceId, approvedEnglishText)));
         } catch (ContractException exception) {
             throw exception;
         } catch (GeneratedSpeechSynthesisException exception) {
@@ -71,6 +85,15 @@ public class GeneratedUtteranceAudioService {
         } catch (RuntimeException exception) {
             throw providerFailure(GeneratedSpeechSynthesisException.unavailable(exception));
         }
+    }
+
+    private GeneratedUtteranceAudio toAudio(
+            String generatedContentId,
+            String utteranceId,
+            GeneratedAudioResponse response
+    ) {
+        return new GeneratedUtteranceAudio(
+                response.bytes(), response.mimeType(), response.voiceVersion(), properties.configurationIdentity());
     }
 
     private GeneratedAudioResponse validateResponse(GeneratedAudioResponse response) {

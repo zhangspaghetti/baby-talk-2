@@ -144,12 +144,33 @@
         order by display_order asc, utterance_id asc
     </select>
 
-    <select id="findActiveAccessibleByAccountId" resultMap="generatedContentEntityMap">
+    <select id="findActiveAccessibleByAccountId" resultMap="generatedContentEntityMap" flushCache="true">
         select <include refid="columns"/>
         from practice_generated_content c
         where c.generated_content_id = #{generatedContentId}
         <include refid="accountCanAccessProfileContent"/>
           and c.status = 'active'
+    </select>
+
+    <select id="findApprovedAccessibleActiveBundleUtterances" resultMap="generatedContentUtteranceEntityMap" flushCache="true">
+        select u.utterance_id, u.generated_content_id, u.role, u.reaction_type, u.english_text, u.chinese_text,
+               u.pronunciation_hint, u.tpr_action_zh, u.delivery_guidance_zh, u.difficulty, u.display_order,
+               u.approval_status, u.approved_content_version, u.bundle_schema_version, u.provider_origin,
+               u.provider_name, u.provider_model_name, u.provider_attempt_number, u.created_at
+        from practice_generated_content_utterances u
+        join practice_generated_content c on c.generated_content_id = u.generated_content_id
+        where c.generated_content_id = #{generatedContentId}
+        <include refid="accountCanAccessProfileContent"/>
+          and c.status = 'active'
+          and c.surface = 'care_path'
+          and u.approval_status = 'approved'
+          and u.approved_content_version = c.content_version
+          and u.bundle_schema_version = 'custom-scene-generated-output-v1'
+          and u.provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(u.provider_name), '') is not null
+          and nullif(btrim(u.provider_model_name), '') is not null
+          and u.provider_attempt_number between 1 and 5
+        order by u.display_order asc, u.utterance_id asc
     </select>
 
     <select id="findPlayableApprovedUtterance" resultMap="generatedContentUtteranceEntityMap">
@@ -171,7 +192,7 @@
           and provider_attempt_number between 1 and 5
     </select>
 
-    <select id="findPlayableAccessibleActiveBundleUtterance" resultMap="generatedContentUtteranceEntityMap">
+    <select id="findPlayableAccessibleActiveBundleUtterance" resultMap="generatedContentUtteranceEntityMap" flushCache="true">
         select u.utterance_id, u.generated_content_id, u.role, u.reaction_type, u.english_text, u.chinese_text,
                u.pronunciation_hint, u.tpr_action_zh, u.delivery_guidance_zh, u.difficulty, u.display_order,
                u.approval_status, u.approved_content_version, u.bundle_schema_version, u.provider_origin,

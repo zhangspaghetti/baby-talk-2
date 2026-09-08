@@ -67,7 +67,7 @@ class PracticeGeneratedContentUnifiedEngineTest {
     }
 
     @Test
-    void profileOwnedPresetReuseIgnoresActorRoleButProviderContextKeepsFirstRole() {
+    void profileOwnedPresetReuseIgnoresActorRoleAndProviderContextOmitsRole() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
         var generator = mock(SceneContentGenerator.class);
@@ -96,6 +96,7 @@ class PracticeGeneratedContentUnifiedEngineTest {
         var requestCaptor = ArgumentCaptor.forClass(SceneContentGenerator.GeneratorRequest.class);
         verify(generator).generateCareMoment(requestCaptor.capture());
         assertThat(requestCaptor.getValue().stableActivityId()).isEqualTo("bath_time");
+        assertThat(requestCaptor.getValue().context().toString()).doesNotContain("actorRole", "caregiver");
         assertThat(primary.ownerScope()).isEqualTo("profile");
         assertThat(primary.spaceSlug()).isEqualTo("daily_care");
         assertThat(primary.activitySlug()).isEqualTo("bath_time");

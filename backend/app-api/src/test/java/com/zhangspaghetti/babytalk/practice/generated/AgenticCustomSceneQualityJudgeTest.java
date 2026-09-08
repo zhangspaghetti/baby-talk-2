@@ -140,7 +140,6 @@ class AgenticCustomSceneQualityJudgeTest {
                         "rubric-v1",
                         "9".repeat(64),
                         "小满",
-                        "caregiver",
                         "recentPracticeCount",
                         "7",
                         "hesitant",
@@ -152,6 +151,9 @@ class AgenticCustomSceneQualityJudgeTest {
                         "rawEvidenceChunks",
                         "accountId",
                         "profileId",
+                        "actorRole",
+                        "primary_caregiver",
+                        "caregiver",
                         "deviceId",
                         "providerPrompt",
                         "providerResponse",
@@ -504,7 +506,7 @@ class AgenticCustomSceneQualityJudgeTest {
                 "rubric-v1",
                 "9".repeat(64),
                 new GenerationRequestContext(
-                        "小满", "m7_11", "calmer_care", "zh-CN", "caregiver", 7,
+                        "小满", "m7_11", "calmer_care", "zh-CN", 7,
                         "hesitant", "daily_care/bath_time=7"));
     }
 

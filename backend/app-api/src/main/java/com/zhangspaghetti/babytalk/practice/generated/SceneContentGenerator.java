@@ -107,7 +107,6 @@ public interface SceneContentGenerator {
                     ageRange == null ? "unknown" : ageRange,
                     parentGoal == null ? "unknown" : parentGoal,
                     locale == null ? "unknown" : locale,
-                    "legacy",
                     0,
                     null,
                     "");

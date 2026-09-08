@@ -129,7 +129,15 @@ public class SceneGenerationService {
                 request.installationId(),
                 request.clientRequestId());
         var row = Objects.requireNonNull(generatedContent.generateScene(input), "generated content");
-        return toResponse(row, source);
+        var currentSubject = profileAccess.resolve(sessionId);
+        if (currentSubject == null) {
+            throw householdAccessRequired();
+        }
+        requireSameGenerationSubject(subject, currentSubject);
+        var accessible = generatedContent.findAccessibleActiveBundle(
+                        row.generatedContentId(), currentSubject.actorAccountId())
+                .orElseThrow(this::householdAccessRequired);
+        return toResponse(accessible.content(), source, accessible.approvedUtterances());
     }
 
     private void requireRequestShape(SceneGenerationRequest request) {
@@ -249,16 +257,27 @@ public class SceneGenerationService {
         }
     }
 
+    private void requireSameGenerationSubject(GenerationSubject initial, GenerationSubject current) {
+        if (!Objects.equals(initial.actorAccountId(), current.actorAccountId())
+                || !Objects.equals(initial.ownerAccountId(), current.ownerAccountId())
+                || !Objects.equals(initial.profileId(), current.profileId())
+                || initial.profileVersion() != current.profileVersion()
+                || !Objects.equals(initial.householdId(), current.householdId())
+                || !Objects.equals(initial.actorRole(), current.actorRole())
+                || !Objects.equals(initial.babyName(), current.babyName())
+                || !Objects.equals(initial.ageRange(), current.ageRange())
+                || !Objects.equals(initial.parentGoal(), current.parentGoal())) {
+            throw householdAccessRequired();
+        }
+    }
+
     private SceneGenerationResponse toResponse(
             PracticeGeneratedContentEntity row,
-            ResolvedSource source
+            ResolvedSource source,
+            List<PracticeGeneratedContentUtteranceEntity> utterances
     ) {
         if (row == null) {
             throw invalidGeneratedOutput();
-        }
-        var utterances = row.approvedUtterances();
-        if (utterances == null || utterances.isEmpty()) {
-            utterances = generatedContent.findApprovedUtterances(row.generatedContentId());
         }
         requireCompleteBundle(row, utterances);
         var starterRow = utterances.stream()
@@ -410,6 +429,14 @@ public class SceneGenerationService {
                 "generation_invalid_output",
                 "生成内容结构不合法。",
                 Map.of("retryable", false));
+    }
+
+    private ContractException householdAccessRequired() {
+        return new ContractException(
+                HttpStatus.FORBIDDEN,
+                "household_access_required",
+                "当前账号没有可用的家庭档案访问权限。",
+                Map.of());
     }
 
     private record ResolvedSource(

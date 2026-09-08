@@ -347,6 +347,10 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 complete.generatedContentId(), complete.accountId())).isNotNull();
         assertThat(queries.findActiveAccessibleByAccountId(
                 complete.generatedContentId(), "acct_pgc_repo_other")).isNull();
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                complete.generatedContentId(), complete.accountId())).hasSize(6);
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                complete.generatedContentId(), "acct_pgc_repo_other")).isEmpty();
         assertThat(queries.findPlayableApprovedUtterance(
                 complete.generatedContentId(), complete.phraseSlug()))
                 .extracting(value -> value.englishText())
@@ -408,6 +412,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
                 profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId))
                 .isNotNull();
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                profileContent.generatedContentId(), caregiverAAccountId)).hasSize(6);
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
                 profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId))
                 .isNotNull();
@@ -420,6 +426,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
                 profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId))
                 .isNull();
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                profileContent.generatedContentId(), caregiverAAccountId)).isEmpty();
 
         jdbcTemplate.update(
                 "update households set status = 'revoked' where household_id = ?",
@@ -431,6 +439,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
                 profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId))
                 .isNull();
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                profileContent.generatedContentId(), caregiverBAccountId)).isEmpty();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
                 profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId))
                 .isNull();
@@ -491,7 +501,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(xml.split("<sql id=\"accountCanAccessProfileContent\">", -1).length - 1)
                 .isEqualTo(1);
         assertThat(xml.split("<include refid=\"accountCanAccessProfileContent\"/>", -1).length - 1)
-                .isEqualTo(2);
+                .isEqualTo(3);
     }
 
     @Test

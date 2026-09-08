@@ -40,6 +40,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,6 +106,9 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
 
     private final StubResponses caller = new StubResponses();
 
+    private final AtomicReference<CountDownLatch> speechEntered = new AtomicReference<>();
+    private final AtomicReference<CountDownLatch> speechRelease = new AtomicReference<>();
+
     @Autowired
     private AuthConsentSyncService authConsentSyncService;
 
@@ -131,6 +137,8 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 session.accountId());
 
         caller.mode(StubMode.PASS);
+        speechEntered.set(null);
+        speechRelease.set(null);
         evidenceRetriever.mode(EvidenceMode.SUFFICIENT);
         doAnswer(invocation -> caller.callRaw(
                 invocation.getArgument(1, String.class),
@@ -151,7 +159,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                 .when(structuredOutputCaller)
                 .call(any(), anyString(), anyString(), any(), anyInt());
         doAnswer(invocation -> new GeneratedAudioResponse(
-                new byte[]{0x49, 0x44, 0x33, 0x04, 0x00, 0x00}, "audio/mpeg", "generated-tts-v1"))
+                awaitSpeechIfBlocked(), "audio/mpeg", "generated-tts-v1"))
                 .when(speechSynthesisPort)
                 .synthesize(any());
     }
@@ -351,6 +359,118 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         assertThat(jdbcTemplate.queryForObject("select status from practice_generated_content", String.class))
                 .isEqualTo("rejected");
         assertThat(count("practice_generated_content_attempts")).isEqualTo(2);
+    }
+
+    @Test
+    void caregiverGenerationRechecksHouseholdAccessAfterProviderAndPrimaryReusesGeneratedRow() throws Exception {
+        var primary = session;
+        syncEvent(primary.accessToken(), "install-agentic-session", "race-primary-event",
+                "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
+                java.time.Instant.now().minusSeconds(30).toString());
+        var invite = createInvite(primary.accessToken());
+        var caregiver = createAcceptedSession("13900139998", "race-caregiver-install");
+        acceptInvite(caregiver.accessToken(), invite.token());
+        caller.blockGenerator();
+        var executor = Executors.newSingleThreadExecutor();
+        try {
+            var request = executor.submit(() -> mockMvc.perform(familyGeneration(
+                    caregiver.accessToken(),
+                    "race-caregiver-install",
+                    "race-caregiver-request",
+                    "{\"type\":\"custom\",\"text\":\"出门前宝宝不想穿鞋\"}")).andReturn());
+
+            assertThat(caller.awaitGeneratorEntered(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(jdbcTemplate.update(
+                    "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
+                    invite.householdId(), caregiver.accountId())).isEqualTo(1);
+            caller.releaseGenerator();
+
+            var revoked = request.get(20, TimeUnit.SECONDS).getResponse();
+            assertThat(revoked.getStatus()).isEqualTo(403);
+            var revokedBody = new tools.jackson.databind.ObjectMapper()
+                    .readTree(revoked.getContentAsString());
+            assertThat(revokedBody.get("code").asText()).isEqualTo("household_access_required");
+
+            var generatedContentId = jdbcTemplate.queryForObject(
+                    "select generated_content_id from practice_generated_content where status = 'active'",
+                    String.class);
+            var reused = mockMvc.perform(familyGeneration(
+                            primary.accessToken(),
+                            "race-primary-install",
+                            "race-primary-reuse",
+                            "{\"type\":\"custom\",\"text\":\"出门前宝宝不想穿鞋\"}"))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            var reusedBody = new tools.jackson.databind.ObjectMapper()
+                    .readTree(reused.getResponse().getContentAsString());
+            assertThat(reusedBody.get("generatedContentId").asText()).isEqualTo(generatedContentId);
+            assertThat(caller.calls()).isGreaterThan(0);
+        } finally {
+            caller.releaseGenerator();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void caregiverAudioRechecksHouseholdAccessAfterTtsAndPrimaryStillReadsAudio() throws Exception {
+        var primary = session;
+        syncEvent(primary.accessToken(), "install-agentic-session", "audio-race-primary-event",
+                "daily_care", "bath_time", "bath_time_warm_water", "cooperating",
+                java.time.Instant.now().minusSeconds(30).toString());
+        var invite = createInvite(primary.accessToken());
+        var caregiver = createAcceptedSession("13900139998", "audio-race-caregiver-install");
+        acceptInvite(caregiver.accessToken(), invite.token());
+        var generated = mockMvc.perform(familyGeneration(
+                        caregiver.accessToken(),
+                        "audio-race-caregiver-install",
+                        "audio-race-generation",
+                        "{\"type\":\"custom\",\"text\":\"出门前宝宝不想穿鞋\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        var generatedJson = new tools.jackson.databind.ObjectMapper()
+                .readTree(generated.getResponse().getContentAsString());
+        var generatedContentId = generatedJson.get("generatedContentId").asText();
+        var starterUtteranceId = jdbcTemplate.queryForObject(
+                "select utterance_id from practice_generated_content_utterances "
+                        + "where generated_content_id = ? and role = 'starter'",
+                String.class,
+                generatedContentId);
+
+        blockSpeech();
+        var executor = Executors.newSingleThreadExecutor();
+        try {
+            var audioRequest = executor.submit(() -> mockMvc.perform(get(
+                            "/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
+                            generatedContentId, starterUtteranceId)
+                    .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + caregiver.accessToken())).andReturn());
+
+            assertThat(awaitSpeechEntered(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(jdbcTemplate.update(
+                    "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
+                    invite.householdId(), caregiver.accountId())).isEqualTo(1);
+            assertThat(generatedContentQueryMapper.findPlayableAccessibleActiveBundleUtterance(
+                    generatedContentId, starterUtteranceId, caregiver.accountId())).isNull();
+            releaseSpeech();
+
+            var revoked = audioRequest.get(20, TimeUnit.SECONDS).getResponse();
+            assertThat(revoked.getStatus()).isEqualTo(404);
+            var revokedBody = new tools.jackson.databind.ObjectMapper()
+                    .readTree(revoked.getContentAsString());
+            assertThat(revokedBody.get("code").asText()).isEqualTo("generated_audio_not_found");
+
+            mockMvc.perform(get(
+                            "/api/v1/practice/generated-content/{contentId}/utterances/{utteranceId}/audio",
+                            generatedContentId, starterUtteranceId)
+                    .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + primary.accessToken()))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf("audio/mpeg")));
+            org.mockito.Mockito.verify(speechSynthesisPort, org.mockito.Mockito.atLeast(2)).synthesize(any());
+        } finally {
+            releaseSpeech();
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -817,6 +937,44 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                                 Integer.toUnsignedString(scene.hashCode())));
     }
 
+    private void blockSpeech() {
+        var entered = new CountDownLatch(1);
+        speechRelease.set(new CountDownLatch(1));
+        speechEntered.set(entered);
+    }
+
+    private boolean awaitSpeechEntered(long timeout, TimeUnit unit) throws InterruptedException {
+        var entered = speechEntered.get();
+        return entered != null && entered.await(timeout, unit);
+    }
+
+    private void releaseSpeech() {
+        var release = speechRelease.get();
+        if (release != null) {
+            release.countDown();
+        }
+    }
+
+    private byte[] awaitSpeechIfBlocked() {
+        var entered = speechEntered.get();
+        if (entered != null && entered.getCount() > 0) {
+            entered.countDown();
+            var release = speechRelease.get();
+            if (release == null) {
+                throw new IllegalStateException("speech release latch missing");
+            }
+            try {
+                release.await(20, TimeUnit.SECONDS);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("speech provider interrupted", exception);
+            } finally {
+                speechEntered.compareAndSet(entered, null);
+            }
+        }
+        return new byte[]{0x49, 0x44, 0x33, 0x04, 0x00, 0x00};
+    }
+
     private int count(String table) {
         return jdbcTemplate.queryForObject("select count(*) from " + table, Integer.class);
     }
@@ -843,7 +1001,8 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         JUDGE_TPR_REPAIR_THEN_PASS,
         ATTEMPT_EXHAUSTED,
         DUPLICATE_KEY,
-        TRAILING_TOKENS
+        TRAILING_TOKENS,
+        BLOCK_GENERATOR
     }
 
     enum EvidenceMode {
@@ -921,6 +1080,8 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
         private String repairUserPrompt;
         private final ArrayList<String> judgeSystemPrompts = new ArrayList<>();
         private final ArrayList<String> judgeUserPrompts = new ArrayList<>();
+        private volatile CountDownLatch generatorEntered;
+        private volatile CountDownLatch generatorRelease;
 
         synchronized void mode(StubMode value) {
             mode.set(value);
@@ -931,6 +1092,26 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
             repairUserPrompt = null;
             judgeSystemPrompts.clear();
             judgeUserPrompts.clear();
+            generatorEntered = null;
+            generatorRelease = null;
+        }
+
+        void blockGenerator() {
+            generatorRelease = new CountDownLatch(1);
+            generatorEntered = new CountDownLatch(1);
+            mode.set(StubMode.BLOCK_GENERATOR);
+        }
+
+        boolean awaitGeneratorEntered(long timeout, TimeUnit unit) throws InterruptedException {
+            var entered = generatorEntered;
+            return entered != null && entered.await(timeout, unit);
+        }
+
+        void releaseGenerator() {
+            var release = generatorRelease;
+            if (release != null) {
+                release.countDown();
+            }
         }
 
         synchronized int calls() {
@@ -978,6 +1159,20 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
             }
             calls++;
             var currentBundleCall = completeBundleCalls++;
+            if (currentBundleCall == 0 && mode.get() == StubMode.BLOCK_GENERATOR) {
+                var entered = generatorEntered;
+                var release = generatorRelease;
+                if (entered == null || release == null) {
+                    throw new IllegalStateException("generator latch missing");
+                }
+                entered.countDown();
+                try {
+                    release.await(20, TimeUnit.SECONDS);
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("generator provider interrupted", exception);
+                }
+            }
             if (currentBundleCall > 0) {
                 repairSystemPrompt = systemPrompt;
                 repairUserPrompt = userPrompt;

@@ -176,7 +176,6 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
                         request.context().ageRange(),
                         request.context().parentGoal(),
                         request.context().locale(),
-                        request.context().actorRole(),
                         request.context().recentPracticeCount(),
                         request.context().dominantReaction(),
                         request.context().recentActivitySummary()),
@@ -233,7 +232,6 @@ public class AgenticCustomSceneQualityJudge implements CustomSceneQualityJudge {
             String ageRange,
             String parentGoal,
             String locale,
-            String actorRole,
             int recentPracticeCount,
             String dominantReaction,
             String recentActivitySummary

@@ -205,6 +205,20 @@ public class PracticeGeneratedContentService {
                 generatedContentId, ownerKeyVersion(), nowUtc())));
     }
 
+    @Transactional(readOnly = true)
+    public Optional<AccessibleGeneratedContent> findAccessibleActiveBundle(
+            String generatedContentId,
+            String accountId
+    ) {
+        var row = queryMapper.findActiveAccessibleByAccountId(generatedContentId, accountId);
+        if (row == null) {
+            return Optional.empty();
+        }
+        var utterances = queryMapper.findApprovedAccessibleActiveBundleUtterances(
+                generatedContentId, accountId);
+        return Optional.of(new AccessibleGeneratedContent(row, utterances));
+    }
+
     public List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
     findApprovedUtterances(String generatedContentId) {
         var utterances = queryMapper.findApprovedUtterances(generatedContentId);
@@ -1335,6 +1349,18 @@ public class PracticeGeneratedContentService {
             int burstLimit,
             int dailyLimit
     ) {
+    }
+
+    public record AccessibleGeneratedContent(
+            PracticeGeneratedContentEntity content,
+            List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
+                    approvedUtterances
+    ) {
+
+        public AccessibleGeneratedContent {
+            Objects.requireNonNull(content, "content");
+            approvedUtterances = approvedUtterances == null ? List.of() : List.copyOf(approvedUtterances);
+        }
     }
 
 }

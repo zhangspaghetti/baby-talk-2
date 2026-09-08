@@ -53,7 +53,6 @@ public interface CustomSceneQualityJudge {
                             ageRange,
                             parentGoal,
                             "unknown",
-                            "legacy",
                             0,
                             null,
                             ""));

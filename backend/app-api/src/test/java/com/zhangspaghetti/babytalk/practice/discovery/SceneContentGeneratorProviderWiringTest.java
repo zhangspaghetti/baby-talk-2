@@ -254,7 +254,6 @@ class SceneContentGeneratorProviderWiringTest {
                         "m7_11",
                         "calmer_care",
                         "zh-CN",
-                        "primary",
                         0,
                         null,
                         ""));

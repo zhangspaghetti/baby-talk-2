@@ -23,6 +23,7 @@ import com.zhangspaghetti.babytalk.practice.preset.PresetSceneCatalogService;
 import com.zhangspaghetti.babytalk.profile.HouseholdBabyProfileAccessService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,6 +70,8 @@ class SceneGenerationServiceTest {
         when(access.resolve("sid-custom")).thenReturn(subject);
         when(personalization.build(eq(subject), eq("zh-CN"), any())).thenReturn(context);
         when(generatedContent.generateScene(any())).thenReturn(row);
+        when(generatedContent.findAccessibleActiveBundle("pgc-custom", "actor-1"))
+                .thenReturn(Optional.of(accessible(row)));
 
         var result = service.generate(custom("洗澡时不想碰水"), "sid-custom");
 
@@ -87,6 +90,7 @@ class SceneGenerationServiceTest {
         assertThat(input.getValue().clientRequestId()).isEqualTo("request-1");
         assertThat(result.generatedContentId()).isEqualTo("pgc-custom");
         assertThat(result.source()).isEqualTo(new SceneGenerationResponse.SourceView("custom", null, null));
+        verify(generatedContent).findAccessibleActiveBundle("pgc-custom", "actor-1");
 
         InOrder order = inOrder(access, personalization, generatedContent);
         order.verify(access).resolve("sid-custom");
@@ -112,6 +116,8 @@ class SceneGenerationServiceTest {
         when(catalog.requirePublished("bath_time")).thenReturn(preset);
         when(personalization.build(eq(subject), eq("zh-CN"), any())).thenReturn(context);
         when(generatedContent.generateScene(any())).thenReturn(row);
+        when(generatedContent.findAccessibleActiveBundle("pgc-preset", "actor-1"))
+                .thenReturn(Optional.of(accessible(row)));
 
         var result = service.generate(preset("bath_time"), "sid-preset");
 
@@ -152,6 +158,22 @@ class SceneGenerationServiceTest {
 
         verify(personalization, never()).build(any(), any(), any());
         verify(generatedContent, never()).generateScene(any());
+    }
+
+    @Test
+    void sessionInvalidatedAfterProviderFailsClosedBeforeAnyBundleRead() {
+        var subject = subject();
+        var context = context(subject);
+        var row = generatedRow("pgc-session-revoked");
+        var sessionRevoked = new ContractException(
+                HttpStatus.UNAUTHORIZED, "invalid_session", "session 不存在或已失效。");
+        when(access.resolve("sid-custom")).thenReturn(subject).thenThrow(sessionRevoked);
+        when(personalization.build(eq(subject), eq("zh-CN"), any())).thenReturn(context);
+        when(generatedContent.generateScene(any())).thenReturn(row);
+
+        assertThatThrownBy(() -> service.generate(custom("洗澡时不想碰水"), "sid-custom"))
+                .isSameAs(sessionRevoked);
+        verify(generatedContent, never()).findAccessibleActiveBundle(any(), any());
     }
 
     @Test
@@ -252,6 +274,8 @@ class SceneGenerationServiceTest {
         var row = generatedRow("pgc-incomplete");
         row.setApprovedUtterances(row.approvedUtterances().subList(0, 5));
         when(generatedContent.generateScene(any())).thenReturn(row);
+        when(generatedContent.findAccessibleActiveBundle("pgc-incomplete", "actor-1"))
+                .thenReturn(Optional.of(accessible(row)));
 
         assertThatThrownBy(() -> service.generate(custom("洗澡时不想碰水"), "sid-custom"))
                 .isInstanceOf(ContractException.class)
@@ -268,7 +292,10 @@ class SceneGenerationServiceTest {
         var subject = subject();
         when(access.resolve("sid-custom")).thenReturn(subject);
         when(personalization.build(eq(subject), eq("zh-CN"), any())).thenReturn(context(subject));
-        when(generatedContent.generateScene(any())).thenReturn(generatedRow("pgc-privacy"));
+        var row = generatedRow("pgc-privacy");
+        when(generatedContent.generateScene(any())).thenReturn(row);
+        when(generatedContent.findAccessibleActiveBundle("pgc-privacy", "actor-1"))
+                .thenReturn(Optional.of(accessible(row)));
 
         var response = service.generate(custom("洗澡时不想碰水"), "sid-custom");
         var json = JsonMapper.builder().build().writeValueAsString(response);
@@ -330,6 +357,13 @@ class SceneGenerationServiceTest {
                 utterance(id, "reaction_support", "no_response", 5),
                 utterance(id, "reaction_support", "other", 6)));
         return row;
+    }
+
+    private PracticeGeneratedContentService.AccessibleGeneratedContent accessible(
+            PracticeGeneratedContentEntity row
+    ) {
+        return new PracticeGeneratedContentService.AccessibleGeneratedContent(
+                row, row.approvedUtterances());
     }
 
     private PracticeGeneratedContentUtteranceEntity utterance(

@@ -87,7 +87,6 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
                         request.context().ageRange(),
                         request.context().parentGoal(),
                         request.context().locale(),
-                        request.context().actorRole(),
                         request.context().recentPracticeCount(),
                         request.context().dominantReaction(),
                         request.context().recentActivitySummary()),
@@ -212,7 +211,6 @@ public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
             String ageRange,
             String parentGoal,
             String locale,
-            String actorRole,
             int recentPracticeCount,
             String dominantReaction,
             String recentActivitySummary

@@ -34,7 +34,6 @@ public interface CustomSceneRepairer {
                             repairPackage.ageRange(),
                             repairPackage.parentGoal(),
                             locale == null ? "unknown" : locale,
-                            "legacy",
                             0,
                             null,
                             ""));

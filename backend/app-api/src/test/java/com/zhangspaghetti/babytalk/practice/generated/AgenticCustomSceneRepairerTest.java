@@ -155,7 +155,6 @@ class AgenticCustomSceneRepairerTest {
                         "m7_11",
                         "calmer_care",
                         "小满",
-                        "caregiver",
                         "recentPracticeCount",
                         "7",
                         "hesitant",
@@ -199,6 +198,9 @@ class AgenticCustomSceneRepairerTest {
                         "ownerKey",
                         "accountId",
                         "profileId",
+                        "actorRole",
+                        "primary_caregiver",
+                        "caregiver",
                         "providerTraceId",
                         "reasoning");
     }
@@ -473,7 +475,7 @@ class AgenticCustomSceneRepairerTest {
 
     private static GenerationRequestContext context() {
         return new GenerationRequestContext(
-                "小满", "m7_11", "calmer_care", "zh-CN", "caregiver", 7,
+                "小满", "m7_11", "calmer_care", "zh-CN", 7,
                 "hesitant", "daily_care/bath_time=7");
     }
 

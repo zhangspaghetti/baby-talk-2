@@ -98,6 +98,14 @@ class AgenticSceneContentGeneratorTest {
     }
 
     @Test
+    void providerRequestContextDoesNotCarryActorRole() {
+        assertThat(Arrays.stream(GenerationRequestContext.class.getRecordComponents())
+                .map(component -> component.getName())
+                .toList())
+                .doesNotContain("actorRole");
+    }
+
+    @Test
     void obsoleteDiscoveryGenerationPortIsRemoved() {
         assertThatThrownBy(() -> Class.forName(
                 "com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGenerationService"))
@@ -174,7 +182,7 @@ class AgenticSceneContentGeneratorTest {
         var userPrompt = userPromptCaptor.getValue();
         assertThat(userPrompt)
                 .contains("pgc_generator_test", "给宝宝穿鞋", "m7_11", "calmer_care", "zh-CN", "小满",
-                        "caregiver", "recentPracticeCount", "7", "hesitant", "daily_care/bath_time=7")
+                        "recentPracticeCount", "7", "hesitant", "daily_care/bath_time=7")
                 .contains("先轻声说。", "再停下来观察。")
                 .contains(
                         "\"persistenceCodePointLimits\":{",
@@ -192,6 +200,9 @@ class AgenticSceneContentGeneratorTest {
                         "ownerKey",
                         "accountId",
                         "profileId",
+                        "actorRole",
+                        "primary_caregiver",
+                        "caregiver",
                         "rawEvidenceChunks",
                         "retrievalTraceId",
                         "bundleHash",
@@ -466,7 +477,6 @@ class AgenticSceneContentGeneratorTest {
                         "m7_11",
                         "calmer_care",
                         "zh-CN",
-                        "caregiver",
                         7,
                         "hesitant",
                         "daily_care/bath_time=7"));

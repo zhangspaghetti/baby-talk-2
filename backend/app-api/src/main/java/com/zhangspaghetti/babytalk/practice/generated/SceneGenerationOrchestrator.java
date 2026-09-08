@@ -938,7 +938,6 @@ public class SceneGenerationOrchestrator {
                     reservedContent.ageRange() == null ? "unknown" : reservedContent.ageRange(),
                     reservedContent.parentGoal() == null ? "unknown" : reservedContent.parentGoal(),
                     reservedContent.locale() == null ? "unknown" : reservedContent.locale(),
-                    "legacy",
                     0,
                     null,
                     "");

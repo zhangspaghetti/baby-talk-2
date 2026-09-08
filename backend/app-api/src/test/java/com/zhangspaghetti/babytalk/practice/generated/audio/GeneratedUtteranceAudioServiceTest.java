@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -68,7 +69,7 @@ class GeneratedUtteranceAudioServiceTest {
         assertThat(request.getValue().generatedContentId()).isEqualTo("pgc_1");
         assertThat(request.getValue().utteranceId()).isEqualTo("utt_1");
         assertThat(request.getValue().approvedEnglishText()).isEqualTo("Look at the bubbles.");
-        verify(queryMapper).findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner");
+        verify(queryMapper, times(2)).findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner");
         verifyNoMoreInteractions(queryMapper);
     }
 
