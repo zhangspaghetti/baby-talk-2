@@ -38,19 +38,7 @@ const _versionErrorKeys = <String>{
   'details',
   'correlationId',
 };
-const _versionErrorKeysWithoutDetails = <String>{
-  'code',
-  'message',
-  'minimumSupportedVersion',
-  'upgradeUrl',
-  'correlationId',
-};
-const _rateLimitCodes = <String>{
-  'custom_scene_rate_limited',
-  'generation_rate_limited',
-  'scene_generation_rate_limited',
-  'rate_limited',
-};
+const _gatewayRateLimitKeys = <String>{'code', 'message', 'retryAfter'};
 
 enum SceneGenerationApiFailureKind {
   network,
@@ -68,6 +56,7 @@ class SceneGenerationApiException implements Exception {
     this.retryable = false,
     this.generatedContentId,
     this.requiresNewClientRequestId = false,
+    this.retryAfter,
   });
 
   const SceneGenerationApiException.network()
@@ -88,6 +77,7 @@ class SceneGenerationApiException implements Exception {
     bool retryable = false,
     String? generatedContentId,
     bool requiresNewClientRequestId = false,
+    int? retryAfter,
   }) : this(
          kind: SceneGenerationApiFailureKind.http,
          statusCode: statusCode,
@@ -95,6 +85,7 @@ class SceneGenerationApiException implements Exception {
          retryable: retryable,
          generatedContentId: generatedContentId,
          requiresNewClientRequestId: requiresNewClientRequestId,
+         retryAfter: retryAfter,
        );
 
   final SceneGenerationApiFailureKind kind;
@@ -103,6 +94,7 @@ class SceneGenerationApiException implements Exception {
   final bool retryable;
   final String? generatedContentId;
   final bool requiresNewClientRequestId;
+  final int? retryAfter;
 
   bool get isUnauthorized => statusCode == 401 || code == 'invalid_session';
 
@@ -233,27 +225,37 @@ class SceneGenerationApi implements SceneGenerationApiGateway {
   ) {
     final keys = json.keys.toSet();
     final code = json['code'];
-    final isKnownRateLimit =
-        statusCode == 429 || code is String && _rateLimitCodes.contains(code);
+    if (_isExactErrorKeys(keys, _gatewayRateLimitKeys)) {
+      final message = json['message'];
+      final retryAfter = json['retryAfter'];
+      if (statusCode != 429 ||
+          code != 'RATE_LIMITED' ||
+          message is! String ||
+          message.trim().isEmpty ||
+          retryAfter is! int ||
+          retryAfter < 1) {
+        throw const SceneGenerationApiException.malformed();
+      }
+      return SceneGenerationApiException.http(
+        statusCode: statusCode,
+        code: 'RATE_LIMITED',
+        retryAfter: retryAfter,
+      );
+    }
+
+    final isRateLimitStatus = statusCode == 429;
     final standard =
         _isExactErrorKeys(keys, _standardErrorKeys) ||
         _isExactErrorKeys(keys, _standardErrorKeysWithCorrelation);
     final standardMissingDetails =
-        isKnownRateLimit &&
+        isRateLimitStatus &&
         (_isExactErrorKeys(keys, _standardErrorKeysWithoutDetails) ||
             _isExactErrorKeys(
               keys,
               _standardErrorKeysWithCorrelationWithoutDetails,
             ));
     final version = _isExactErrorKeys(keys, _versionErrorKeys);
-    final versionMissingDetails =
-        isKnownRateLimit &&
-        _isExactErrorKeys(keys, _versionErrorKeysWithoutDetails);
-
-    if (!standard &&
-        !standardMissingDetails &&
-        !version &&
-        !versionMissingDetails) {
+    if (!standard && !standardMissingDetails && !version) {
       throw const SceneGenerationApiException.malformed();
     }
     if (code is! String || code.trim().isEmpty) {
@@ -300,7 +302,9 @@ class SceneGenerationApi implements SceneGenerationApiGateway {
       } on Object {
         throw const SceneGenerationApiException.malformed();
       }
-    } else if (isKnownRateLimit) {
+    } else if ((standard || standardMissingDetails) &&
+        isRateLimitStatus &&
+        rawDetails == null) {
       detailsMap = const <String, dynamic>{};
     } else {
       throw const SceneGenerationApiException.malformed();

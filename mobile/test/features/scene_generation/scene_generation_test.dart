@@ -485,6 +485,143 @@ void main() {
       },
     );
 
+    test('accepts gateway RATE_LIMITED envelope only for HTTP 429', () async {
+      final gatewayBody = <String, Object?>{
+        'code': 'RATE_LIMITED',
+        'message': 'private rate-limit message',
+        'retryAfter': 17,
+      };
+      final mapError = await _apiErrorFor(status: 429, body: gatewayBody);
+      final stringError = await _apiErrorFor(
+        status: 429,
+        body: jsonEncode(gatewayBody),
+      );
+
+      expect(mapError.kind, SceneGenerationApiFailureKind.http);
+      expect(mapError.statusCode, 429);
+      expect(mapError.code, 'RATE_LIMITED');
+      expect(mapError.retryAfter, 17);
+      expect(stringError.code, 'RATE_LIMITED');
+      expect(stringError.retryAfter, 17);
+      expect(
+        mapError.toString(),
+        isNot(contains('private rate-limit message')),
+      );
+    });
+
+    test(
+      'rejects malformed gateway rate-limit shapes and non-429 status',
+      () async {
+        final cases = <({int status, Map<String, Object?> body})>[
+          (
+            status: 429,
+            body: <String, Object?>{
+              'code': 'RATE_LIMITED',
+              'message': 'limited',
+            },
+          ),
+          (
+            status: 429,
+            body: <String, Object?>{
+              'code': 'RATE_LIMITED',
+              'message': 'limited',
+              'retryAfter': 0,
+            },
+          ),
+          (
+            status: 429,
+            body: <String, Object?>{
+              'code': 'RATE_LIMITED',
+              'message': 'limited',
+              'retryAfter': '17',
+            },
+          ),
+          (
+            status: 429,
+            body: <String, Object?>{
+              'code': 'OTHER',
+              'message': 'limited',
+              'retryAfter': 17,
+            },
+          ),
+          (
+            status: 429,
+            body: <String, Object?>{
+              'code': 'RATE_LIMITED',
+              'message': 'limited',
+              'retryAfter': 17,
+              'extra': true,
+            },
+          ),
+          (
+            status: 503,
+            body: <String, Object?>{
+              'code': 'RATE_LIMITED',
+              'message': 'limited',
+              'retryAfter': 17,
+            },
+          ),
+        ];
+
+        for (final testCase in cases) {
+          final error = await _apiErrorFor(
+            status: testCase.status,
+            body: testCase.body,
+          );
+          expect(error.kind, SceneGenerationApiFailureKind.malformed);
+        }
+      },
+    );
+
+    test(
+      'keeps details strict for version and non-null standard rate errors',
+      () async {
+        final standardWrongType = _standardError(
+          status: 429,
+          code: 'custom_scene_rate_limited',
+          details: const <String, Object?>{},
+        )..['details'] = <Object?>['wrong'];
+        final standardError = await _apiErrorFor(
+          status: 429,
+          body: standardWrongType,
+        );
+
+        final versionWrongType = _versionError(
+          code: 'generation_rate_limited',
+          details: const <String, Object?>{},
+        )..['details'] = 'wrong';
+        final versionError = await _apiErrorFor(
+          status: 429,
+          body: versionWrongType,
+        );
+
+        expect(standardError.kind, SceneGenerationApiFailureKind.malformed);
+        expect(versionError.kind, SceneGenerationApiFailureKind.malformed);
+      },
+    );
+
+    test(
+      'allows only missing or nullable details in standard HTTP 429 envelope',
+      () async {
+        final missingDetails = await _apiErrorFor(
+          status: 429,
+          body: _standardError(status: 429, code: 'custom_scene_rate_limited'),
+        );
+        final nullableDetails = _standardError(
+          status: 429,
+          code: 'custom_scene_rate_limited',
+          details: const <String, Object?>{},
+        )..['details'] = null;
+        final nullableError = await _apiErrorFor(
+          status: 429,
+          body: nullableDetails,
+        );
+
+        expect(missingDetails.code, 'custom_scene_rate_limited');
+        expect(nullableError.code, 'custom_scene_rate_limited');
+      },
+    );
+
     test('refresh persistence callback receives refreshed session', () async {
       final adapter = _SequenceAdapter(<_AdapterReply>[
         _AdapterReply(
@@ -653,6 +790,42 @@ void main() {
       );
       expect(gateway.callCount, 0);
     });
+
+    test(
+      'maps gateway RATE_LIMITED response to retryable rateLimited failure',
+      () async {
+        final api = SceneGenerationApi(
+          authenticatedApiClient: AuthenticatedApiClient(
+            apiService: _RefreshingAccountApiService(),
+          ),
+          dio: Dio(BaseOptions(baseUrl: 'http://localhost:8080'))
+            ..httpClientAdapter = _SequenceAdapter(<_AdapterReply>[
+              _AdapterReply(429, <String, Object?>{
+                'code': 'RATE_LIMITED',
+                'message': 'private rate-limit message',
+                'retryAfter': 17,
+              }),
+            ]),
+        );
+        final repository = _repositoryForRealApi(api);
+
+        await expectLater(
+          repository.generate(
+            source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+            clientRequestId: 'scene_request_rate_gateway',
+          ),
+          throwsA(
+            isA<SceneGenerationFailure>()
+                .having(
+                  (failure) => failure.kind,
+                  'kind',
+                  SceneGenerationFailureKind.rateLimited,
+                )
+                .having((failure) => failure.retryable, 'retryable', isTrue),
+          ),
+        );
+      },
+    );
 
     test(
       'maps stable HTTP envelopes including version and policy codes',

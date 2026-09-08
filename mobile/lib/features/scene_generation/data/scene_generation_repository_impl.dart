@@ -292,6 +292,7 @@ class SceneGenerationRepositoryImpl implements SceneGenerationRepository {
       case 'generation_rate_limited':
       case 'scene_generation_rate_limited':
       case 'rate_limited':
+      case 'RATE_LIMITED':
         return _failure(
           SceneGenerationFailureKind.rateLimited,
           retryable: true,
