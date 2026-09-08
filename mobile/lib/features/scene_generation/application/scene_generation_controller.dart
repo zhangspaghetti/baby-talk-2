@@ -175,7 +175,8 @@ class SceneGenerationController extends ChangeNotifier {
         );
         _pendingRegistration = moment;
       } on SceneGenerationFailure catch (failure) {
-        _requiresNewClientRequestIdOnRetry = failure.requiresNewClientRequestId;
+        _requiresNewClientRequestIdOnRetry =
+            _shouldAllocateNewClientRequestId(failure);
         _setFailure(failure);
         return;
       } on Object {
@@ -229,7 +230,7 @@ class SceneGenerationController extends ChangeNotifier {
 
   void _setFailure(SceneGenerationFailure failure) {
     _requiresNewClientRequestIdOnRetry =
-        failure.requiresNewClientRequestId && _pendingRegistration == null;
+        _shouldAllocateNewClientRequestId(failure);
     final unknownOutcome =
         failure.kind == SceneGenerationFailureKind.timeout ||
         failure.kind == SceneGenerationFailureKind.network ||
@@ -245,6 +246,12 @@ class SceneGenerationController extends ChangeNotifier {
         failure: failure,
       ),
     );
+  }
+
+  bool _shouldAllocateNewClientRequestId(SceneGenerationFailure failure) {
+    return _pendingRegistration == null &&
+        failure.kind == SceneGenerationFailureKind.requestTerminal &&
+        failure.requiresNewClientRequestId;
   }
 
   String _nextRequestId(String previous) {

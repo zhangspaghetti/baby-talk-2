@@ -75,12 +75,14 @@ class CarePathRepository {
         latestGardenImpact: null,
         message: null,
         onboardingContinuation: verified,
+        bundledOnly: true,
       );
     } catch (_) {
       return _unavailableSnapshot(
         spaceId: handoff.spaceId,
         activityId: handoff.activityId,
         message: '刚才的下一句暂时无法核验，请返回今天重试。',
+        bundledOnly: true,
       );
     }
   }
@@ -147,6 +149,7 @@ class CarePathRepository {
           spaceId: spaceId,
           activityId: activityId,
           message: '当前通用照护内容暂时不可用。',
+          bundledOnly: true,
         );
       }
     }
@@ -268,7 +271,7 @@ class CarePathRepository {
     }
 
     try {
-      final event = await _practiceRepository.recordReaction(
+      final event = await _recordReaction(
         spaceId: turn.moment.spaceId,
         activityId: turn.moment.activityId,
         phraseId: utterance.phraseId,
@@ -279,6 +282,7 @@ class CarePathRepository {
             : null,
         clientTimestamp: clientTimestamp,
         localEventId: localEventId,
+        bundledOnly: turn.bundledOnly,
       );
       await _onReactionRecorded?.call(event);
       late final CareUtterance? nextSupport;
@@ -292,11 +296,14 @@ class CarePathRepository {
         final nextTurn = await startMoment(
           spaceId: turn.moment.spaceId,
           activityId: turn.moment.activityId,
+          bundledOnly: turn.bundledOnly,
         );
         nextSupport = nextTurn.currentUtterance;
         nextMessage = nextTurn.message;
       }
-      final latestGardenImpact = await _loadLatestGardenImpact();
+      final latestGardenImpact = turn.bundledOnly
+          ? null
+          : await _loadLatestGardenImpact();
       if (nextSupport == null) {
         return turn.copyWith(
           selectedReaction: reactionType,
@@ -337,6 +344,39 @@ class CarePathRepository {
         failureKind: CareTurnFailureKind.reactionUnknownOutcome,
       );
     }
+  }
+
+  Future<InteractionEventPayload> _recordReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    required bool bundledOnly,
+    DateTime? clientTimestamp,
+    String? localEventId,
+    String? generatedContentId,
+    String? utteranceId,
+  }) {
+    if (bundledOnly) {
+      return _practiceRepository.recordBundledReaction(
+        spaceId: spaceId,
+        activityId: activityId,
+        phraseId: phraseId,
+        reactionType: reactionType,
+        clientTimestamp: clientTimestamp,
+        localEventId: localEventId,
+      );
+    }
+    return _practiceRepository.recordReaction(
+      spaceId: spaceId,
+      activityId: activityId,
+      phraseId: phraseId,
+      reactionType: reactionType,
+      generatedContentId: generatedContentId,
+      utteranceId: utteranceId,
+      clientTimestamp: clientTimestamp,
+      localEventId: localEventId,
+    );
   }
 
   Future<CareTurnSnapshot> _recordContinuationReaction({
@@ -571,6 +611,7 @@ class CarePathRepository {
       summary: null,
       nextPhraseId: null,
       nodeState: CarePathNodeState.current,
+      bundledOnly: true,
     );
     if (snapshot.currentUtterance == null) {
       return snapshot;
@@ -635,6 +676,7 @@ class CarePathRepository {
     required String? nextPhraseId,
     required CarePathNodeState nodeState,
     String? warningMessage,
+    bool bundledOnly = false,
   }) {
     final utterance =
         nodeState == CarePathNodeState.doneToday && nextPhraseId == null
@@ -673,6 +715,7 @@ class CarePathRepository {
       traceEventKey: null,
       latestGardenImpact: null,
       message: messageParts.isEmpty ? null : messageParts.join('；'),
+      bundledOnly: bundledOnly,
     );
   }
 
@@ -774,6 +817,7 @@ class CarePathRepository {
     required String message,
     CareTurnFailureKind failureKind = CareTurnFailureKind.momentUnavailable,
     String? generatedContentId,
+    bool bundledOnly = false,
   }) {
     final effectiveSpaceId = _cleanIdentifier(spaceId) ?? 'unavailable_space';
     final effectiveActivityId =
@@ -802,6 +846,7 @@ class CarePathRepository {
       latestGardenImpact: null,
       message: message,
       failureKind: failureKind,
+      bundledOnly: bundledOnly,
     );
   }
 

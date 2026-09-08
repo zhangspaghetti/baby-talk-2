@@ -219,11 +219,18 @@ class _PresetSceneGenerationGateScreenState
       return;
     }
     _navigationScheduled = true;
+    final routeGeneration = _routeGeneration;
+    final scopeLabel = widget.routeEntry.scopeLabel;
     final generatedArgs = GeneratedCareTurnRouteArgs(
       generatedContentId: normalized,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) {
+      if (!mounted ||
+          routeGeneration != _routeGeneration ||
+          widget.routeEntry.scopeLabel != scopeLabel ||
+          _controller?.state.status !=
+              SceneGenerationControllerStatus.success ||
+          _controller?.state.moment?.generatedContentId != normalized) {
         return;
       }
       final handler = widget.onGenerated;

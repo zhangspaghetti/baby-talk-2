@@ -54,6 +54,19 @@ class PracticeActivitySnapshot {
   }
 }
 
+/// Records a seed reaction without resolving current-account generated
+/// content for the same practice scope.
+abstract interface class BundledPracticeReactionRecorder {
+  Future<InteractionEventPayload> recordBundledReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  });
+}
+
 /// Resolves durable non-seed content before the seed bundle is consulted.
 /// A missing generated record deliberately falls through to no result, never
 /// to an unrelated seed activity.
@@ -283,7 +296,7 @@ class PracticeRestoreSnapshot {
   final bool hasRecoverableIssue;
 }
 
-class PracticeRepository {
+class PracticeRepository implements BundledPracticeReactionRecorder {
   PracticeRepository({
     required AssetPhraseService assetPhraseService,
     required PracticeLocalDataSource localDataSource,
@@ -970,6 +983,52 @@ class PracticeRepository {
     String? utteranceId,
     DateTime? clientTimestamp,
     String? localEventId,
+  }) {
+    return _recordReaction(
+      spaceId: spaceId,
+      activityId: activityId,
+      phraseId: phraseId,
+      reactionType: reactionType,
+      generatedContentId: generatedContentId,
+      utteranceId: utteranceId,
+      clientTimestamp: clientTimestamp,
+      localEventId: localEventId,
+      snapshotLoader: () =>
+          getActivitySnapshot(spaceId: spaceId, activityId: activityId),
+    );
+  }
+
+  @override
+  Future<InteractionEventPayload> recordBundledReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) {
+    return _recordReaction(
+      spaceId: spaceId,
+      activityId: activityId,
+      phraseId: phraseId,
+      reactionType: reactionType,
+      clientTimestamp: clientTimestamp,
+      localEventId: localEventId,
+      snapshotLoader: () =>
+          getBundledActivitySnapshot(spaceId: spaceId, activityId: activityId),
+    );
+  }
+
+  Future<InteractionEventPayload> _recordReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    required Future<PracticeActivitySnapshot> Function() snapshotLoader,
+    String? generatedContentId,
+    String? utteranceId,
+    DateTime? clientTimestamp,
+    String? localEventId,
   }) async {
     final normalizedGeneratedContentId = _trimToNull(generatedContentId);
     final normalizedUtteranceId = _trimToNull(utteranceId);
@@ -978,7 +1037,7 @@ class PracticeRepository {
       throw const FormatException('generatedContentId 与 utteranceId 必须同时存在。');
     }
     final snapshot = normalizedGeneratedContentId == null
-        ? await getActivitySnapshot(spaceId: spaceId, activityId: activityId)
+        ? await snapshotLoader()
         : await getGeneratedActivitySnapshot(
             generatedContentId: normalizedGeneratedContentId,
           );

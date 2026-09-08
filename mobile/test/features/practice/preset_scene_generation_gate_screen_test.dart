@@ -1,12 +1,19 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
+import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
@@ -188,6 +195,83 @@ void main() {
     expect(requests[1], isNot('terminal_request_1'));
     expect(controller.state.status, SceneGenerationControllerStatus.success);
   });
+
+  test(
+    'retry only allocates a new request identity for flagged terminal failure',
+    () async {
+      for (final kind in <SceneGenerationFailureKind>[
+        SceneGenerationFailureKind.network,
+        SceneGenerationFailureKind.generationInProgress,
+        SceneGenerationFailureKind.unexpected,
+        SceneGenerationFailureKind.timeout,
+        SceneGenerationFailureKind.requestTerminal,
+      ]) {
+        var attempts = 0;
+        final requests = <String>[];
+        final controller = SceneGenerationController(
+          repository: _FakeSceneGenerationRepository(
+            onGenerate: ({required source, required clientRequestId}) async {
+              requests.add(clientRequestId);
+              attempts += 1;
+              if (attempts == 1) {
+                throw SceneGenerationFailure(
+                  kind: kind,
+                  retryable: true,
+                  requiresNewClientRequestId: true,
+                );
+              }
+              return _presetMoment();
+            },
+          ),
+          approvedBundleRegistrar: (_) async {},
+        );
+
+        await controller.generate(
+          source: const PresetSceneGenerationSource('bath_time'),
+          clientRequestId: 'request_identity_${kind.name}',
+        );
+        await controller.retry();
+
+        if (kind == SceneGenerationFailureKind.requestTerminal) {
+          expect(requests[1], isNot(requests[0]), reason: kind.name);
+        } else {
+          expect(requests[1], requests[0], reason: kind.name);
+        }
+        expect(
+          controller.state.status,
+          SceneGenerationControllerStatus.success,
+        );
+      }
+
+      var terminalAttempts = 0;
+      final terminalRequests = <String>[];
+      final terminalWithoutFlag = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async {
+            terminalRequests.add(clientRequestId);
+            terminalAttempts += 1;
+            if (terminalAttempts == 1) {
+              throw const SceneGenerationFailure(
+                kind: SceneGenerationFailureKind.requestTerminal,
+                retryable: true,
+              );
+            }
+            return _presetMoment();
+          },
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      await terminalWithoutFlag.generate(
+        source: const PresetSceneGenerationSource('bath_time'),
+        clientRequestId: 'terminal_without_flag',
+      );
+      await terminalWithoutFlag.retry();
+      expect(terminalRequests, [
+        'terminal_without_flag',
+        'terminal_without_flag',
+      ]);
+    },
+  );
 
   test('recoverable failure keeps request identity when retrying', () async {
     var attempts = 0;
@@ -473,6 +557,76 @@ void main() {
   );
 
   testWidgets(
+    'default controller provider completes success while gate watches it',
+    (tester) async {
+      final tempDir = (await tester.runAsync<Directory>(() async {
+        final directory = Directory(
+          '${Directory.systemTemp.path}${Platform.pathSeparator}'
+          'preset_gate_default_provider_${DateTime.now().microsecondsSinceEpoch}',
+        );
+        await directory.create(recursive: true);
+        return directory;
+      }))!;
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+      final registry = _NoOpGeneratedPracticeContentRegistry(
+        store: GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        ),
+        resumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        ),
+      );
+      final repository = _FakeSceneGenerationRepository(
+        onGenerate: ({required source, required clientRequestId}) async =>
+            _presetMoment(),
+      );
+      GeneratedCareTurnRouteArgs? generatedArgs;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sceneGenerationRepositoryProvider.overrideWith(
+              (ref) async => repository,
+            ),
+            generatedPracticeContentRegistryProvider.overrideWithValue(
+              registry,
+            ),
+          ],
+          child: MaterialApp(
+            home: PresetSceneGenerationGateScreen(
+              routeEntry: PracticeRouteEntry.fromObject(
+                const PracticeRouteArgs(
+                  spaceId: 'daily_care',
+                  activityId: 'bath_time',
+                ),
+              ),
+              clientRequestId: 'default_provider_success',
+              bundledFallbackLoader: (_) async => false,
+              onGenerated: (args) async {
+                generatedArgs = args;
+              },
+            ),
+          ),
+        ),
+      );
+      for (var index = 0; index < 40; index += 1) {
+        await tester.pump(const Duration(milliseconds: 25));
+        if (generatedArgs != null) {
+          break;
+        }
+      }
+
+      expect(repository.generateCount, 1);
+      expect(generatedArgs?.generatedContentId, 'generated_preset_1');
+      expect(find.byKey(const Key('preset-generation-progress')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'switching route identity starts a fresh controller for preset B',
     (tester) async {
       final controllerA = SceneGenerationController(
@@ -528,6 +682,67 @@ void main() {
     },
   );
 
+  testWidgets(
+    'queued success callback from preset A cannot navigate after switching to B',
+    (tester) async {
+      final generationA = Completer<GeneratedCareMoment>();
+      final controllerA = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) =>
+              generationA.future,
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      final generationB = Completer<GeneratedCareMoment>();
+      final controllerB = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) =>
+              generationB.future,
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      final navigatedScopes = <String>[];
+
+      PracticeRouteEntry entry(String activityId) =>
+          PracticeRouteEntry.fromObject(
+            PracticeRouteArgs(spaceId: 'daily_care', activityId: activityId),
+          );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PresetSceneGenerationGateScreen(
+            routeEntry: entry('bath_time'),
+            controller: controllerA,
+            clientRequestId: 'queued_a',
+            bundledFallbackLoader: (_) async => false,
+            onGenerated: (_) async => navigatedScopes.add('A'),
+          ),
+        ),
+      );
+      await tester.pump();
+      generationA.complete(_presetMoment());
+      await tester.idle();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PresetSceneGenerationGateScreen(
+            routeEntry: entry('feeding_time'),
+            controller: controllerB,
+            clientRequestId: 'queued_b',
+            bundledFallbackLoader: (_) async => false,
+            onGenerated: (_) async => navigatedScopes.add('B'),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(navigatedScopes, isEmpty);
+      expect(controllerB.status, SceneGenerationControllerStatus.submitting);
+      generationB.complete(_presetMoment());
+      await tester.pumpAndSettle();
+    },
+  );
+
   test(
     'bundled fallback seam never resolves generated or remote content',
     () async {
@@ -542,6 +757,40 @@ void main() {
       expect(repository.bundledCalls, 1);
       expect(repository.remoteCalls, 0);
       expect(turn.moment.contentSource, PracticeContentSource.seed);
+    },
+  );
+
+  test(
+    'generic fallback keeps bundled source through reaction despite same-scope generated bundle',
+    () async {
+      final repository = _ExistingGeneratedBundlePracticeRepository();
+      final garden = _TrackingGardenGrowthRepository();
+      final carePath = CarePathRepository(
+        practiceRepository: repository,
+        gardenGrowthRepository: garden,
+      );
+
+      final initial = await carePath.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        bundledOnly: true,
+      );
+      final afterReaction = await carePath.recordReaction(
+        turn: initial.copyWith(phase: CareTurnPhase.reactionPrompt),
+        reactionType: BabyReactionType.cooperating,
+        localEventId: 'generic_fallback_reaction',
+      );
+
+      expect(initial.moment.contentSource, PracticeContentSource.seed);
+      expect(initial.bundledOnly, isTrue);
+      expect(afterReaction.moment.contentSource, PracticeContentSource.seed);
+      expect(afterReaction.bundledOnly, isTrue);
+      expect(afterReaction.currentUtterance, isNotNull);
+      expect(afterReaction.nextSupportUtterance, isNotNull);
+      expect(repository.generatedRegistryCalls, 0);
+      expect(repository.bundledCalls, greaterThanOrEqualTo(3));
+      expect(repository.recordedReactionCount, 1);
+      expect(garden.buildCalls, 0);
     },
   );
 }
@@ -616,6 +865,97 @@ class _BundledOnlyPracticeRepository implements PracticeRepository {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _NoOpGeneratedPracticeContentRegistry
+    extends GeneratedPracticeContentRegistry {
+  _NoOpGeneratedPracticeContentRegistry({
+    required super.store,
+    required super.resumeStore,
+  }) : super(accountContextLoader: _accountContext);
+
+  static Future<String?> _accountContext() async => 'default_provider_account';
+
+  @override
+  Future<void> register({
+    required String accountContext,
+    required GeneratedCareMoment moment,
+  }) async {}
+}
+
+class _TrackingGardenGrowthRepository implements GardenGrowthRepository {
+  int buildCalls = 0;
+
+  @override
+  Future<GardenGrowthSnapshot> buildSnapshot() async {
+    buildCalls += 1;
+    throw StateError('generic fallback must not resolve Garden catalog');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ExistingGeneratedBundlePracticeRepository
+    extends _BundledOnlyPracticeRepository
+    implements BundledPracticeReactionRecorder {
+  static const _generatedActivity = PracticeActivitySnapshot(
+    spaceId: 'daily_care',
+    activityId: 'bath_time',
+    title: '已生成洗澡时间',
+    summary: 'generated same scope',
+    sceneTag: 'generated',
+    coachTip: 'generated coach',
+    contentSource: PracticeContentSource.generated,
+    generatedContentId: 'generated_same_scope',
+    phrases: <PracticePhrase>[
+      PracticePhrase(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'generated_phrase',
+        step: 1,
+        english: 'Generated.',
+        chinese: '生成内容。',
+        pronunciation: 'generated',
+        difficulty: 'starter',
+        audioAsset: '',
+      ),
+    ],
+  );
+
+  int generatedRegistryCalls = 0;
+  int recordedReactionCount = 0;
+
+  @override
+  Future<PracticeActivitySnapshot> getActivitySnapshot({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    generatedRegistryCalls += 1;
+    return _generatedActivity;
+  }
+
+  @override
+  Future<InteractionEventPayload> recordBundledReaction({
+    required String spaceId,
+    required String activityId,
+    required String phraseId,
+    required BabyReactionType reactionType,
+    DateTime? clientTimestamp,
+    String? localEventId,
+  }) async {
+    recordedReactionCount += 1;
+    await getBundledActivitySnapshot(spaceId: spaceId, activityId: activityId);
+    return InteractionEventPayload.validated(
+      localEventId: localEventId ?? 'generic_fallback_reaction',
+      installationId: 'generic_fallback_installation',
+      spaceId: spaceId,
+      activityId: activityId,
+      phraseId: phraseId,
+      reactionType: reactionType,
+      clientTimestamp: clientTimestamp ?? DateTime.utc(2026, 9, 9),
+    );
+  }
 }
 
 GeneratedCareMoment _presetMoment() {

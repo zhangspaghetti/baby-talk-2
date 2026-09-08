@@ -12,6 +12,8 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
+import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import '../../support/isar_test_library.dart';
 
 void main() {
@@ -116,6 +118,38 @@ void main() {
         expect(activity.nextPhraseEnglish, isNotNull);
       }
     });
+
+    test(
+      'recordBundledReaction validates shipped seed content without generated registry',
+      () async {
+        final generatedResolver = _GeneratedSameScopeResolver();
+        final bundledOnlyRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: generatedResolver,
+        );
+
+        final event = await bundledOnlyRepository.recordBundledReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.cooperating,
+          localEventId: 'bundled_reaction_1',
+        );
+
+        expect(event.generatedContentId, isNull);
+        expect(event.utteranceId, isNull);
+        expect(generatedResolver.resolveActivityCalls, 0);
+        expect(
+          (await bundledOnlyRepository.listEventHistory()).single.phraseId,
+          'bath_time_warm_water',
+        );
+      },
+    );
 
     test('未登录时 generated projection 不可用仍返回完整 seed catalog', () async {
       final signedOutRepository = PracticeRepository(
@@ -878,6 +912,50 @@ class _WriteThenThrowLocalDataSource extends PracticeLocalDataSource {
     await super.appendInteractionEvent(payload);
     throw StateError('simulated lost response after local commit');
   }
+}
+
+class _GeneratedSameScopeResolver implements PracticeContentResolver {
+  int resolveActivityCalls = 0;
+
+  @override
+  Future<PracticeActivitySnapshot?> resolveActivity({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    resolveActivityCalls += 1;
+    return const PracticeActivitySnapshot(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+      title: 'generated same scope',
+      summary: 'generated same scope',
+      sceneTag: 'generated',
+      coachTip: 'generated',
+      contentSource: PracticeContentSource.generated,
+      generatedContentId: 'generated_same_scope',
+      phrases: <PracticePhrase>[],
+    );
+  }
+
+  @override
+  Future<PracticeActivitySnapshot?> resolveGeneratedContent({
+    required String generatedContentId,
+  }) async => null;
+
+  @override
+  Future<List<PracticeActivitySnapshot>> listGeneratedActivities() async =>
+      const <PracticeActivitySnapshot>[];
+
+  @override
+  Future<GeneratedCareTurnResumeMarker?>
+  loadGeneratedCareTurnResumeMarker() async => null;
+
+  @override
+  Future<void> completeGeneratedCareTurnResume({
+    required String generatedContentId,
+  }) async {}
+
+  @override
+  Future<void> clearForLifecycle() async {}
 }
 
 class _ThrowingPracticeContentResolver implements PracticeContentResolver {

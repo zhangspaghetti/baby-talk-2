@@ -11,14 +11,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/router/custom_scene_care_turn_handoff.dart';
+import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
@@ -29,6 +32,7 @@ import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.d
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
@@ -455,6 +459,144 @@ void main() {
       expect(find.byType(PresetSceneGenerationGateScreen), findsNothing);
       expect(find.byType(PracticeSessionScreen), findsOneWidget);
       expect(pendingRepository.generateCount, 1);
+    },
+  );
+
+  testWidgets(
+    'production share reentry sends PracticeRouteArgs into central preset gate',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          _onboardingRepositoryFor(created),
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bath_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          firstTraceEventKey: 'install_share_reentry:evt_first',
+          completedAt: DateTime.utc(2026, 9, 9, 9),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async => _disposeWidgetTree(tester));
+
+      final shareStream = StreamController<Uri>.broadcast();
+      addTearDown(shareStream.close);
+      final shareCoordinator = ShareReentryCoordinator();
+      final pendingRepository = _PendingSceneGenerationRepository();
+      final generationController = SceneGenerationController(
+        repository: pendingRepository,
+        approvedBundleRegistrar: (_) async {},
+      );
+      addTearDown(generationController.dispose);
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => completedSnapshot,
+          sceneGenerationController: generationController,
+          shareUriStream: shareStream.stream,
+          shareReentryCoordinator: shareCoordinator,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+      shareStream.add(
+        Uri.parse(
+          'babytalk://share/open?token=share_app_12345678&'
+          'spaceId=daily_care&activityId=bath_time',
+        ),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byType(PresetSceneGenerationGateScreen),
+      );
+
+      expect(shareCoordinator.handledRouteCount, 1);
+      expect(pendingRepository.generateCount, 1);
+      expect(pendingRepository.lastSource, isA<PresetSceneGenerationSource>());
+    },
+  );
+
+  testWidgets(
+    'production invite reentry sends accepted PracticeRouteArgs into central gate',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          _onboardingRepositoryFor(created),
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['feeding_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'feeding_time',
+          starterPhraseId: 'feeding_time_open_wide',
+          firstTraceEventKey: 'install_invite_reentry:evt_first',
+          completedAt: DateTime.utc(2026, 9, 9, 10),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async => _disposeWidgetTree(tester));
+
+      final inviteStream = StreamController<Uri>.broadcast();
+      addTearDown(inviteStream.close);
+      final inviteCoordinator = InviteReentryCoordinator();
+      final pendingRepository = _PendingSceneGenerationRepository();
+      final generationController = SceneGenerationController(
+        repository: pendingRepository,
+        approvedBundleRegistrar: (_) async {},
+      );
+      addTearDown(generationController.dispose);
+      final accountNotifier = AccountNotifier(
+        repository: _SignedInAccountRepository(),
+      );
+      await accountNotifier.initialize();
+      final householdNotifier = HouseholdNotifier(
+        repository: _AcceptingHouseholdRepository(
+          directory: harness.tempDir,
+          practiceArgs: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'feeding_time',
+            entrySource: PracticeRouteEntrySource.inviteReentry,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => completedSnapshot,
+          sceneGenerationController: generationController,
+          shareUriStream: inviteStream.stream,
+          inviteReentryCoordinator: inviteCoordinator,
+          accountNotifier: accountNotifier,
+          householdNotifier: householdNotifier,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+      inviteStream.add(
+        Uri.parse(
+          'babytalk://invite/open?token=invite_app_12345678&'
+          'source=invite_link&role=caregiver',
+        ),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byType(PresetSceneGenerationGateScreen),
+      );
+
+      expect(inviteCoordinator.handledRouteCount, 1);
+      expect(pendingRepository.generateCount, 1);
+      expect(pendingRepository.lastSource, isA<PresetSceneGenerationSource>());
     },
   );
 
@@ -1360,6 +1502,84 @@ class _PendingSceneGenerationRepository implements SceneGenerationRepository {
   }
 }
 
+class _SignedInAccountRepository implements AccountRepositoryContract {
+  static final AccountLocalSnapshot _snapshot = AccountLocalSnapshot(
+    consentState: AccountConsentState.acceptedPendingSync,
+    session: AccountSession(
+      accountId: 'app_reentry_account',
+      sessionId: 'app_reentry_session',
+      maskedPhoneNumber: '138****8000',
+      createdAt: DateTime.utc(2026, 9, 9),
+    ),
+  );
+
+  @override
+  Future<AccountLocalSnapshot> loadSnapshot() async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> signIn({
+    required String phoneNumber,
+    required String verificationCode,
+  }) async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> refreshRuntimeState({
+    required AccountRuntimeTrigger trigger,
+    AccountLocalSnapshot? seedSnapshot,
+    bool forceBootstrap = false,
+  }) async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> clearPlaceholderSession({
+    bool revertToLocalOnly = false,
+  }) async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> revokeConsent({
+    String reason = 'user_requested',
+  }) async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> deleteAccount({
+    String reason = 'forget_me',
+  }) async => _snapshot;
+
+  @override
+  Future<void> close() async {}
+}
+
+class _AcceptingHouseholdRepository extends HouseholdRepository {
+  _AcceptingHouseholdRepository({
+    required Directory directory,
+    required this.practiceArgs,
+  }) : super(
+         localStore: HouseholdLocalStore(
+           directoryResolver: () async => directory,
+         ),
+         apiService: HouseholdApiService(),
+         accountSnapshotLoader: () async => AccountLocalSnapshot.signedOut,
+         persistRefreshedSession: (session) async => session,
+       );
+
+  final PracticeRouteArgs practiceArgs;
+
+  @override
+  Future<HouseholdLocalSnapshot> loadSnapshot() async =>
+      HouseholdLocalSnapshot.empty;
+
+  @override
+  Future<HouseholdInviteAcceptResult> acceptInvite({
+    required String token,
+    required String source,
+  }) async {
+    return HouseholdInviteAcceptResult(
+      snapshot: HouseholdLocalSnapshot.empty,
+      message: '邀请已接受。',
+      practiceArgs: practiceArgs,
+    );
+  }
+}
+
 class _FertilizerNotifierStub extends GardenFertilizerNotifier {
   _FertilizerNotifierStub(GardenGrowthNotifier growth)
     : super(
@@ -1392,6 +1612,11 @@ Widget _bootApp(
   _AppBootHarness harness, {
   Future<OnboardingSnapshot?> Function()? completedSnapshotLoader,
   SceneGenerationController? sceneGenerationController,
+  Stream<Uri>? shareUriStream,
+  ShareReentryCoordinator? shareReentryCoordinator,
+  InviteReentryCoordinator? inviteReentryCoordinator,
+  AccountNotifier? accountNotifier,
+  HouseholdNotifier? householdNotifier,
 }) {
   return ProviderScope(
     overrides: [
@@ -1429,11 +1654,18 @@ Widget _bootApp(
         sceneGenerationControllerProvider.overrideWith(
           (ref) => sceneGenerationController,
         ),
+      if (accountNotifier != null)
+        accountNotifierProvider.overrideWith((ref) => accountNotifier),
+      if (householdNotifier != null)
+        householdNotifierProvider.overrideWith((ref) => householdNotifier),
     ],
     child: BabyTalkApp(
       bootState: harness.bootState,
       audioControllerFactory: _SilentPracticeAudioController.new,
       completedSnapshotLoader: completedSnapshotLoader,
+      shareUriStream: shareUriStream,
+      shareReentryCoordinator: shareReentryCoordinator,
+      inviteReentryCoordinator: inviteReentryCoordinator,
       practiceContinuityRefreshTimeout: Duration.zero,
       gardenGrowthRefreshTimeout: Duration.zero,
     ),
