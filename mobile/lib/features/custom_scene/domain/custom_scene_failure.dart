@@ -1,6 +1,9 @@
 enum CustomSceneFailureKind {
   authenticationRequired,
   profileUnavailable,
+  householdAccessRequired,
+  sharedProfileUnavailable,
+  presetSceneUnavailable,
   invalidDraft,
   requestConflict,
   requestTerminal,
@@ -32,6 +35,11 @@ class CustomSceneFailure implements Exception {
     CustomSceneFailureKind.authenticationRequired => '请先登录后再生成。',
     CustomSceneFailureKind.profileUnavailable =>
       '当前账号还没有可用于生成的宝宝档案；如果你是次照护者，请让主照护者先完成档案后再试。',
+    CustomSceneFailureKind.householdAccessRequired =>
+      '共享家庭权限暂不可用，请稍后再试。',
+    CustomSceneFailureKind.sharedProfileUnavailable =>
+      '共享宝宝档案暂不可用，请稍后再试。',
+    CustomSceneFailureKind.presetSceneUnavailable => '预置场景暂不可用，请稍后再试。',
     CustomSceneFailureKind.invalidDraft => '请调整描述后再试。',
     CustomSceneFailureKind.requestConflict => '这次描述已变更，请重新开始生成。',
     CustomSceneFailureKind.requestTerminal => '这次生成已结束，请重新生成。',

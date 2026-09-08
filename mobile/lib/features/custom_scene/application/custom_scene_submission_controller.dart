@@ -532,11 +532,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       await _markUnknownOutcome(submitting);
       return;
     }
-    if (failure.kind == CustomSceneFailureKind.profileUnavailable) {
-      // Profile resolution happens before the discovery request. There is no
-      // server-side request to reconcile, so retaining this local intent would
-      // turn a deterministic profile miss into an unrelated "pending draft"
-      // error on the next attempt.
+    if (failure.kind == CustomSceneFailureKind.profileUnavailable ||
+        failure.kind == CustomSceneFailureKind.householdAccessRequired ||
+        failure.kind == CustomSceneFailureKind.sharedProfileUnavailable ||
+        failure.kind == CustomSceneFailureKind.presetSceneUnavailable) {
+      // These failures happen before generation reservation. Retaining the
+      // local intent would turn a deterministic input/context miss into an
+      // unrelated pending-draft error on the next attempt.
       await _discardUnsubmittedDraft(submitting);
     }
     _setState(

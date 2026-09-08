@@ -22,10 +22,7 @@ import 'package:mobile/features/care_entry/data/file_onboarding_care_turn_contin
 import 'package:mobile/features/care_entry/presentation/care_entry_providers.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_api.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_mapper.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_profile_context_resolver.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_repository_impl.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
@@ -78,6 +75,9 @@ import 'package:mobile/features/settings/data/repositories/settings_repository.d
 import 'package:mobile/features/settings/data/reminder_scheduler.dart';
 import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_api.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_repository_impl.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 
@@ -146,8 +146,8 @@ final mentorApiServiceProvider = Provider<MentorApiService>((ref) {
   return service;
 });
 
-final customSceneApiProvider = Provider<CustomSceneApi>((ref) {
-  final service = CustomSceneApi(
+final sceneGenerationApiProvider = Provider<SceneGenerationApi>((ref) {
+  final service = SceneGenerationApi(
     authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
   );
   ref.onDispose(service.close);
@@ -211,7 +211,9 @@ final assetPhraseServiceProvider = Provider<AssetPhraseService>((ref) {
   );
 });
 
-final presetSceneCatalogStoreProvider = Provider<PresetSceneCatalogStore>((ref) {
+final presetSceneCatalogStoreProvider = Provider<PresetSceneCatalogStore>((
+  ref,
+) {
   return PresetSceneCatalogStore(
     directoryResolver: () => ref.read(appDirectoryProvider.future),
   );
@@ -407,21 +409,40 @@ final babyProfileRepositoryProvider = Provider<BabyProfileRepository>((ref) {
 final customSceneRepositoryProvider = FutureProvider<CustomSceneRepository>((
   ref,
 ) async {
-  final accountRepository = await ref.watch(accountRepositoryProvider.future);
-  final practiceRepository = await ref.watch(practiceRepositoryProvider.future);
-  final settingsRepository = await ref.watch(settingsRepositoryProvider.future);
   return CustomSceneRepositoryImpl(
-    api: ref.watch(customSceneApiProvider),
-    mapper: const CustomSceneMapper(),
-    profileContextResolver: CustomSceneProfileContextResolver(
-      babyProfileRepository: ref.watch(babyProfileRepositoryProvider),
-      settingsRepository: settingsRepository,
+    sceneGenerationRepository: await ref.watch(
+      sceneGenerationRepositoryProvider.future,
     ),
-    accountSnapshotLoader: accountRepository.loadSnapshot,
-    persistRefreshedSession: accountRepository.persistRefreshedSession,
-    installationIdLoader: practiceRepository.ensureInstallationId,
   );
 });
+
+final sceneGenerationRepositoryProvider =
+    FutureProvider<SceneGenerationRepository>((ref) async {
+      final accountRepository = await ref.watch(
+        accountRepositoryProvider.future,
+      );
+      final practiceRepository = await ref.watch(
+        practiceRepositoryProvider.future,
+      );
+      final settingsRepository = await ref.watch(
+        settingsRepositoryProvider.future,
+      );
+      return SceneGenerationRepositoryImpl(
+        api: ref.watch(sceneGenerationApiProvider),
+        accountSnapshotLoader: accountRepository.loadSnapshot,
+        persistRefreshedSession: accountRepository.persistRefreshedSession,
+        localeLoader: () async {
+          final preferredLanguage = (await settingsRepository.readSettings())
+              .preferredLanguage
+              .trim();
+          return switch (preferredLanguage) {
+            'zh' || 'zh-CN' || 'en' || 'bilingual' => 'zh-CN',
+            _ => 'zh-CN',
+          };
+        },
+        installationIdLoader: practiceRepository.ensureInstallationId,
+      );
+    });
 
 final customSceneSubmissionControllerProvider =
     FutureProvider<CustomSceneSubmissionController>((ref) async {

@@ -218,6 +218,109 @@ void main() {
     );
 
     test(
+      'shared-profile unavailable failure also clears the unsent draft',
+      () async {
+        final repository = _FakeRepository((_) async {
+          throw const CustomSceneFailure(
+            kind: CustomSceneFailureKind.sharedProfileUnavailable,
+            retryable: false,
+          );
+        });
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+        );
+
+        await harness.controller.submit(_draft());
+
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.recoverableError,
+        );
+        expect(
+          (await harness.draftStore.readResult(now: now)).status,
+          CustomSceneDraftReadStatus.notFound,
+        );
+      },
+    );
+
+    test(
+      'household and preset unavailable failures clear unsent drafts',
+      () async {
+        for (final kind in const <CustomSceneFailureKind>[
+          CustomSceneFailureKind.householdAccessRequired,
+          CustomSceneFailureKind.presetSceneUnavailable,
+        ]) {
+          final repository = _FakeRepository((_) async {
+            throw CustomSceneFailure(kind: kind, retryable: false);
+          });
+          final harness = _harness(
+            tempDir: tempDir,
+            clock: () => now,
+            repository: repository,
+            registrar: _FakeRegistrar(),
+            handoff: _FakeHandoffSink(),
+          );
+
+          await harness.controller.submit(_draft());
+
+          expect(
+            harness.controller.state.phase,
+            CustomSceneSubmissionPhase.recoverableError,
+          );
+          expect(
+            (await harness.draftStore.readResult(now: now)).status,
+            CustomSceneDraftReadStatus.notFound,
+          );
+        }
+      },
+    );
+
+    test(
+      'network and in-progress failures retain request for reconciliation',
+      () async {
+        for (final kind in const <CustomSceneFailureKind>[
+          CustomSceneFailureKind.network,
+          CustomSceneFailureKind.generationInProgress,
+        ]) {
+          final repository = _FakeRepository((_) async {
+            throw CustomSceneFailure(kind: kind, retryable: true);
+          });
+          final harness = _harness(
+            tempDir: tempDir,
+            clock: () => now,
+            repository: repository,
+            registrar: _FakeRegistrar(),
+            handoff: _FakeHandoffSink(),
+          );
+
+          await harness.controller.submit(
+            CustomSceneDraft(
+              text: '宝宝洗澡时一直躲水。',
+              entrySource: CustomSceneEntrySource.today,
+              requestIdentity: CustomSceneRequestIdentity(
+                clientRequestId: 'request_${kind.name}',
+              ),
+            ),
+          );
+
+          expect(
+            harness.controller.state.phase,
+            CustomSceneSubmissionPhase.unknownOutcome,
+          );
+          expect(
+            (await harness.draftStore.readResult(now: now)).draft?.state,
+            CustomSceneStoredDraftState.unknownOutcome,
+          );
+          await harness.controller.cancel();
+        }
+      },
+    );
+
+    test(
       'terminal request failure exposes retained draft cancellation',
       () async {
         var attempts = 0;

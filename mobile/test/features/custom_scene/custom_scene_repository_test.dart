@@ -1,62 +1,53 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/features/account/data/local/account_local_store.dart';
-import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
-import 'package:mobile/features/account/domain/models/account_consent_state.dart';
-import 'package:mobile/features/account/domain/models/account_session.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_api.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_dtos.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_mapper.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_profile_context_resolver.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_repository_impl.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_failure.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
 
 void main() {
   test(
-    'production request identity reaches gateway without exposing long digits',
+    'delegates one custom source request without profile or household preflight',
     () async {
-      final gateway = _RecordingGateway();
-      final repository = _repository(gateway: gateway);
-      final requestIdentity = CustomSceneRequestIdentity.create(
-        now: DateTime.utc(2026, 7, 31, 2),
+      var babyProfileLoadCount = 0;
+      var householdApiRequestCount = 0;
+      final sceneGenerationRepository = _RecordingSceneGenerationRepository();
+      final repository = CustomSceneRepositoryImpl(
+        sceneGenerationRepository: sceneGenerationRepository,
       );
+      final draft = _draft('custom_scene_1');
 
-      await expectLater(
-        repository.generate(
-          CustomSceneDraft(
-            text: '宝宝洗澡时一直躲水。',
-            entrySource: CustomSceneEntrySource.today,
-            requestIdentity: requestIdentity,
-          ),
-        ),
-        throwsA(isA<StateError>()),
-      );
+      await expectLater(repository.generate(draft), throwsA(isA<StateError>()));
 
-      expect(gateway.callCount, 1);
-      expect(gateway.request?.clientRequestId, requestIdentity.clientRequestId);
+      expect(sceneGenerationRepository.sources, hasLength(1));
       expect(
-        RegExp(r'[0-9]{11,}').hasMatch(requestIdentity.clientRequestId),
-        isFalse,
+        sceneGenerationRepository.sources.single,
+        isA<CustomSceneGenerationSource>().having(
+          (source) => source.text,
+          'text',
+          draft.text,
+        ),
       );
+      expect(sceneGenerationRepository.clientRequestIds, <String>[
+        draft.requestIdentity.clientRequestId,
+      ]);
+      expect(babyProfileLoadCount, 0);
+      expect(householdApiRequestCount, 0);
     },
   );
 
   test(
-    'rejects phone-like request identity before network side effect',
+    'rejects phone-like request identity before unified generation request',
     () async {
-      final gateway = _RecordingGateway();
-      final repository = _repository(gateway: gateway);
+      final sceneGenerationRepository = _RecordingSceneGenerationRepository();
+      final repository = CustomSceneRepositoryImpl(
+        sceneGenerationRepository: sceneGenerationRepository,
+      );
 
       await expectLater(
-        repository.generate(
-          CustomSceneDraft(
-            text: '宝宝洗澡时一直躲水。',
-            entrySource: CustomSceneEntrySource.today,
-            requestIdentity: CustomSceneRequestIdentity(
-              clientRequestId: 'custom_scene_13800138000',
-            ),
-          ),
-        ),
+        repository.generate(_draft('custom_scene_13800138000')),
         throwsA(
           isA<CustomSceneFailure>().having(
             (failure) => failure.kind,
@@ -65,95 +56,25 @@ void main() {
           ),
         ),
       );
-      expect(gateway.callCount, 0);
+      expect(sceneGenerationRepository.sources, isEmpty);
     },
   );
 
-  test(
-    'rejects phone-like installation identity before network side effect',
-    () async {
-      final gateway = _RecordingGateway();
-      final repository = _repository(
-        gateway: gateway,
-        installationIdLoader: () async => 'install_1722391920000000_dead_beef',
-      );
-
-      await expectLater(
-        repository.generate(
-          CustomSceneDraft(
-            text: '宝宝洗澡时一直躲水。',
-            entrySource: CustomSceneEntrySource.today,
-            requestIdentity: CustomSceneRequestIdentity(
-              clientRequestId: 'custom_scene_3',
-            ),
-          ),
-        ),
-        throwsA(
-          isA<CustomSceneFailure>().having(
-            (failure) => failure.kind,
-            'kind',
-            CustomSceneFailureKind.invalidDraft,
-          ),
-        ),
-      );
-      expect(gateway.callCount, 0);
-    },
-  );
-
-  test('maps backend invalid installation ID to invalid draft', () async {
-    final gateway = _RecordingGateway(
-      error: const CustomSceneApiException(
-        kind: CustomSceneApiFailureKind.http,
-        statusCode: 400,
-        code: 'invalid_installation_id',
-      ),
-    );
-    final repository = _repository(gateway: gateway);
-
-    await expectLater(
-      repository.generate(
-        CustomSceneDraft(
-          text: '宝宝洗澡时一直躲水。',
-          entrySource: CustomSceneEntrySource.today,
-          requestIdentity: CustomSceneRequestIdentity(
-            clientRequestId: 'custom_scene_4',
-          ),
-        ),
-      ),
-      throwsA(
-        isA<CustomSceneFailure>()
-            .having(
-              (failure) => failure.kind,
-              'kind',
-              CustomSceneFailureKind.invalidDraft,
-            )
-            .having((failure) => failure.retryable, 'retryable', isFalse),
-      ),
-    );
-    expect(gateway.callCount, 1);
-  });
-
-  test('uses account/profile sources and maps terminal retry safely', () async {
-    final gateway = _RecordingGateway(
-      error: const CustomSceneApiException(
-        kind: CustomSceneApiFailureKind.http,
-        statusCode: 409,
-        code: 'client_request_terminal',
+  test('maps unified failure while preserving recovery metadata', () async {
+    final sceneGenerationRepository = _RecordingSceneGenerationRepository(
+      failure: const SceneGenerationFailure(
+        kind: SceneGenerationFailureKind.requestTerminal,
         generatedContentId: 'gcn_terminal',
+        retryable: true,
         requiresNewClientRequestId: true,
       ),
     );
-    final repository = _repository(gateway: gateway);
-    final draft = CustomSceneDraft(
-      text: '宝宝洗澡时一直躲水。',
-      entrySource: CustomSceneEntrySource.today,
-      requestIdentity: CustomSceneRequestIdentity(
-        clientRequestId: 'custom_scene_1',
-      ),
+    final repository = CustomSceneRepositoryImpl(
+      sceneGenerationRepository: sceneGenerationRepository,
     );
 
     await expectLater(
-      repository.generate(draft),
+      repository.generate(_draft('custom_scene_2')),
       throwsA(
         isA<CustomSceneFailure>()
             .having(
@@ -162,205 +83,88 @@ void main() {
               CustomSceneFailureKind.requestTerminal,
             )
             .having(
-              (failure) => failure.requiresNewClientRequestId,
-              'requires new id',
-              isTrue,
+              (failure) => failure.generatedContentId,
+              'generated content ID',
+              'gcn_terminal',
             )
+            .having((failure) => failure.retryable, 'retryable', isTrue)
             .having(
-              (failure) => failure.toString(),
-              'safe toString',
-              isNot(contains('宝宝洗澡时一直躲水。')),
+              (failure) => failure.requiresNewClientRequestId,
+              'requires new ID',
+              isTrue,
             ),
       ),
     );
-    expect(gateway.request?.installationId, 'install_1');
-    expect(gateway.request?.ageRange, 'm7_11');
-    expect(gateway.request?.parentGoal, 'natural_opening');
-    expect(gateway.request?.locale, 'zh-CN');
-    expect(gateway.request?.clientRequestId, 'custom_scene_1');
   });
 
-  test(
-    'fails before network side effect without an accepted account',
-    () async {
-      final gateway = _RecordingGateway();
+  test('maps each deterministic unified profile/household failure', () async {
+    const cases = <(SceneGenerationFailureKind, CustomSceneFailureKind)>[
+      (
+        SceneGenerationFailureKind.profileUnavailable,
+        CustomSceneFailureKind.profileUnavailable,
+      ),
+      (
+        SceneGenerationFailureKind.sharedProfileUnavailable,
+        CustomSceneFailureKind.sharedProfileUnavailable,
+      ),
+      (
+        SceneGenerationFailureKind.householdAccessRequired,
+        CustomSceneFailureKind.householdAccessRequired,
+      ),
+      (
+        SceneGenerationFailureKind.presetSceneUnavailable,
+        CustomSceneFailureKind.presetSceneUnavailable,
+      ),
+    ];
+
+    for (final (sceneKind, customKind) in cases) {
       final repository = CustomSceneRepositoryImpl(
-        api: gateway,
-        mapper: const CustomSceneMapper(),
-        profileContextResolver: _ProfileSource(),
-        accountSnapshotLoader: () async => AccountLocalSnapshot.localOnly,
-        persistRefreshedSession: (session) async => session,
-        installationIdLoader: () async => 'install_1',
+        sceneGenerationRepository: _RecordingSceneGenerationRepository(
+          failure: SceneGenerationFailure(kind: sceneKind),
+        ),
       );
 
       await expectLater(
-        repository.generate(
-          CustomSceneDraft(
-            text: '宝宝不肯穿衣服。',
-            entrySource: CustomSceneEntrySource.scene,
-            requestIdentity: CustomSceneRequestIdentity(
-              clientRequestId: 'custom_scene_2',
-            ),
-          ),
-        ),
+        repository.generate(_draft('custom_scene_${sceneKind.name}')),
         throwsA(
           isA<CustomSceneFailure>().having(
             (failure) => failure.kind,
             'kind',
-            CustomSceneFailureKind.authenticationRequired,
+            customKind,
           ),
         ),
       );
-      expect(gateway.callCount, 0);
-    },
-  );
-
-  test(
-    'maps profile network failure to network instead of profile unavailable',
-    () async {
-      final gateway = _RecordingGateway();
-      final repository = _repository(
-        gateway: gateway,
-        profileContextResolver: _FailingProfileSource(
-          const CustomSceneProfileContextException.network(),
-        ),
-      );
-
-      await expectLater(
-        repository.generate(
-          CustomSceneDraft(
-            text: '宝宝洗澡时一直躲水。',
-            entrySource: CustomSceneEntrySource.scene,
-            requestIdentity: CustomSceneRequestIdentity(
-              clientRequestId: 'custom_scene_network',
-            ),
-          ),
-        ),
-        throwsA(
-          isA<CustomSceneFailure>()
-              .having(
-                (failure) => failure.kind,
-                'kind',
-                CustomSceneFailureKind.network,
-              )
-              .having((failure) => failure.retryable, 'retryable', isTrue)
-              .having(
-                (failure) => failure.presentationMessage,
-                'presentation message',
-                '网络暂不可用，请检查后重试。',
-              ),
-        ),
-      );
-      expect(gateway.callCount, 0);
-    },
-  );
-
-  test(
-    'maps a missing profile to an actionable, account-scoped message',
-    () async {
-      final gateway = _RecordingGateway();
-      final repository = _repository(
-        gateway: gateway,
-        profileContextResolver: _MissingProfileSource(),
-      );
-
-      await expectLater(
-        repository.generate(
-          CustomSceneDraft(
-            text: '宝宝洗澡时一直躲水。',
-            entrySource: CustomSceneEntrySource.scene,
-            requestIdentity: CustomSceneRequestIdentity(
-              clientRequestId: 'custom_scene_missing_profile',
-            ),
-          ),
-        ),
-        throwsA(
-          isA<CustomSceneFailure>().having(
-            (failure) => failure.presentationMessage,
-            'presentation message',
-            '当前账号还没有可用于生成的宝宝档案；如果你是次照护者，请让主照护者先完成档案后再试。',
-          ),
-        ),
-      );
-      expect(gateway.callCount, 0);
-    },
-  );
+    }
+  });
 }
 
-CustomSceneRepositoryImpl _repository({
-  required _RecordingGateway gateway,
-  Future<String> Function()? installationIdLoader,
-  CustomSceneProfileContextSource? profileContextResolver,
-}) {
-  return CustomSceneRepositoryImpl(
-    api: gateway,
-    mapper: const CustomSceneMapper(),
-    profileContextResolver: profileContextResolver ?? _ProfileSource(),
-    accountSnapshotLoader: () async => AccountLocalSnapshot(
-      consentState: AccountConsentState.acceptedPendingSync,
-      session: _session(),
+CustomSceneDraft _draft(String clientRequestId) {
+  return CustomSceneDraft(
+    text: '宝宝洗澡时一直躲水。',
+    entrySource: CustomSceneEntrySource.today,
+    requestIdentity: CustomSceneRequestIdentity(
+      clientRequestId: clientRequestId,
     ),
-    persistRefreshedSession: (session) async => session,
-    installationIdLoader: installationIdLoader ?? () async => 'install_1',
   );
 }
 
-class _ProfileSource implements CustomSceneProfileContextSource {
-  @override
-  Future<CustomSceneProfileContext> resolve() async {
-    return CustomSceneProfileContext(
-      ageRange: 'm7_11',
-      parentGoal: 'natural_opening',
-      locale: 'zh-CN',
-    );
-  }
-}
+class _RecordingSceneGenerationRepository implements SceneGenerationRepository {
+  _RecordingSceneGenerationRepository({this.failure});
 
-class _FailingProfileSource implements CustomSceneProfileContextSource {
-  _FailingProfileSource(this.error);
-
-  final CustomSceneProfileContextException error;
+  final SceneGenerationFailure? failure;
+  final List<SceneGenerationSource> sources = <SceneGenerationSource>[];
+  final List<String> clientRequestIds = <String>[];
 
   @override
-  Future<CustomSceneProfileContext> resolve() async => throw error;
-}
-
-class _MissingProfileSource implements CustomSceneProfileContextSource {
-  @override
-  Future<CustomSceneProfileContext> resolve() async {
-    throw const CustomSceneProfileContextUnavailableException();
-  }
-}
-
-class _RecordingGateway implements CustomSceneDiscoveryGateway {
-  _RecordingGateway({this.error});
-
-  final CustomSceneApiException? error;
-  CustomSceneRequestDto? request;
-  int callCount = 0;
-
-  @override
-  Future<CustomSceneDiscoveryResponseDto> generate({
-    required AccountSession session,
-    required PersistRefreshedSession persistRefreshedSession,
-    required CustomSceneRequestDto request,
+  Future<GeneratedCareMoment> generate({
+    required SceneGenerationSource source,
+    required String clientRequestId,
   }) async {
-    callCount += 1;
-    this.request = request;
-    throw error ?? StateError('unexpected network call');
+    sources.add(source);
+    clientRequestIds.add(clientRequestId);
+    if (failure != null) {
+      throw failure!;
+    }
+    throw StateError('sentinel: unified generation request observed');
   }
-}
-
-AccountSession _session() {
-  return AccountSession(
-    accountId: 'account_1',
-    sessionId: 'session_1',
-    maskedPhoneNumber: '138****1234',
-    createdAt: DateTime.utc(2026, 7, 28),
-    accessToken: 'access-live',
-    refreshToken: 'refresh-live',
-    tokenType: 'Bearer',
-    accessTokenExpiresAt: DateTime.utc(2026, 7, 28, 1),
-    refreshTokenExpiresAt: DateTime.utc(2026, 8, 28),
-  );
 }
