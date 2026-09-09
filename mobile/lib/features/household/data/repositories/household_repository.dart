@@ -218,7 +218,14 @@ class HouseholdRepository {
     required HouseholdRole role,
     required String source,
   }) async {
-    final current = await _readSnapshotSafely();
+    final preflight = await _householdCommandPreflight(action: 'create_invite');
+    final current = preflight.snapshot;
+    if (!preflight.canProceed) {
+      return HouseholdCreateInviteResult(
+        snapshot: current,
+        message: current.lastVisibleError ?? '当前无法创建邀请。',
+      );
+    }
     final sessionGate = await _resolveSessionGate(action: 'create_invite');
     if (!sessionGate.canProceed) {
       final snapshot = await _persistSnapshot(sessionGate.snapshot!);
@@ -319,7 +326,14 @@ class HouseholdRepository {
     required String token,
     required String source,
   }) async {
-    final current = await _readSnapshotSafely();
+    final preflight = await _householdCommandPreflight(action: 'accept_invite');
+    final current = preflight.snapshot;
+    if (!preflight.canProceed) {
+      return HouseholdInviteAcceptResult(
+        snapshot: current,
+        message: current.lastVisibleError ?? '当前无法接受邀请。',
+      );
+    }
     final sessionGate = await _resolveSessionGate(action: 'accept_invite');
     if (!sessionGate.canProceed) {
       final snapshot = await _persistSnapshot(sessionGate.snapshot!);
@@ -377,18 +391,16 @@ class HouseholdRepository {
   Future<HouseholdLocalSnapshot> _refreshSharedContextInternal({
     required String reason,
   }) async {
-    final readResult = await _readSnapshotWithStatus();
-    if (!readResult.wasReadSuccessfully) {
+    final preflight = await _householdCommandPreflight(
+      action: 'shared_context',
+    );
+    if (!preflight.canProceed) {
       // A server response cannot establish a safe A->B transition when the
-      // durable A read itself failed. Do not call the server or write/clear.
-      return readResult.snapshot;
+      // durable A read or an earlier cleanup retry failed. Do not call the
+      // server or write/clear.
+      return preflight.snapshot;
     }
-    final current = await _retryPendingHouseholdScopeClear(readResult.snapshot);
-    if (current.pendingClearHouseholdScopeFingerprint != null) {
-      // Keep the old durable intent authoritative until both generated stores
-      // acknowledge cleanup; a later refresh retries it.
-      return current;
-    }
+    final current = preflight.snapshot;
     final sessionGate = await _resolveSessionGate(action: 'shared_context');
     if (!sessionGate.canProceed) {
       final blocked = sessionGate.snapshot!;
@@ -473,6 +485,27 @@ class HouseholdRepository {
 
   Future<HouseholdLocalSnapshot> _readSnapshotSafely() async {
     return loadSnapshot();
+  }
+
+  Future<_HouseholdCommandPreflight> _householdCommandPreflight({
+    required String action,
+  }) async {
+    final readResult = await _readSnapshotWithStatus();
+    if (!readResult.wasReadSuccessfully) {
+      return _HouseholdCommandPreflight.blocked(readResult.snapshot);
+    }
+    final snapshot = await _retryPendingHouseholdScopeClear(
+      readResult.snapshot,
+    );
+    if (snapshot.pendingClearHouseholdScopeFingerprint != null) {
+      return _HouseholdCommandPreflight.blocked(
+        snapshot.copyWith(
+          lastPhase: '${action}_pending_household_clear',
+          lastVisibleError: '上一家庭数据清理尚未完成，请稍后重试。',
+        ),
+      );
+    }
+    return _HouseholdCommandPreflight.ready(snapshot);
   }
 
   Future<_SessionGateResult> _resolveSessionGate({
@@ -809,6 +842,22 @@ class _HouseholdSnapshotReadResult {
 
   final HouseholdLocalSnapshot snapshot;
   final bool wasReadSuccessfully;
+}
+
+class _HouseholdCommandPreflight {
+  const _HouseholdCommandPreflight._({
+    required this.snapshot,
+    required this.canProceed,
+  });
+
+  const _HouseholdCommandPreflight.ready(HouseholdLocalSnapshot snapshot)
+    : this._(snapshot: snapshot, canProceed: true);
+
+  const _HouseholdCommandPreflight.blocked(HouseholdLocalSnapshot snapshot)
+    : this._(snapshot: snapshot, canProceed: false);
+
+  final HouseholdLocalSnapshot snapshot;
+  final bool canProceed;
 }
 
 class _SessionGateResult {

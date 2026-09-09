@@ -33,6 +33,29 @@ void main() {
     );
   });
 
+  test('snapshot copy and JSON round-trip preserve pending cleanup intent', () {
+    final pendingFingerprint = householdScopeFingerprint('household_a');
+    final snapshot = HouseholdLocalSnapshot(
+      householdId: 'household_b',
+      role: HouseholdRole.caregiver,
+      lastPhase: 'shared_context_ready',
+      pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+    );
+
+    expect(
+      snapshot
+          .copyWith(lastPhase: 'revoke_invite_revoked')
+          .pendingClearHouseholdScopeFingerprint,
+      pendingFingerprint,
+    );
+    expect(
+      HouseholdLocalSnapshot.fromJsonMap(
+        snapshot.toJsonMap(),
+      ).pendingClearHouseholdScopeFingerprint,
+      pendingFingerprint,
+    );
+  });
+
   test('household API diagnostics do not render private server messages', () {
     const error = HouseholdApiException(
       kind: HouseholdApiFailureKind.http,
@@ -496,6 +519,172 @@ void main() {
     );
 
     test(
+      'pending household cleanup blocks accept and preserves its durable intent',
+      () async {
+        final pendingFingerprint = householdScopeFingerprint('household_a');
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_b',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_b',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+            pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+          ),
+        );
+        harness.clearCleanupFailures = true;
+        harness.api.acceptResponse = HouseholdAcceptInviteResponse(
+          householdId: 'household_c',
+          role: HouseholdRole.caregiver,
+          acceptedAt: DateTime.utc(2026, 9, 10, 8),
+          sharedContext: _sharedContextResponse(householdId: 'household_c'),
+        );
+
+        final result = await harness.repository.acceptInvite(
+          token: 'invite_token_1234',
+          source: 'invite_link',
+        );
+
+        expect(result.shouldRouteToPractice, isFalse);
+        expect(result.snapshot.householdId, 'household_b');
+        expect(
+          result.snapshot.pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+        expect(
+          result.snapshot.lastPhase,
+          'accept_invite_pending_household_clear',
+        );
+        expect(result.message, contains('清理'));
+        expect(harness.api.acceptCallCount, 0);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+      },
+    );
+
+    test(
+      'successful cleanup is durably acknowledged before accept creates household C',
+      () async {
+        final pendingFingerprint = householdScopeFingerprint('household_a');
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_b',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_b',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+            pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+          ),
+        );
+        harness.api.acceptResponse = HouseholdAcceptInviteResponse(
+          householdId: 'household_c',
+          role: HouseholdRole.caregiver,
+          acceptedAt: DateTime.utc(2026, 9, 10, 8),
+          sharedContext: _sharedContextResponse(householdId: 'household_c'),
+        );
+        HouseholdLocalSnapshot? snapshotBeforeAccept;
+        harness.api.beforeAccept = () async {
+          snapshotBeforeAccept = await harness.localStore.read();
+        };
+
+        final result = await harness.repository.acceptInvite(
+          token: 'invite_token_1234',
+          source: 'invite_link',
+        );
+
+        expect(harness.api.acceptCallCount, 1);
+        expect(snapshotBeforeAccept?.householdId, 'household_b');
+        expect(
+          snapshotBeforeAccept?.pendingClearHouseholdScopeFingerprint,
+          isNull,
+        );
+        expect(result.shouldRouteToPractice, isTrue);
+        expect(result.snapshot.householdId, 'household_c');
+        expect(result.snapshot.pendingClearHouseholdScopeFingerprint, isNull);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          isNull,
+        );
+        expect(harness.clearedScopeFingerprints, <String>[pendingFingerprint]);
+      },
+    );
+
+    test(
+      'pending household cleanup also blocks createInvite without overwriting state',
+      () async {
+        final pendingFingerprint = householdScopeFingerprint('household_a');
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_b',
+            role: HouseholdRole.caregiver,
+            lastPhase: 'shared_context_ready',
+            pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+          ),
+        );
+        harness.clearCleanupFailures = true;
+
+        final result = await harness.repository.createInvite();
+
+        expect(result.isSuccess, isFalse);
+        expect(result.snapshot.householdId, 'household_b');
+        expect(
+          result.snapshot.pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+        expect(
+          result.snapshot.lastPhase,
+          'create_invite_pending_household_clear',
+        );
+        expect(result.message, contains('清理'));
+        expect(harness.api.createCallCount, 0);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+      },
+    );
+
+    test(
+      'revoke-only success preserves unresolved pending cleanup intent',
+      () async {
+        final pendingFingerprint = householdScopeFingerprint('household_a');
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_b',
+            role: HouseholdRole.caregiver,
+            lastPhase: 'shared_context_ready',
+            pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+          ),
+        );
+        harness.clearCleanupFailures = true;
+
+        final result = await harness.repository.revokeInvite(
+          token: 'invite_token_1234',
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(result.snapshot.householdId, 'household_b');
+        expect(
+          result.snapshot.pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+        expect(harness.api.revokeCallCount, 1);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+      },
+    );
+
+    test(
       'network, timeout, malformed, and persistence failures preserve old scope without clear',
       () async {
         await harness.localStore.write(
@@ -736,6 +925,9 @@ class _FakeHouseholdApiService extends HouseholdApiService {
   _FakeHouseholdApiService() : super(baseUrl: 'http://localhost:8080');
 
   HouseholdAcceptInviteResponse? acceptResponse;
+  Future<void> Function()? beforeAccept;
+  HouseholdInviteLink? createResponse;
+  HouseholdRevokeInviteResponse? revokeResponse;
   HouseholdSharedContextResponse? fetchResponse;
   HouseholdApiException? acceptError;
   HouseholdApiException? fetchError;
@@ -744,6 +936,9 @@ class _FakeHouseholdApiService extends HouseholdApiService {
   AccountSession? lastAcceptedSession;
   AccountSession? lastFetchedSession;
   int fetchCallCount = 0;
+  int acceptCallCount = 0;
+  int createCallCount = 0;
+  int revokeCallCount = 0;
 
   @override
   Future<HouseholdInviteLink> createInvite({
@@ -754,14 +949,33 @@ class _FakeHouseholdApiService extends HouseholdApiService {
     required String source,
   }) async {
     lastCreatedSession = session;
-    return HouseholdInviteLink(
-      householdId: 'household_1',
-      token: 'invite_token_1234',
-      inviteUrl: 'https://invite.example.com/invite/invite_token_1234',
-      role: role,
-      source: source,
-      expiresAt: DateTime.utc(2026, 4, 19, 12),
-    );
+    createCallCount += 1;
+    return createResponse ??
+        HouseholdInviteLink(
+          householdId: 'household_1',
+          token: 'invite_token_1234',
+          inviteUrl: 'https://invite.example.com/invite/invite_token_1234',
+          role: role,
+          source: source,
+          expiresAt: DateTime.utc(2026, 4, 19, 12),
+        );
+  }
+
+  @override
+  Future<HouseholdRevokeInviteResponse> revokeInvite({
+    required AccountSession session,
+    required Future<AccountSession> Function(AccountSession refreshedSession)
+    persistRefreshedSession,
+    required String token,
+  }) async {
+    revokeCallCount += 1;
+    return revokeResponse ??
+        HouseholdRevokeInviteResponse(
+          applied: true,
+          result: 'revoked',
+          token: token,
+          updatedAt: DateTime.utc(2026, 9, 10, 8),
+        );
   }
 
   @override
@@ -773,6 +987,8 @@ class _FakeHouseholdApiService extends HouseholdApiService {
     required String source,
   }) async {
     lastAcceptedSession = session;
+    acceptCallCount += 1;
+    await beforeAccept?.call();
     if (acceptError != null) {
       throw acceptError!;
     }
