@@ -12,10 +12,26 @@ import 'package:mobile/features/household/data/services/household_api_service.da
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('household API diagnostics do not render private server messages', () {
+    const error = HouseholdApiException(
+      kind: HouseholdApiFailureKind.http,
+      message: '宝宝米米 phone 13800138000 token secret household_a',
+      statusCode: 403,
+      code: 'role_not_allowed',
+    );
+
+    expect(error.toString(), isNot(contains('米米')));
+    expect(error.toString(), isNot(contains('13800138000')));
+    expect(error.toString(), isNot(contains('secret')));
+    expect(error.toString(), isNot(contains('household_a')));
+  });
 
   group('HouseholdRepository', () {
     late _HouseholdRepositoryHarness harness;
@@ -255,6 +271,251 @@ void main() {
       expect(snapshot.lastVisibleError, contains('重新登录'));
       expect(harness.api.fetchCallCount, 0);
     });
+
+    test(
+      'auth refresh failure preserves last durable household scope',
+      () async {
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        harness.accountSnapshot = AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: AccountSession(
+            accountId: 'acct_live',
+            sessionId: 'sess_legacy',
+            maskedPhoneNumber: '138****8000',
+            createdAt: DateTime.utc(2026, 4, 16, 10),
+          ),
+          lastSyncPhase: 'batch_ack_applied',
+        );
+
+        final snapshot = await harness.repository.refreshSharedContext();
+
+        expect(snapshot.householdId, 'household_a');
+        expect(snapshot.lastPhase, 'shared_context_invalid_session');
+        expect(harness.clearedScopes, isEmpty);
+        expect((await harness.localStore.read()).householdId, 'household_a');
+        expect(harness.api.fetchCallCount, 0);
+      },
+    );
+
+    test(
+      'server confirms household transition only after durable snapshot write',
+      () async {
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        harness.api.fetchResponse = _sharedContextResponse(
+          householdId: 'household_b',
+        );
+
+        final result = await harness.repository.refreshSharedContext();
+
+        expect(result.householdId, 'household_b');
+        expect(harness.clearedScopes, <String>['household_a']);
+        expect((await harness.localStore.read()).householdId, 'household_b');
+      },
+    );
+
+    test(
+      'membership transition does not clear public preset catalog cache',
+      () async {
+        final catalogStore = PresetSceneCatalogStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        await catalogStore.write(
+          PresetSceneCatalogSnapshot(
+            source: PresetSceneCatalogSource.remote,
+            scenes: <PresetSceneDefinition>[
+              PresetSceneDefinition(
+                presetSceneId: 'bath_time',
+                publishedVersion: 1,
+                spaceId: 'daily_care',
+                title: 'Bath',
+                summary: 'Summary',
+                sceneTag: 'routine',
+                coachTip: 'Tip',
+                sortOrder: 1,
+              ),
+            ],
+          ),
+        );
+        await harness.localStore.write(
+          const HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        harness.api.fetchResponse = _sharedContextResponse(
+          householdId: 'household_b',
+        );
+
+        await harness.repository.refreshSharedContext();
+
+        expect(
+          (await catalogStore.readResult()).status,
+          PresetSceneCatalogStoreReadStatus.available,
+        );
+      },
+    );
+
+    test(
+      'server-confirmed missing membership clears old scope after durable empty snapshot',
+      () async {
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        harness.api.fetchError = const HouseholdApiException(
+          kind: HouseholdApiFailureKind.http,
+          message: 'membership missing',
+          statusCode: 403,
+          code: 'role_not_allowed',
+        );
+
+        final result = await harness.repository.refreshSharedContext();
+
+        expect(result.householdId, isNull);
+        expect(result.role, isNull);
+        expect(result.sharedContext, isNull);
+        expect(result.lastPhase, 'shared_context_no_membership');
+        expect(harness.clearedScopes, <String>['household_a']);
+        expect((await harness.localStore.read()).householdId, isNull);
+      },
+    );
+
+    test(
+      'network, timeout, malformed, and persistence failures preserve old scope without clear',
+      () async {
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+
+        for (final error in <HouseholdApiException>[
+          const HouseholdApiException.network(message: 'offline'),
+          const HouseholdApiException.timeout(message: 'timeout'),
+          const HouseholdApiException.malformed(message: 'bad payload'),
+        ]) {
+          harness.api.fetchError = error;
+          final result = await harness.repository.refreshSharedContext();
+          expect(result.householdId, 'household_a');
+          expect(harness.clearedScopes, isEmpty);
+        }
+
+        final failingStore = _FailingHouseholdLocalStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        final failingScopes = <String>[];
+        final failingRepository = HouseholdRepository(
+          localStore: failingStore,
+          apiService: harness.api,
+          accountSnapshotLoader: () async => harness.accountSnapshot,
+          persistRefreshedSession: (session) async => session,
+          clearGeneratedContentForHouseholdScope: (scope) async {
+            failingScopes.add(scope);
+          },
+        );
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        harness.api.fetchError = null;
+        harness.api.fetchResponse = _sharedContextResponse(
+          householdId: 'household_b',
+        );
+
+        final result = await failingRepository.refreshSharedContext();
+
+        expect(result.householdId, 'household_a');
+        expect(result.lastPhase, 'shared_context_persist_failed');
+        expect(failingScopes, isEmpty);
+        await failingRepository.close();
+      },
+    );
+
+    test(
+      'malformed successful response never clears old household scope',
+      () async {
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        harness.api.fetchResponse = _sharedContextResponse(householdId: ' ');
+
+        final result = await harness.repository.refreshSharedContext();
+
+        expect(result.householdId, 'household_a');
+        expect(result.lastPhase, 'shared_context_malformed_response');
+        expect(harness.clearedScopes, isEmpty);
+        expect((await harness.localStore.read()).householdId, 'household_a');
+      },
+    );
+
+    test(
+      'cleanup failure after durable transition is reported only through retryable store intent',
+      () async {
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        harness.api.fetchResponse = _sharedContextResponse(
+          householdId: 'household_b',
+        );
+        harness.clearCleanupFailures = true;
+
+        final result = await harness.repository.refreshSharedContext();
+
+        expect(result.householdId, 'household_b');
+        expect((await harness.localStore.read()).householdId, 'household_b');
+        expect(harness.clearedScopes, <String>['household_a']);
+      },
+    );
   });
 }
 
@@ -265,6 +526,7 @@ class _HouseholdRepositoryHarness {
     required this.api,
     required this.accountSnapshot,
     required this.repository,
+    required this.clearedScopes,
   });
 
   final Directory tempDir;
@@ -272,6 +534,8 @@ class _HouseholdRepositoryHarness {
   final _FakeHouseholdApiService api;
   AccountLocalSnapshot accountSnapshot;
   final HouseholdRepository repository;
+  final List<String> clearedScopes;
+  bool clearCleanupFailures = false;
 
   static Future<_HouseholdRepositoryHarness> create() async {
     final tempDir = await Directory.systemTemp.createTemp(
@@ -282,6 +546,7 @@ class _HouseholdRepositoryHarness {
     );
     final api = _FakeHouseholdApiService();
     late _HouseholdRepositoryHarness harness;
+    final clearedScopes = <String>[];
     final repository = HouseholdRepository(
       localStore: localStore,
       apiService: api,
@@ -291,6 +556,12 @@ class _HouseholdRepositoryHarness {
           session: refreshedSession,
         );
         return refreshedSession;
+      },
+      clearGeneratedContentForHouseholdScope: (scope) async {
+        clearedScopes.add(scope);
+        if (harness.clearCleanupFailures) {
+          throw StateError('simulated household content cleanup failure');
+        }
       },
     );
     harness = _HouseholdRepositoryHarness(
@@ -303,6 +574,7 @@ class _HouseholdRepositoryHarness {
         lastSyncPhase: 'batch_ack_applied',
       ),
       repository: repository,
+      clearedScopes: clearedScopes,
     );
     return harness;
   }
@@ -312,6 +584,17 @@ class _HouseholdRepositoryHarness {
     if (await tempDir.exists()) {
       await tempDir.delete(recursive: true);
     }
+  }
+}
+
+class _FailingHouseholdLocalStore extends HouseholdLocalStore {
+  _FailingHouseholdLocalStore({required super.directoryResolver});
+
+  @override
+  Future<void> write(HouseholdLocalSnapshot snapshot) async {
+    throw const HouseholdLocalStoreException(
+      'simulated snapshot write failure',
+    );
   }
 }
 
@@ -404,9 +687,11 @@ AccountSession _jwtSession() {
   );
 }
 
-HouseholdSharedContextResponse _sharedContextResponse() {
+HouseholdSharedContextResponse _sharedContextResponse({
+  String householdId = 'household_1',
+}) {
   return HouseholdSharedContextResponse(
-    householdId: 'household_1',
+    householdId: householdId,
     role: HouseholdRole.caregiver,
     lastAcceptedAt: DateTime.utc(2026, 4, 16, 12),
     snapshot: HouseholdSharedContext(

@@ -205,6 +205,34 @@ void main() {
       expect(result.status, PresetSceneCatalogStoreReadStatus.ioFailure);
       expect(result.snapshot, isNull);
     });
+
+    test(
+      'clearForLifecycle removes cache, quarantine, temporary, and backup artifacts',
+      () async {
+        final primary = File('${tempDir.path}/preset_scene_catalog.json');
+        await store.write(
+          _snapshot(<PresetSceneDefinition>[_definition('bath_time')]),
+        );
+        await File('${primary.path}.tmp').writeAsString('temporary');
+        await File('${primary.path}.bak').writeAsString('backup');
+        await File('${primary.path}.quarantine.1').writeAsString('quarantine');
+        await File(
+          '${primary.path}.quarantine.99',
+        ).writeAsString('old quarantine');
+
+        await store.clearForLifecycle();
+
+        expect(await primary.exists(), isFalse);
+        expect(await File('${primary.path}.tmp').exists(), isFalse);
+        expect(await File('${primary.path}.bak').exists(), isFalse);
+        expect(
+          tempDir.listSync().whereType<File>().where(
+            (file) => file.path.contains('.preset_scene_catalog.json.'),
+          ),
+          isEmpty,
+        );
+      },
+    );
   });
 }
 

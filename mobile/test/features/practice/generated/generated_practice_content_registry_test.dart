@@ -76,6 +76,7 @@ void main() {
     late GeneratedCareMomentLocalStore store;
     late GeneratedCareTurnResumeMarkerStore resumeStore;
     late GeneratedPracticeContentRegistry registry;
+    String? householdScope;
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('generated_care_moment_');
@@ -85,11 +86,13 @@ void main() {
       );
       resumeStore = GeneratedCareTurnResumeMarkerStore(
         directoryResolver: () async => tempDir,
+        householdScopeLoader: () async => householdScope,
       );
       registry = GeneratedPracticeContentRegistry(
         store: store,
         resumeStore: resumeStore,
         accountContextLoader: () async => accountContext,
+        householdScopeLoader: () async => householdScope,
       );
     });
 
@@ -205,6 +208,157 @@ void main() {
     );
 
     test(
+      'persists household scope fingerprints and clears only revoked household content',
+      () async {
+        householdScope = 'household_a';
+        final householdCustom = _moment('household_a_custom');
+        final householdPreset = _moment(
+          'household_a_preset',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(
+          accountContext: accountContext,
+          moment: householdCustom,
+        );
+        await registry.register(
+          accountContext: accountContext,
+          moment: householdPreset,
+        );
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: householdCustom.generatedContentId,
+          confirmedAt: DateTime.utc(2026, 8, 9),
+        );
+
+        householdScope = null;
+        accountContext = 'standalone_account';
+        final standalone = _moment('standalone_history');
+        await registry.register(
+          accountContext: accountContext,
+          moment: standalone,
+        );
+
+        householdScope = 'household_b';
+        accountContext = 'account_b';
+        final retained = _moment('household_b_custom');
+        await registry.register(
+          accountContext: accountContext,
+          moment: retained,
+        );
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: retained.generatedContentId,
+          confirmedAt: DateTime.utc(2026, 8, 9),
+        );
+
+        await registry.clearForHouseholdScope('household_a');
+
+        final records = await store.readAll();
+        expect(
+          records.map((record) => record.moment.generatedContentId),
+          containsAll(<String>[
+            standalone.generatedContentId,
+            retained.generatedContentId,
+          ]),
+        );
+        expect(
+          records.map((record) => record.moment.generatedContentId),
+          isNot(contains(householdCustom.generatedContentId)),
+        );
+        expect(
+          records.map((record) => record.moment.generatedContentId),
+          isNot(contains(householdPreset.generatedContentId)),
+        );
+        expect((await resumeStore.readForAccount('account_a')), isNull);
+        expect(
+          (await resumeStore.readForAccount('account_b'))?.generatedContentId,
+          retained.generatedContentId,
+        );
+        final raw = await File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        ).readAsString();
+        expect(raw, isNot(contains('household_a')));
+        expect(raw, contains('householdScopeFingerprint'));
+      },
+    );
+
+    test(
+      'retries generated household cleanup from a durable marker after replacement failure',
+      () async {
+        final first = _moment('household_clear_retry_a');
+        final second = _moment('household_clear_retry_b');
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_a',
+            householdScopeFingerprint: householdScopeFingerprint('household_a'),
+            moment: first,
+          ),
+        );
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_b',
+            householdScopeFingerprint: householdScopeFingerprint('household_b'),
+            moment: second,
+          ),
+        );
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final temporary = Directory('${file.path}.tmp');
+        await temporary.create();
+
+        await expectLater(
+          store.clearForHouseholdScope('household_a'),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isTrue);
+        expect(
+          await File('${file.path}.clear').readAsString(),
+          startsWith('household:'),
+        );
+
+        await temporary.delete();
+        final recovered = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        expect(
+          (await recovered.readAll()).map(
+            (record) => record.moment.generatedContentId,
+          ),
+          <String>[second.generatedContentId],
+        );
+        expect(await File('${file.path}.clear').exists(), isFalse);
+      },
+    );
+
+    test(
+      'does not classify generated content when household snapshot read fails',
+      () async {
+        final failingRegistry = GeneratedPracticeContentRegistry(
+          store: store,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => accountContext,
+          householdScopeLoader: () async {
+            throw const FormatException('household snapshot unavailable');
+          },
+        );
+
+        await expectLater(
+          failingRegistry.register(
+            accountContext: accountContext,
+            moment: _moment('household_scope_read_failure'),
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
       'migrates legacy records without inputSource as custom history',
       () async {
         final moment = _moment('legacy_custom_round_trip');
@@ -220,7 +374,8 @@ void main() {
           (value as Map<String, dynamic>)
             ..remove('inputSource')
             ..remove('presetSceneId')
-            ..remove('presetSceneVersion');
+            ..remove('presetSceneVersion')
+            ..remove('householdScopeFingerprint');
         }
         await file.writeAsString(jsonEncode(root));
 
@@ -231,13 +386,14 @@ void main() {
         expect(resolved?.inputSource, SceneGenerationSourceType.custom);
         final migrated =
             jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-        expect(migrated['schemaVersion'], 3);
+        expect(migrated['schemaVersion'], 4);
         final migratedRecord =
             (migrated['records'] as List<dynamic>).single
                 as Map<String, dynamic>;
         expect(migratedRecord['inputSource'], 'custom');
         expect(migratedRecord['presetSceneId'], isNull);
         expect(migratedRecord['presetSceneVersion'], isNull);
+        expect(migratedRecord['householdScopeFingerprint'], isNull);
         expect(await File('${file.path}.tmp').exists(), isFalse);
         expect(await File('${file.path}.bak').exists(), isFalse);
       },
@@ -258,7 +414,8 @@ void main() {
           (value as Map<String, dynamic>)
             ..remove('inputSource')
             ..remove('presetSceneId')
-            ..remove('presetSceneVersion');
+            ..remove('presetSceneVersion')
+            ..remove('householdScopeFingerprint');
         }
         await file.writeAsString(jsonEncode(root));
 
@@ -330,7 +487,7 @@ void main() {
         );
         final retained =
             jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-        expect(retained['schemaVersion'], 3);
+        expect(retained['schemaVersion'], 4);
         final retainedIds = (retained['records'] as List<dynamic>)
             .map(
               (value) => (value as Map<String, dynamic>)['generatedContentId'],
@@ -871,7 +1028,8 @@ void main() {
           (value as Map<String, dynamic>)
             ..remove('inputSource')
             ..remove('presetSceneId')
-            ..remove('presetSceneVersion');
+            ..remove('presetSceneVersion')
+            ..remove('householdScopeFingerprint');
         }
         await file.writeAsString(jsonEncode(root));
         final firstStore = GeneratedCareMomentLocalStore(
@@ -978,7 +1136,7 @@ void main() {
         );
         final root =
             jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-        root['schemaVersion'] = 3;
+        root['schemaVersion'] = 4;
         final record =
             (root['records'] as List<dynamic>).single as Map<String, dynamic>;
         record['inputSource'] = 'preset';
@@ -2183,6 +2341,11 @@ class _FailingGeneratedCareTurnResumeStore
   @override
   Future<void> clearForAccount(String accountContext) async {
     throw StateError('resume clear failed');
+  }
+
+  @override
+  Future<void> clearForHouseholdScope(String householdScope) async {
+    throw StateError('resume household clear failed');
   }
 
   @override

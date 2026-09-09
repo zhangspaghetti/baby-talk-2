@@ -12,6 +12,8 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 typedef HouseholdAccountSnapshotLoader =
     Future<AccountLocalSnapshot> Function();
+typedef HouseholdGeneratedContentScopeClearance =
+    Future<void> Function(String householdScope);
 
 class HouseholdCreateInviteResult {
   const HouseholdCreateInviteResult({
@@ -61,31 +63,43 @@ class HouseholdRepository {
     required HouseholdApiService apiService,
     required HouseholdAccountSnapshotLoader accountSnapshotLoader,
     required PersistRefreshedSession persistRefreshedSession,
+    HouseholdGeneratedContentScopeClearance?
+    clearGeneratedContentForHouseholdScope,
   }) : _localStore = localStore,
        _apiService = apiService,
        _accountSnapshotLoader = accountSnapshotLoader,
-       _persistRefreshedSession = persistRefreshedSession;
+       _persistRefreshedSession = persistRefreshedSession,
+       _clearGeneratedContentForHouseholdScope =
+           clearGeneratedContentForHouseholdScope ?? ((_) async {});
 
   final HouseholdLocalStore _localStore;
   final HouseholdApiService _apiService;
   final HouseholdAccountSnapshotLoader _accountSnapshotLoader;
   final PersistRefreshedSession _persistRefreshedSession;
+  final HouseholdGeneratedContentScopeClearance
+  _clearGeneratedContentForHouseholdScope;
 
   Future<HouseholdLocalSnapshot>? _refreshFuture;
   Future<HouseholdInviteAcceptResult>? _acceptFuture;
   Future<HouseholdCreateInviteResult>? _createFuture;
   Future<HouseholdRevokeInviteResult>? _revokeFuture;
+  HouseholdLocalSnapshot? _lastKnownSnapshot;
 
   Future<HouseholdLocalSnapshot> loadSnapshot() async {
     try {
-      return await _localStore.read();
+      final snapshot = await _localStore.read();
+      _lastKnownSnapshot = snapshot;
+      return snapshot;
     } on FormatException {
-      return const HouseholdLocalSnapshot(
+      final fallback = _lastKnownSnapshot ?? HouseholdLocalSnapshot.empty;
+      return fallback.copyWith(
         lastPhase: 'local_snapshot_reset',
-        lastVisibleError: 'household 本地状态损坏，已回退到安全空态。',
+        lastVisibleError: _lastKnownSnapshot == null
+            ? 'household 本地状态损坏，已回退到安全空态。'
+            : 'household 本地状态损坏，已保留最近一次稳定结果。',
       );
     } on HouseholdLocalStoreException catch (error) {
-      return HouseholdLocalSnapshot(
+      return (_lastKnownSnapshot ?? HouseholdLocalSnapshot.empty).copyWith(
         lastPhase: 'local_store_unavailable',
         lastVisibleError: _sanitizeVisibleError(error.message),
       );
@@ -333,7 +347,14 @@ class HouseholdRepository {
     final current = await _readSnapshotSafely();
     final sessionGate = await _resolveSessionGate(action: 'shared_context');
     if (!sessionGate.canProceed) {
-      return _persistSnapshot(sessionGate.snapshot!);
+      final blocked = sessionGate.snapshot!;
+      return _persistSnapshot(
+        current.copyWith(
+          lastPhase: blocked.lastPhase,
+          lastVisibleError: blocked.lastVisibleError,
+          clearLastVisibleError: blocked.lastVisibleError == null,
+        ),
+      );
     }
 
     try {
@@ -341,9 +362,22 @@ class HouseholdRepository {
         session: sessionGate.session!,
         persistRefreshedSession: _persistRefreshedSession,
       );
-      return _persistSnapshot(
+      final householdId = response.householdId.trim();
+      if (householdId.isEmpty) {
+        return _persistSnapshot(
+          _snapshotForApiError(
+            current: current,
+            error: const HouseholdApiException.malformed(
+              message: 'shared context household identity missing',
+            ),
+            action: 'shared_context',
+            preserveSharedContext: true,
+          ),
+        );
+      }
+      final persisted = await _persistSnapshotWithResult(
         HouseholdLocalSnapshot(
-          householdId: response.householdId,
+          householdId: householdId,
           role: response.role,
           sharedContext: response.snapshot,
           lastPhase: 'shared_context_ready',
@@ -351,18 +385,54 @@ class HouseholdRepository {
         ),
         phaseOnWriteFailure: 'shared_context_persist_failed',
         messageOnWriteFailure: '共享上下文已刷新，但 household 本地状态保存失败。',
+        fallbackOnWriteFailure: current,
       );
+      if (persisted.wasDurablyStored) {
+        await _clearPreviousHouseholdScopeIfChanged(
+          previous: current,
+          next: persisted.snapshot,
+        );
+      }
+      return persisted.snapshot;
     } on HouseholdApiException catch (error) {
+      if (_isServerConfirmedMissingMembership(error)) {
+        final persisted = await _persistSnapshotWithResult(
+          const HouseholdLocalSnapshot(
+            lastPhase: 'shared_context_no_membership',
+            lastVisibleError: '当前账号尚未加入共享家庭。',
+          ),
+          phaseOnWriteFailure: 'shared_context_persist_failed',
+          messageOnWriteFailure: '共享家庭状态已更新，但本地状态保存失败。',
+          fallbackOnWriteFailure: current,
+        );
+        if (persisted.wasDurablyStored) {
+          await _clearPreviousHouseholdScopeIfChanged(
+            previous: current,
+            next: persisted.snapshot,
+          );
+        }
+        return persisted.snapshot;
+      }
       return _persistSnapshot(
         _snapshotForApiError(
           current: current,
           error: error,
           action: 'shared_context',
-          preserveSharedContext:
-              error.kind != HouseholdApiFailureKind.malformed,
+          preserveSharedContext: true,
           fallbackMessage: reason == 'foreground_resume'
               ? '前台恢复时共享上下文刷新失败，已保留最近一次稳定结果。'
               : null,
+        ),
+      );
+    } on FormatException {
+      return _persistSnapshot(
+        _snapshotForApiError(
+          current: current,
+          error: const HouseholdApiException.malformed(
+            message: 'shared context response is malformed',
+          ),
+          action: 'shared_context',
+          preserveSharedContext: true,
         ),
       );
     }
@@ -518,16 +588,77 @@ class HouseholdRepository {
     String? phaseOnWriteFailure,
     String? messageOnWriteFailure,
   }) async {
+    final result = await _persistSnapshotWithResult(
+      snapshot,
+      phaseOnWriteFailure: phaseOnWriteFailure,
+      messageOnWriteFailure: messageOnWriteFailure,
+    );
+    return result.snapshot;
+  }
+
+  Future<_PersistSnapshotResult> _persistSnapshotWithResult(
+    HouseholdLocalSnapshot snapshot, {
+    String? phaseOnWriteFailure,
+    String? messageOnWriteFailure,
+    HouseholdLocalSnapshot? fallbackOnWriteFailure,
+  }) async {
     try {
       await _localStore.write(snapshot);
-      return snapshot;
+      _lastKnownSnapshot = snapshot;
+      return _PersistSnapshotResult(snapshot: snapshot, wasDurablyStored: true);
     } on HouseholdLocalStoreException catch (error) {
-      return snapshot.copyWith(
-        lastPhase:
-            phaseOnWriteFailure ?? '${snapshot.lastPhase}_persist_failed',
-        lastVisibleError:
-            messageOnWriteFailure ?? _sanitizeVisibleError(error.message),
+      final fallback =
+          fallbackOnWriteFailure ??
+          _lastKnownSnapshot ??
+          HouseholdLocalSnapshot.empty;
+      return _PersistSnapshotResult(
+        snapshot: fallback.copyWith(
+          lastPhase:
+              phaseOnWriteFailure ?? '${snapshot.lastPhase}_persist_failed',
+          lastVisibleError:
+              messageOnWriteFailure ?? _sanitizeVisibleError(error.message),
+        ),
+        wasDurablyStored: false,
       );
+    } on Object {
+      final fallback =
+          fallbackOnWriteFailure ??
+          _lastKnownSnapshot ??
+          HouseholdLocalSnapshot.empty;
+      return _PersistSnapshotResult(
+        snapshot: fallback.copyWith(
+          lastPhase:
+              phaseOnWriteFailure ?? '${snapshot.lastPhase}_persist_failed',
+          lastVisibleError:
+              messageOnWriteFailure ?? 'household 本地状态保存失败，已保留最近一次稳定结果。',
+        ),
+        wasDurablyStored: false,
+      );
+    }
+  }
+
+  bool _isServerConfirmedMissingMembership(HouseholdApiException error) {
+    if (error.kind != HouseholdApiFailureKind.http || error.statusCode != 403) {
+      return false;
+    }
+    return error.code == 'role_not_allowed' ||
+        error.code == 'household_membership_missing' ||
+        error.details['reason'] == 'household_membership_missing';
+  }
+
+  Future<void> _clearPreviousHouseholdScopeIfChanged({
+    required HouseholdLocalSnapshot previous,
+    required HouseholdLocalSnapshot next,
+  }) async {
+    final previousScope = previous.householdId;
+    if (previousScope == null || previousScope == next.householdId) {
+      return;
+    }
+    try {
+      await _clearGeneratedContentForHouseholdScope(previousScope);
+    } on Object {
+      // The generated stores retain durable pending-clear intents and retry on
+      // their next read; the new household snapshot remains authoritative.
     }
   }
 
@@ -551,6 +682,16 @@ class HouseholdRepository {
     );
     return sanitized;
   }
+}
+
+class _PersistSnapshotResult {
+  const _PersistSnapshotResult({
+    required this.snapshot,
+    required this.wasDurablyStored,
+  });
+
+  final HouseholdLocalSnapshot snapshot;
+  final bool wasDurablyStored;
 }
 
 class _SessionGateResult {

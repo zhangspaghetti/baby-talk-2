@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
 import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
 import 'package:path_provider/path_provider.dart';
 
 typedef GeneratedCareTurnResumeDirectoryResolver = Future<Directory> Function();
 typedef GeneratedCareTurnResumeFileReader = Future<String> Function(File file);
+typedef GeneratedCareTurnResumeHouseholdScopeLoader =
+    Future<String?> Function();
 
 /// Stores only opaque generated-content identity and ordering metadata.
 /// Account identity is persisted as a one-way scope fingerprint.
@@ -15,14 +18,18 @@ class GeneratedCareTurnResumeMarkerStore
   GeneratedCareTurnResumeMarkerStore({
     GeneratedCareTurnResumeDirectoryResolver? directoryResolver,
     GeneratedCareTurnResumeFileReader? fileReader,
+    GeneratedCareTurnResumeHouseholdScopeLoader? householdScopeLoader,
     this.fileName = 'generated_care_turn_resume.json',
   }) : _directoryResolver = directoryResolver ?? getApplicationSupportDirectory,
-       _fileReader = fileReader ?? ((file) => file.readAsString());
+       _fileReader = fileReader ?? ((file) => file.readAsString()),
+       _householdScopeLoader = householdScopeLoader ?? (() async => null);
 
-  static const _schemaVersion = 1;
+  static const _schemaVersion = 2;
+  static const _legacySchemaVersion = 1;
 
   final GeneratedCareTurnResumeDirectoryResolver _directoryResolver;
   final GeneratedCareTurnResumeFileReader _fileReader;
+  final GeneratedCareTurnResumeHouseholdScopeLoader _householdScopeLoader;
   final String fileName;
   Future<void> _mutationTail = Future<void>.value();
 
@@ -33,17 +40,24 @@ class GeneratedCareTurnResumeMarkerStore
     required DateTime confirmedAt,
   }) {
     final scopeFingerprint = _scopeFingerprint(accountContext);
-    final marker = GeneratedCareTurnResumeMarker(
-      generatedContentId: generatedContentId,
-      confirmedAt: confirmedAt,
-    );
     return _enqueueMutation(() async {
+      final householdScope = await _householdScopeLoader();
+      final marker = GeneratedCareTurnResumeMarker(
+        generatedContentId: generatedContentId,
+        confirmedAt: confirmedAt,
+      );
       final records = await _readRecords();
       final retained = records
           .where((record) => record.scopeFingerprint != scopeFingerprint)
           .toList(growable: true);
       retained.add(
-        _StoredResumeMarker(scopeFingerprint: scopeFingerprint, marker: marker),
+        _StoredResumeMarker(
+          scopeFingerprint: scopeFingerprint,
+          householdScopeFingerprint: householdScope == null
+              ? null
+              : householdScopeFingerprint(householdScope),
+          marker: marker,
+        ),
       );
       await _writeRecords(retained);
     });
@@ -93,19 +107,65 @@ class GeneratedCareTurnResumeMarkerStore
       final retained = (await _readRecords())
           .where((record) => record.scopeFingerprint != scopeFingerprint)
           .toList(growable: false);
-      await _persistOrDelete(retained);
+      await _persistOrDelete(
+        retained,
+        clearIntent: _ClearIntent.account(scopeFingerprint),
+      );
     });
   }
 
   @override
-  Future<void> clearForLifecycle() => _enqueueMutation(_deleteFiles);
+  Future<void> clearForHouseholdScope(String householdScope) {
+    final scopeFingerprint = householdScopeFingerprint(householdScope);
+    return _enqueueMutation(() async {
+      final file = await _resolveFile();
+      if (!await file.parent.exists()) {
+        return;
+      }
+      await File('${file.path}.clear').writeAsString(
+        _ClearIntent.household(scopeFingerprint).markerValue,
+        flush: true,
+      );
+      // _readRecords consumes marker and only removes it after replacement.
+      await _readRecords();
+    });
+  }
+
+  @override
+  Future<void> clearForLifecycle() => _enqueueMutation(
+    () => _deleteFiles(clearIntent: const _ClearIntent.lifecycle()),
+  );
 
   Future<List<_StoredResumeMarker>> _readRecords() async {
     final file = await _resolveFile();
-    if (!await file.exists()) {
+    final clearMarker = File('${file.path}.clear');
+    final pendingClearIntent = await _readClearIntent(clearMarker);
+    final clearIntent =
+        pendingClearIntent?.kind == _ClearScopeKind.lifecycle &&
+            await file.exists()
+        ? null
+        : pendingClearIntent;
+    if (pendingClearIntent?.kind == _ClearScopeKind.lifecycle &&
+        clearIntent != null) {
+      await _deleteFiles(clearIntent: clearIntent);
       return const <_StoredResumeMarker>[];
     }
+    if (!await file.exists()) {
+      final restored = await _restoreBackupIfNeeded(file);
+      if (!restored && clearIntent != null) {
+        throw const FileSystemException('resume marker backup restore failed');
+      }
+    }
+    if (!await file.exists()) {
+      if (clearIntent != null) {
+        await _deleteFileIfExists(clearMarker);
+      }
+      return const <_StoredResumeMarker>[];
+    }
+
     final raw = await _fileReader(file);
+    final List<_StoredResumeMarker> records;
+    final bool isLegacy;
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
@@ -113,34 +173,72 @@ class GeneratedCareTurnResumeMarkerStore
       }
       final root = Map<String, dynamic>.from(decoded);
       _requireExactKeys(root, const <String>{'schemaVersion', 'records'});
-      if (root['schemaVersion'] != _schemaVersion || root['records'] is! List) {
+      final schemaVersion = root['schemaVersion'];
+      isLegacy = schemaVersion == _legacySchemaVersion;
+      if (schemaVersion != _schemaVersion && !isLegacy ||
+          root['records'] is! List) {
         throw const FormatException('unsupported resume marker schema');
       }
-      final records = <_StoredResumeMarker>[
+      records = <_StoredResumeMarker>[
         for (final value in root['records'] as List<dynamic>)
-          _StoredResumeMarker.fromJson(value),
+          _StoredResumeMarker.fromJson(
+            value,
+            allowLegacyMissingHouseholdScope: isLegacy,
+          ),
       ];
       if (records.map((record) => record.scopeFingerprint).toSet().length !=
           records.length) {
         throw const FormatException('duplicate resume marker scope');
       }
-      return records;
     } on Object {
       await _deleteFilesBestEffort();
       return const <_StoredResumeMarker>[];
     }
+
+    final retained = clearIntent == null
+        ? records
+        : records
+              .where(
+                (record) => clearIntent.kind == _ClearScopeKind.account
+                    ? record.scopeFingerprint != clearIntent.scopeFingerprint
+                    : record.householdScopeFingerprint !=
+                          clearIntent.scopeFingerprint,
+              )
+              .toList(growable: false);
+    if (clearIntent != null || isLegacy) {
+      await _persistOrDelete(retained, clearIntent: clearIntent);
+    }
+    return retained;
   }
 
-  Future<void> _persistOrDelete(List<_StoredResumeMarker> records) {
-    return records.isEmpty ? _deleteFiles() : _writeRecords(records);
+  Future<void> _persistOrDelete(
+    List<_StoredResumeMarker> records, {
+    _ClearIntent? clearIntent,
+  }) {
+    return records.isEmpty
+        ? _deleteFiles(clearIntent: clearIntent)
+        : _writeRecords(records, clearIntent: clearIntent);
   }
 
-  Future<void> _writeRecords(List<_StoredResumeMarker> records) async {
-    final file = await _resolveFile();
-    final temporary = File('${file.path}.tmp');
-    await file.parent.create(recursive: true);
-    await _deleteFileIfExists(temporary);
+  Future<void> _writeRecords(
+    List<_StoredResumeMarker> records, {
+    _ClearIntent? clearIntent,
+  }) async {
+    File? temporary;
+    File? backup;
+    var backupCreated = false;
     try {
+      final file = await _resolveFile();
+      temporary = File('${file.path}.tmp');
+      backup = File('${file.path}.bak');
+      final clearMarker = File('${file.path}.clear');
+      await file.parent.create(recursive: true);
+      if (clearIntent == null) {
+        await _deleteFileIfExists(clearMarker);
+      } else {
+        await clearMarker.writeAsString(clearIntent.markerValue, flush: true);
+      }
+      await _deleteFileIfExists(temporary);
       await temporary.writeAsString(
         jsonEncode(<String, Object?>{
           'schemaVersion': _schemaVersion,
@@ -148,28 +246,103 @@ class GeneratedCareTurnResumeMarkerStore
         }),
         flush: true,
       );
-      if (Platform.isWindows) {
-        await _deleteFileIfExists(file);
+      if (!await file.exists() && await backup.exists()) {
+        await backup.rename(file.path);
+      }
+      await _deleteFileIfExists(backup);
+      if (await file.exists()) {
+        await file.rename(backup.path);
+        backupCreated = true;
       }
       await temporary.rename(file.path);
+      await _deleteFileIfExists(backup);
+      backupCreated = false;
+      await _deleteFileIfExists(clearMarker);
     } on Object {
-      await _deleteFileIfExists(temporary);
+      if (temporary != null && backup != null) {
+        try {
+          final file = await _resolveFile();
+          if (await backup.exists() &&
+              (backupCreated || !await file.exists())) {
+            if (await file.exists()) {
+              await _deleteFileIfExists(file);
+            }
+            await backup.rename(file.path);
+          }
+        } on Object {
+          // Keep backup and clear marker for a later retry.
+        }
+      }
+      if (temporary != null) {
+        try {
+          await _deleteFileIfExists(temporary);
+        } on Object {
+          // Preserve primary failure while leaving marker durable.
+        }
+      }
       rethrow;
     }
   }
 
-  Future<void> _deleteFiles() async {
+  Future<void> _deleteFiles({_ClearIntent? clearIntent}) async {
     final file = await _resolveFile();
-    await _deleteFileIfExists(file);
+    if (!await file.parent.exists()) {
+      return;
+    }
+    final clearMarker = File('${file.path}.clear');
+    if (clearIntent != null) {
+      await clearMarker.writeAsString(clearIntent.markerValue, flush: true);
+    }
     await _deleteFileIfExists(File('${file.path}.tmp'));
+    await _deleteFileIfExists(File('${file.path}.bak'));
+    await _deleteFileIfExists(file);
+    await _deleteFileIfExists(clearMarker);
   }
 
   Future<void> _deleteFilesBestEffort() async {
     try {
-      await _deleteFiles();
+      await _deleteFiles(clearIntent: const _ClearIntent.lifecycle());
     } on Object {
       // Corrupt marker cleanup is best-effort and never blocks recovery.
     }
+  }
+
+  Future<bool> _restoreBackupIfNeeded(File file) async {
+    final backup = File('${file.path}.bak');
+    if (await file.exists() || !await backup.exists()) {
+      return true;
+    }
+    try {
+      await backup.rename(file.path);
+      return true;
+    } on Object {
+      return await file.exists();
+    }
+  }
+
+  Future<_ClearIntent?> _readClearIntent(File marker) async {
+    if (!await marker.exists()) {
+      return null;
+    }
+    final raw = await marker.readAsString();
+    if (raw == 'clear') {
+      return const _ClearIntent.lifecycle();
+    }
+    const accountPrefix = 'account:';
+    if (raw.startsWith(accountPrefix)) {
+      final fingerprint = raw.substring(accountPrefix.length);
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(fingerprint)) {
+        return _ClearIntent.account(fingerprint);
+      }
+    }
+    const householdPrefix = 'household:';
+    if (raw.startsWith(householdPrefix)) {
+      final fingerprint = raw.substring(householdPrefix.length);
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(fingerprint)) {
+        return _ClearIntent.household(fingerprint);
+      }
+    }
+    throw const FormatException('invalid resume marker clear intent');
   }
 
   Future<File> _resolveFile() async {
@@ -193,21 +366,27 @@ class GeneratedCareTurnResumeMarkerStore
 class _StoredResumeMarker {
   const _StoredResumeMarker({
     required this.scopeFingerprint,
+    required this.householdScopeFingerprint,
     required this.marker,
   });
 
   final String scopeFingerprint;
+  final String? householdScopeFingerprint;
   final GeneratedCareTurnResumeMarker marker;
 
-  factory _StoredResumeMarker.fromJson(Object? value) {
+  factory _StoredResumeMarker.fromJson(
+    Object? value, {
+    required bool allowLegacyMissingHouseholdScope,
+  }) {
     if (value is! Map) {
       throw const FormatException('invalid resume marker record');
     }
     final json = Map<String, dynamic>.from(value);
-    _requireExactKeys(json, const <String>{
+    _requireExactKeys(json, <String>{
       'scopeFingerprint',
       'generatedContentId',
       'confirmedAt',
+      if (!allowLegacyMissingHouseholdScope) 'householdScopeFingerprint',
     });
     final scopeFingerprint = _required(
       json['scopeFingerprint'],
@@ -216,6 +395,9 @@ class _StoredResumeMarker {
     if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(scopeFingerprint)) {
       throw const FormatException('invalid resume marker scope fingerprint');
     }
+    final householdScopeFingerprint = allowLegacyMissingHouseholdScope
+        ? null
+        : _optionalHouseholdScopeFingerprint(json['householdScopeFingerprint']);
     final confirmedAtValue = _required(json['confirmedAt'], 'confirmedAt');
     final confirmedAt = DateTime.tryParse(confirmedAtValue);
     if (confirmedAt == null || !confirmedAt.isUtc) {
@@ -223,6 +405,7 @@ class _StoredResumeMarker {
     }
     return _StoredResumeMarker(
       scopeFingerprint: scopeFingerprint,
+      householdScopeFingerprint: householdScopeFingerprint,
       marker: GeneratedCareTurnResumeMarker(
         generatedContentId: _required(
           json['generatedContentId'],
@@ -235,9 +418,43 @@ class _StoredResumeMarker {
 
   Map<String, Object?> toJson() => <String, Object?>{
     'scopeFingerprint': scopeFingerprint,
+    'householdScopeFingerprint': householdScopeFingerprint,
     'generatedContentId': marker.generatedContentId,
     'confirmedAt': marker.confirmedAt.toIso8601String(),
   };
+}
+
+enum _ClearScopeKind { lifecycle, account, household }
+
+class _ClearIntent {
+  const _ClearIntent.lifecycle()
+    : kind = _ClearScopeKind.lifecycle,
+      scopeFingerprint = null;
+
+  const _ClearIntent.account(this.scopeFingerprint)
+    : kind = _ClearScopeKind.account;
+
+  const _ClearIntent.household(this.scopeFingerprint)
+    : kind = _ClearScopeKind.household;
+
+  final _ClearScopeKind kind;
+  final String? scopeFingerprint;
+
+  String get markerValue => switch (kind) {
+    _ClearScopeKind.lifecycle => 'clear',
+    _ClearScopeKind.account => 'account:$scopeFingerprint',
+    _ClearScopeKind.household => 'household:$scopeFingerprint',
+  };
+}
+
+String? _optionalHouseholdScopeFingerprint(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String || !RegExp(r'^[0-9a-f]{64}$').hasMatch(value)) {
+    throw const FormatException('invalid resume marker household scope');
+  }
+  return value;
 }
 
 String _scopeFingerprint(String accountContext) {

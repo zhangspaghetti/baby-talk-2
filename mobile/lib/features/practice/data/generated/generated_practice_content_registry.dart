@@ -8,6 +8,7 @@ import 'package:mobile/features/practice/domain/models/practice_content_source.d
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 
 typedef GeneratedPracticeAccountContextLoader = Future<String?> Function();
+typedef GeneratedPracticeHouseholdScopeLoader = Future<String?> Function();
 
 enum GeneratedPracticeProjectionUnavailableReason {
   accountUnavailable,
@@ -48,13 +49,16 @@ class GeneratedPracticeContentRegistry
     required GeneratedCareMomentLocalStore store,
     required GeneratedCareTurnResumeStore resumeStore,
     required GeneratedPracticeAccountContextLoader accountContextLoader,
+    GeneratedPracticeHouseholdScopeLoader? householdScopeLoader,
   }) : _store = store,
        _resumeStore = resumeStore,
-       _accountContextLoader = accountContextLoader;
+       _accountContextLoader = accountContextLoader,
+       _householdScopeLoader = householdScopeLoader ?? (() async => null);
 
   final GeneratedCareMomentLocalStore _store;
   final GeneratedCareTurnResumeStore _resumeStore;
   final GeneratedPracticeAccountContextLoader _accountContextLoader;
+  final GeneratedPracticeHouseholdScopeLoader _householdScopeLoader;
 
   Future<String?> loadCurrentAccountContext() => _loadCurrentAccountContext();
 
@@ -73,9 +77,13 @@ class GeneratedPracticeContentRegistry
       throw StateError('当前账号与 approved generated content 不匹配。');
     }
     _validateMoment(moment);
+    final householdScope = await _householdScopeLoader();
     await _store.upsert(
       StoredGeneratedCareMoment(
         accountContext: normalizedAccountContext,
+        householdScopeFingerprint: householdScope == null
+            ? null
+            : householdScopeFingerprint(householdScope),
         moment: moment,
       ),
     );
@@ -293,6 +301,15 @@ class GeneratedPracticeContentRegistry
     return _clearBoth(
       clearGeneratedCareMoments: () => _store.clearForAccount(accountContext),
       clearResumeMarkers: () => _resumeStore.clearForAccount(accountContext),
+    );
+  }
+
+  Future<void> clearForHouseholdScope(String householdScope) {
+    return _clearBoth(
+      clearGeneratedCareMoments: () =>
+          _store.clearForHouseholdScope(householdScope),
+      clearResumeMarkers: () =>
+          _resumeStore.clearForHouseholdScope(householdScope),
     );
   }
 

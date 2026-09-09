@@ -63,7 +63,10 @@ class HouseholdApiException implements Exception {
 
   @override
   String toString() {
-    return 'HouseholdApiException(kind: $kind, statusCode: $statusCode, code: $code, message: $message)';
+    // Server messages may contain private household or child text. Callers
+    // receive the sanitized visible message separately; diagnostics expose
+    // only stable transport classification.
+    return 'HouseholdApiException(kind: $kind, statusCode: $statusCode, code: $code)';
   }
 }
 

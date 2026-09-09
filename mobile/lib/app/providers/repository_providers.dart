@@ -211,6 +211,12 @@ final assetPhraseServiceProvider = Provider<AssetPhraseService>((ref) {
   );
 });
 
+final householdLocalStoreProvider = Provider<HouseholdLocalStore>((ref) {
+  return HouseholdLocalStore(
+    directoryResolver: () => ref.read(appDirectoryProvider.future),
+  );
+});
+
 final presetSceneCatalogStoreProvider = Provider<PresetSceneCatalogStore>((
   ref,
 ) {
@@ -239,6 +245,8 @@ final generatedCareTurnResumeMarkerStoreProvider =
     Provider<GeneratedCareTurnResumeMarkerStore>((ref) {
       return GeneratedCareTurnResumeMarkerStore(
         directoryResolver: () => ref.read(appDirectoryProvider.future),
+        householdScopeLoader: () async =>
+            (await ref.read(householdLocalStoreProvider).read()).householdId,
       );
     });
 
@@ -251,6 +259,8 @@ final generatedPracticeContentRegistryProvider =
           final snapshot = await AccountLocalStore().read();
           return snapshot.session?.accountId;
         },
+        householdScopeLoader: () async =>
+            (await ref.read(householdLocalStoreProvider).read()).householdId,
       );
     });
 
@@ -533,14 +543,16 @@ final householdRepositoryProvider = FutureProvider<HouseholdRepository>((
   ref,
 ) async {
   final accountRepository = await ref.watch(accountRepositoryProvider.future);
-  final directory = await ref.watch(appDirectoryProvider.future);
   final householdApiService = ref.watch(householdApiServiceProvider);
 
   return HouseholdRepository(
-    localStore: HouseholdLocalStore(directoryResolver: () async => directory),
+    localStore: ref.watch(householdLocalStoreProvider),
     apiService: householdApiService,
     accountSnapshotLoader: accountRepository.loadSnapshot,
     persistRefreshedSession: accountRepository.persistRefreshedSession,
+    clearGeneratedContentForHouseholdScope: ref
+        .watch(generatedPracticeContentRegistryProvider)
+        .clearForHouseholdScope,
   );
 });
 
@@ -636,6 +648,12 @@ final localSensitiveDataClearanceOrchestratorProvider =
       final generatedPracticeContentRegistry = ref.watch(
         generatedPracticeContentRegistryProvider,
       );
+      final presetSceneCatalogStore = ref.watch(
+        presetSceneCatalogStoreProvider,
+      );
+      final presetSceneCatalogRepository = ref.watch(
+        presetSceneCatalogRepositoryProvider,
+      );
       final generatedAudioMemoryCache = ref.watch(
         generatedAudioMemoryCacheProvider,
       );
@@ -656,6 +674,8 @@ final localSensitiveDataClearanceOrchestratorProvider =
         customSceneDraftContinuationCoordinator:
             customSceneDraftContinuationCoordinator,
         generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+        presetSceneCatalogStore: presetSceneCatalogStore,
+        presetSceneCatalogRepository: presetSceneCatalogRepository,
         generatedAudioMemoryCache: generatedAudioMemoryCache,
         settingsLocalDataSource: settingsRepository.localDataSource,
         onboardingCareTurnContinuationClearance:

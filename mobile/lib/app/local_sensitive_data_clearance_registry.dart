@@ -8,6 +8,8 @@ import 'package:mobile/features/household/data/repositories/household_repository
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
 import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
 
 RegistryLocalSensitiveDataClearanceOrchestrator
@@ -21,6 +23,8 @@ createLocalSensitiveDataClearanceOrchestrator({
   required CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator,
   required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
+  required PresetSceneCatalogStore presetSceneCatalogStore,
+  PresetSceneCatalogRepository? presetSceneCatalogRepository,
   required GeneratedAudioMemoryCache generatedAudioMemoryCache,
   required SettingsLocalDataSource settingsLocalDataSource,
   required LocalSensitiveDataClearanceCallback
@@ -37,6 +41,8 @@ createLocalSensitiveDataClearanceOrchestrator({
       customSceneDraftContinuationCoordinator:
           customSceneDraftContinuationCoordinator,
       generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+      presetSceneCatalogStore: presetSceneCatalogStore,
+      presetSceneCatalogRepository: presetSceneCatalogRepository,
       generatedAudioMemoryCache: generatedAudioMemoryCache,
       settingsLocalDataSource: settingsLocalDataSource,
       onboardingCareTurnContinuationClearance:
@@ -55,6 +61,8 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
   required CustomSceneDraftContinuationCoordinator
   customSceneDraftContinuationCoordinator,
   required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
+  required PresetSceneCatalogStore presetSceneCatalogStore,
+  PresetSceneCatalogRepository? presetSceneCatalogRepository,
   required GeneratedAudioMemoryCache generatedAudioMemoryCache,
   required SettingsLocalDataSource settingsLocalDataSource,
   required LocalSensitiveDataClearanceCallback
@@ -81,6 +89,27 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       target: LocalSensitiveDataTarget.generatedCareMoments,
       primitiveName: 'GeneratedPracticeContentRegistry.clearForLifecycle',
       clear: generatedPracticeContentRegistry.clearForLifecycle,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.presetSceneCatalog,
+      primitiveName: 'PresetSceneCatalogStore.clearForLifecycle',
+      clear: () async {
+        Object? failure;
+        try {
+          await presetSceneCatalogStore.clearForLifecycle();
+        } on Object catch (error) {
+          failure = error;
+        }
+        try {
+          await presetSceneCatalogRepository?.clearForLifecycle();
+        } on Object catch (error) {
+          failure ??= error;
+        }
+        final error = failure;
+        if (error != null) {
+          throw error;
+        }
+      },
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.generatedAudioMemory,

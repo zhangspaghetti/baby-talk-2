@@ -33,5 +33,7 @@ abstract interface class GeneratedCareTurnResumeStore {
 
   Future<void> clearForAccount(String accountContext);
 
+  Future<void> clearForHouseholdScope(String householdScope);
+
   Future<void> clearForLifecycle();
 }

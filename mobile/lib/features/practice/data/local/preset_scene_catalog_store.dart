@@ -139,6 +139,39 @@ class PresetSceneCatalogStore {
     );
   }
 
+  /// Clears every remote-catalog artifact without touching bundled assets.
+  Future<void> clearForLifecycle() {
+    return _enqueueMutation(_clearForLifecycle);
+  }
+
+  Future<void> _clearForLifecycle() async {
+    try {
+      final file = await _resolveFile();
+      final directory = file.parent;
+      if (!await directory.exists()) {
+        return;
+      }
+      final prefix = '${file.path}.';
+      await for (final entity in directory.list()) {
+        if (entity is! File ||
+            entity.path != file.path && !entity.path.startsWith(prefix)) {
+          continue;
+        }
+        final suffix = entity.path == file.path
+            ? ''
+            : entity.path.substring(prefix.length);
+        if (suffix.isEmpty ||
+            suffix == 'tmp' ||
+            suffix == 'bak' ||
+            suffix.startsWith('quarantine.')) {
+          await _deleteFileIfExists(entity);
+        }
+      }
+    } on Object {
+      throw const PresetSceneCatalogStoreException();
+    }
+  }
+
   Future<void> _write(PresetSceneCatalogSnapshot snapshot) async {
     // Validate before touching the last-good file. The remote API already
     // validates, but this protects direct store callers and cache migrations.

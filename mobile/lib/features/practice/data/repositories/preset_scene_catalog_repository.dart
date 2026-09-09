@@ -49,6 +49,15 @@ class PresetSceneCatalogRepository {
     return _startLoad();
   }
 
+  /// Drops in-memory metadata and invalidates any late catalog response after
+  /// account/device lifecycle erasure. Disk artifacts are cleared by the
+  /// registered [PresetSceneCatalogStore] lifecycle step.
+  Future<void> clearForLifecycle() async {
+    _operationGeneration++;
+    _memorySnapshot = null;
+    _inFlight = null;
+  }
+
   Future<PresetSceneCatalogSnapshot> _startLoad() {
     final generation = ++_operationGeneration;
     final cancelToken = CancelToken();

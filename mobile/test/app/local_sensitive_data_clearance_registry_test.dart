@@ -36,6 +36,8 @@ import 'package:mobile/features/practice/data/generated/generated_practice_conte
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
 import '../support/isar_test_library.dart';
 
@@ -74,6 +76,7 @@ void main() {
               harness.customSceneDraftContinuationCoordinator,
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
+          presetSceneCatalogStore: harness.presetSceneCatalogStore,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
           settingsLocalDataSource: harness.settingsLocalDataSource,
           onboardingCareTurnContinuationClearance:
@@ -105,6 +108,7 @@ void main() {
               harness.customSceneDraftContinuationCoordinator,
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
+          presetSceneCatalogStore: harness.presetSceneCatalogStore,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
           settingsLocalDataSource: harness.settingsLocalDataSource,
           onboardingCareTurnContinuationClearance:
@@ -190,6 +194,7 @@ void main() {
               harness.customSceneDraftContinuationCoordinator,
           generatedPracticeContentRegistry:
               harness.generatedPracticeContentRegistry,
+          presetSceneCatalogStore: harness.presetSceneCatalogStore,
           generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
           settingsLocalDataSource: harness.settingsLocalDataSource,
           onboardingCareTurnContinuationClearance:
@@ -252,6 +257,14 @@ void main() {
           ),
           isNull,
         );
+        expect(
+          await harness.presetSceneCatalogStore.readResult(),
+          isA<PresetSceneCatalogStoreReadResult>().having(
+            (result) => result.status,
+            'status',
+            PresetSceneCatalogStoreReadStatus.notFound,
+          ),
+        );
         expect(harness.generatedAudioMemoryCache.entryCount, 0);
         expect(
           File(
@@ -281,6 +294,7 @@ void main() {
             harness.customSceneDraftContinuationCoordinator,
         generatedPracticeContentRegistry:
             harness.generatedPracticeContentRegistry,
+        presetSceneCatalogStore: harness.presetSceneCatalogStore,
         generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
         settingsLocalDataSource: harness.settingsLocalDataSource,
         onboardingCareTurnContinuationClearance:
@@ -350,6 +364,10 @@ void main() {
         ),
         isNull,
       );
+      expect(
+        (await harness.presetSceneCatalogStore.readResult()).status,
+        PresetSceneCatalogStoreReadStatus.available,
+      );
     });
   });
 }
@@ -369,6 +387,7 @@ class _LifecycleHarness {
     required this.customSceneDraftContinuationCoordinator,
     required this.generatedPracticeContentRegistry,
     required this.generatedCareTurnResumeMarkerStore,
+    required this.presetSceneCatalogStore,
     required this.generatedAudioMemoryCache,
     required this.householdLocalStore,
     required this.installationIdService,
@@ -394,6 +413,7 @@ class _LifecycleHarness {
   customSceneDraftContinuationCoordinator;
   final GeneratedPracticeContentRegistry generatedPracticeContentRegistry;
   final GeneratedCareTurnResumeMarkerStore generatedCareTurnResumeMarkerStore;
+  final PresetSceneCatalogStore presetSceneCatalogStore;
   final GeneratedAudioMemoryCache generatedAudioMemoryCache;
   final HouseholdLocalStore householdLocalStore;
   final InstallationIdService installationIdService;
@@ -456,6 +476,9 @@ class _LifecycleHarness {
         GeneratedCareTurnResumeMarkerStore(
           directoryResolver: () async => tempDir,
         );
+    final presetSceneCatalogStore = PresetSceneCatalogStore(
+      directoryResolver: () async => tempDir,
+    );
     final generatedPracticeContentRegistry = GeneratedPracticeContentRegistry(
       store: GeneratedCareMomentLocalStore(
         directoryResolver: () async => tempDir,
@@ -513,6 +536,7 @@ class _LifecycleHarness {
           customSceneDraftContinuationCoordinator,
       generatedPracticeContentRegistry: generatedPracticeContentRegistry,
       generatedCareTurnResumeMarkerStore: generatedCareTurnResumeMarkerStore,
+      presetSceneCatalogStore: presetSceneCatalogStore,
       generatedAudioMemoryCache: generatedAudioMemoryCache,
       householdLocalStore: householdLocalStore,
       installationIdService: installationIdService,
@@ -558,6 +582,12 @@ class _LifecycleHarness {
       accountContext: 'lifecycle_account',
       generatedContentId: 'lifecycle_generated_content',
       confirmedAt: DateTime.utc(2026, 5, 20, 10),
+    );
+    await presetSceneCatalogStore.write(
+      PresetSceneCatalogSnapshot(
+        source: PresetSceneCatalogSource.remote,
+        scenes: <PresetSceneDefinition>[],
+      ),
     );
     await generatedAudioMemoryCache.getOrLoad(
       GeneratedAudioCacheKey(

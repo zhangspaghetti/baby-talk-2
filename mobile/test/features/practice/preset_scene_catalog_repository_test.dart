@@ -308,6 +308,26 @@ void main() {
         expect((await repository.loadCatalog()).scenes, isEmpty);
       },
     );
+
+    test('lifecycle clear drops in-memory catalog metadata', () async {
+      var calls = 0;
+      final remote = _RemoteApi((_) async {
+        calls += 1;
+        return <PresetSceneDefinition>[_definition('cached_scene')];
+      });
+      final repository = _repository(
+        remote: remote,
+        store: store,
+        assets: assets,
+      );
+
+      await repository.loadCatalog();
+      await repository.clearForLifecycle();
+
+      final refreshed = await repository.loadCatalog();
+      expect(calls, 2);
+      expect(refreshed.scenes.single.presetSceneId, 'cached_scene');
+    });
   });
 }
 
