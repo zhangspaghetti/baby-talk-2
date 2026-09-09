@@ -685,6 +685,111 @@ void main() {
     );
 
     test(
+      'revoke session-gate failure merges into current pending snapshot',
+      () async {
+        final pendingFingerprint = householdScopeFingerprint('household_a');
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_b',
+            role: HouseholdRole.caregiver,
+            lastPhase: 'shared_context_ready',
+            pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+          ),
+        );
+        harness.clearCleanupFailures = true;
+        harness.accountSnapshot = AccountLocalSnapshot.signedOut;
+
+        final result = await harness.repository.revokeInvite(
+          token: 'invite_token_1234',
+        );
+
+        expect(result.isSuccess, isFalse);
+        expect(result.snapshot.householdId, 'household_b');
+        expect(result.snapshot.lastPhase, 'revoke_invite_invalid_session');
+        expect(
+          result.snapshot.pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+        expect(harness.api.revokeCallCount, 0);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+
+        harness.accountSnapshot = AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: _jwtSession(),
+          lastSyncPhase: 'batch_ack_applied',
+        );
+        harness.clearCleanupFailures = false;
+        final retried = await harness.repository.loadSnapshot();
+        expect(retried.pendingClearHouseholdScopeFingerprint, isNull);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'pending-intent removal persistence failure blocks accept and create',
+      () async {
+        final pendingFingerprint = householdScopeFingerprint('household_a');
+        final seedStore = HouseholdLocalStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        await seedStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_b',
+            role: HouseholdRole.caregiver,
+            lastPhase: 'shared_context_ready',
+            pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+          ),
+        );
+        final failingStore = _FailOnPendingClearHouseholdLocalStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        final cleanupCalls = <String>[];
+        final repository = HouseholdRepository(
+          localStore: failingStore,
+          apiService: harness.api,
+          accountSnapshotLoader: () async => harness.accountSnapshot,
+          persistRefreshedSession: (session) async => session,
+          clearGeneratedContentForHouseholdScope: (scope) async {},
+          clearGeneratedContentForHouseholdScopeFingerprint:
+              (fingerprint) async {
+                cleanupCalls.add(fingerprint);
+              },
+        );
+        harness.api.acceptResponse = HouseholdAcceptInviteResponse(
+          householdId: 'household_c',
+          role: HouseholdRole.caregiver,
+          acceptedAt: DateTime.utc(2026, 9, 10, 8),
+          sharedContext: _sharedContextResponse(householdId: 'household_c'),
+        );
+
+        final acceptResult = await repository.acceptInvite(
+          token: 'invite_token_1234',
+          source: 'invite_link',
+        );
+        final createResult = await repository.createInvite();
+
+        expect(acceptResult.shouldRouteToPractice, isFalse);
+        expect(createResult.isSuccess, isFalse);
+        expect(harness.api.acceptCallCount, 0);
+        expect(harness.api.createCallCount, 0);
+        expect(cleanupCalls, <String>[pendingFingerprint, pendingFingerprint]);
+        expect(
+          (await seedStore.read()).pendingClearHouseholdScopeFingerprint,
+          pendingFingerprint,
+        );
+        await repository.close();
+      },
+    );
+
+    test(
       'network, timeout, malformed, and persistence failures preserve old scope without clear',
       () async {
         await harness.localStore.write(
@@ -918,6 +1023,23 @@ class _ToggleReadFailingHouseholdLocalStore extends HouseholdLocalStore {
       );
     }
     return super.read();
+  }
+}
+
+class _FailOnPendingClearHouseholdLocalStore extends HouseholdLocalStore {
+  _FailOnPendingClearHouseholdLocalStore({required super.directoryResolver});
+
+  @override
+  Future<void> write(HouseholdLocalSnapshot snapshot) {
+    if (snapshot.householdId == 'household_b' &&
+        snapshot.pendingClearHouseholdScopeFingerprint == null) {
+      return Future<void>.error(
+        const HouseholdLocalStoreException(
+          'simulated pending clear intent persistence failure',
+        ),
+      );
+    }
+    return super.write(snapshot);
   }
 }
 

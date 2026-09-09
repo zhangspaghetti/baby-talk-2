@@ -228,7 +228,9 @@ class HouseholdRepository {
     }
     final sessionGate = await _resolveSessionGate(action: 'create_invite');
     if (!sessionGate.canProceed) {
-      final snapshot = await _persistSnapshot(sessionGate.snapshot!);
+      final snapshot = await _persistSnapshot(
+        _mergeSessionGateSnapshot(current, sessionGate.snapshot!),
+      );
       return HouseholdCreateInviteResult(
         snapshot: snapshot,
         message: snapshot.lastVisibleError ?? '当前无法创建邀请。',
@@ -280,7 +282,9 @@ class HouseholdRepository {
     final current = await _readSnapshotSafely();
     final sessionGate = await _resolveSessionGate(action: 'revoke_invite');
     if (!sessionGate.canProceed) {
-      final snapshot = await _persistSnapshot(sessionGate.snapshot!);
+      final snapshot = await _persistSnapshot(
+        _mergeSessionGateSnapshot(current, sessionGate.snapshot!),
+      );
       return HouseholdRevokeInviteResult(
         snapshot: snapshot,
         message: snapshot.lastVisibleError ?? '当前无法撤销邀请。',
@@ -336,7 +340,9 @@ class HouseholdRepository {
     }
     final sessionGate = await _resolveSessionGate(action: 'accept_invite');
     if (!sessionGate.canProceed) {
-      final snapshot = await _persistSnapshot(sessionGate.snapshot!);
+      final snapshot = await _persistSnapshot(
+        _mergeSessionGateSnapshot(current, sessionGate.snapshot!),
+      );
       return HouseholdInviteAcceptResult(
         snapshot: snapshot,
         message: snapshot.lastVisibleError ?? '当前无法接受邀请。',
@@ -404,13 +410,7 @@ class HouseholdRepository {
     final sessionGate = await _resolveSessionGate(action: 'shared_context');
     if (!sessionGate.canProceed) {
       final blocked = sessionGate.snapshot!;
-      return _persistSnapshot(
-        current.copyWith(
-          lastPhase: blocked.lastPhase,
-          lastVisibleError: blocked.lastVisibleError,
-          clearLastVisibleError: blocked.lastVisibleError == null,
-        ),
-      );
+      return _persistSnapshot(_mergeSessionGateSnapshot(current, blocked));
     }
 
     try {
@@ -548,6 +548,17 @@ class HouseholdRepository {
       );
     }
     return _SessionGateResult.ready(session);
+  }
+
+  HouseholdLocalSnapshot _mergeSessionGateSnapshot(
+    HouseholdLocalSnapshot current,
+    HouseholdLocalSnapshot gateSnapshot,
+  ) {
+    return current.copyWith(
+      lastPhase: gateSnapshot.lastPhase,
+      lastVisibleError: gateSnapshot.lastVisibleError,
+      clearLastVisibleError: gateSnapshot.lastVisibleError == null,
+    );
   }
 
   Future<AccountLocalSnapshot> _readAccountSnapshotSafely() async {
