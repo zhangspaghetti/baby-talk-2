@@ -103,10 +103,35 @@ class HouseholdRepository {
 
   Future<HouseholdLocalSnapshot> loadSnapshot() async {
     final readResult = await _readSnapshotWithStatus();
+    final sessionGate = await _resolveSessionGate(action: 'household_boot');
     if (!readResult.wasReadSuccessfully) {
+      if (!sessionGate.canProceed &&
+          sessionGate.privacyPolicy ==
+              _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
+        // A failed durable read must not authorize a write or content clear;
+        // still hide any cached private context from the current UI.
+        return _mergeSessionGateSnapshot(readResult.snapshot, sessionGate);
+      }
       return readResult.snapshot;
     }
-    return _retryPendingHouseholdScopeClear(readResult.snapshot);
+    if (!sessionGate.canProceed &&
+        sessionGate.privacyPolicy ==
+            _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
+      return _persistMergedSessionGateSnapshot(
+        current: readResult.snapshot,
+        sessionGate: sessionGate,
+      );
+    }
+    final snapshot = await _retryPendingHouseholdScopeClear(
+      readResult.snapshot,
+    );
+    if (sessionGate.canProceed) {
+      return snapshot;
+    }
+    return _persistMergedSessionGateSnapshot(
+      current: snapshot,
+      sessionGate: sessionGate,
+    );
   }
 
   Future<_HouseholdSnapshotReadResult> _readSnapshotWithStatus() async {
@@ -473,10 +498,7 @@ class HouseholdRepository {
           sessionGate.privacyPolicy ==
               _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
         return _HouseholdCommandPreflight.blocked(
-          await _persistMergedSessionGateSnapshot(
-            current: readResult.snapshot,
-            sessionGate: sessionGate,
-          ),
+          _mergeSessionGateSnapshot(readResult.snapshot, sessionGate),
           sessionGate: sessionGate,
         );
       }
@@ -571,10 +593,18 @@ class HouseholdRepository {
     _SessionGateResult sessionGate,
   ) {
     final gateSnapshot = sessionGate.snapshot!;
+    final pendingScopeFingerprint =
+        sessionGate.privacyPolicy ==
+                _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext &&
+            current.pendingClearHouseholdScopeFingerprint == null &&
+            current.householdId != null
+        ? _householdScopeFingerprint(current.householdId!)
+        : current.pendingClearHouseholdScopeFingerprint;
     final merged = current.copyWith(
       lastPhase: gateSnapshot.lastPhase,
       lastVisibleError: gateSnapshot.lastVisibleError,
       clearLastVisibleError: gateSnapshot.lastVisibleError == null,
+      pendingClearHouseholdScopeFingerprint: pendingScopeFingerprint,
     );
     if (sessionGate.privacyPolicy ==
         _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
@@ -592,7 +622,21 @@ class HouseholdRepository {
       merged,
       fallbackOnWriteFailure: merged,
     );
-    return persisted.snapshot;
+    if (!persisted.wasDurablyStored ||
+        sessionGate.privacyPolicy !=
+            _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext ||
+        persisted.snapshot.pendingClearHouseholdScopeFingerprint == null) {
+      return persisted.snapshot;
+    }
+    try {
+      await _clearGeneratedContentForHouseholdScopeFingerprint(
+        persisted.snapshot.pendingClearHouseholdScopeFingerprint!,
+      );
+    } on Object {
+      // Keep the pending fingerprint durable until both stores complete.
+      return persisted.snapshot;
+    }
+    return _clearPendingHouseholdScopeIntent(persisted.snapshot);
   }
 
   Future<AccountLocalSnapshot> _readAccountSnapshotSafely() async {

@@ -411,6 +411,67 @@ void main() {
     );
 
     test(
+      'destructive gate on local read failure hides cached A without persistence or cleanup',
+      () async {
+        final localStore = _ToggleReadFailingHouseholdLocalStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        final api = _FakeHouseholdApiService()
+          ..fetchResponse = _sharedContextResponse(householdId: 'household_b');
+        final clearedFingerprints = <String>[];
+        late HouseholdRepository repository;
+        repository = HouseholdRepository(
+          localStore: localStore,
+          apiService: api,
+          accountSnapshotLoader: () async => harness.accountSnapshot,
+          persistRefreshedSession: (session) async => session,
+          clearGeneratedContentForHouseholdScopeFingerprint:
+              (fingerprint) async {
+                clearedFingerprints.add(fingerprint);
+              },
+        );
+        await localStore.write(
+          _connectedHouseholdSnapshot(householdId: 'household_a'),
+        );
+        await repository.loadSnapshot();
+
+        harness.accountSnapshot = AccountLocalSnapshot.signedOut;
+        localStore.failReads = true;
+        final result = await repository.refreshSharedContext();
+
+        expect(result.householdId, isNull);
+        expect(result.role, isNull);
+        expect(result.sharedContext, isNull);
+        expect(result.lastAcceptedAt, isNull);
+        expect(
+          result.pendingClearHouseholdScopeFingerprint,
+          householdScopeFingerprint('household_a'),
+        );
+        expect(result.lastPhase, 'shared_context_invalid_session');
+        expect(api.fetchCallCount, 0);
+        expect(clearedFingerprints, isEmpty);
+
+        final durableStore = HouseholdLocalStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        final durable = await durableStore.read();
+        expect(durable.householdId, 'household_a');
+        expect(durable.pendingClearHouseholdScopeFingerprint, isNull);
+
+        final bootResult = await repository.loadSnapshot();
+        expect(bootResult.householdId, isNull);
+        expect(bootResult.sharedContext, isNull);
+        expect(
+          bootResult.pendingClearHouseholdScopeFingerprint,
+          householdScopeFingerprint('household_a'),
+        );
+        expect(bootResult.lastPhase, 'household_boot_invalid_session');
+        expect(clearedFingerprints, isEmpty);
+        await repository.close();
+      },
+    );
+
+    test(
       'membership transition does not clear public preset catalog cache',
       () async {
         final catalogStore = PresetSceneCatalogStore(
@@ -630,6 +691,177 @@ void main() {
         expect(apiExpiredSnapshot.lastPhase, 'shared_context_invalid_session');
         expect(apiExpiredSnapshot.lastVisibleError, contains('登录已过期'));
         expect(harness.clearedScopes, isEmpty);
+      },
+    );
+
+    test(
+      'destructive gate derives pending fingerprint before clearing connected A',
+      () async {
+        await harness.localStore.write(
+          _connectedHouseholdSnapshot(householdId: 'household_a'),
+        );
+        harness.accountSnapshot = AccountLocalSnapshot.signedOut;
+        harness.clearCleanupFailures = true;
+
+        final first = await harness.repository.refreshSharedContext();
+
+        expect(first.householdId, isNull);
+        expect(first.role, isNull);
+        expect(first.sharedContext, isNull);
+        expect(first.lastAcceptedAt, isNull);
+        expect(
+          first.pendingClearHouseholdScopeFingerprint,
+          householdScopeFingerprint('household_a'),
+        );
+        expect(first.lastPhase, 'shared_context_invalid_session');
+        expect(harness.api.fetchCallCount, 0);
+        expect(harness.clearedScopeFingerprints, <String>[
+          householdScopeFingerprint('household_a'),
+        ]);
+        final persistedFirst = await harness.localStore.read();
+        expect(persistedFirst.householdId, isNull);
+        expect(
+          persistedFirst.pendingClearHouseholdScopeFingerprint,
+          householdScopeFingerprint('household_a'),
+        );
+
+        harness.clearCleanupFailures = false;
+        final retried = await harness.repository.loadSnapshot();
+
+        expect(retried.householdId, isNull);
+        expect(retried.pendingClearHouseholdScopeFingerprint, isNull);
+        expect(harness.clearedScopeFingerprints, <String>[
+          householdScopeFingerprint('household_a'),
+          householdScopeFingerprint('household_a'),
+        ]);
+      },
+    );
+
+    test(
+      'boot sanitizes residual connected household and retries failed cleanup',
+      () async {
+        await harness.localStore.write(
+          _connectedHouseholdSnapshot(householdId: 'household_a'),
+        );
+        harness.accountSnapshot = AccountLocalSnapshot.signedOut;
+        harness.clearCleanupFailures = true;
+
+        final first = await harness.repository.loadSnapshot();
+
+        expect(first.householdId, isNull);
+        expect(first.role, isNull);
+        expect(first.sharedContext, isNull);
+        expect(first.lastAcceptedAt, isNull);
+        expect(
+          first.pendingClearHouseholdScopeFingerprint,
+          householdScopeFingerprint('household_a'),
+        );
+        expect(first.lastPhase, 'household_boot_invalid_session');
+        final persistedFirst = await harness.localStore.read();
+        expect(persistedFirst.householdId, isNull);
+        expect(
+          persistedFirst.pendingClearHouseholdScopeFingerprint,
+          householdScopeFingerprint('household_a'),
+        );
+
+        harness.clearCleanupFailures = false;
+        final retried = await harness.repository.loadSnapshot();
+
+        expect(retried.householdId, isNull);
+        expect(retried.role, isNull);
+        expect(retried.sharedContext, isNull);
+        expect(retried.pendingClearHouseholdScopeFingerprint, isNull);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          isNull,
+        );
+        expect(harness.clearedScopeFingerprints, <String>[
+          householdScopeFingerprint('household_a'),
+          householdScopeFingerprint('household_a'),
+        ]);
+      },
+    );
+
+    test(
+      'boot persistence failure returns privacy-safe state without cleanup and retries next load',
+      () async {
+        final seedStore = HouseholdLocalStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        await seedStore.write(
+          _connectedHouseholdSnapshot(householdId: 'household_a'),
+        );
+        final failingStore = _FailFirstHouseholdLocalStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        final cleanupCalls = <String>[];
+        final repository = HouseholdRepository(
+          localStore: failingStore,
+          apiService: harness.api,
+          accountSnapshotLoader: () async => AccountLocalSnapshot.signedOut,
+          persistRefreshedSession: (session) async => session,
+          clearGeneratedContentForHouseholdScopeFingerprint:
+              (fingerprint) async {
+                cleanupCalls.add(fingerprint);
+              },
+        );
+
+        final first = await repository.loadSnapshot();
+
+        expect(first.householdId, isNull);
+        expect(first.role, isNull);
+        expect(first.sharedContext, isNull);
+        expect(first.lastAcceptedAt, isNull);
+        expect(
+          first.pendingClearHouseholdScopeFingerprint,
+          householdScopeFingerprint('household_a'),
+        );
+        expect(cleanupCalls, isEmpty);
+        expect((await seedStore.read()).householdId, 'household_a');
+
+        failingStore.failWrites = false;
+        final retried = await repository.loadSnapshot();
+
+        expect(retried.householdId, isNull);
+        expect(retried.pendingClearHouseholdScopeFingerprint, isNull);
+        expect(cleanupCalls, <String>[
+          householdScopeFingerprint('household_a'),
+        ]);
+        await repository.close();
+      },
+    );
+
+    test(
+      'temporary credential expiry still retries an existing pending intent',
+      () async {
+        final pendingFingerprint = householdScopeFingerprint('household_a');
+        await harness.localStore.write(
+          _connectedHouseholdSnapshot(
+            householdId: 'household_b',
+            pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+          ),
+        );
+        harness.accountSnapshot = AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: AccountSession(
+            accountId: 'acct_live',
+            sessionId: 'sess_expired',
+            maskedPhoneNumber: '138****8000',
+            createdAt: DateTime.utc(2026, 4, 16, 10),
+          ),
+          lastSyncPhase: 'batch_ack_applied',
+        );
+
+        final snapshot = await harness.repository.refreshSharedContext();
+
+        expect(snapshot.householdId, 'household_b');
+        expect(snapshot.role, HouseholdRole.caregiver);
+        expect(snapshot.sharedContext, isNotNull);
+        expect(snapshot.pendingClearHouseholdScopeFingerprint, isNull);
+        expect(snapshot.lastPhase, 'shared_context_invalid_session');
+        expect(harness.api.fetchCallCount, 0);
+        expect(harness.clearedScopeFingerprints, <String>[pendingFingerprint]);
       },
     );
 
@@ -1154,6 +1386,24 @@ class _FailOnPendingClearHouseholdLocalStore extends HouseholdLocalStore {
       return Future<void>.error(
         const HouseholdLocalStoreException(
           'simulated pending clear intent persistence failure',
+        ),
+      );
+    }
+    return super.write(snapshot);
+  }
+}
+
+class _FailFirstHouseholdLocalStore extends HouseholdLocalStore {
+  _FailFirstHouseholdLocalStore({required super.directoryResolver});
+
+  bool failWrites = true;
+
+  @override
+  Future<void> write(HouseholdLocalSnapshot snapshot) {
+    if (failWrites) {
+      return Future<void>.error(
+        const HouseholdLocalStoreException(
+          'simulated first household snapshot write failure',
         ),
       );
     }
