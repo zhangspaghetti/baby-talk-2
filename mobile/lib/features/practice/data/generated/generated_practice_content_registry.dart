@@ -40,7 +40,10 @@ class GeneratedPracticeContentClearanceException implements Exception {
 /// content. It never exposes raw scene input and only resolves current-account
 /// records.
 class GeneratedPracticeContentRegistry
-    implements CustomSceneApprovedContentRegistrar, PracticeContentResolver {
+    implements
+        CustomSceneApprovedContentRegistrar,
+        PracticeContentResolver,
+        PublishedPracticeContentResolver {
   GeneratedPracticeContentRegistry({
     required GeneratedCareMomentLocalStore store,
     required GeneratedCareTurnResumeStore resumeStore,
@@ -89,7 +92,12 @@ class GeneratedPracticeContentRegistry
   Future<PracticeActivitySnapshot?> resolveActivity({
     required String spaceId,
     required String activityId,
+    int? publishedVersion,
+    bool enabled = true,
   }) async {
+    if (!enabled || publishedVersion != null && publishedVersion < 1) {
+      return null;
+    }
     final accountContext = await _loadCurrentAccountContext();
     if (accountContext == null) {
       return null;
@@ -101,6 +109,14 @@ class GeneratedPracticeContentRegistry
                 candidate.accountContext == accountContext &&
                 candidate.moment.spaceId == spaceId.trim() &&
                 candidate.moment.activityId == activityId.trim(),
+          )
+          .where(
+            (candidate) =>
+                publishedVersion == null ||
+                candidate.moment.inputSource ==
+                        SceneGenerationSourceType.preset &&
+                    candidate.moment.presetSceneId == activityId.trim() &&
+                    candidate.moment.presetSceneVersion == publishedVersion,
           )
           .toList(growable: false);
       if (records.isEmpty) {
@@ -131,6 +147,47 @@ class GeneratedPracticeContentRegistry
         return null;
       }
       return _toSnapshot(presetRecords.first.moment);
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  Future<PracticeActivitySnapshot?> resolvePublishedActivity({
+    required String spaceId,
+    required String activityId,
+    required int publishedVersion,
+  }) async {
+    if (publishedVersion < 1) {
+      return null;
+    }
+    final accountContext = await _loadCurrentAccountContext();
+    if (accountContext == null) {
+      return null;
+    }
+    try {
+      final candidates =
+          (await _store.readAll())
+              .where(
+                (candidate) =>
+                    candidate.accountContext == accountContext &&
+                    candidate.moment.inputSource ==
+                        SceneGenerationSourceType.preset &&
+                    candidate.moment.spaceId == spaceId.trim() &&
+                    candidate.moment.activityId == activityId.trim() &&
+                    candidate.moment.presetSceneId == activityId.trim() &&
+                    candidate.moment.presetSceneVersion == publishedVersion,
+              )
+              .toList(growable: false)
+            ..sort(
+              (left, right) => left.moment.generatedContentId.compareTo(
+                right.moment.generatedContentId,
+              ),
+            );
+      if (candidates.isEmpty) {
+        return null;
+      }
+      return _toSnapshot(candidates.first.moment);
     } on Object {
       return null;
     }

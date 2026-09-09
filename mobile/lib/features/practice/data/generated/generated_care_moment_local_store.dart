@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -60,6 +61,8 @@ class GeneratedCareMomentLocalStore {
 
   static const _storeSchemaVersion = 3;
   static const _legacyStoreSchemaVersion = 2;
+  static final Map<String, Future<void>> _sharedMutationTails =
+      <String, Future<void>>{};
 
   final GeneratedCareMomentDirectoryResolver _directoryResolver;
   final DateTime Function() _clock;
@@ -143,7 +146,17 @@ class GeneratedCareMomentLocalStore {
     final File file;
     try {
       file = await _resolveFile();
-      if (!await _existsFile(file)) {
+      final clearMarker = File('${file.path}.clear');
+      final clearInProgress = await _existsFile(clearMarker);
+      if (clearInProgress && !await _existsFile(file)) {
+        // A failed clear owns this artifact. Never resurrect private content
+        // from its backup; cleanup remains best effort but fail-closed.
+        await _deleteFileIfExists(File('${file.path}.tmp'));
+        await _deleteFileIfExists(File('${file.path}.bak'));
+        await _deleteFileIfExists(clearMarker);
+        return const _StoreState.empty();
+      }
+      if (!clearInProgress && !await _existsFile(file)) {
         await _restoreBackupIfNeeded(file);
       }
       if (!await _existsFile(file)) {
@@ -316,6 +329,7 @@ class GeneratedCareMomentLocalStore {
       temporaryFile = File('${file.path}.tmp');
       backupFile = File('${file.path}.bak');
       await file.parent.create(recursive: true);
+      await _deleteFileIfExists(File('${file.path}.clear'));
       await _deleteFileIfExists(temporaryFile);
       await _writeFile(
         temporaryFile,
@@ -373,9 +387,25 @@ class GeneratedCareMomentLocalStore {
   Future<void> _deleteIfExists() async {
     try {
       final file = await _resolveFile();
+      final clearMarker = File('${file.path}.clear');
+      final temporaryFile = File('${file.path}.tmp');
+      final backupFile = File('${file.path}.bak');
+      final markerExists = await _existsFile(clearMarker);
+      final hasArtifacts =
+          markerExists ||
+          await _existsFile(file) ||
+          await _existsFile(temporaryFile) ||
+          await _existsFile(backupFile);
+      if (!hasArtifacts) {
+        return;
+      }
+      if (!markerExists) {
+        await _writeFile(clearMarker, 'clear', flush: true);
+      }
+      await _deleteFileIfExists(temporaryFile);
+      await _deleteFileIfExists(backupFile);
       await _deleteFileIfExists(file);
-      await _deleteFileIfExists(File('${file.path}.tmp'));
-      await _deleteFileIfExists(File('${file.path}.bak'));
+      await _deleteFileIfExists(clearMarker);
     } on Object {
       throw const GeneratedCareMomentLocalStoreException();
     }
@@ -394,9 +424,25 @@ class GeneratedCareMomentLocalStore {
   }
 
   Future<T> _enqueueMutation<T>(Future<T> Function() mutation) {
-    final running = _mutationTail.then((_) => mutation());
+    final running = _mutationTail.then((_) => _enqueueSharedMutation(mutation));
     _mutationTail = running.then<void>((_) {}, onError: (_, _) {});
     return running;
+  }
+
+  Future<T> _enqueueSharedMutation<T>(Future<T> Function() mutation) async {
+    final file = await _resolveFile();
+    final key = _sharedPathKey(file);
+    final previous = _sharedMutationTails[key] ?? Future<void>.value();
+    final current = previous.then((_) => mutation());
+    // Keep completed tails so an operation whose directory resolver finishes
+    // late still joins the same path lock instead of racing a new writer.
+    _sharedMutationTails[key] = current.then<void>((_) {}, onError: (_, _) {});
+    return current;
+  }
+
+  String _sharedPathKey(File file) {
+    final path = file.absolute.path;
+    return Platform.isWindows ? path.toLowerCase() : path;
   }
 
   Future<File> _resolveFile() async {

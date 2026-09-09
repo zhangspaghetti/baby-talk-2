@@ -11,11 +11,15 @@ import 'package:mobile/features/practice/data/generated/generated_care_turn_resu
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
+import 'package:mobile/features/practice/data/remote/preset_scene_catalog_api.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import '../../support/isar_test_library.dart';
 import '../../support/generated_care_moment_fixture.dart';
 
@@ -173,6 +177,125 @@ void main() {
       },
     );
 
+    test(
+      'remote-only preset events use published metadata in stable Garden projection',
+      () async {
+        final remoteCatalog = PresetSceneCatalogRepository(
+          api: _GardenPresetSceneCatalogApi(<PresetSceneDefinition>[
+            PresetSceneDefinition(
+              presetSceneId: 'remote_only',
+              publishedVersion: 2,
+              spaceId: 'remote_space',
+              title: 'Remote activity',
+              summary: 'Remote summary',
+              sceneTag: 'remote',
+              coachTip: 'Remote tip',
+              sortOrder: 0,
+            ),
+          ]),
+          store: PresetSceneCatalogStore(
+            directoryResolver: () async => tempDir,
+          ),
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final remotePracticeRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_garden_growth_test',
+          ),
+          contentResolver: generatedRegistry,
+          presetSceneCatalogRepository: remoteCatalog,
+        );
+        final remoteGarden = GardenGrowthRepository(
+          practiceRepository: remotePracticeRepository,
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final preset = generatedCareMomentFixture(
+          generatedContentId: 'garden_remote_only_generated',
+          spaceId: 'remote_space',
+          activityId: 'remote_only',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'remote_only',
+          presetSceneVersion: 2,
+        );
+        await generatedRegistry.register(
+          accountContext: 'garden_account',
+          moment: preset,
+        );
+        for (var day = 1; day <= 7; day += 1) {
+          await localDataSource.appendInteractionEvent(
+            InteractionEventPayload.validated(
+              localEventId: 'garden_remote_preset_event_$day',
+              installationId: 'install_garden_growth_test',
+              spaceId: 'remote_space',
+              activityId: 'remote_only',
+              phraseId: preset.starter.phraseId,
+              reactionType: BabyReactionType
+                  .values[(day - 1) % BabyReactionType.values.length],
+              clientTimestamp: DateTime.utc(2026, 5, day, 8),
+              generatedContentId: preset.generatedContentId,
+              utteranceId: preset.starter.utteranceId,
+            ),
+          );
+        }
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'garden_remote_wrong_phrase',
+            installationId: 'install_garden_growth_test',
+            spaceId: 'remote_space',
+            activityId: 'remote_only',
+            phraseId: 'not_in_generated_bundle',
+            reactionType: BabyReactionType.cooperating,
+            clientTimestamp: DateTime.utc(2026, 5, 8, 8),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: 'wrong_phrase_utterance',
+          ),
+        );
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'garden_remote_wrong_utterance',
+            installationId: 'install_garden_growth_test',
+            spaceId: 'remote_space',
+            activityId: 'remote_only',
+            phraseId: preset.starter.phraseId,
+            reactionType: BabyReactionType.hesitant,
+            clientTimestamp: DateTime.utc(2026, 5, 9, 8),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: 'not_in_generated_bundle',
+          ),
+        );
+
+        final snapshot = await remoteGarden.buildSnapshot();
+        final remoteSpace = snapshot.spaces.singleWhere(
+          (space) => space.spaceId == 'remote_space',
+        );
+        final remoteActivity = remoteSpace.activities.single;
+
+        expect(snapshot.knownEvents, 7);
+        expect(snapshot.skippedUnknownContentEvents, 2);
+        expect(
+          snapshot.spaces.map((space) => space.spaceId),
+          isNot(contains('generated_${preset.generatedContentId}')),
+        );
+        expect(remoteSpace.totalKnownEvents, 7);
+        expect(remoteActivity.activityId, 'remote_only');
+        expect(remoteActivity.title, 'Remote activity');
+        expect(remoteActivity.totalEvents, 7);
+        expect(snapshot.latestImpact?.spaceId, 'remote_space');
+        expect(snapshot.latestImpact?.activityId, 'remote_only');
+        expect(snapshot.latestImpact?.phraseTitle, preset.starter.english);
+        expect(snapshot.diaryEntries, hasLength(7));
+        expect(
+          snapshot.milestones
+              .where((milestone) => milestone.isAchieved)
+              .map((milestone) => milestone.id),
+          contains('streak_7'),
+        );
+      },
+    );
+
     test('本地事件 + bootstrap + unknown phrase + 损坏事件会被稳定投影并降级暴露', () async {
       await practiceRepository.recordReaction(
         spaceId: 'daily_care',
@@ -296,4 +419,13 @@ void main() {
       expect(streak14.remainingHint, '还差2天');
     });
   });
+}
+
+class _GardenPresetSceneCatalogApi extends PresetSceneCatalogApi {
+  _GardenPresetSceneCatalogApi(this.scenes);
+
+  final List<PresetSceneDefinition> scenes;
+
+  @override
+  Future<List<PresetSceneDefinition>> fetchPublishedScenes() async => scenes;
 }

@@ -98,6 +98,17 @@ abstract interface class PracticeContentResolver {
   Future<void> clearForLifecycle();
 }
 
+/// Optional version-aware route resolution for persisted preset bundles.
+/// Route-only callers use [PracticeContentResolver.resolveActivity]; callers
+/// with the current published catalog should use this seam instead.
+abstract interface class PublishedPracticeContentResolver {
+  Future<PracticeActivitySnapshot?> resolvePublishedActivity({
+    required String spaceId,
+    required String activityId,
+    required int publishedVersion,
+  });
+}
+
 class PracticeRecentResultSummary {
   const PracticeRecentResultSummary({
     required this.activityId,
@@ -422,6 +433,12 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
                   '跳过未知 preset activity 事件：${event.spaceId}/${event.activityId}/${event.phraseId}';
               continue;
             }
+            if (!activityState.matchesPublishedPreset(generated)) {
+              skippedUnknownContentEvents += 1;
+              lastIssueMessage =
+                  '跳过非当前 published preset 事件：${event.spaceId}/${event.activityId}/${event.phraseId}';
+              continue;
+            }
             activityState.recordGeneratedPreset(event, generated);
           } else {
             knownGeneratedEvents += 1;
@@ -540,6 +557,13 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
         skippedUnknownContentEvents: skippedUnknownContentEvents,
       ),
     );
+  }
+
+  /// Returns the current published preset metadata used by route and Garden
+  /// projections. This keeps remote-only scenes independent of bundled seed
+  /// rows while preserving one catalog source of truth.
+  Future<PresetSceneCatalogSnapshot> getPresetSceneCatalogSnapshot() {
+    return _loadPresetSceneCatalog();
   }
 
   Future<PracticeContinuitySnapshot> getContinuitySnapshot({
@@ -786,19 +810,43 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
       spaceId: spaceId,
       activityId: activityId,
     );
-    if (generated != null) {
+    if (generated != null &&
+        generated.inputSource != SceneGenerationSourceType.preset) {
       return generated;
     }
-    if (_presetSceneCatalogRepository != null) {
-      final presetCatalog = await _loadPresetSceneCatalog();
-      PresetSceneDefinition? definition;
-      for (final candidate in presetCatalog.scenes) {
-        if (candidate.spaceId == spaceId &&
-            candidate.presetSceneId == activityId) {
-          definition = candidate;
-          break;
-        }
+    PresetSceneCatalogSnapshot? presetCatalog;
+    PresetSceneDefinition? definition;
+    if (generated != null || _presetSceneCatalogRepository != null) {
+      presetCatalog = await _loadPresetSceneCatalog();
+      definition = _findPresetDefinition(
+        presetCatalog.scenes,
+        spaceId: spaceId,
+        activityId: activityId,
+      );
+    }
+    if (generated != null && definition != null) {
+      final publishedResolver = _contentResolver;
+      PracticeActivitySnapshot? published;
+      if (publishedResolver case PublishedPracticeContentResolver resolver) {
+        published = await resolver.resolvePublishedActivity(
+          spaceId: definition.spaceId,
+          activityId: definition.presetSceneId,
+          publishedVersion: definition.publishedVersion,
+        );
       }
+      if (published != null && _matchesPublishedPreset(published, definition)) {
+        return published;
+      }
+      if (_matchesPublishedPreset(generated, definition)) {
+        return generated;
+      }
+    }
+    if (_presetSceneCatalogRepository != null) {
+      definition ??= _findPresetDefinition(
+        (presetCatalog ?? await _loadPresetSceneCatalog()).scenes,
+        spaceId: spaceId,
+        activityId: activityId,
+      );
       if (definition == null) {
         throw FormatException('未知 preset scene: $spaceId/$activityId');
       }
@@ -849,6 +897,33 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
       coachTip: activity.coachTip,
       phrases: phrases,
     );
+  }
+
+  PresetSceneDefinition? _findPresetDefinition(
+    Iterable<PresetSceneDefinition> definitions, {
+    required String spaceId,
+    required String activityId,
+  }) {
+    for (final definition in definitions) {
+      if (definition.spaceId == spaceId.trim() &&
+          definition.presetSceneId == activityId.trim()) {
+        return definition;
+      }
+    }
+    return null;
+  }
+
+  bool _matchesPublishedPreset(
+    PracticeActivitySnapshot snapshot,
+    PresetSceneDefinition definition,
+  ) {
+    return snapshot.contentSource == PracticeContentSource.generated &&
+        snapshot.inputSource == SceneGenerationSourceType.preset &&
+        snapshot.generatedContentId != null &&
+        snapshot.spaceId == definition.spaceId &&
+        snapshot.activityId == definition.presetSceneId &&
+        snapshot.presetSceneId == definition.presetSceneId &&
+        snapshot.presetSceneVersion == definition.publishedVersion;
   }
 
   /// Loads only shipped seed content for static onboarding/registration
@@ -1725,6 +1800,7 @@ class _CatalogActivityState {
     required this.spaceId,
     required this.spaceTitle,
     required this.activityId,
+    required this.publishedVersion,
     required this.title,
     required this.summary,
     required this.sceneTag,
@@ -1742,6 +1818,7 @@ class _CatalogActivityState {
       spaceId: definition.spaceId,
       spaceTitle: seedSpace?.title ?? definition.spaceId,
       activityId: definition.presetSceneId,
+      publishedVersion: definition.publishedVersion,
       title: definition.title,
       summary: definition.summary,
       sceneTag: definition.sceneTag,
@@ -1753,6 +1830,7 @@ class _CatalogActivityState {
   final String spaceId;
   final String spaceTitle;
   final String activityId;
+  final int publishedVersion;
   final String title;
   final String summary;
   final String sceneTag;
@@ -1768,6 +1846,14 @@ class _CatalogActivityState {
   String? latestWarningMessage;
 
   bool containsPhrase(String phraseId) => _phraseById.containsKey(phraseId);
+
+  bool matchesPublishedPreset(PracticeActivitySnapshot snapshot) {
+    return snapshot.contentSource == PracticeContentSource.generated &&
+        snapshot.inputSource == SceneGenerationSourceType.preset &&
+        snapshot.generatedContentId != null &&
+        snapshot.presetSceneId == activityId &&
+        snapshot.presetSceneVersion == publishedVersion;
+  }
 
   void record(InteractionEventPayload event) {
     totalEvents += 1;
@@ -1785,7 +1871,8 @@ class _CatalogActivityState {
         snapshot.generatedContentId == null ||
         snapshot.generatedContentId != event.generatedContentId ||
         snapshot.spaceId != event.spaceId ||
-        snapshot.activityId != event.activityId) {
+        snapshot.activityId != event.activityId ||
+        !matchesPublishedPreset(snapshot)) {
       throw const FormatException('invalid generated preset event identity');
     }
     PracticePhrase? generatedPhrase;

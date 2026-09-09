@@ -3,6 +3,7 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
 
 class GardenGrowthRepository {
@@ -16,7 +17,13 @@ class GardenGrowthRepository {
   final AssetPhraseService _assetPhraseService;
 
   Future<GardenGrowthSnapshot> buildSnapshot() async {
-    final content = await _assetPhraseService.loadSeedContent();
+    final bundledContent = await _assetPhraseService.loadSeedContent();
+    final publishedProjection = await _loadPublishedProjectionContent(
+      bundledContent,
+    );
+    final content = publishedProjection.content;
+    final publishedVersionsByRoute =
+        publishedProjection.publishedVersionsByRoute;
     final inspection = await _practiceRepository.inspectEventLog();
 
     final spaceStates = <String, _SpaceProjectionState>{
@@ -86,6 +93,11 @@ class GardenGrowthRepository {
               space: seedSpacesById[event.spaceId],
               activity:
                   seedActivitiesByKey[_ActivityKey(
+                    event.spaceId,
+                    event.activityId,
+                  )],
+              publishedVersion:
+                  publishedVersionsByRoute[_ActivityKey(
                     event.spaceId,
                     event.activityId,
                   )],
@@ -448,6 +460,77 @@ class GardenGrowthRepository {
     );
   }
 
+  Future<_PublishedGardenProjectionContent> _loadPublishedProjectionContent(
+    SeedContentBundle bundledContent,
+  ) async {
+    try {
+      final presetCatalog = await _practiceRepository
+          .getPresetSceneCatalogSnapshot();
+      return _PublishedGardenProjectionContent(
+        content: _mergePublishedCatalog(
+          bundledContent: bundledContent,
+          scenes: presetCatalog.scenes,
+        ),
+        publishedVersionsByRoute: <_ActivityKey, int>{
+          for (final definition in presetCatalog.scenes)
+            _ActivityKey(definition.spaceId, definition.presetSceneId):
+                definition.publishedVersion,
+        },
+      );
+    } on Object {
+      return _PublishedGardenProjectionContent(
+        content: bundledContent,
+        publishedVersionsByRoute: const <_ActivityKey, int>{},
+      );
+    }
+  }
+
+  SeedContentBundle _mergePublishedCatalog({
+    required SeedContentBundle bundledContent,
+    required Iterable<PresetSceneDefinition> scenes,
+  }) {
+    final bundledSpacesById = <String, SeedSpace>{
+      for (final space in bundledContent.spaces) space.id: space,
+    };
+    final scenesBySpaceId = <String, List<PresetSceneDefinition>>{};
+    for (final scene in scenes) {
+      (scenesBySpaceId[scene.spaceId] ??= <PresetSceneDefinition>[]).add(scene);
+    }
+    final spaces = <SeedSpace>[];
+    for (final entry in scenesBySpaceId.entries) {
+      final spaceId = entry.key;
+      final bundledSpace = bundledSpacesById[spaceId];
+      final bundledActivitiesById = <String, SeedActivity>{
+        if (bundledSpace != null)
+          for (final activity in bundledSpace.activities) activity.id: activity,
+      };
+      final activities = <SeedActivity>[];
+      for (final publishedActivity in entry.value) {
+        final bundledActivity =
+            bundledActivitiesById[publishedActivity.presetSceneId];
+        activities.add(
+          SeedActivity(
+            id: publishedActivity.presetSceneId,
+            title: publishedActivity.title,
+            summary: publishedActivity.summary,
+            sceneTag: publishedActivity.sceneTag,
+            coachTip: publishedActivity.coachTip,
+            phrases: bundledActivity?.phrases ?? const <SeedPhrase>[],
+          ),
+        );
+      }
+      spaces.add(
+        SeedSpace(
+          id: spaceId,
+          title: bundledSpace?.title ?? spaceId,
+          description: bundledSpace?.description ?? '',
+          activities: activities,
+        ),
+      );
+    }
+    return SeedContentBundle(spaces: spaces);
+  }
+
   Future<PracticeActivitySnapshot?> _resolvePresetSnapshot({
     required String generatedContentId,
     required Map<String, PracticeActivitySnapshot?> cache,
@@ -459,7 +542,11 @@ class GardenGrowthRepository {
       final snapshot = await _practiceRepository.getGeneratedActivitySnapshot(
         generatedContentId: generatedContentId,
       );
-      final preset = snapshot.inputSource == SceneGenerationSourceType.preset
+      final preset =
+          snapshot.inputSource == SceneGenerationSourceType.preset &&
+              snapshot.presetSceneId == snapshot.activityId &&
+              snapshot.presetSceneVersion != null &&
+              snapshot.presetSceneVersion! > 0
           ? snapshot
           : null;
       cache[generatedContentId] = preset;
@@ -475,12 +562,15 @@ class GardenGrowthRepository {
     required PracticeActivitySnapshot snapshot,
     required SeedSpace? space,
     required SeedActivity? activity,
+    required int? publishedVersion,
   }) {
     if (space == null ||
         activity == null ||
+        publishedVersion == null ||
         snapshot.generatedContentId != event.generatedContentId ||
         snapshot.spaceId != event.spaceId ||
-        snapshot.activityId != event.activityId) {
+        snapshot.activityId != event.activityId ||
+        snapshot.presetSceneVersion != publishedVersion) {
       return null;
     }
     final expectedUtteranceId = snapshot.utteranceIdForPhrase(event.phraseId);
@@ -849,6 +939,16 @@ class _PhraseReference {
   final SeedSpace space;
   final SeedActivity activity;
   final SeedPhrase phrase;
+}
+
+class _PublishedGardenProjectionContent {
+  const _PublishedGardenProjectionContent({
+    required this.content,
+    required this.publishedVersionsByRoute,
+  });
+
+  final SeedContentBundle content;
+  final Map<_ActivityKey, int> publishedVersionsByRoute;
 }
 
 class _GeneratedGardenProjection {
