@@ -519,6 +519,121 @@ void main() {
     );
 
     test(
+      'destructive account gates clear household UI but retain pending intent across every command',
+      () async {
+        const destructiveStates = <AccountConsentState>[
+          AccountConsentState.revoked,
+          AccountConsentState.deleted,
+          AccountConsentState.signedOut,
+          AccountConsentState.localOnly,
+        ];
+        const commands = <_HouseholdCommand>[
+          _HouseholdCommand.create,
+          _HouseholdCommand.accept,
+          _HouseholdCommand.revoke,
+          _HouseholdCommand.refresh,
+        ];
+        final pendingFingerprint = householdScopeFingerprint('household_a');
+        harness.clearCleanupFailures = true;
+
+        for (final command in commands) {
+          for (final consentState in destructiveStates) {
+            await harness.localStore.write(
+              _connectedHouseholdSnapshot(
+                householdId: 'household_b',
+                pendingClearHouseholdScopeFingerprint: pendingFingerprint,
+              ),
+            );
+            harness.accountSnapshot = _accountSnapshotForGate(consentState);
+
+            final snapshot = await _runHouseholdCommand(harness, command);
+            final expectedPhase = _expectedGatePhase(command, consentState);
+            final expectedMessage = _expectedGateMessage(consentState);
+
+            expect(snapshot.householdId, isNull);
+            expect(snapshot.role, isNull);
+            expect(snapshot.sharedContext, isNull);
+            expect(snapshot.lastAcceptedAt, isNull);
+            expect(
+              snapshot.pendingClearHouseholdScopeFingerprint,
+              pendingFingerprint,
+            );
+            expect(snapshot.lastPhase, expectedPhase);
+            expect(snapshot.lastVisibleError, contains(expectedMessage));
+
+            final persisted = await harness.localStore.read();
+            expect(persisted.householdId, isNull);
+            expect(persisted.role, isNull);
+            expect(persisted.sharedContext, isNull);
+            expect(persisted.lastAcceptedAt, isNull);
+            expect(
+              persisted.pendingClearHouseholdScopeFingerprint,
+              pendingFingerprint,
+            );
+          }
+        }
+
+        expect(harness.api.createCallCount, 0);
+        expect(harness.api.acceptCallCount, 0);
+        expect(harness.api.revokeCallCount, 0);
+        expect(harness.api.fetchCallCount, 0);
+      },
+    );
+
+    test(
+      'temporary credential expiry preserves connected household data as stale',
+      () async {
+        await harness.localStore.write(
+          _connectedHouseholdSnapshot(householdId: 'household_a'),
+        );
+        harness.accountSnapshot = AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: AccountSession(
+            accountId: 'acct_live',
+            sessionId: 'sess_expired',
+            maskedPhoneNumber: '138****8000',
+            createdAt: DateTime.utc(2026, 4, 16, 10),
+          ),
+          lastSyncPhase: 'batch_ack_applied',
+        );
+
+        final snapshot = await harness.repository.refreshSharedContext();
+
+        expect(snapshot.householdId, 'household_a');
+        expect(snapshot.role, HouseholdRole.caregiver);
+        expect(snapshot.sharedContext, isNotNull);
+        expect(snapshot.lastAcceptedAt, isNotNull);
+        expect(snapshot.lastPhase, 'shared_context_invalid_session');
+        expect(snapshot.lastVisibleError, contains('登录已过期'));
+        expect(harness.api.fetchCallCount, 0);
+        expect(harness.clearedScopes, isEmpty);
+
+        harness.accountSnapshot = AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: _jwtSession(),
+          lastSyncPhase: 'batch_ack_applied',
+        );
+        harness.api.fetchError = const HouseholdApiException(
+          kind: HouseholdApiFailureKind.http,
+          message: 'token expired',
+          statusCode: 401,
+          code: 'invalid_session',
+        );
+
+        final apiExpiredSnapshot = await harness.repository
+            .refreshSharedContext();
+
+        expect(apiExpiredSnapshot.householdId, 'household_a');
+        expect(apiExpiredSnapshot.role, HouseholdRole.caregiver);
+        expect(apiExpiredSnapshot.sharedContext, isNotNull);
+        expect(apiExpiredSnapshot.lastAcceptedAt, isNotNull);
+        expect(apiExpiredSnapshot.lastPhase, 'shared_context_invalid_session');
+        expect(apiExpiredSnapshot.lastVisibleError, contains('登录已过期'));
+        expect(harness.clearedScopes, isEmpty);
+      },
+    );
+
+    test(
       'pending household cleanup blocks accept and preserves its durable intent',
       () async {
         final pendingFingerprint = householdScopeFingerprint('household_a');
@@ -704,7 +819,10 @@ void main() {
         );
 
         expect(result.isSuccess, isFalse);
-        expect(result.snapshot.householdId, 'household_b');
+        expect(result.snapshot.householdId, isNull);
+        expect(result.snapshot.role, isNull);
+        expect(result.snapshot.sharedContext, isNull);
+        expect(result.snapshot.lastAcceptedAt, isNull);
         expect(result.snapshot.lastPhase, 'revoke_invite_invalid_session');
         expect(
           result.snapshot.pendingClearHouseholdScopeFingerprint,
@@ -1041,6 +1159,95 @@ class _FailOnPendingClearHouseholdLocalStore extends HouseholdLocalStore {
     }
     return super.write(snapshot);
   }
+}
+
+enum _HouseholdCommand { create, accept, revoke, refresh }
+
+Future<HouseholdLocalSnapshot> _runHouseholdCommand(
+  _HouseholdRepositoryHarness harness,
+  _HouseholdCommand command,
+) async {
+  switch (command) {
+    case _HouseholdCommand.create:
+      return (await harness.repository.createInvite()).snapshot;
+    case _HouseholdCommand.accept:
+      return (await harness.repository.acceptInvite(
+        token: 'invite_token_1234',
+        source: 'invite_link',
+      )).snapshot;
+    case _HouseholdCommand.revoke:
+      return (await harness.repository.revokeInvite(
+        token: 'invite_token_1234',
+      )).snapshot;
+    case _HouseholdCommand.refresh:
+      return harness.repository.refreshSharedContext();
+  }
+}
+
+HouseholdLocalSnapshot _connectedHouseholdSnapshot({
+  required String householdId,
+  String? pendingClearHouseholdScopeFingerprint,
+}) {
+  return HouseholdLocalSnapshot(
+    householdId: householdId,
+    role: HouseholdRole.caregiver,
+    sharedContext: _sharedContextResponse(householdId: householdId).snapshot,
+    lastPhase: 'shared_context_ready',
+    lastAcceptedAt: DateTime.utc(2026, 9, 10, 8),
+    pendingClearHouseholdScopeFingerprint:
+        pendingClearHouseholdScopeFingerprint,
+  );
+}
+
+AccountLocalSnapshot _accountSnapshotForGate(AccountConsentState state) {
+  switch (state) {
+    case AccountConsentState.revoked:
+    case AccountConsentState.deleted:
+      return AccountLocalSnapshot(
+        consentState: state,
+        session: _jwtSession(),
+        lastSyncPhase: 'batch_ack_applied',
+      );
+    case AccountConsentState.signedOut:
+      return AccountLocalSnapshot.signedOut;
+    case AccountConsentState.localOnly:
+      return AccountLocalSnapshot.localOnly;
+    case AccountConsentState.acceptedPendingSync:
+      return AccountLocalSnapshot(
+        consentState: AccountConsentState.acceptedPendingSync,
+        session: _jwtSession(),
+        lastSyncPhase: 'batch_ack_applied',
+      );
+  }
+}
+
+String _expectedGatePhase(
+  _HouseholdCommand command,
+  AccountConsentState state,
+) {
+  final action = switch (command) {
+    _HouseholdCommand.create => 'create_invite',
+    _HouseholdCommand.accept => 'accept_invite',
+    _HouseholdCommand.revoke => 'revoke_invite',
+    _HouseholdCommand.refresh => 'shared_context',
+  };
+  final suffix = switch (state) {
+    AccountConsentState.revoked => 'consent_required',
+    AccountConsentState.deleted => 'account_deleted',
+    AccountConsentState.signedOut ||
+    AccountConsentState.localOnly => 'invalid_session',
+    AccountConsentState.acceptedPendingSync => 'ready',
+  };
+  return '${action}_$suffix';
+}
+
+String _expectedGateMessage(AccountConsentState state) {
+  return switch (state) {
+    AccountConsentState.revoked => '同意已撤回',
+    AccountConsentState.deleted => '账号已删除',
+    AccountConsentState.signedOut || AccountConsentState.localOnly => '登录',
+    AccountConsentState.acceptedPendingSync => '',
+  };
 }
 
 class _FakeHouseholdApiService extends HouseholdApiService {

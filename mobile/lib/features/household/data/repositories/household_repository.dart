@@ -226,16 +226,7 @@ class HouseholdRepository {
         message: current.lastVisibleError ?? '当前无法创建邀请。',
       );
     }
-    final sessionGate = await _resolveSessionGate(action: 'create_invite');
-    if (!sessionGate.canProceed) {
-      final snapshot = await _persistSnapshot(
-        _mergeSessionGateSnapshot(current, sessionGate.snapshot!),
-      );
-      return HouseholdCreateInviteResult(
-        snapshot: snapshot,
-        message: snapshot.lastVisibleError ?? '当前无法创建邀请。',
-      );
-    }
+    final sessionGate = preflight.sessionGate!;
 
     try {
       final inviteLink = await _apiService.createInvite(
@@ -279,17 +270,18 @@ class HouseholdRepository {
     required String token,
     required String source,
   }) async {
-    final current = await _readSnapshotSafely();
-    final sessionGate = await _resolveSessionGate(action: 'revoke_invite');
-    if (!sessionGate.canProceed) {
-      final snapshot = await _persistSnapshot(
-        _mergeSessionGateSnapshot(current, sessionGate.snapshot!),
-      );
+    final preflight = await _householdCommandPreflight(
+      action: 'revoke_invite',
+      blockOnPendingClear: false,
+    );
+    final current = preflight.snapshot;
+    if (!preflight.canProceed) {
       return HouseholdRevokeInviteResult(
-        snapshot: snapshot,
-        message: snapshot.lastVisibleError ?? '当前无法撤销邀请。',
+        snapshot: current,
+        message: current.lastVisibleError ?? '当前无法撤销邀请。',
       );
     }
+    final sessionGate = preflight.sessionGate!;
 
     try {
       final response = await _apiService.revokeInvite(
@@ -338,16 +330,7 @@ class HouseholdRepository {
         message: current.lastVisibleError ?? '当前无法接受邀请。',
       );
     }
-    final sessionGate = await _resolveSessionGate(action: 'accept_invite');
-    if (!sessionGate.canProceed) {
-      final snapshot = await _persistSnapshot(
-        _mergeSessionGateSnapshot(current, sessionGate.snapshot!),
-      );
-      return HouseholdInviteAcceptResult(
-        snapshot: snapshot,
-        message: snapshot.lastVisibleError ?? '当前无法接受邀请。',
-      );
-    }
+    final sessionGate = preflight.sessionGate!;
 
     try {
       final response = await _apiService.acceptInvite(
@@ -407,11 +390,7 @@ class HouseholdRepository {
       return preflight.snapshot;
     }
     final current = preflight.snapshot;
-    final sessionGate = await _resolveSessionGate(action: 'shared_context');
-    if (!sessionGate.canProceed) {
-      final blocked = sessionGate.snapshot!;
-      return _persistSnapshot(_mergeSessionGateSnapshot(current, blocked));
-    }
+    final sessionGate = preflight.sessionGate!;
 
     try {
       final response = await _apiService.fetchSharedContext(
@@ -483,68 +462,105 @@ class HouseholdRepository {
     }
   }
 
-  Future<HouseholdLocalSnapshot> _readSnapshotSafely() async {
-    return loadSnapshot();
-  }
-
   Future<_HouseholdCommandPreflight> _householdCommandPreflight({
     required String action,
+    bool blockOnPendingClear = true,
   }) async {
     final readResult = await _readSnapshotWithStatus();
     if (!readResult.wasReadSuccessfully) {
+      final sessionGate = await _resolveSessionGate(action: action);
+      if (!sessionGate.canProceed &&
+          sessionGate.privacyPolicy ==
+              _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
+        return _HouseholdCommandPreflight.blocked(
+          await _persistMergedSessionGateSnapshot(
+            current: readResult.snapshot,
+            sessionGate: sessionGate,
+          ),
+          sessionGate: sessionGate,
+        );
+      }
       return _HouseholdCommandPreflight.blocked(readResult.snapshot);
+    }
+    final sessionGate = await _resolveSessionGate(action: action);
+    if (!sessionGate.canProceed &&
+        sessionGate.privacyPolicy ==
+            _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
+      return _HouseholdCommandPreflight.blocked(
+        await _persistMergedSessionGateSnapshot(
+          current: readResult.snapshot,
+          sessionGate: sessionGate,
+        ),
+        sessionGate: sessionGate,
+      );
     }
     final snapshot = await _retryPendingHouseholdScopeClear(
       readResult.snapshot,
     );
-    if (snapshot.pendingClearHouseholdScopeFingerprint != null) {
+    if (!sessionGate.canProceed) {
+      return _HouseholdCommandPreflight.blocked(
+        await _persistMergedSessionGateSnapshot(
+          current: snapshot,
+          sessionGate: sessionGate,
+        ),
+        sessionGate: sessionGate,
+      );
+    }
+    if (blockOnPendingClear &&
+        snapshot.pendingClearHouseholdScopeFingerprint != null) {
       return _HouseholdCommandPreflight.blocked(
         snapshot.copyWith(
           lastPhase: '${action}_pending_household_clear',
           lastVisibleError: '上一家庭数据清理尚未完成，请稍后重试。',
         ),
+        sessionGate: sessionGate,
       );
     }
-    return _HouseholdCommandPreflight.ready(snapshot);
+    return _HouseholdCommandPreflight.ready(snapshot, sessionGate);
   }
 
   Future<_SessionGateResult> _resolveSessionGate({
     required String action,
   }) async {
     final accountSnapshot = await _readAccountSnapshotSafely();
+    final consentState = accountSnapshot.consentState;
     final session = accountSnapshot.session;
-    if (session == null ||
-        accountSnapshot.consentState == AccountConsentState.localOnly ||
-        accountSnapshot.consentState == AccountConsentState.signedOut) {
-      return _SessionGateResult.blocked(
-        HouseholdLocalSnapshot(
-          lastPhase: '${action}_invalid_session',
-          lastVisibleError: '请先登录并完成同意，再继续照护邀请流程。',
-        ),
-      );
-    }
-    if (!session.hasJwtTokens) {
-      return _SessionGateResult.blocked(
-        HouseholdLocalSnapshot(
-          lastPhase: '${action}_invalid_session',
-          lastVisibleError: '登录已过期，请重新登录后再试。',
-        ),
-      );
-    }
-    if (accountSnapshot.consentState == AccountConsentState.revoked) {
+    if (consentState == AccountConsentState.revoked) {
       return _SessionGateResult.blocked(
         HouseholdLocalSnapshot(
           lastPhase: '${action}_consent_required',
           lastVisibleError: '同意已撤回；重新登录并再次同意后才能继续共享。',
         ),
+        privacyPolicy: _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext,
       );
     }
-    if (accountSnapshot.consentState == AccountConsentState.deleted) {
+    if (consentState == AccountConsentState.deleted) {
       return _SessionGateResult.blocked(
         HouseholdLocalSnapshot(
           lastPhase: '${action}_account_deleted',
           lastVisibleError: '账号已删除；请重新注册后再继续共享。',
         ),
+        privacyPolicy: _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext,
+      );
+    }
+    if (consentState == AccountConsentState.localOnly ||
+        consentState == AccountConsentState.signedOut) {
+      return _SessionGateResult.blocked(
+        HouseholdLocalSnapshot(
+          lastPhase: '${action}_invalid_session',
+          lastVisibleError: '请先登录并完成同意，再继续照护邀请流程。',
+        ),
+        privacyPolicy: _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext,
+      );
+    }
+    if (session == null || !session.hasJwtTokens) {
+      return _SessionGateResult.blocked(
+        HouseholdLocalSnapshot(
+          lastPhase: '${action}_invalid_session',
+          lastVisibleError: '登录已过期，请重新登录后再试。',
+        ),
+        privacyPolicy:
+            _HouseholdSessionGatePrivacyPolicy.preserveStableHousehold,
       );
     }
     return _SessionGateResult.ready(session);
@@ -552,13 +568,31 @@ class HouseholdRepository {
 
   HouseholdLocalSnapshot _mergeSessionGateSnapshot(
     HouseholdLocalSnapshot current,
-    HouseholdLocalSnapshot gateSnapshot,
+    _SessionGateResult sessionGate,
   ) {
-    return current.copyWith(
+    final gateSnapshot = sessionGate.snapshot!;
+    final merged = current.copyWith(
       lastPhase: gateSnapshot.lastPhase,
       lastVisibleError: gateSnapshot.lastVisibleError,
       clearLastVisibleError: gateSnapshot.lastVisibleError == null,
     );
+    if (sessionGate.privacyPolicy ==
+        _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
+      return merged.copyWith(clearHouseholdId: true);
+    }
+    return merged;
+  }
+
+  Future<HouseholdLocalSnapshot> _persistMergedSessionGateSnapshot({
+    required HouseholdLocalSnapshot current,
+    required _SessionGateResult sessionGate,
+  }) async {
+    final merged = _mergeSessionGateSnapshot(current, sessionGate);
+    final persisted = await _persistSnapshotWithResult(
+      merged,
+      fallbackOnWriteFailure: merged,
+    );
+    return persisted.snapshot;
   }
 
   Future<AccountLocalSnapshot> _readAccountSnapshotSafely() async {
@@ -859,29 +893,51 @@ class _HouseholdCommandPreflight {
   const _HouseholdCommandPreflight._({
     required this.snapshot,
     required this.canProceed,
+    this.sessionGate,
   });
 
-  const _HouseholdCommandPreflight.ready(HouseholdLocalSnapshot snapshot)
-    : this._(snapshot: snapshot, canProceed: true);
+  const _HouseholdCommandPreflight.ready(
+    HouseholdLocalSnapshot snapshot,
+    _SessionGateResult sessionGate,
+  ) : this._(snapshot: snapshot, canProceed: true, sessionGate: sessionGate);
 
-  const _HouseholdCommandPreflight.blocked(HouseholdLocalSnapshot snapshot)
-    : this._(snapshot: snapshot, canProceed: false);
+  const _HouseholdCommandPreflight.blocked(
+    HouseholdLocalSnapshot snapshot, {
+    _SessionGateResult? sessionGate,
+  }) : this._(snapshot: snapshot, canProceed: false, sessionGate: sessionGate);
 
   final HouseholdLocalSnapshot snapshot;
   final bool canProceed;
+  final _SessionGateResult? sessionGate;
+}
+
+enum _HouseholdSessionGatePrivacyPolicy {
+  preserveStableHousehold,
+  clearHouseholdContext,
 }
 
 class _SessionGateResult {
-  const _SessionGateResult._({this.session, this.snapshot});
+  const _SessionGateResult._({
+    this.session,
+    this.snapshot,
+    required this.privacyPolicy,
+  });
 
   const _SessionGateResult.ready(AccountSession session)
-    : this._(session: session);
+    : this._(
+        session: session,
+        privacyPolicy:
+            _HouseholdSessionGatePrivacyPolicy.preserveStableHousehold,
+      );
 
-  const _SessionGateResult.blocked(HouseholdLocalSnapshot snapshot)
-    : this._(snapshot: snapshot);
+  const _SessionGateResult.blocked(
+    HouseholdLocalSnapshot snapshot, {
+    required _HouseholdSessionGatePrivacyPolicy privacyPolicy,
+  }) : this._(snapshot: snapshot, privacyPolicy: privacyPolicy);
 
   final AccountSession? session;
   final HouseholdLocalSnapshot? snapshot;
+  final _HouseholdSessionGatePrivacyPolicy privacyPolicy;
 
   bool get canProceed => session != null;
 }
