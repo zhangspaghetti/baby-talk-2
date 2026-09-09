@@ -539,16 +539,17 @@ void main() {
           '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
         );
         final backup = File('${file.path}.bak');
-        var rotationFailed = true;
+        var crashAtRotation = true;
+        var restoreBlocked = true;
         final failingStore = GeneratedCareMomentLocalStore(
           directoryResolver: () async => tempDir,
           renameFile: (source, targetPath) async {
-            if (rotationFailed && source.path == file.path) {
-              rotationFailed = false;
+            if (crashAtRotation && source.path == file.path) {
+              crashAtRotation = false;
               await source.rename(targetPath);
               throw StateError('simulated target-to-backup crash');
             }
-            if (!rotationFailed && source.path == backup.path) {
+            if (restoreBlocked && source.path == backup.path) {
               throw StateError('simulated crash prevents backup restore');
             }
             return source.rename(targetPath);
@@ -563,13 +564,20 @@ void main() {
         expect(await backup.exists(), isTrue);
         expect(
           await File('${file.path}.clear').readAsString(),
-          startsWith('account:'),
+          matches(RegExp(r'^account:[0-9a-f]{16}$')),
         );
 
-        final recoveredStore = GeneratedCareMomentLocalStore(
-          directoryResolver: () async => tempDir,
+        await expectLater(
+          failingStore.readAll(),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
         );
-        final recovered = await recoveredStore.readAll();
+        expect(await file.exists(), isFalse);
+        expect(await backup.exists(), isTrue);
+        expect(await File('${file.path}.clear').exists(), isTrue);
+
+        restoreBlocked = false;
+        await failingStore.clearForAccount('account_a');
+        final recovered = await failingStore.readAll();
 
         expect(recovered.map((record) => record.accountContext), <String>[
           'account_b',
@@ -625,22 +633,53 @@ void main() {
         expect(await temporaryFile.exists(), isTrue);
         expect(
           await File('${file.path}.clear').readAsString(),
-          startsWith('account:'),
+          matches(RegExp(r'^account:[0-9a-f]{16}$')),
         );
 
         final recoveredStore = GeneratedCareMomentLocalStore(
           directoryResolver: () async => tempDir,
         );
         final recovered = await recoveredStore.readAll();
-
-        expect(
-          recovered.map((record) => record.accountContext),
-          <String>['account_b'],
-        );
+        expect(recovered.map((record) => record.accountContext), <String>[
+          'account_b',
+        ]);
         expect(await file.exists(), isTrue);
         expect(await temporaryFile.exists(), isFalse);
         expect(await File('${file.path}.bak').exists(), isFalse);
         expect(await File('${file.path}.clear').exists(), isFalse);
+      },
+    );
+
+    test(
+      'rejects truncated and malformed account clear marker fingerprints',
+      () async {
+        final moment = _moment('malformed_account_clear_marker');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final marker = File('${file.path}.clear');
+        final lower15 = List<String>.filled(15, 'a').join();
+        final lower16 = List<String>.filled(16, 'a').join();
+        final malformedMarkers = <String>[
+          'account:$lower15',
+          'account:-$lower15',
+          'account:${lower16.toUpperCase()}',
+          'account:${lower16}x',
+          'account:$lower16\n',
+          ' account:$lower16',
+          'account:not-a-fingerprint',
+        ];
+
+        for (final malformed in malformedMarkers) {
+          await marker.writeAsString(malformed);
+          await expectLater(
+            store.readAll(),
+            throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+          );
+          expect(await marker.readAsString(), malformed);
+          expect(await file.exists(), isTrue);
+        }
       },
     );
 
@@ -775,7 +814,7 @@ void main() {
       final canonicalPath = tempDir.path;
       final aliasedPath = Platform.isWindows
           ? '${tempDir.path.toUpperCase().replaceAll('\\', '/')}/PATH_ALIAS/..'
-          : '${tempDir.path}${Platform.pathSeparator}path_alias${Platform.pathSeparator}..';
+          : '//${tempDir.path.substring(1)}${Platform.pathSeparator}path_alias${Platform.pathSeparator}..';
       final firstStore = GeneratedCareMomentLocalStore(
         directoryResolver: () async => Directory(canonicalPath),
       );

@@ -106,11 +106,14 @@ class GeneratedCareMomentLocalStore {
   /// during the atomic transition; this only drops metadata for this scope.
   Future<void> purgeQuarantinedForAccount(String accountContext) {
     final normalized = _requiredString(accountContext, 'accountContext');
-    final scopeFingerprint = _fingerprint(normalized);
+    final scopeFingerprints = <String>{
+      _fingerprint(normalized),
+      _legacyFingerprint(normalized),
+    };
     return _enqueueMutation(() async {
       final state = await _readState();
       final retainedDiagnostics = state.diagnostics
-          .where((entry) => entry.scopeFingerprint != scopeFingerprint)
+          .where((entry) => !scopeFingerprints.contains(entry.scopeFingerprint))
           .toList(growable: false);
       if (retainedDiagnostics.length != state.diagnostics.length) {
         await _writeState(state.records, retainedDiagnostics);
@@ -121,6 +124,10 @@ class GeneratedCareMomentLocalStore {
   Future<void> clearForAccount(String accountContext) {
     final normalized = _requiredString(accountContext, 'accountContext');
     final scopeFingerprint = _fingerprint(normalized);
+    final scopeFingerprints = <String>{
+      scopeFingerprint,
+      _legacyFingerprint(normalized),
+    };
     return _enqueueMutation(() async {
       final state = await _readState();
       // Remove accepted textual/derived content before its quarantine metadata.
@@ -128,7 +135,7 @@ class GeneratedCareMomentLocalStore {
           .where((record) => record.accountContext != normalized)
           .toList(growable: false);
       final retainedDiagnostics = state.diagnostics
-          .where((entry) => entry.scopeFingerprint != scopeFingerprint)
+          .where((entry) => !scopeFingerprints.contains(entry.scopeFingerprint))
           .toList(growable: false);
       if (retainedRecords.isEmpty && retainedDiagnostics.isEmpty) {
         await _deleteIfExists();
@@ -165,7 +172,12 @@ class GeneratedCareMomentLocalStore {
         return const _StoreState.empty();
       }
       if (!await _existsFile(file)) {
-        await _restoreBackupIfNeeded(file);
+        final restored = await _restoreBackupIfNeeded(file);
+        if (!restored && clearScopeFingerprint != null) {
+          // An account-scoped intent must not degrade to an empty read: the
+          // backup may still contain another account that must be preserved.
+          throw const GeneratedCareMomentLocalStoreException();
+        }
       }
       if (!await _existsFile(file)) {
         return const _StoreState.empty();
@@ -281,11 +293,23 @@ class GeneratedCareMomentLocalStore {
                       clearScopeFingerprint,
                 )
                 .toList(growable: false);
+      final legacyScopeFingerprints = clearScopeFingerprint == null
+          ? const <String>{}
+          : parsed
+                .where(
+                  (record) =>
+                      _fingerprint(record.accountContext) ==
+                      clearScopeFingerprint,
+                )
+                .map((record) => _legacyFingerprint(record.accountContext))
+                .toSet();
       final retainedDiagnostics = clearScopeFingerprint == null
           ? quarantined
           : quarantined
                 .where(
-                  (entry) => entry.scopeFingerprint != clearScopeFingerprint,
+                  (entry) =>
+                      entry.scopeFingerprint != clearScopeFingerprint &&
+                      !legacyScopeFingerprints.contains(entry.scopeFingerprint),
                 )
                 .toList(growable: false);
       if (clearScopeFingerprint != null ||
@@ -311,14 +335,14 @@ class GeneratedCareMomentLocalStore {
     if (!await _existsFile(marker)) {
       return null;
     }
-    final raw = (await marker.readAsString()).trim();
+    final raw = await marker.readAsString();
     if (raw == 'clear') {
       return const _ClearIntent.lifecycle();
     }
     const prefix = 'account:';
     if (raw.startsWith(prefix)) {
       final scopeFingerprint = raw.substring(prefix.length);
-      if (RegExp(r'^-?[0-9a-f]{15,16}$').hasMatch(scopeFingerprint)) {
+      if (RegExp(r'^[0-9a-f]{16}$').hasMatch(scopeFingerprint)) {
         return _ClearIntent.account(scopeFingerprint);
       }
     }
@@ -496,15 +520,20 @@ class GeneratedCareMomentLocalStore {
     }
   }
 
-  Future<void> _restoreBackupIfNeeded(File file) async {
+  Future<bool> _restoreBackupIfNeeded(File file) async {
     final backup = File('${file.path}.bak');
-    if (await _existsFile(file) || !await _existsFile(backup)) {
-      return;
+    if (await _existsFile(file)) {
+      return true;
+    }
+    if (!await _existsFile(backup)) {
+      return true;
     }
     try {
       await _renameFile(backup, file.path);
+      return true;
     } on Object {
       // Leave backup in place for a later read/retry.
+      return await _existsFile(file);
     }
   }
 
@@ -542,8 +571,13 @@ class GeneratedCareMomentLocalStore {
       prefix = path.substring(0, 3);
       remainder = path.substring(3);
     } else if (path.startsWith('//')) {
-      prefix = '//';
-      remainder = path.substring(2);
+      if (Platform.isWindows) {
+        prefix = '//';
+        remainder = path.substring(2);
+      } else {
+        prefix = '/';
+        remainder = path.replaceFirst(RegExp(r'^/+'), '');
+      }
     } else if (path.startsWith('/')) {
       prefix = '/';
       remainder = path.substring(1);
@@ -990,6 +1024,18 @@ String _canonicalFingerprintInput(Object? value) {
 }
 
 String _fingerprint(String value) {
+  var hash = 1469598103934665603;
+  for (final codeUnit in value.codeUnits) {
+    hash = (hash ^ codeUnit) * 1099511628211;
+    hash &= 0xffffffffffffffff;
+  }
+  final unsignedHash = hash < 0
+      ? BigInt.from(hash) + (BigInt.one << 64)
+      : BigInt.from(hash);
+  return unsignedHash.toRadixString(16).padLeft(16, '0');
+}
+
+String _legacyFingerprint(String value) {
   var hash = 1469598103934665603;
   for (final codeUnit in value.codeUnits) {
     hash = (hash ^ codeUnit) * 1099511628211;
