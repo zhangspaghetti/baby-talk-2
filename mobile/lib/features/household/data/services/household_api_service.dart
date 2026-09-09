@@ -51,6 +51,7 @@ class HouseholdApiException implements Exception {
   bool get isUnauthorized => statusCode == 401 || code == 'invalid_session';
   bool get isConsentRequired => code == 'consent_required';
   bool get isConsentRevoked => code == 'consent_revoked';
+  bool get isMembershipMissing => code == 'household_membership_missing';
   bool get isRoleNotAllowed => code == 'role_not_allowed';
   bool get isInviteExpired => code == 'invite_expired';
   bool get isInviteAlreadyUsed => code == 'invite_already_used';

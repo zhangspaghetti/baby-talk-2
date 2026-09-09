@@ -233,6 +233,41 @@ void main() {
         );
       },
     );
+
+    test(
+      'lifecycle marker makes reads fail closed and blocks late writes until recovery',
+      () async {
+        final primary = File('${tempDir.path}/preset_scene_catalog.json');
+        await store.write(
+          _snapshot(<PresetSceneDefinition>[_definition('old_scene')]),
+        );
+        await File('${primary.path}.tmp').writeAsString('temporary');
+        await File('${primary.path}.bak').writeAsString('backup');
+        await File('${primary.path}.quarantine.1').writeAsString('quarantine');
+        final marker = File('${primary.path}.clear');
+        await marker.writeAsString('clear', flush: true);
+
+        await expectLater(
+          store.write(_snapshot(<PresetSceneDefinition>[_definition('late')])),
+          throwsA(isA<PresetSceneCatalogStoreException>()),
+        );
+        expect(await primary.exists(), isTrue);
+
+        final result = await store.readResult();
+
+        expect(result.status, PresetSceneCatalogStoreReadStatus.notFound);
+        expect(await primary.exists(), isFalse);
+        expect(await marker.exists(), isFalse);
+        expect(await File('${primary.path}.tmp').exists(), isFalse);
+        expect(await File('${primary.path}.bak').exists(), isFalse);
+        expect(
+          tempDir.listSync().whereType<File>().any(
+            (file) => file.path.contains('.quarantine.'),
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 }
 

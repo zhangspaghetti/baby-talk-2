@@ -96,12 +96,15 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       clear: () async {
         Object? failure;
         try {
-          await presetSceneCatalogStore.clearForLifecycle();
+          // Invalidate in-flight remote work and memory before planting the
+          // disk marker. Late responses then fail the generation check and
+          // cannot repopulate the cleared catalog.
+          await presetSceneCatalogRepository?.clearForLifecycle();
         } on Object catch (error) {
           failure = error;
         }
         try {
-          await presetSceneCatalogRepository?.clearForLifecycle();
+          await presetSceneCatalogStore.clearForLifecycle();
         } on Object catch (error) {
           failure ??= error;
         }

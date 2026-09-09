@@ -155,6 +155,21 @@ class CaregiverInviteApiWebTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void sharedContextUsesDedicatedMissingMembershipContractWithoutIdentityDetails() throws Exception {
+        var session = createAcceptedSession("13800138000", "install-no-membership");
+
+        var response = mockMvc.perform(get("/api/v1/household/shared-context")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.3.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("household_membership_missing"))
+                .andReturn();
+
+        assertThat(response.getResponse().getContentAsString())
+                .doesNotContain(session.accountId(), session.sessionId(), "install-no-membership");
+    }
+
+    @Test
     void caregiverCannotCreateInviteAndRoleDeniedIsAudited() throws Exception {
         var primary = createAcceptedSession("13800138000", "install-primary");
         syncEvent(primary.accessToken(), "install-primary", "evt_1", "daily_care", "bath_time", "bath_time_warm_water", "cooperating",

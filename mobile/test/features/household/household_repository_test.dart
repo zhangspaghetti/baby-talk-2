@@ -12,12 +12,26 @@ import 'package:mobile/features/household/data/services/household_api_service.da
 import 'package:mobile/features/household/domain/models/household_invite_link.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/domain/models/household_shared_context.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
 import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
 import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('rejects partial household snapshots without a household id', () {
+    expect(
+      () => HouseholdLocalSnapshot.fromJsonMap(<String, dynamic>{
+        'householdId': null,
+        'role': 'caregiver',
+        'sharedContext': _sharedContextResponse().snapshot.toJsonMap(),
+        'lastPhase': 'shared_context_ready',
+        'lastAcceptedAt': '2026-04-16T12:00:00Z',
+      }),
+      throwsFormatException,
+    );
+  });
 
   test('household API diagnostics do not render private server messages', () {
     const error = HouseholdApiException(
@@ -332,6 +346,48 @@ void main() {
     );
 
     test(
+      'local household read failure blocks server transition even with cached A',
+      () async {
+        final localStore = _ToggleReadFailingHouseholdLocalStore(
+          directoryResolver: () async => harness.tempDir,
+        );
+        final api = _FakeHouseholdApiService()
+          ..fetchResponse = _sharedContextResponse(householdId: 'household_b');
+        final clearedScopes = <String>[];
+        late HouseholdRepository repository;
+        repository = HouseholdRepository(
+          localStore: localStore,
+          apiService: api,
+          accountSnapshotLoader: () async => harness.accountSnapshot,
+          persistRefreshedSession: (session) async => session,
+          clearGeneratedContentForHouseholdScope: (scope) async {
+            clearedScopes.add(scope);
+          },
+        );
+        await localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        expect((await repository.loadSnapshot()).householdId, 'household_a');
+        localStore.failReads = true;
+
+        final result = await repository.refreshSharedContext();
+
+        expect(result.householdId, 'household_a');
+        expect(result.lastPhase, 'local_store_unavailable');
+        expect(api.fetchCallCount, 0);
+        expect(clearedScopes, isEmpty);
+        await repository.close();
+      },
+    );
+
+    test(
       'membership transition does not clear public preset catalog cache',
       () async {
         final catalogStore = PresetSceneCatalogStore(
@@ -391,7 +447,7 @@ void main() {
           kind: HouseholdApiFailureKind.http,
           message: 'membership missing',
           statusCode: 403,
-          code: 'role_not_allowed',
+          code: 'household_membership_missing',
         );
 
         final result = await harness.repository.refreshSharedContext();
@@ -402,6 +458,40 @@ void main() {
         expect(result.lastPhase, 'shared_context_no_membership');
         expect(harness.clearedScopes, <String>['household_a']);
         expect((await harness.localStore.read()).householdId, isNull);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'generic role_not_allowed preserves household A and never clears it',
+      () async {
+        await harness.localStore.write(
+          HouseholdLocalSnapshot(
+            householdId: 'household_a',
+            role: HouseholdRole.caregiver,
+            sharedContext: _sharedContextResponse(
+              householdId: 'household_a',
+            ).snapshot,
+            lastPhase: 'shared_context_ready',
+          ),
+        );
+        harness.api.fetchError = const HouseholdApiException(
+          kind: HouseholdApiFailureKind.http,
+          message: 'role denied',
+          statusCode: 403,
+          code: 'role_not_allowed',
+        );
+
+        final result = await harness.repository.refreshSharedContext();
+
+        expect(result.householdId, 'household_a');
+        expect(result.lastPhase, 'shared_context_role_not_allowed');
+        expect(harness.clearedScopes, isEmpty);
+        expect((await harness.localStore.read()).householdId, 'household_a');
       },
     );
 
@@ -512,8 +602,26 @@ void main() {
         final result = await harness.repository.refreshSharedContext();
 
         expect(result.householdId, 'household_b');
-        expect((await harness.localStore.read()).householdId, 'household_b');
+        final pending = await harness.localStore.read();
+        expect(pending.householdId, 'household_b');
+        expect(
+          pending.pendingClearHouseholdScopeFingerprint,
+          householdScopeFingerprint('household_a'),
+        );
         expect(harness.clearedScopes, <String>['household_a']);
+
+        harness.clearCleanupFailures = false;
+        final retried = await harness.repository.loadSnapshot();
+        expect(retried.householdId, 'household_b');
+        expect(retried.pendingClearHouseholdScopeFingerprint, isNull);
+        expect(
+          (await harness.localStore.read())
+              .pendingClearHouseholdScopeFingerprint,
+          isNull,
+        );
+        expect(harness.clearedScopeFingerprints, <String>[
+          householdScopeFingerprint('household_a'),
+        ]);
       },
     );
   });
@@ -527,6 +635,7 @@ class _HouseholdRepositoryHarness {
     required this.accountSnapshot,
     required this.repository,
     required this.clearedScopes,
+    required this.clearedScopeFingerprints,
   });
 
   final Directory tempDir;
@@ -535,6 +644,7 @@ class _HouseholdRepositoryHarness {
   AccountLocalSnapshot accountSnapshot;
   final HouseholdRepository repository;
   final List<String> clearedScopes;
+  final List<String> clearedScopeFingerprints;
   bool clearCleanupFailures = false;
 
   static Future<_HouseholdRepositoryHarness> create() async {
@@ -547,6 +657,7 @@ class _HouseholdRepositoryHarness {
     final api = _FakeHouseholdApiService();
     late _HouseholdRepositoryHarness harness;
     final clearedScopes = <String>[];
+    final clearedScopeFingerprints = <String>[];
     final repository = HouseholdRepository(
       localStore: localStore,
       apiService: api,
@@ -563,6 +674,12 @@ class _HouseholdRepositoryHarness {
           throw StateError('simulated household content cleanup failure');
         }
       },
+      clearGeneratedContentForHouseholdScopeFingerprint: (fingerprint) async {
+        clearedScopeFingerprints.add(fingerprint);
+        if (harness.clearCleanupFailures) {
+          throw StateError('simulated household content cleanup retry failure');
+        }
+      },
     );
     harness = _HouseholdRepositoryHarness(
       tempDir: tempDir,
@@ -575,6 +692,7 @@ class _HouseholdRepositoryHarness {
       ),
       repository: repository,
       clearedScopes: clearedScopes,
+      clearedScopeFingerprints: clearedScopeFingerprints,
     );
     return harness;
   }
@@ -595,6 +713,22 @@ class _FailingHouseholdLocalStore extends HouseholdLocalStore {
     throw const HouseholdLocalStoreException(
       'simulated snapshot write failure',
     );
+  }
+}
+
+class _ToggleReadFailingHouseholdLocalStore extends HouseholdLocalStore {
+  _ToggleReadFailingHouseholdLocalStore({required super.directoryResolver});
+
+  bool failReads = false;
+
+  @override
+  Future<HouseholdLocalSnapshot> read() {
+    if (failReads) {
+      return Future<HouseholdLocalSnapshot>.error(
+        const HouseholdLocalStoreException('simulated snapshot read failure'),
+      );
+    }
+    return super.read();
   }
 }
 

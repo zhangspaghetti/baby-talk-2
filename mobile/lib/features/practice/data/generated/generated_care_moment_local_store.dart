@@ -157,7 +157,13 @@ class GeneratedCareMomentLocalStore {
   }
 
   Future<void> clearForHouseholdScope(String householdScope) {
-    final scopeFingerprint = householdScopeFingerprint(householdScope);
+    return clearForHouseholdScopeFingerprint(
+      householdScopeFingerprint(householdScope),
+    );
+  }
+
+  Future<void> clearForHouseholdScopeFingerprint(String scopeFingerprint) {
+    _requireHouseholdScopeFingerprint(scopeFingerprint);
     return _enqueueMutation(() async {
       final file = await _resolveFile();
       if (!await file.parent.exists()) {
@@ -1141,4 +1147,14 @@ String householdScopeFingerprint(String householdScope) {
     throw ArgumentError.value(householdScope, 'householdScope', '不能为空。');
   }
   return sha256.convert(utf8.encode(normalized)).toString();
+}
+
+void _requireHouseholdScopeFingerprint(String value) {
+  if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(value)) {
+    throw ArgumentError.value(
+      value,
+      'scopeFingerprint',
+      'household scope fingerprint is invalid.',
+    );
+  }
 }

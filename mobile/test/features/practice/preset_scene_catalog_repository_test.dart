@@ -328,6 +328,74 @@ void main() {
       expect(calls, 2);
       expect(refreshed.scenes.single.presetSceneId, 'cached_scene');
     });
+
+    test(
+      'lifecycle clear invalidates an in-flight response before disk cleanup',
+      () async {
+        final api = _QueuedRemoteApi();
+        final stale = Completer<List<PresetSceneDefinition>>();
+        api.enqueue(stale.future);
+        final repository = _repository(
+          remote: api,
+          store: store,
+          assets: assets,
+          remoteTimeout: const Duration(seconds: 1),
+        );
+        final loading = repository.loadCatalog();
+
+        await repository.clearForLifecycle();
+        await store.clearForLifecycle();
+        stale.complete(<PresetSceneDefinition>[_definition('stale_scene')]);
+        await loading;
+
+        expect(await store.read(), isNull);
+        final next = Completer<List<PresetSceneDefinition>>();
+        api.enqueue(next.future);
+        final refreshed = repository.loadCatalog();
+        next.complete(<PresetSceneDefinition>[_definition('fresh_scene')]);
+        expect((await refreshed).scenes.single.presetSceneId, 'fresh_scene');
+        expect(
+          (await store.read())!.scenes.single.presetSceneId,
+          'fresh_scene',
+        );
+      },
+    );
+
+    test(
+      'does not retain remote metadata while a crash-recovery marker remains',
+      () async {
+        await store.write(
+          PresetSceneCatalogSnapshot(
+            source: PresetSceneCatalogSource.remote,
+            scenes: <PresetSceneDefinition>[_definition('old_scene')],
+          ),
+        );
+        final marker = File(
+          '${tempDir.path}${Platform.pathSeparator}preset_scene_catalog.json.clear',
+        );
+        await marker.writeAsString('clear', flush: true);
+        var calls = 0;
+        final repository = _repository(
+          remote: _RemoteApi((_) async {
+            calls += 1;
+            return <PresetSceneDefinition>[_definition('fresh_scene')];
+          }),
+          store: store,
+          assets: assets,
+        );
+
+        expect(
+          (await repository.loadCatalog()).scenes.single.presetSceneId,
+          'fresh_scene',
+        );
+        expect(
+          (await repository.loadCatalog()).scenes.single.presetSceneId,
+          'fresh_scene',
+        );
+        expect(calls, 2);
+        expect(await marker.exists(), isTrue);
+      },
+    );
   });
 }
 

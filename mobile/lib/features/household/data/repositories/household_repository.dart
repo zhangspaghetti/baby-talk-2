@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
@@ -14,6 +16,8 @@ typedef HouseholdAccountSnapshotLoader =
     Future<AccountLocalSnapshot> Function();
 typedef HouseholdGeneratedContentScopeClearance =
     Future<void> Function(String householdScope);
+typedef HouseholdGeneratedContentScopeFingerprintClearance =
+    Future<void> Function(String householdScopeFingerprint);
 
 class HouseholdCreateInviteResult {
   const HouseholdCreateInviteResult({
@@ -65,12 +69,22 @@ class HouseholdRepository {
     required PersistRefreshedSession persistRefreshedSession,
     HouseholdGeneratedContentScopeClearance?
     clearGeneratedContentForHouseholdScope,
+    HouseholdGeneratedContentScopeFingerprintClearance?
+    clearGeneratedContentForHouseholdScopeFingerprint,
   }) : _localStore = localStore,
        _apiService = apiService,
        _accountSnapshotLoader = accountSnapshotLoader,
        _persistRefreshedSession = persistRefreshedSession,
        _clearGeneratedContentForHouseholdScope =
-           clearGeneratedContentForHouseholdScope ?? ((_) async {});
+           clearGeneratedContentForHouseholdScope ??
+           ((_) async {
+             throw StateError('household scope cleanup callback unavailable');
+           }),
+       _clearGeneratedContentForHouseholdScopeFingerprint =
+           clearGeneratedContentForHouseholdScopeFingerprint ??
+           ((_) async {
+             throw StateError('household scope cleanup callback unavailable');
+           });
 
   final HouseholdLocalStore _localStore;
   final HouseholdApiService _apiService;
@@ -78,6 +92,8 @@ class HouseholdRepository {
   final PersistRefreshedSession _persistRefreshedSession;
   final HouseholdGeneratedContentScopeClearance
   _clearGeneratedContentForHouseholdScope;
+  final HouseholdGeneratedContentScopeFingerprintClearance
+  _clearGeneratedContentForHouseholdScopeFingerprint;
 
   Future<HouseholdLocalSnapshot>? _refreshFuture;
   Future<HouseholdInviteAcceptResult>? _acceptFuture;
@@ -86,22 +102,39 @@ class HouseholdRepository {
   HouseholdLocalSnapshot? _lastKnownSnapshot;
 
   Future<HouseholdLocalSnapshot> loadSnapshot() async {
+    final readResult = await _readSnapshotWithStatus();
+    if (!readResult.wasReadSuccessfully) {
+      return readResult.snapshot;
+    }
+    return _retryPendingHouseholdScopeClear(readResult.snapshot);
+  }
+
+  Future<_HouseholdSnapshotReadResult> _readSnapshotWithStatus() async {
     try {
       final snapshot = await _localStore.read();
       _lastKnownSnapshot = snapshot;
-      return snapshot;
+      return _HouseholdSnapshotReadResult(
+        snapshot: snapshot,
+        wasReadSuccessfully: true,
+      );
     } on FormatException {
       final fallback = _lastKnownSnapshot ?? HouseholdLocalSnapshot.empty;
-      return fallback.copyWith(
-        lastPhase: 'local_snapshot_reset',
-        lastVisibleError: _lastKnownSnapshot == null
-            ? 'household 本地状态损坏，已回退到安全空态。'
-            : 'household 本地状态损坏，已保留最近一次稳定结果。',
+      return _HouseholdSnapshotReadResult(
+        snapshot: fallback.copyWith(
+          lastPhase: 'local_snapshot_reset',
+          lastVisibleError: _lastKnownSnapshot == null
+              ? 'household 本地状态损坏，已回退到安全空态。'
+              : 'household 本地状态损坏，已保留最近一次稳定结果。',
+        ),
+        wasReadSuccessfully: false,
       );
     } on HouseholdLocalStoreException catch (error) {
-      return (_lastKnownSnapshot ?? HouseholdLocalSnapshot.empty).copyWith(
-        lastPhase: 'local_store_unavailable',
-        lastVisibleError: _sanitizeVisibleError(error.message),
+      return _HouseholdSnapshotReadResult(
+        snapshot: (_lastKnownSnapshot ?? HouseholdLocalSnapshot.empty).copyWith(
+          lastPhase: 'local_store_unavailable',
+          lastVisibleError: _sanitizeVisibleError(error.message),
+        ),
+        wasReadSuccessfully: false,
       );
     }
   }
@@ -344,7 +377,18 @@ class HouseholdRepository {
   Future<HouseholdLocalSnapshot> _refreshSharedContextInternal({
     required String reason,
   }) async {
-    final current = await _readSnapshotSafely();
+    final readResult = await _readSnapshotWithStatus();
+    if (!readResult.wasReadSuccessfully) {
+      // A server response cannot establish a safe A->B transition when the
+      // durable A read itself failed. Do not call the server or write/clear.
+      return readResult.snapshot;
+    }
+    final current = await _retryPendingHouseholdScopeClear(readResult.snapshot);
+    if (current.pendingClearHouseholdScopeFingerprint != null) {
+      // Keep the old durable intent authoritative until both generated stores
+      // acknowledge cleanup; a later refresh retries it.
+      return current;
+    }
     final sessionGate = await _resolveSessionGate(action: 'shared_context');
     if (!sessionGate.canProceed) {
       final blocked = sessionGate.snapshot!;
@@ -375,8 +419,9 @@ class HouseholdRepository {
           ),
         );
       }
-      final persisted = await _persistSnapshotWithResult(
-        HouseholdLocalSnapshot(
+      final persisted = await _persistConfirmedHouseholdSnapshot(
+        previous: current,
+        next: HouseholdLocalSnapshot(
           householdId: householdId,
           role: response.role,
           sharedContext: response.snapshot,
@@ -387,17 +432,12 @@ class HouseholdRepository {
         messageOnWriteFailure: '共享上下文已刷新，但 household 本地状态保存失败。',
         fallbackOnWriteFailure: current,
       );
-      if (persisted.wasDurablyStored) {
-        await _clearPreviousHouseholdScopeIfChanged(
-          previous: current,
-          next: persisted.snapshot,
-        );
-      }
-      return persisted.snapshot;
+      return persisted;
     } on HouseholdApiException catch (error) {
       if (_isServerConfirmedMissingMembership(error)) {
-        final persisted = await _persistSnapshotWithResult(
-          const HouseholdLocalSnapshot(
+        return _persistConfirmedHouseholdSnapshot(
+          previous: current,
+          next: const HouseholdLocalSnapshot(
             lastPhase: 'shared_context_no_membership',
             lastVisibleError: '当前账号尚未加入共享家庭。',
           ),
@@ -405,13 +445,6 @@ class HouseholdRepository {
           messageOnWriteFailure: '共享家庭状态已更新，但本地状态保存失败。',
           fallbackOnWriteFailure: current,
         );
-        if (persisted.wasDurablyStored) {
-          await _clearPreviousHouseholdScopeIfChanged(
-            previous: current,
-            next: persisted.snapshot,
-          );
-        }
-        return persisted.snapshot;
       }
       return _persistSnapshot(
         _snapshotForApiError(
@@ -641,25 +674,91 @@ class HouseholdRepository {
     if (error.kind != HouseholdApiFailureKind.http || error.statusCode != 403) {
       return false;
     }
-    return error.code == 'role_not_allowed' ||
-        error.code == 'household_membership_missing' ||
-        error.details['reason'] == 'household_membership_missing';
+    return error.isMembershipMissing;
   }
 
-  Future<void> _clearPreviousHouseholdScopeIfChanged({
+  String _pendingHouseholdScopeFingerprint({
     required HouseholdLocalSnapshot previous,
     required HouseholdLocalSnapshot next,
-  }) async {
+  }) {
     final previousScope = previous.householdId;
     if (previousScope == null || previousScope == next.householdId) {
-      return;
+      return next.pendingClearHouseholdScopeFingerprint ?? '';
+    }
+    return _householdScopeFingerprint(previousScope);
+  }
+
+  Future<HouseholdLocalSnapshot> _persistConfirmedHouseholdSnapshot({
+    required HouseholdLocalSnapshot previous,
+    required HouseholdLocalSnapshot next,
+    required String phaseOnWriteFailure,
+    required String messageOnWriteFailure,
+    required HouseholdLocalSnapshot fallbackOnWriteFailure,
+  }) async {
+    final pendingScopeFingerprint = _pendingHouseholdScopeFingerprint(
+      previous: previous,
+      next: next,
+    );
+    final candidate = pendingScopeFingerprint.isEmpty
+        ? next.copyWith(clearPendingClearHouseholdScopeFingerprint: true)
+        : next.copyWith(
+            pendingClearHouseholdScopeFingerprint: pendingScopeFingerprint,
+          );
+    final persisted = await _persistSnapshotWithResult(
+      candidate,
+      phaseOnWriteFailure: phaseOnWriteFailure,
+      messageOnWriteFailure: messageOnWriteFailure,
+      fallbackOnWriteFailure: fallbackOnWriteFailure,
+    );
+    if (!persisted.wasDurablyStored ||
+        persisted.snapshot.pendingClearHouseholdScopeFingerprint == null) {
+      return persisted.snapshot;
+    }
+
+    final previousScope = previous.householdId;
+    try {
+      if (previousScope == null) {
+        await _clearGeneratedContentForHouseholdScopeFingerprint(
+          persisted.snapshot.pendingClearHouseholdScopeFingerprint!,
+        );
+      } else {
+        await _clearGeneratedContentForHouseholdScope(previousScope);
+      }
+    } on Object {
+      // Keep the pending fingerprint durable until both stores complete.
+      return persisted.snapshot;
+    }
+    return _clearPendingHouseholdScopeIntent(persisted.snapshot);
+  }
+
+  Future<HouseholdLocalSnapshot> _retryPendingHouseholdScopeClear(
+    HouseholdLocalSnapshot snapshot,
+  ) async {
+    final pending = snapshot.pendingClearHouseholdScopeFingerprint;
+    if (pending == null) {
+      return snapshot;
     }
     try {
-      await _clearGeneratedContentForHouseholdScope(previousScope);
+      await _clearGeneratedContentForHouseholdScopeFingerprint(pending);
     } on Object {
-      // The generated stores retain durable pending-clear intents and retry on
-      // their next read; the new household snapshot remains authoritative.
+      return snapshot;
     }
+    return _clearPendingHouseholdScopeIntent(snapshot);
+  }
+
+  Future<HouseholdLocalSnapshot> _clearPendingHouseholdScopeIntent(
+    HouseholdLocalSnapshot snapshot,
+  ) async {
+    final cleared = snapshot.copyWith(
+      clearPendingClearHouseholdScopeFingerprint: true,
+    );
+    final persisted = await _persistSnapshotWithResult(
+      cleared,
+      phaseOnWriteFailure: 'household_clear_intent_persist_failed',
+      messageOnWriteFailure: '共享家庭清理已完成，但本地清理标记保存失败，将在下次重试。',
+      fallbackOnWriteFailure: snapshot,
+    );
+    return persisted.snapshot;
   }
 
   String _sanitizeVisibleError(String value) {
@@ -684,6 +783,14 @@ class HouseholdRepository {
   }
 }
 
+String _householdScopeFingerprint(String householdScope) {
+  final normalized = householdScope.trim();
+  if (normalized.isEmpty) {
+    throw ArgumentError.value(householdScope, 'householdScope');
+  }
+  return sha256.convert(utf8.encode(normalized)).toString();
+}
+
 class _PersistSnapshotResult {
   const _PersistSnapshotResult({
     required this.snapshot,
@@ -692,6 +799,16 @@ class _PersistSnapshotResult {
 
   final HouseholdLocalSnapshot snapshot;
   final bool wasDurablyStored;
+}
+
+class _HouseholdSnapshotReadResult {
+  const _HouseholdSnapshotReadResult({
+    required this.snapshot,
+    required this.wasReadSuccessfully,
+  });
+
+  final HouseholdLocalSnapshot snapshot;
+  final bool wasReadSuccessfully;
 }
 
 class _SessionGateResult {

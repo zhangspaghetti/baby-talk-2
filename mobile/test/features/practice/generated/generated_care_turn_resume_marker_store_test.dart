@@ -159,5 +159,53 @@ void main() {
         expect(await missingDirectory.exists(), isFalse);
       },
     );
+
+    test('serializes writes from instances sharing a canonical path', () async {
+      final first = GeneratedCareTurnResumeMarkerStore(
+        directoryResolver: () async => tempDir,
+      );
+      final alias = GeneratedCareTurnResumeMarkerStore(
+        directoryResolver: () async =>
+            Directory('${tempDir.path}${Platform.pathSeparator}.'),
+      );
+
+      await Future.wait(<Future<void>>[
+        for (var index = 0; index < 4; index++)
+          first.write(
+            accountContext: 'account_first_$index',
+            generatedContentId: 'generated_first_$index',
+            confirmedAt: DateTime.utc(2026, 9, 9),
+          ),
+        for (var index = 0; index < 4; index++)
+          alias.write(
+            accountContext: 'account_alias_$index',
+            generatedContentId: 'generated_alias_$index',
+            confirmedAt: DateTime.utc(2026, 9, 9),
+          ),
+      ]);
+
+      final records =
+          jsonDecode(
+                await File(
+                  '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+                ).readAsString(),
+              )
+              as Map<String, dynamic>;
+      expect((records['records'] as List<dynamic>), hasLength(8));
+      for (var index = 0; index < 4; index++) {
+        expect(
+          (await first.readForAccount(
+            'account_first_$index',
+          ))?.generatedContentId,
+          'generated_first_$index',
+        );
+        expect(
+          (await alias.readForAccount(
+            'account_alias_$index',
+          ))?.generatedContentId,
+          'generated_alias_$index',
+        );
+      }
+    });
   });
 }

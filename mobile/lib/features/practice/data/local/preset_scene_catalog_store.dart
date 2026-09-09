@@ -69,6 +69,13 @@ class PresetSceneCatalogStore {
     final File file;
     try {
       file = await _resolveFile();
+      final clearMarker = File('${file.path}.clear');
+      if (await _existsFile(clearMarker)) {
+        await _recoverLifecycleClear(file, clearMarker);
+        return const PresetSceneCatalogStoreReadResult(
+          status: PresetSceneCatalogStoreReadStatus.notFound,
+        );
+      }
       if (!await _existsFile(file)) {
         await _restoreBackupIfNeeded(file);
       }
@@ -151,24 +158,45 @@ class PresetSceneCatalogStore {
       if (!await directory.exists()) {
         return;
       }
-      final prefix = '${file.path}.';
-      await for (final entity in directory.list()) {
-        if (entity is! File ||
-            entity.path != file.path && !entity.path.startsWith(prefix)) {
-          continue;
-        }
-        final suffix = entity.path == file.path
-            ? ''
-            : entity.path.substring(prefix.length);
-        if (suffix.isEmpty ||
-            suffix == 'tmp' ||
-            suffix == 'bak' ||
-            suffix.startsWith('quarantine.')) {
-          await _deleteFileIfExists(entity);
-        }
-      }
+      final clearMarker = File('${file.path}.clear');
+      await _writeFile(clearMarker, 'clear', flush: true);
+      await _deleteLifecycleArtifacts(file);
+      await _deleteFileIfExists(clearMarker);
     } on Object {
       throw const PresetSceneCatalogStoreException();
+    }
+  }
+
+  Future<void> _recoverLifecycleClear(File file, File clearMarker) async {
+    try {
+      await _deleteLifecycleArtifacts(file);
+      await _deleteFileIfExists(clearMarker);
+    } on Object {
+      // Keep the marker durable and keep reads fail-closed for the next retry.
+      throw const PresetSceneCatalogStoreException();
+    }
+  }
+
+  Future<void> _deleteLifecycleArtifacts(File file) async {
+    final directory = file.parent;
+    if (!await directory.exists()) {
+      return;
+    }
+    final prefix = '${file.path}.';
+    await for (final entity in directory.list()) {
+      if (entity is! File ||
+          entity.path != file.path && !entity.path.startsWith(prefix)) {
+        continue;
+      }
+      final suffix = entity.path == file.path
+          ? ''
+          : entity.path.substring(prefix.length);
+      if (suffix.isEmpty ||
+          suffix == 'tmp' ||
+          suffix == 'bak' ||
+          suffix.startsWith('quarantine.')) {
+        await _deleteFileIfExists(entity);
+      }
     }
   }
 
@@ -185,6 +213,11 @@ class PresetSceneCatalogStore {
       final file = await _resolveFile();
       temporaryFile = File('${file.path}.tmp');
       backupFile = File('${file.path}.bak');
+      if (await _existsFile(File('${file.path}.clear'))) {
+        throw const PresetSceneCatalogStoreException(
+          lifecycleClearInProgress: true,
+        );
+      }
       await file.parent.create(recursive: true);
       await _deleteFileIfExists(temporaryFile);
       final root = <String, Object?>{
@@ -194,6 +227,11 @@ class PresetSceneCatalogStore {
             .toList(growable: false),
       };
       await _writeFile(temporaryFile, jsonEncode(root), flush: true);
+      if (await _existsFile(File('${file.path}.clear'))) {
+        throw const PresetSceneCatalogStoreException(
+          lifecycleClearInProgress: true,
+        );
+      }
 
       // Recover an interrupted prior replacement before rotating the current
       // last-good target into its backup.
@@ -205,18 +243,25 @@ class PresetSceneCatalogStore {
         await _renameFile(file, backupFile.path);
         backupCreated = true;
       }
+      if (await _existsFile(File('${file.path}.clear'))) {
+        throw const PresetSceneCatalogStoreException(
+          lifecycleClearInProgress: true,
+        );
+      }
       await _renameFile(temporaryFile, file.path);
       await _deleteFileIfExists(backupFile);
       backupCreated = false;
-    } on Object {
+    } on Object catch (error) {
       if (backupCreated && backupFile != null && temporaryFile != null) {
         try {
           final file = await _resolveFile();
-          if (await _existsFile(file)) {
-            await _deleteFileIfExists(file);
+          if (!await _existsFile(File('${file.path}.clear'))) {
+            if (await _existsFile(file)) {
+              await _deleteFileIfExists(file);
+            }
+            await _renameFile(backupFile, file.path);
+            backupCreated = false;
           }
-          await _renameFile(backupFile, file.path);
-          backupCreated = false;
         } on Object {
           // Preserve backup for a later recovery attempt if restore is blocked.
         }
@@ -227,6 +272,10 @@ class PresetSceneCatalogStore {
         } on Object {
           // Preserve the primary storage error surface.
         }
+      }
+      if (error is PresetSceneCatalogStoreException &&
+          error.lifecycleClearInProgress) {
+        rethrow;
       }
       throw const PresetSceneCatalogStoreException();
     } finally {
@@ -332,7 +381,11 @@ Future<void> _defaultWrite(File file, String contents, {required bool flush}) {
 }
 
 class PresetSceneCatalogStoreException implements Exception {
-  const PresetSceneCatalogStoreException();
+  const PresetSceneCatalogStoreException({
+    this.lifecycleClearInProgress = false,
+  });
+
+  final bool lifecycleClearInProgress;
 
   @override
   String toString() => 'Preset scene catalog storage unavailable.';

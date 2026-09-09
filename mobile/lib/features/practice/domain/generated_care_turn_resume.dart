@@ -35,5 +35,7 @@ abstract interface class GeneratedCareTurnResumeStore {
 
   Future<void> clearForHouseholdScope(String householdScope);
 
+  Future<void> clearForHouseholdScopeFingerprint(String scopeFingerprint);
+
   Future<void> clearForLifecycle();
 }

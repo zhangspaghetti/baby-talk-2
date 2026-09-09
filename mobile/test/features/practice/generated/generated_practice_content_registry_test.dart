@@ -2349,6 +2349,13 @@ class _FailingGeneratedCareTurnResumeStore
   }
 
   @override
+  Future<void> clearForHouseholdScopeFingerprint(
+    String scopeFingerprint,
+  ) async {
+    throw StateError('resume household clear failed');
+  }
+
+  @override
   Future<void> clearForLifecycle() async {
     throw StateError('resume clear failed');
   }

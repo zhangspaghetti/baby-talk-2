@@ -26,6 +26,8 @@ class GeneratedCareTurnResumeMarkerStore
 
   static const _schemaVersion = 2;
   static const _legacySchemaVersion = 1;
+  static final Map<String, Future<void>> _sharedMutationTails =
+      <String, Future<void>>{};
 
   final GeneratedCareTurnResumeDirectoryResolver _directoryResolver;
   final GeneratedCareTurnResumeFileReader _fileReader;
@@ -116,7 +118,14 @@ class GeneratedCareTurnResumeMarkerStore
 
   @override
   Future<void> clearForHouseholdScope(String householdScope) {
-    final scopeFingerprint = householdScopeFingerprint(householdScope);
+    return clearForHouseholdScopeFingerprint(
+      householdScopeFingerprint(householdScope),
+    );
+  }
+
+  @override
+  Future<void> clearForHouseholdScopeFingerprint(String scopeFingerprint) {
+    _requireHouseholdScopeFingerprint(scopeFingerprint);
     return _enqueueMutation(() async {
       final file = await _resolveFile();
       if (!await file.parent.exists()) {
@@ -357,9 +366,74 @@ class GeneratedCareTurnResumeMarkerStore
   }
 
   Future<T> _enqueueMutation<T>(Future<T> Function() mutation) {
-    final running = _mutationTail.then((_) => mutation());
+    final running = _mutationTail.then((_) => _enqueueSharedMutation(mutation));
     _mutationTail = running.then<void>((_) {}, onError: (_, _) {});
     return running;
+  }
+
+  Future<T> _enqueueSharedMutation<T>(Future<T> Function() mutation) async {
+    final file = await _resolveFile();
+    final key = _sharedPathKey(file);
+    final previous = _sharedMutationTails[key] ?? Future<void>.value();
+    final current = previous.then((_) => mutation());
+    _sharedMutationTails[key] = current.then<void>((_) {}, onError: (_, _) {});
+    return current;
+  }
+
+  String _sharedPathKey(File file) {
+    final path = _canonicalizeLexicalPath(file.absolute.path);
+    return Platform.isWindows ? path.toLowerCase() : path;
+  }
+
+  String _canonicalizeLexicalPath(String rawPath) {
+    final path = Platform.isWindows ? rawPath.replaceAll('\\', '/') : rawPath;
+    String prefix;
+    String remainder;
+    if (RegExp(r'^[A-Za-z]:/').hasMatch(path)) {
+      prefix = path.substring(0, 3);
+      remainder = path.substring(3);
+    } else if (path.startsWith('//')) {
+      if (Platform.isWindows) {
+        prefix = '//';
+        remainder = path.substring(2);
+      } else {
+        prefix = '/';
+        remainder = path.replaceFirst(RegExp(r'^/+'), '');
+      }
+    } else if (path.startsWith('/')) {
+      prefix = '/';
+      remainder = path.substring(1);
+    } else {
+      prefix = '';
+      remainder = path;
+    }
+
+    final segments = <String>[];
+    for (final segment in remainder.split('/')) {
+      if (segment.isEmpty || segment == '.') {
+        continue;
+      }
+      if (segment == '..') {
+        if (segments.isNotEmpty && segments.last != '..') {
+          segments.removeLast();
+        } else if (prefix.isEmpty) {
+          segments.add(segment);
+        }
+        continue;
+      }
+      segments.add(segment);
+    }
+    final joined = segments.join('/');
+    if (prefix == '/') {
+      return joined.isEmpty ? '/' : '/$joined';
+    }
+    if (prefix == '//') {
+      return joined.isEmpty ? '//' : '//$joined';
+    }
+    if (prefix.isNotEmpty) {
+      return '$prefix$joined';
+    }
+    return joined.isEmpty ? '.' : joined;
   }
 }
 
@@ -460,6 +534,16 @@ String? _optionalHouseholdScopeFingerprint(Object? value) {
 String _scopeFingerprint(String accountContext) {
   final normalized = _required(accountContext, 'accountContext');
   return sha256.convert(utf8.encode(normalized)).toString();
+}
+
+void _requireHouseholdScopeFingerprint(String value) {
+  if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(value)) {
+    throw ArgumentError.value(
+      value,
+      'scopeFingerprint',
+      'household scope fingerprint is invalid.',
+    );
+  }
 }
 
 String _required(Object? value, String field) {

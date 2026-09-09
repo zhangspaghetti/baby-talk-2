@@ -24,6 +24,7 @@ class HouseholdLocalSnapshot {
     this.lastPhase = 'idle',
     this.lastVisibleError,
     this.lastAcceptedAt,
+    this.pendingClearHouseholdScopeFingerprint,
   }) : assert(lastPhase != '');
 
   final String? householdId;
@@ -32,6 +33,7 @@ class HouseholdLocalSnapshot {
   final String lastPhase;
   final String? lastVisibleError;
   final DateTime? lastAcceptedAt;
+  final String? pendingClearHouseholdScopeFingerprint;
 
   bool get hasSharedContext => sharedContext != null;
 
@@ -49,22 +51,38 @@ class HouseholdLocalSnapshot {
     bool clearLastVisibleError = false,
     DateTime? lastAcceptedAt,
     bool clearLastAcceptedAt = false,
+    String? pendingClearHouseholdScopeFingerprint,
+    bool clearPendingClearHouseholdScopeFingerprint = false,
   }) {
+    final nextHouseholdId = clearHouseholdId
+        ? null
+        : (householdId ?? this.householdId);
     return HouseholdLocalSnapshot(
-      householdId: clearHouseholdId ? null : (householdId ?? this.householdId),
-      role: clearRole ? null : (role ?? this.role),
-      sharedContext: clearSharedContext
+      householdId: nextHouseholdId,
+      role: nextHouseholdId == null
           ? null
-          : (sharedContext ?? this.sharedContext),
+          : (clearRole ? null : (role ?? this.role)),
+      sharedContext: nextHouseholdId == null
+          ? null
+          : (clearSharedContext ? null : (sharedContext ?? this.sharedContext)),
       lastPhase: (lastPhase ?? this.lastPhase).trim().isEmpty
           ? 'idle'
           : (lastPhase ?? this.lastPhase).trim(),
       lastVisibleError: clearLastVisibleError
           ? null
           : _normalizeOptionalString(lastVisibleError ?? this.lastVisibleError),
-      lastAcceptedAt: clearLastAcceptedAt
+      lastAcceptedAt: nextHouseholdId == null
           ? null
-          : (lastAcceptedAt ?? this.lastAcceptedAt),
+          : (clearLastAcceptedAt
+                ? null
+                : (lastAcceptedAt ?? this.lastAcceptedAt)),
+      pendingClearHouseholdScopeFingerprint:
+          clearPendingClearHouseholdScopeFingerprint
+          ? null
+          : _normalizeOptionalScopeFingerprint(
+              pendingClearHouseholdScopeFingerprint ??
+                  this.pendingClearHouseholdScopeFingerprint,
+            ),
     );
   }
 
@@ -76,6 +94,8 @@ class HouseholdLocalSnapshot {
       'lastPhase': lastPhase,
       'lastVisibleError': lastVisibleError,
       'lastAcceptedAt': lastAcceptedAt?.toIso8601String(),
+      'pendingClearHouseholdScopeFingerprint':
+          pendingClearHouseholdScopeFingerprint,
     };
   }
 
@@ -85,6 +105,17 @@ class HouseholdLocalSnapshot {
     );
     final role = _parseOptionalRole(json['role']);
     final sharedContext = _parseOptionalSharedContext(json['sharedContext']);
+    final lastAcceptedAt = _parseOptionalDateTime(json['lastAcceptedAt']);
+    if (householdId == null &&
+        ((json.containsKey('role') && json['role'] != null) ||
+            (json.containsKey('sharedContext') &&
+                json['sharedContext'] != null) ||
+            (json.containsKey('lastAcceptedAt') &&
+                json['lastAcceptedAt'] != null))) {
+      throw const FormatException(
+        'household snapshot contains family fields without household id',
+      );
+    }
     return HouseholdLocalSnapshot(
       householdId: householdId,
       role: role,
@@ -95,7 +126,10 @@ class HouseholdLocalSnapshot {
       lastVisibleError: _normalizeOptionalString(
         _readOptionalString(json, 'lastVisibleError'),
       ),
-      lastAcceptedAt: _parseOptionalDateTime(json['lastAcceptedAt']),
+      lastAcceptedAt: lastAcceptedAt,
+      pendingClearHouseholdScopeFingerprint: _parseOptionalScopeFingerprint(
+        json['pendingClearHouseholdScopeFingerprint'],
+      ),
     );
   }
 }
@@ -219,4 +253,23 @@ DateTime? _parseOptionalDateTime(Object? value) {
   } on FormatException {
     return null;
   }
+}
+
+String? _parseOptionalScopeFingerprint(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String || !RegExp(r'^[0-9a-f]{64}$').hasMatch(value)) {
+    throw const FormatException(
+      'household snapshot pending scope fingerprint is invalid',
+    );
+  }
+  return value;
+}
+
+String? _normalizeOptionalScopeFingerprint(String? value) {
+  if (value == null || value.isEmpty) {
+    return null;
+  }
+  return _parseOptionalScopeFingerprint(value);
 }

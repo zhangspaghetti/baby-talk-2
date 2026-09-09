@@ -25,6 +25,7 @@ class PresetSceneCatalogRepository {
   final Duration remoteTimeout;
   PresetSceneCatalogSnapshot? _memorySnapshot;
   Future<PresetSceneCatalogSnapshot>? _inFlight;
+  CancelToken? _activeCancelToken;
   int _operationGeneration = 0;
 
   Future<PresetSceneCatalogSnapshot> loadCatalog() {
@@ -54,6 +55,9 @@ class PresetSceneCatalogRepository {
   /// registered [PresetSceneCatalogStore] lifecycle step.
   Future<void> clearForLifecycle() async {
     _operationGeneration++;
+    final activeCancelToken = _activeCancelToken;
+    _activeCancelToken = null;
+    activeCancelToken?.cancel('preset scene catalog lifecycle clear');
     _memorySnapshot = null;
     _inFlight = null;
   }
@@ -61,15 +65,21 @@ class PresetSceneCatalogRepository {
   Future<PresetSceneCatalogSnapshot> _startLoad() {
     final generation = ++_operationGeneration;
     final cancelToken = CancelToken();
+    _activeCancelToken = cancelToken;
     final operation = _loadCatalog(
       generation: generation,
       cancelToken: cancelToken,
     );
     _inFlight = operation;
     operation.then<void>(
-      (_) => _clearInFlight(operation),
-      onError: (Object error, StackTrace stackTrace) =>
-          _clearInFlight(operation),
+      (_) {
+        _clearInFlight(operation);
+        _clearActiveCancelToken(cancelToken);
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        _clearInFlight(operation);
+        _clearActiveCancelToken(cancelToken);
+      },
     );
     return operation;
   }
@@ -77,6 +87,12 @@ class PresetSceneCatalogRepository {
   void _clearInFlight(Future<PresetSceneCatalogSnapshot> operation) {
     if (identical(_inFlight, operation)) {
       _inFlight = null;
+    }
+  }
+
+  void _clearActiveCancelToken(CancelToken token) {
+    if (identical(_activeCancelToken, token)) {
+      _activeCancelToken = null;
     }
   }
 
@@ -98,12 +114,15 @@ class PresetSceneCatalogRepository {
         scenes: validatedScenes,
       );
       if (_isCurrent(generation)) {
+        var cacheWriteBlockedByLifecycleClear = false;
         try {
           await _store.write(remoteSnapshot);
+        } on PresetSceneCatalogStoreException catch (error) {
+          cacheWriteBlockedByLifecycleClear = error.lifecycleClearInProgress;
         } on Object {
           // A valid remote catalog remains usable when persistence is degraded.
         }
-        if (_isCurrent(generation)) {
+        if (_isCurrent(generation) && !cacheWriteBlockedByLifecycleClear) {
           _memorySnapshot = remoteSnapshot;
         }
       }

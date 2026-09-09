@@ -553,6 +553,9 @@ final householdRepositoryProvider = FutureProvider<HouseholdRepository>((
     clearGeneratedContentForHouseholdScope: ref
         .watch(generatedPracticeContentRegistryProvider)
         .clearForHouseholdScope,
+    clearGeneratedContentForHouseholdScopeFingerprint: ref
+        .watch(generatedPracticeContentRegistryProvider)
+        .clearForHouseholdScopeFingerprint,
   );
 });
 

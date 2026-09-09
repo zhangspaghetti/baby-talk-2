@@ -305,11 +305,17 @@ class GeneratedPracticeContentRegistry
   }
 
   Future<void> clearForHouseholdScope(String householdScope) {
+    return clearForHouseholdScopeFingerprint(
+      householdScopeFingerprint(householdScope),
+    );
+  }
+
+  Future<void> clearForHouseholdScopeFingerprint(String scopeFingerprint) {
     return _clearBoth(
       clearGeneratedCareMoments: () =>
-          _store.clearForHouseholdScope(householdScope),
+          _store.clearForHouseholdScopeFingerprint(scopeFingerprint),
       clearResumeMarkers: () =>
-          _resumeStore.clearForHouseholdScope(householdScope),
+          _resumeStore.clearForHouseholdScopeFingerprint(scopeFingerprint),
     );
   }
 
