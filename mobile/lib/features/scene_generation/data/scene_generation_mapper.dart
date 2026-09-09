@@ -113,8 +113,9 @@ class SceneGenerationMapper {
       :final spaceId,
       :final activityId,
     )) {
-      if (response.source.presetSceneId != presetSceneId ||
-          response.route.activityId != presetSceneId ||
+      if (!expectedSource.hasCompleteIdentity ||
+          response.source.presetSceneId != presetSceneId.trim() ||
+          response.route.activityId != presetSceneId.trim() ||
           (presetSceneVersion != null &&
               response.source.presetSceneVersion != presetSceneVersion) ||
           (spaceId != null && response.route.spaceId != spaceId) ||

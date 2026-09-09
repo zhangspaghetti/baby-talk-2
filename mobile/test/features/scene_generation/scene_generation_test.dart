@@ -55,7 +55,12 @@ void main() {
 
     test('preset request emits only type and presetSceneId in source', () {
       final request = SceneGenerationRequestDto(
-        source: const PresetSceneGenerationSource('bath_time'),
+        source: const PresetSceneGenerationSource(
+          'bath_time',
+          presetSceneVersion: 3,
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
         locale: 'zh-CN',
         installationId: 'install_1',
         clientRequestId: 'scene_request_2',
@@ -119,7 +124,12 @@ void main() {
             },
           ),
         ),
-        expectedSource: const PresetSceneGenerationSource('bath_time'),
+        expectedSource: const PresetSceneGenerationSource(
+          'bath_time',
+          presetSceneVersion: 3,
+          spaceId: 'space_bath',
+          activityId: 'bath_time',
+        ),
       );
 
       expect(moment.inputSource, SceneGenerationSourceType.preset);
@@ -260,6 +270,78 @@ void main() {
         );
       },
     );
+
+    test('rejects preset expected source missing version', () {
+      final response = SceneGenerationResponseDto.fromJson(
+        _validResponse(
+          source: <String, Object?>{
+            'type': 'preset',
+            'presetSceneId': 'activity_bath',
+            'presetSceneVersion': 3,
+          },
+        ),
+      );
+
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          response,
+          expectedSource: const PresetSceneGenerationSource(
+            'activity_bath',
+            spaceId: 'space_bath',
+            activityId: 'activity_bath',
+          ),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+    });
+
+    test('rejects preset expected source missing space', () {
+      final response = SceneGenerationResponseDto.fromJson(
+        _validResponse(
+          source: <String, Object?>{
+            'type': 'preset',
+            'presetSceneId': 'activity_bath',
+            'presetSceneVersion': 3,
+          },
+        ),
+      );
+
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          response,
+          expectedSource: const PresetSceneGenerationSource(
+            'activity_bath',
+            presetSceneVersion: 3,
+            activityId: 'activity_bath',
+          ),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+    });
+
+    test('rejects preset expected source missing activity', () {
+      final response = SceneGenerationResponseDto.fromJson(
+        _validResponse(
+          source: <String, Object?>{
+            'type': 'preset',
+            'presetSceneId': 'activity_bath',
+            'presetSceneVersion': 3,
+          },
+        ),
+      );
+
+      expect(
+        () => const SceneGenerationMapper().toGeneratedCareMoment(
+          response,
+          expectedSource: const PresetSceneGenerationSource(
+            'activity_bath',
+            presetSceneVersion: 3,
+            spaceId: 'space_bath',
+          ),
+        ),
+        throwsA(isA<SceneGenerationMappingException>()),
+      );
+    });
 
     test(
       'rejects route identity that violates backend scene and activity invariants',
@@ -772,7 +854,12 @@ void main() {
         );
 
         final result = await repository.generate(
-          source: const PresetSceneGenerationSource('bath_time'),
+          source: const PresetSceneGenerationSource(
+            'bath_time',
+            presetSceneVersion: 3,
+            spaceId: 'space_bath',
+            activityId: 'bath_time',
+          ),
           clientRequestId: 'scene_request_5',
         );
 

@@ -818,6 +818,7 @@ void main() {
       );
       addTearDown(movingEntry.dispose);
       final stableRouted = <String>[];
+      final movingRouted = <String>[];
 
       await tester.pumpWidget(
         ProviderScope(
@@ -856,7 +857,9 @@ void main() {
                       routeEntry: entry,
                       presetDefinitionLoader: (args) async =>
                           _presetDefinition(args.normalizedActivityId),
-                      onGenerated: (_) async {},
+                      onGenerated: (args) async {
+                        movingRouted.add(args.generatedContentId);
+                      },
                     ),
                   ),
                 ],
@@ -887,6 +890,7 @@ void main() {
       }
 
       expect(stableRouted, ['generated_preset_1']);
+      expect(movingRouted, ['generated_preset_1']);
       expect(requests.where((id) => id == 'feeding_time'), hasLength(1));
     },
   );

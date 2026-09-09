@@ -151,6 +151,7 @@ class _PresetSceneGenerationGateScreenState
         _controllerError = _generatedIdentityFailure();
         _loadFallbackAvailability();
       } else {
+        _controllerError = null;
         _scheduleGeneratedRoute(moment.generatedContentId);
       }
     }
@@ -175,8 +176,17 @@ class _PresetSceneGenerationGateScreenState
       return;
     }
     if (controller.state.status != SceneGenerationControllerStatus.idle) {
+      final existingSource = controller.source;
       _started = true;
-      _generationSource ??= _sourceFor(args);
+      if (existingSource is! PresetSceneGenerationSource ||
+          !existingSource.hasCompleteIdentity ||
+          !_sourceMatchesRoute(existingSource, args)) {
+        _controllerError = _generatedIdentityFailure();
+        _loadFallbackAvailability();
+        setState(() {});
+        return;
+      }
+      _generationSource = existingSource;
       _handleControllerChange();
       return;
     }
@@ -278,6 +288,15 @@ class _PresetSceneGenerationGateScreenState
             (spaceId == null || moment.spaceId == spaceId.trim()) &&
             (activityId == null || moment.activityId == activityId.trim()),
     };
+  }
+
+  bool _sourceMatchesRoute(
+    PresetSceneGenerationSource source,
+    PracticeRouteArgs args,
+  ) {
+    return source.presetSceneId.trim() == args.normalizedActivityId &&
+        source.spaceId?.trim() == args.normalizedSpaceId &&
+        source.activityId?.trim() == args.normalizedActivityId;
   }
 
   SceneGenerationFailure _generatedIdentityFailure() {
