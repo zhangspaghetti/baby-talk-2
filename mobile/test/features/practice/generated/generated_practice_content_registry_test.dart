@@ -519,6 +519,132 @@ void main() {
     );
 
     test(
+      'account clear intent survives a target-to-backup crash and preserves other accounts',
+      () async {
+        final accountAMoment = _moment('partial_clear_account_a');
+        final accountBMoment = _moment('partial_clear_account_b');
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_a',
+            moment: accountAMoment,
+          ),
+        );
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_b',
+            moment: accountBMoment,
+          ),
+        );
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final backup = File('${file.path}.bak');
+        var rotationFailed = true;
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, targetPath) async {
+            if (rotationFailed && source.path == file.path) {
+              rotationFailed = false;
+              await source.rename(targetPath);
+              throw StateError('simulated target-to-backup crash');
+            }
+            if (!rotationFailed && source.path == backup.path) {
+              throw StateError('simulated crash prevents backup restore');
+            }
+            return source.rename(targetPath);
+          },
+        );
+
+        await expectLater(
+          failingStore.clearForAccount('account_a'),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isFalse);
+        expect(await backup.exists(), isTrue);
+        expect(
+          await File('${file.path}.clear').readAsString(),
+          startsWith('account:'),
+        );
+
+        final recoveredStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final recovered = await recoveredStore.readAll();
+
+        expect(recovered.map((record) => record.accountContext), <String>[
+          'account_b',
+        ]);
+        expect(
+          recovered.single.moment.generatedContentId,
+          accountBMoment.generatedContentId,
+        );
+        expect(await file.exists(), isTrue);
+        expect(await backup.exists(), isFalse);
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+        expect(await File('${file.path}.clear').exists(), isFalse);
+      },
+    );
+
+    test(
+      'account clear intent keeps the old target when temp cleanup fails',
+      () async {
+        final accountAMoment = _moment('partial_clear_temp_account_a');
+        final accountBMoment = _moment('partial_clear_temp_account_b');
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_a',
+            moment: accountAMoment,
+          ),
+        );
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_b',
+            moment: accountBMoment,
+          ),
+        );
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final temporaryFile = File('${file.path}.tmp');
+        await temporaryFile.writeAsString('stale temporary content');
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          deleteFile: (target) async {
+            if (target.path == temporaryFile.path) {
+              throw StateError('simulated partial clear temp delete failure');
+            }
+            await target.delete();
+          },
+        );
+
+        await expectLater(
+          failingStore.clearForAccount('account_a'),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isTrue);
+        expect(await temporaryFile.exists(), isTrue);
+        expect(
+          await File('${file.path}.clear').readAsString(),
+          startsWith('account:'),
+        );
+
+        final recoveredStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final recovered = await recoveredStore.readAll();
+
+        expect(
+          recovered.map((record) => record.accountContext),
+          <String>['account_b'],
+        );
+        expect(await file.exists(), isTrue);
+        expect(await temporaryFile.exists(), isFalse);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(await File('${file.path}.clear').exists(), isFalse);
+      },
+    );
+
+    test(
       'read ignores stale backup after clear fails before target deletion',
       () async {
         final moment = _moment('clear_backup_delete_failure');
@@ -644,6 +770,52 @@ void main() {
         expect(await File('${file.path}.bak').exists(), isFalse);
       },
     );
+
+    test('serializes concurrent writes from equivalent lexical paths', () async {
+      final canonicalPath = tempDir.path;
+      final aliasedPath = Platform.isWindows
+          ? '${tempDir.path.toUpperCase().replaceAll('\\', '/')}/PATH_ALIAS/..'
+          : '${tempDir.path}${Platform.pathSeparator}path_alias${Platform.pathSeparator}..';
+      final firstStore = GeneratedCareMomentLocalStore(
+        directoryResolver: () async => Directory(canonicalPath),
+      );
+      final secondStore = GeneratedCareMomentLocalStore(
+        directoryResolver: () async => Directory(aliasedPath),
+      );
+      final first = _moment('equivalent_path_first');
+      final second = _moment('equivalent_path_second');
+
+      await Future.wait(<Future<void>>[
+        firstStore.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: accountContext,
+            moment: first,
+          ),
+        ),
+        secondStore.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: accountContext,
+            moment: second,
+          ),
+        ),
+      ]);
+
+      final records = await GeneratedCareMomentLocalStore(
+        directoryResolver: () async => tempDir,
+      ).readAll();
+      expect(
+        records.map((record) => record.moment.generatedContentId),
+        containsAll(<String>[
+          first.generatedContentId,
+          second.generatedContentId,
+        ]),
+      );
+      final file = File(
+        '${tempDir.path}${Platform.pathSeparator}${firstStore.fileName}',
+      );
+      expect(await File('${file.path}.tmp').exists(), isFalse);
+      expect(await File('${file.path}.bak').exists(), isFalse);
+    });
 
     test(
       'serializes concurrent migration and clear without corrupt artifacts',

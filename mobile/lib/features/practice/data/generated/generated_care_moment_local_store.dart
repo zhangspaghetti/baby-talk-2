@@ -134,7 +134,11 @@ class GeneratedCareMomentLocalStore {
         await _deleteIfExists();
         return;
       }
-      await _writeState(retainedRecords, retainedDiagnostics);
+      await _writeState(
+        retainedRecords,
+        retainedDiagnostics,
+        clearScopeFingerprint: scopeFingerprint,
+      );
     });
   }
 
@@ -147,8 +151,12 @@ class GeneratedCareMomentLocalStore {
     try {
       file = await _resolveFile();
       final clearMarker = File('${file.path}.clear');
-      final clearInProgress = await _existsFile(clearMarker);
-      if (clearInProgress && !await _existsFile(file)) {
+      final clearIntent = await _readClearIntent(clearMarker);
+      final clearInProgress = clearIntent != null;
+      final clearScopeFingerprint = clearIntent?.scopeFingerprint;
+      if (clearScopeFingerprint == null &&
+          clearInProgress &&
+          !await _existsFile(file)) {
         // A failed clear owns this artifact. Never resurrect private content
         // from its backup; cleanup remains best effort but fail-closed.
         await _deleteFileIfExists(File('${file.path}.tmp'));
@@ -156,7 +164,7 @@ class GeneratedCareMomentLocalStore {
         await _deleteFileIfExists(clearMarker);
         return const _StoreState.empty();
       }
-      if (!clearInProgress && !await _existsFile(file)) {
+      if (!await _existsFile(file)) {
         await _restoreBackupIfNeeded(file);
       }
       if (!await _existsFile(file)) {
@@ -167,10 +175,22 @@ class GeneratedCareMomentLocalStore {
       try {
         decoded = jsonDecode(raw);
       } on Object {
-        return _quarantineWholeFile(raw, 'invalid_store_json', 'unknown', 0);
+        return _quarantineWholeFile(
+          raw,
+          'invalid_store_json',
+          'unknown',
+          0,
+          clearScopeFingerprint: clearScopeFingerprint,
+        );
       }
       if (decoded is! Map) {
-        return _quarantineWholeFile(raw, 'invalid_store_root', 'unknown', 0);
+        return _quarantineWholeFile(
+          raw,
+          'invalid_store_root',
+          'unknown',
+          0,
+          clearScopeFingerprint: clearScopeFingerprint,
+        );
       }
       final root = _stringKeyedMap(decoded, 'generated care moment root');
       final schemaVersion = root['schemaVersion'];
@@ -182,6 +202,7 @@ class GeneratedCareMomentLocalStore {
           schemaVersion?.toString() ?? 'unknown',
           _recordCount(root),
           accountContexts: _accountContextsFromRoot(root),
+          clearScopeFingerprint: clearScopeFingerprint,
         );
       }
       _requireExactKeys(root, const <String>{
@@ -196,6 +217,7 @@ class GeneratedCareMomentLocalStore {
           'invalid_quarantine_metadata',
           schemaVersion.toString(),
           0,
+          clearScopeFingerprint: clearScopeFingerprint,
         );
       }
       final diagnostics = <_QuarantineEntry>[
@@ -209,6 +231,7 @@ class GeneratedCareMomentLocalStore {
           'invalid_store_records',
           schemaVersion.toString(),
           0,
+          clearScopeFingerprint: clearScopeFingerprint,
         );
       }
       final parsed = <StoredGeneratedCareMoment>[];
@@ -246,11 +269,34 @@ class GeneratedCareMomentLocalStore {
           generatedCareMomentSchemaVersion,
           parsed.length,
           accountContexts: parsed.map((record) => record.accountContext),
+          clearScopeFingerprint: clearScopeFingerprint,
         );
       }
-      if (quarantined.length != diagnostics.length || isLegacySchema) {
-        final state = _StoreState(parsed, quarantined);
-        await _writeState(state.records, state.diagnostics);
+      final retainedRecords = clearScopeFingerprint == null
+          ? parsed
+          : parsed
+                .where(
+                  (record) =>
+                      _fingerprint(record.accountContext) !=
+                      clearScopeFingerprint,
+                )
+                .toList(growable: false);
+      final retainedDiagnostics = clearScopeFingerprint == null
+          ? quarantined
+          : quarantined
+                .where(
+                  (entry) => entry.scopeFingerprint != clearScopeFingerprint,
+                )
+                .toList(growable: false);
+      if (clearScopeFingerprint != null ||
+          quarantined.length != diagnostics.length ||
+          isLegacySchema) {
+        final state = _StoreState(retainedRecords, retainedDiagnostics);
+        await _writeState(
+          state.records,
+          state.diagnostics,
+          clearScopeFingerprint: clearScopeFingerprint,
+        );
         return state;
       }
       return _StoreState(parsed, diagnostics);
@@ -261,12 +307,31 @@ class GeneratedCareMomentLocalStore {
     }
   }
 
+  Future<_ClearIntent?> _readClearIntent(File marker) async {
+    if (!await _existsFile(marker)) {
+      return null;
+    }
+    final raw = (await marker.readAsString()).trim();
+    if (raw == 'clear') {
+      return const _ClearIntent.lifecycle();
+    }
+    const prefix = 'account:';
+    if (raw.startsWith(prefix)) {
+      final scopeFingerprint = raw.substring(prefix.length);
+      if (RegExp(r'^-?[0-9a-f]{15,16}$').hasMatch(scopeFingerprint)) {
+        return _ClearIntent.account(scopeFingerprint);
+      }
+    }
+    throw const FormatException('invalid generated content clear intent');
+  }
+
   Future<_StoreState> _quarantineWholeFile(
     String raw,
     String reasonCode,
     String schemaVersion,
     int recordCount, {
     Iterable<String>? accountContexts,
+    String? clearScopeFingerprint,
   }) async {
     final scopes = (accountContexts ?? const <String>[])
         .map((value) => value.trim())
@@ -293,8 +358,16 @@ class GeneratedCareMomentLocalStore {
               ),
           ];
     const records = <StoredGeneratedCareMoment>[];
-    final diagnostics = entries;
-    await _writeState(records, diagnostics);
+    final diagnostics = clearScopeFingerprint == null
+        ? entries
+        : entries
+              .where((entry) => entry.scopeFingerprint != clearScopeFingerprint)
+              .toList(growable: false);
+    await _writeState(
+      records,
+      diagnostics,
+      clearScopeFingerprint: clearScopeFingerprint,
+    );
     return _StoreState(records, diagnostics);
   }
 
@@ -319,17 +392,28 @@ class GeneratedCareMomentLocalStore {
 
   Future<void> _writeState(
     List<StoredGeneratedCareMoment> records,
-    List<_QuarantineEntry> diagnostics,
-  ) async {
+    List<_QuarantineEntry> diagnostics, {
+    String? clearScopeFingerprint,
+  }) async {
     File? temporaryFile;
     File? backupFile;
+    File? clearMarker;
     var backupCreated = false;
     try {
       final file = await _resolveFile();
       temporaryFile = File('${file.path}.tmp');
       backupFile = File('${file.path}.bak');
       await file.parent.create(recursive: true);
-      await _deleteFileIfExists(File('${file.path}.clear'));
+      clearMarker = File('${file.path}.clear');
+      if (clearScopeFingerprint == null) {
+        await _deleteFileIfExists(clearMarker);
+      } else {
+        await _writeFile(
+          clearMarker,
+          'account:$clearScopeFingerprint',
+          flush: true,
+        );
+      }
       await _deleteFileIfExists(temporaryFile);
       await _writeFile(
         temporaryFile,
@@ -356,6 +440,7 @@ class GeneratedCareMomentLocalStore {
       await _renameFile(temporaryFile, file.path);
       await _deleteFileIfExists(backupFile);
       backupCreated = false;
+      await _deleteFileIfExists(clearMarker);
     } on Object {
       if (backupFile != null && temporaryFile != null) {
         try {
@@ -441,8 +526,58 @@ class GeneratedCareMomentLocalStore {
   }
 
   String _sharedPathKey(File file) {
-    final path = file.absolute.path;
+    // Lexical canonicalization works before the support directory exists and
+    // joins dot/separator/case aliases deterministically. Realpath/symlink
+    // resolution is intentionally unavailable here; production keeps one
+    // store singleton per isolate, while cross-isolate access needs an OS lock.
+    final path = _canonicalizeLexicalPath(file.absolute.path);
     return Platform.isWindows ? path.toLowerCase() : path;
+  }
+
+  String _canonicalizeLexicalPath(String rawPath) {
+    final path = Platform.isWindows ? rawPath.replaceAll('\\', '/') : rawPath;
+    String prefix;
+    String remainder;
+    if (RegExp(r'^[A-Za-z]:/').hasMatch(path)) {
+      prefix = path.substring(0, 3);
+      remainder = path.substring(3);
+    } else if (path.startsWith('//')) {
+      prefix = '//';
+      remainder = path.substring(2);
+    } else if (path.startsWith('/')) {
+      prefix = '/';
+      remainder = path.substring(1);
+    } else {
+      prefix = '';
+      remainder = path;
+    }
+
+    final segments = <String>[];
+    for (final segment in remainder.split('/')) {
+      if (segment.isEmpty || segment == '.') {
+        continue;
+      }
+      if (segment == '..') {
+        if (segments.isNotEmpty && segments.last != '..') {
+          segments.removeLast();
+        } else if (prefix.isEmpty) {
+          segments.add(segment);
+        }
+        continue;
+      }
+      segments.add(segment);
+    }
+    final joined = segments.join('/');
+    if (prefix == '/') {
+      return joined.isEmpty ? '/' : '/$joined';
+    }
+    if (prefix == '//') {
+      return joined.isEmpty ? '//' : '//$joined';
+    }
+    if (prefix.isNotEmpty) {
+      return '$prefix$joined';
+    }
+    return joined.isEmpty ? '.' : joined;
   }
 
   Future<File> _resolveFile() async {
@@ -485,6 +620,14 @@ class _StoreState {
 
   final List<StoredGeneratedCareMoment> records;
   final List<_QuarantineEntry> diagnostics;
+}
+
+class _ClearIntent {
+  const _ClearIntent.lifecycle() : scopeFingerprint = null;
+
+  const _ClearIntent.account(this.scopeFingerprint);
+
+  final String? scopeFingerprint;
 }
 
 class _QuarantineEntry {
