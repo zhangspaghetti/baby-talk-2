@@ -28,6 +28,13 @@ import 'package:mobile/features/scene_generation/domain/scene_generation_source.
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
+const _completePresetSource = PresetSceneGenerationSource(
+  'bath_time',
+  presetSceneVersion: 1,
+  spaceId: 'daily_care',
+  activityId: 'bath_time',
+);
+
 void main() {
   test(
     'route entry policy distinguishes preset, generated, onboarding, invalid',
@@ -76,7 +83,7 @@ void main() {
     );
 
     final operation = controller.generate(
-      source: const PresetSceneGenerationSource('bath_time'),
+      source: _completePresetSource,
       clientRequestId: 'preset_request_1',
     );
 
@@ -115,7 +122,7 @@ void main() {
       );
 
       await controller.generate(
-        source: const PresetSceneGenerationSource('bath_time'),
+        source: _completePresetSource,
         clientRequestId: 'preset_request_2',
       );
       expect(
@@ -149,7 +156,7 @@ void main() {
       );
 
       await controller.generate(
-        source: const PresetSceneGenerationSource('bath_time'),
+        source: _completePresetSource,
         clientRequestId: 'preset_request_registration',
       );
       expect(
@@ -186,7 +193,7 @@ void main() {
     );
 
     await controller.generate(
-      source: const PresetSceneGenerationSource('bath_time'),
+      source: _completePresetSource,
       clientRequestId: 'terminal_request_1',
     );
     await controller.retry();
@@ -228,7 +235,7 @@ void main() {
         );
 
         await controller.generate(
-          source: const PresetSceneGenerationSource('bath_time'),
+          source: _completePresetSource,
           clientRequestId: 'request_identity_${kind.name}',
         );
         await controller.retry();
@@ -263,7 +270,7 @@ void main() {
         approvedBundleRegistrar: (_) async {},
       );
       await terminalWithoutFlag.generate(
-        source: const PresetSceneGenerationSource('bath_time'),
+        source: _completePresetSource,
         clientRequestId: 'terminal_without_flag',
       );
       await terminalWithoutFlag.retry();
@@ -271,6 +278,61 @@ void main() {
         'terminal_without_flag',
         'terminal_without_flag',
       ]);
+    },
+  );
+
+  test(
+    'controller rejects incomplete preset identity before generation or registration',
+    () async {
+      const sources = <PresetSceneGenerationSource>[
+        PresetSceneGenerationSource(
+          'bath_time',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+        PresetSceneGenerationSource(
+          'bath_time',
+          presetSceneVersion: 1,
+          activityId: 'bath_time',
+        ),
+        PresetSceneGenerationSource(
+          'bath_time',
+          presetSceneVersion: 1,
+          spaceId: 'daily_care',
+        ),
+        PresetSceneGenerationSource(
+          '',
+          presetSceneVersion: 1,
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+      ];
+
+      for (var index = 0; index < sources.length; index += 1) {
+        var registrations = 0;
+        final repository = _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async =>
+              _presetMoment(),
+        );
+        final controller = SceneGenerationController(
+          repository: repository,
+          approvedBundleRegistrar: (_) async {
+            registrations += 1;
+          },
+        );
+
+        await controller.generate(
+          source: sources[index],
+          clientRequestId: 'incomplete_identity_$index',
+        );
+
+        expect(repository.generateCount, 0);
+        expect(registrations, 0);
+        expect(
+          controller.failure?.kind,
+          SceneGenerationFailureKind.malformedResponse,
+        );
+      }
     },
   );
 
@@ -294,7 +356,7 @@ void main() {
     );
 
     await controller.generate(
-      source: const PresetSceneGenerationSource('bath_time'),
+      source: _completePresetSource,
       clientRequestId: 'recoverable_request_1',
     );
     expect(
@@ -319,11 +381,11 @@ void main() {
     );
 
     final first = controller.generate(
-      source: const PresetSceneGenerationSource('bath_time'),
+      source: _completePresetSource,
       clientRequestId: 'preset_request_3',
     );
     final second = controller.generate(
-      source: const PresetSceneGenerationSource('bath_time'),
+      source: _completePresetSource,
       clientRequestId: 'preset_request_3',
     );
 
@@ -357,6 +419,8 @@ void main() {
             ),
             controller: controller,
             clientRequestId: 'preset_widget_request',
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
             onGenerated: (args) async {
               generatedArgs = args;
             },
@@ -406,6 +470,8 @@ void main() {
             ),
             controller: controller,
             clientRequestId: 'preset_fallback_request',
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
             bundledFallbackLoader: (_) async => true,
             fallbackBuilder: (_, _) => const Text('通用内容'),
           ),
@@ -458,6 +524,8 @@ void main() {
             ),
             controller: controller,
             clientRequestId: 'preset_default_fallback_request',
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
             bundledFallbackLoader: (_) async => true,
           ),
         ),
@@ -503,6 +571,10 @@ void main() {
           ),
           controller: controller,
           clientRequestId: 'preset_remote_request',
+          presetDefinitionLoader: (args) async => _presetDefinition(
+            args.normalizedActivityId,
+            spaceId: args.normalizedSpaceId,
+          ),
           bundledFallbackLoader: (_) async => false,
         ),
       ),
@@ -710,6 +782,116 @@ void main() {
   );
 
   testWidgets(
+    'moving gate A to running B does not invalidate B family controller',
+    (tester) async {
+      final generationB = Completer<GeneratedCareMoment>();
+      final repository = _FakeSceneGenerationRepository(
+        onGenerate: ({required source, required clientRequestId}) {
+          final presetSource = source as PresetSceneGenerationSource;
+          if (presetSource.presetSceneId == 'feeding_time') {
+            return generationB.future;
+          }
+          return Future<GeneratedCareMoment>.value(
+            _presetMoment(activityId: 'bath_time'),
+          );
+        },
+      );
+      final requests = <String>[];
+      repository.onRequest = ({required source, required clientRequestId}) {
+        requests.add((source as PresetSceneGenerationSource).presetSceneId);
+      };
+      final registry = _NoOpGeneratedPracticeContentRegistry(
+        store: GeneratedCareMomentLocalStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+        resumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+      );
+      final movingEntry = ValueNotifier<PracticeRouteEntry>(
+        PracticeRouteEntry.fromObject(
+          const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+        ),
+      );
+      addTearDown(movingEntry.dispose);
+      final stableRouted = <String>[];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sceneGenerationRepositoryProvider.overrideWith(
+              (ref) async => repository,
+            ),
+            generatedPracticeContentRegistryProvider.overrideWithValue(
+              registry,
+            ),
+          ],
+          child: MaterialApp(
+            home: ValueListenableBuilder<PracticeRouteEntry>(
+              valueListenable: movingEntry,
+              builder: (context, entry, _) => Column(
+                children: [
+                  Expanded(
+                    child: PresetSceneGenerationGateScreen(
+                      key: const ValueKey('stable-b-gate'),
+                      routeEntry: PracticeRouteEntry.fromObject(
+                        const PracticeRouteArgs(
+                          spaceId: 'daily_care',
+                          activityId: 'feeding_time',
+                        ),
+                      ),
+                      presetDefinitionLoader: (args) async =>
+                          _presetDefinition(args.normalizedActivityId),
+                      onGenerated: (args) async {
+                        stableRouted.add(args.generatedContentId);
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: PresetSceneGenerationGateScreen(
+                      key: const ValueKey('moving-a-gate'),
+                      routeEntry: entry,
+                      presetDefinitionLoader: (args) async =>
+                          _presetDefinition(args.normalizedActivityId),
+                      onGenerated: (_) async {},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var index = 0; index < 40; index += 1) {
+        await tester.pump(const Duration(milliseconds: 25));
+        if (requests.contains('feeding_time')) {
+          break;
+        }
+      }
+      expect(requests, contains('feeding_time'));
+
+      movingEntry.value = PracticeRouteEntry.fromObject(
+        const PracticeRouteArgs(
+          spaceId: 'daily_care',
+          activityId: 'feeding_time',
+        ),
+      );
+      await tester.pump();
+
+      generationB.complete(_presetMoment(activityId: 'feeding_time'));
+      for (var index = 0; index < 40 && stableRouted.isEmpty; index += 1) {
+        await tester.pump(const Duration(milliseconds: 25));
+      }
+
+      expect(stableRouted, ['generated_preset_1']);
+      expect(requests.where((id) => id == 'feeding_time'), hasLength(1));
+    },
+  );
+
+  testWidgets(
     'generated preset identity mismatch fails closed before registration',
     (tester) async {
       var registrations = 0;
@@ -786,6 +968,8 @@ void main() {
             routeEntry: entry('bath_time'),
             controller: controllerA,
             clientRequestId: 'route_a_request',
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
             bundledFallbackLoader: (_) async => false,
             onGenerated: (_) async {},
           ),
@@ -800,6 +984,8 @@ void main() {
             routeEntry: entry('feeding_time'),
             controller: controllerB,
             clientRequestId: 'route_b_request',
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
             bundledFallbackLoader: (_) async => false,
             onGenerated: (_) async {},
           ),
@@ -845,6 +1031,8 @@ void main() {
             routeEntry: entry('bath_time'),
             controller: controllerA,
             clientRequestId: 'queued_a',
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
             bundledFallbackLoader: (_) async => false,
             onGenerated: (_) async => navigatedScopes.add('A'),
           ),
@@ -860,6 +1048,8 @@ void main() {
             routeEntry: entry('feeding_time'),
             controller: controllerB,
             clientRequestId: 'queued_b',
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
             bundledFallbackLoader: (_) async => false,
             onGenerated: (_) async => navigatedScopes.add('B'),
           ),
@@ -971,11 +1161,14 @@ class _SequencedSceneGenerationRepository implements SceneGenerationRepository {
   }
 }
 
-PresetSceneDefinition _presetDefinition(String activityId) {
+PresetSceneDefinition _presetDefinition(
+  String activityId, {
+  String spaceId = 'daily_care',
+}) {
   return PresetSceneDefinition(
     presetSceneId: activityId,
     publishedVersion: 1,
-    spaceId: 'daily_care',
+    spaceId: spaceId,
     title: activityId,
     summary: activityId,
     sceneTag: activityId,

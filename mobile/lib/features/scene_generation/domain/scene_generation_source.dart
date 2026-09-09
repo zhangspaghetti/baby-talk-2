@@ -35,9 +35,17 @@ final class PresetSceneGenerationSource extends SceneGenerationSource {
   });
 
   final String presetSceneId;
+
   /// Optional route metadata used to validate the generated response. These
   /// fields are client-side identity expectations and are not request content.
   final int? presetSceneVersion;
   final String? spaceId;
   final String? activityId;
+
+  bool get hasCompleteIdentity =>
+      presetSceneId.trim().isNotEmpty &&
+      presetSceneVersion != null &&
+      presetSceneVersion! > 0 &&
+      spaceId?.trim().isNotEmpty == true &&
+      activityId?.trim().isNotEmpty == true;
 }

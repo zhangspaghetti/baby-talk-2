@@ -168,6 +168,15 @@ class SceneGenerationController extends ChangeNotifier {
         );
         return;
       }
+      if (source is PresetSceneGenerationSource &&
+          !source.hasCompleteIdentity) {
+        _setFailure(
+          const SceneGenerationFailure(
+            kind: SceneGenerationFailureKind.malformedResponse,
+          ),
+        );
+        return;
+      }
       try {
         final generatedMoment = await _repository.generate(
           source: source,

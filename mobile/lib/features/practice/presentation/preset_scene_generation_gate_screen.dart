@@ -123,8 +123,6 @@ class _PresetSceneGenerationGateScreenState
           _startGeneration();
         }
       });
-    } else {
-      ref.invalidate(sceneGenerationControllerProvider(_controllerProviderKey));
     }
   }
 
@@ -272,7 +270,8 @@ class _PresetSceneGenerationGateScreenState
         :final spaceId,
         :final activityId,
       ) =>
-        moment.inputSource == SceneGenerationSourceType.preset &&
+        source.hasCompleteIdentity &&
+            moment.inputSource == SceneGenerationSourceType.preset &&
             moment.presetSceneId == presetSceneId.trim() &&
             (presetSceneVersion == null ||
                 moment.presetSceneVersion == presetSceneVersion) &&
