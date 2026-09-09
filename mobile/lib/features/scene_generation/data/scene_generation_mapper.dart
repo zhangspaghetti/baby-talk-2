@@ -107,9 +107,18 @@ class SceneGenerationMapper {
         response.route.phraseId != response.starter.phraseId) {
       throw const SceneGenerationMappingException();
     }
-    if (expectedSource case PresetSceneGenerationSource(:final presetSceneId)) {
+    if (expectedSource case PresetSceneGenerationSource(
+      :final presetSceneId,
+      :final presetSceneVersion,
+      :final spaceId,
+      :final activityId,
+    )) {
       if (response.source.presetSceneId != presetSceneId ||
-          response.route.activityId != presetSceneId) {
+          response.route.activityId != presetSceneId ||
+          (presetSceneVersion != null &&
+              response.source.presetSceneVersion != presetSceneVersion) ||
+          (spaceId != null && response.route.spaceId != spaceId) ||
+          (activityId != null && response.route.activityId != activityId)) {
         throw const SceneGenerationMappingException();
       }
     }

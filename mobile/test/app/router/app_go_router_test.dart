@@ -11,6 +11,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/scene_generation/application/scene_generation_controller.dart';
 import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
@@ -22,7 +23,10 @@ void main() {
     'central practice route sends preset entries to generation gate',
     (tester) async {
       final pendingRepository = Completer<SceneGenerationRepository>();
-      final router = createAppRouter(initialLocation: AppRouteNames.practice);
+      final router = createAppRouter(
+        initialLocation: AppRouteNames.practice,
+        presetDefinitionLoader: _presetDefinitionLoader,
+      );
       addTearDown(router.dispose);
 
       await tester.pumpWidget(
@@ -61,7 +65,10 @@ void main() {
     'generated, onboarding, and invalid entries bypass generation gate',
     (tester) async {
       final repository = Completer<PracticeRepository>();
-      final router = createAppRouter(initialLocation: AppRouteNames.practice);
+      final router = createAppRouter(
+        initialLocation: AppRouteNames.practice,
+        presetDefinitionLoader: _presetDefinitionLoader,
+      );
       addTearDown(router.dispose);
 
       await tester.pumpWidget(
@@ -108,18 +115,32 @@ void main() {
     (tester) async {
       final controller = SceneGenerationController(
         repository: _ImmediateRepository(
-          generatedCareMomentFixture(generatedContentId: 'generated_route'),
+          generatedCareMomentFixture(
+            generatedContentId: 'generated_route',
+            sceneId: 'daily_care',
+            spaceId: 'daily_care',
+            momentId: 'bath_time',
+            activityId: 'bath_time',
+            inputSource: SceneGenerationSourceType.preset,
+            presetSceneId: 'bath_time',
+            presetSceneVersion: 1,
+          ),
         ),
         approvedBundleRegistrar: (_) async {},
       );
       final practiceRepository = Completer<PracticeRepository>();
-      final router = createAppRouter(initialLocation: AppRouteNames.practice);
+      final router = createAppRouter(
+        initialLocation: AppRouteNames.practice,
+        presetDefinitionLoader: _presetDefinitionLoader,
+      );
       addTearDown(router.dispose);
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            sceneGenerationControllerProvider.overrideWith((ref) => controller),
+            sceneGenerationControllerProvider(
+              'daily_care/bath_time',
+            ).overrideWith((ref) => controller),
             practiceRepositoryProvider.overrideWith(
               (ref) => practiceRepository.future,
             ),
@@ -174,4 +195,19 @@ class _ImmediateRepository implements SceneGenerationRepository {
     required source,
     required String clientRequestId,
   }) async => moment;
+}
+
+Future<PresetSceneDefinition?> _presetDefinitionLoader(
+  PracticeRouteArgs args,
+) async {
+  return PresetSceneDefinition(
+    presetSceneId: args.normalizedActivityId,
+    publishedVersion: 1,
+    spaceId: args.normalizedSpaceId,
+    title: args.normalizedActivityId,
+    summary: args.normalizedActivityId,
+    sceneTag: args.normalizedActivityId,
+    coachTip: args.normalizedActivityId,
+    sortOrder: 1,
+  );
 }

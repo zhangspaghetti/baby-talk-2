@@ -20,6 +20,9 @@ GeneratedCareMoment generatedCareMomentFixture({
   String deliveryGuidanceZh = '慢慢说',
   String providerName = 'provider',
   String modelName = 'model',
+  SceneGenerationSourceType inputSource = SceneGenerationSourceType.custom,
+  String? presetSceneId,
+  int? presetSceneVersion,
 }) {
   GeneratedCareUtterance utterance(
     String suffix, {
@@ -60,7 +63,9 @@ GeneratedCareMoment generatedCareMomentFixture({
     sceneTag: sceneTag,
     coachTip: coachTip,
     source: 'generated',
-    inputSource: SceneGenerationSourceType.custom,
+    inputSource: inputSource,
+    presetSceneId: presetSceneId,
+    presetSceneVersion: presetSceneVersion,
     starter: utterance(
       'starter',
       role: GeneratedCareUtteranceRole.starter,

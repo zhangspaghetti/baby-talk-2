@@ -234,6 +234,34 @@ void main() {
     });
 
     test(
+      'rejects preset version and route metadata that differ from request',
+      () {
+        final response = SceneGenerationResponseDto.fromJson(
+          _validResponse(
+            source: <String, Object?>{
+              'type': 'preset',
+              'presetSceneId': 'activity_bath',
+              'presetSceneVersion': 3,
+            },
+          ),
+        );
+
+        expect(
+          () => const SceneGenerationMapper().toGeneratedCareMoment(
+            response,
+            expectedSource: const PresetSceneGenerationSource(
+              'activity_bath',
+              presetSceneVersion: 4,
+              spaceId: 'space_bath',
+              activityId: 'activity_bath',
+            ),
+          ),
+          throwsA(isA<SceneGenerationMappingException>()),
+        );
+      },
+    );
+
+    test(
       'rejects route identity that violates backend scene and activity invariants',
       () {
         final badScene = _validResponse()

@@ -169,14 +169,24 @@ class SceneGenerationController extends ChangeNotifier {
         return;
       }
       try {
-        moment = await _repository.generate(
+        final generatedMoment = await _repository.generate(
           source: source,
           clientRequestId: clientRequestId,
         );
+        final identityFailure = _identityFailure(
+          source: source,
+          moment: generatedMoment,
+        );
+        if (identityFailure != null) {
+          _setFailure(identityFailure);
+          return;
+        }
+        moment = generatedMoment;
         _pendingRegistration = moment;
       } on SceneGenerationFailure catch (failure) {
-        _requiresNewClientRequestIdOnRetry =
-            _shouldAllocateNewClientRequestId(failure);
+        _requiresNewClientRequestIdOnRetry = _shouldAllocateNewClientRequestId(
+          failure,
+        );
         _setFailure(failure);
         return;
       } on Object {
@@ -229,8 +239,9 @@ class SceneGenerationController extends ChangeNotifier {
   }
 
   void _setFailure(SceneGenerationFailure failure) {
-    _requiresNewClientRequestIdOnRetry =
-        _shouldAllocateNewClientRequestId(failure);
+    _requiresNewClientRequestIdOnRetry = _shouldAllocateNewClientRequestId(
+      failure,
+    );
     final unknownOutcome =
         failure.kind == SceneGenerationFailureKind.timeout ||
         failure.kind == SceneGenerationFailureKind.network ||
@@ -252,6 +263,35 @@ class SceneGenerationController extends ChangeNotifier {
     return _pendingRegistration == null &&
         failure.kind == SceneGenerationFailureKind.requestTerminal &&
         failure.requiresNewClientRequestId;
+  }
+
+  SceneGenerationFailure? _identityFailure({
+    required SceneGenerationSource source,
+    required GeneratedCareMoment moment,
+  }) {
+    final matches = switch (source) {
+      CustomSceneGenerationSource() =>
+        moment.inputSource == SceneGenerationSourceType.custom,
+      PresetSceneGenerationSource(
+        :final presetSceneId,
+        :final presetSceneVersion,
+        :final spaceId,
+        :final activityId,
+      ) =>
+        moment.inputSource == SceneGenerationSourceType.preset &&
+            moment.presetSceneId == presetSceneId.trim() &&
+            (presetSceneVersion == null ||
+                moment.presetSceneVersion == presetSceneVersion) &&
+            (spaceId == null || moment.spaceId == spaceId.trim()) &&
+            (activityId == null || moment.activityId == activityId.trim()),
+    };
+    if (matches) {
+      return null;
+    }
+    return const SceneGenerationFailure(
+      kind: SceneGenerationFailureKind.malformedResponse,
+      retryable: false,
+    );
   }
 
   String _nextRequestId(String previous) {
@@ -287,10 +327,11 @@ class SceneGenerationController extends ChangeNotifier {
   }
 }
 
-/// Default app-scoped controller. Tests and embedded flows can inject a
-/// controller directly into [PresetSceneGenerationGateScreen].
-final sceneGenerationControllerProvider =
-    FutureProvider.autoDispose<SceneGenerationController>((ref) async {
+/// Default route-scoped controller. Each preset route identity gets an
+/// independent auto-disposed controller. Tests and embedded flows can inject
+/// a controller directly into [PresetSceneGenerationGateScreen].
+final sceneGenerationControllerProvider = FutureProvider.autoDispose
+    .family<SceneGenerationController, String>((ref, _) async {
       final repository = await ref.watch(
         sceneGenerationRepositoryProvider.future,
       );

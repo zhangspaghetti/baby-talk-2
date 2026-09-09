@@ -27,7 +27,17 @@ final class CustomSceneGenerationSource extends SceneGenerationSource {
 }
 
 final class PresetSceneGenerationSource extends SceneGenerationSource {
-  const PresetSceneGenerationSource(this.presetSceneId);
+  const PresetSceneGenerationSource(
+    this.presetSceneId, {
+    this.presetSceneVersion,
+    this.spaceId,
+    this.activityId,
+  });
 
   final String presetSceneId;
+  /// Optional route metadata used to validate the generated response. These
+  /// fields are client-side identity expectations and are not request content.
+  final int? presetSceneVersion;
+  final String? spaceId;
+  final String? activityId;
 }

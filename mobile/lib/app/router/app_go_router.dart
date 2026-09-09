@@ -21,6 +21,7 @@ GoRouter createAppRouter({
   WidgetBuilder? onboardingBuilder,
   WidgetBuilder? accountBuilder,
   WidgetBuilder? shellBuilder,
+  PresetSceneDefinitionLoader? presetDefinitionLoader,
 }) {
   final resolvedOnboardingBuilder =
       onboardingBuilder ??
@@ -74,6 +75,7 @@ GoRouter createAppRouter({
             PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
               key: ValueKey('preset-gate:${routeEntry.scopeLabel}'),
               routeEntry: routeEntry,
+              presetDefinitionLoader: presetDefinitionLoader,
             ),
             PracticeEntryKind.generated ||
             PracticeEntryKind.onboarding ||

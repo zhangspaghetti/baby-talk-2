@@ -50,6 +50,7 @@ import 'package:mobile/features/practice/data/generated/generated_practice_conte
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
@@ -1612,6 +1613,7 @@ Widget _bootApp(
   _AppBootHarness harness, {
   Future<OnboardingSnapshot?> Function()? completedSnapshotLoader,
   SceneGenerationController? sceneGenerationController,
+  PresetSceneDefinitionLoader? presetSceneDefinitionLoader,
   Stream<Uri>? shareUriStream,
   ShareReentryCoordinator? shareReentryCoordinator,
   InviteReentryCoordinator? inviteReentryCoordinator,
@@ -1652,7 +1654,7 @@ Widget _bootApp(
       ),
       if (sceneGenerationController != null)
         sceneGenerationControllerProvider.overrideWith(
-          (ref) => sceneGenerationController,
+          (ref, _) => sceneGenerationController,
         ),
       if (accountNotifier != null)
         accountNotifierProvider.overrideWith((ref) => accountNotifier),
@@ -1663,12 +1665,30 @@ Widget _bootApp(
       bootState: harness.bootState,
       audioControllerFactory: _SilentPracticeAudioController.new,
       completedSnapshotLoader: completedSnapshotLoader,
+      presetSceneDefinitionLoader:
+          presetSceneDefinitionLoader ??
+          (args) async => _testPresetSceneDefinition(args.normalizedActivityId),
       shareUriStream: shareUriStream,
       shareReentryCoordinator: shareReentryCoordinator,
       inviteReentryCoordinator: inviteReentryCoordinator,
       practiceContinuityRefreshTimeout: Duration.zero,
       gardenGrowthRefreshTimeout: Duration.zero,
     ),
+  );
+}
+
+Future<PresetSceneDefinition?> _testPresetSceneDefinition(
+  String activityId,
+) async {
+  return PresetSceneDefinition(
+    presetSceneId: activityId,
+    publishedVersion: 1,
+    spaceId: 'daily_care',
+    title: activityId,
+    summary: activityId,
+    sceneTag: activityId,
+    coachTip: activityId,
+    sortOrder: 1,
   );
 }
 

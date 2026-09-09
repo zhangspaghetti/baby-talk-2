@@ -154,6 +154,7 @@ class BabyTalkApp extends ConsumerStatefulWidget {
     required this.bootState,
     this.audioControllerFactory,
     this.completedSnapshotLoader,
+    this.presetSceneDefinitionLoader,
     this.shareUriStream,
     this.shareReentryCoordinator,
     this.inviteReentryCoordinator,
@@ -164,6 +165,7 @@ class BabyTalkApp extends ConsumerStatefulWidget {
   final AppBootState bootState;
   final PracticeAudioControllerFactory? audioControllerFactory;
   final OnboardingCompletedSnapshotLoader? completedSnapshotLoader;
+  final PresetSceneDefinitionLoader? presetSceneDefinitionLoader;
   final Stream<Uri>? shareUriStream;
   final ShareReentryCoordinator? shareReentryCoordinator;
   final InviteReentryCoordinator? inviteReentryCoordinator;
@@ -444,6 +446,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
               PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
                 key: ValueKey('preset-gate:${routeEntry.scopeLabel}'),
                 routeEntry: routeEntry,
+                presetDefinitionLoader: widget.presetSceneDefinitionLoader,
                 fallbackBuilder: (context, entry) => PracticeSessionScreen(
                   routeEntry: entry,
                   audioControllerFactory: widget.audioControllerFactory,

@@ -16,6 +16,7 @@ import 'package:mobile/features/practice/data/generated/generated_care_turn_resu
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
@@ -527,7 +528,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            sceneGenerationControllerProvider.overrideWith((ref) {
+            sceneGenerationControllerProvider(
+              'daily_care/bath_time',
+            ).overrideWith((ref) {
               ref.onDispose(() => disposed = true);
               return controllerCompleter.future;
             }),
@@ -541,6 +544,8 @@ void main() {
                 ),
               ),
               clientRequestId: 'provider_lifecycle_request',
+              presetDefinitionLoader: (args) async =>
+                  _presetDefinition(args.normalizedActivityId),
               bundledFallbackLoader: (_) async => false,
               onGenerated: (_) async {},
             ),
@@ -605,6 +610,8 @@ void main() {
                 ),
               ),
               clientRequestId: 'default_provider_success',
+              presetDefinitionLoader: (args) async =>
+                  _presetDefinition(args.normalizedActivityId),
               bundledFallbackLoader: (_) async => false,
               onGenerated: (args) async {
                 generatedArgs = args;
@@ -627,6 +634,130 @@ void main() {
   );
 
   testWidgets(
+    'default provider isolates concurrent preset A and B controllers',
+    (tester) async {
+      final repository = _SequencedSceneGenerationRepository([
+        _presetMoment(generatedContentId: 'generated_bath'),
+        _presetMoment(
+          generatedContentId: 'generated_feeding',
+          activityId: 'feeding_time',
+        ),
+      ]);
+      final registry = _NoOpGeneratedPracticeContentRegistry(
+        store: GeneratedCareMomentLocalStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+        resumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+      );
+      final navigatorKey = GlobalKey<NavigatorState>();
+      final routed = <String>[];
+
+      PracticeRouteEntry entry(String activityId) =>
+          PracticeRouteEntry.fromObject(
+            PracticeRouteArgs(spaceId: 'daily_care', activityId: activityId),
+          );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sceneGenerationRepositoryProvider.overrideWith(
+              (ref) async => repository,
+            ),
+            generatedPracticeContentRegistryProvider.overrideWithValue(
+              registry,
+            ),
+          ],
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            home: PresetSceneGenerationGateScreen(
+              routeEntry: entry('bath_time'),
+              presetDefinitionLoader: (args) async =>
+                  _presetDefinition(args.normalizedActivityId),
+              onGenerated: (args) async {
+                routed.add('A:${args.generatedContentId}');
+              },
+            ),
+          ),
+        ),
+      );
+      for (var index = 0; index < 40 && routed.isEmpty; index += 1) {
+        await tester.pump(const Duration(milliseconds: 25));
+      }
+
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => PresetSceneGenerationGateScreen(
+            routeEntry: entry('feeding_time'),
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
+            onGenerated: (args) async {
+              routed.add('B:${args.generatedContentId}');
+            },
+          ),
+        ),
+      );
+      for (var index = 0; index < 40 && routed.length < 2; index += 1) {
+        await tester.pump(const Duration(milliseconds: 25));
+      }
+
+      expect(repository.sources, hasLength(2));
+      expect(repository.sources[0].presetSceneId, 'bath_time');
+      expect(repository.sources[1].presetSceneId, 'feeding_time');
+      expect(routed, ['A:generated_bath', 'B:generated_feeding']);
+    },
+  );
+
+  testWidgets(
+    'generated preset identity mismatch fails closed before registration',
+    (tester) async {
+      var registrations = 0;
+      GeneratedCareTurnRouteArgs? routed;
+      final controller = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async =>
+              _presetMoment(presetSceneVersion: 99),
+        ),
+        approvedBundleRegistrar: (_) async {
+          registrations += 1;
+        },
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PresetSceneGenerationGateScreen(
+            routeEntry: PracticeRouteEntry.fromObject(
+              const PracticeRouteArgs(
+                spaceId: 'daily_care',
+                activityId: 'bath_time',
+              ),
+            ),
+            controller: controller,
+            presetDefinitionLoader: (args) async =>
+                _presetDefinition(args.normalizedActivityId),
+            bundledFallbackLoader: (_) async => false,
+            onGenerated: (args) async {
+              routed = args;
+            },
+          ),
+        ),
+      );
+      for (var index = 0; index < 40; index += 1) {
+        await tester.pump(const Duration(milliseconds: 25));
+      }
+
+      expect(registrations, 0);
+      expect(routed, isNull);
+      expect(
+        controller.status,
+        SceneGenerationControllerStatus.recoverableError,
+      );
+      expect(find.byKey(const Key('preset-generation-error')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'switching route identity starts a fresh controller for preset B',
     (tester) async {
       final controllerA = SceneGenerationController(
@@ -639,7 +770,7 @@ void main() {
       final controllerB = SceneGenerationController(
         repository: _FakeSceneGenerationRepository(
           onGenerate: ({required source, required clientRequestId}) async =>
-              _presetMoment(),
+              _presetMoment(activityId: 'feeding_time'),
         ),
         approvedBundleRegistrar: (_) async {},
       );
@@ -821,6 +952,38 @@ class _FakeSceneGenerationRepository implements SceneGenerationRepository {
   }
 }
 
+class _SequencedSceneGenerationRepository implements SceneGenerationRepository {
+  _SequencedSceneGenerationRepository(this.moments);
+
+  final List<GeneratedCareMoment> moments;
+  final List<PresetSceneGenerationSource> sources =
+      <PresetSceneGenerationSource>[];
+  int _index = 0;
+
+  @override
+  Future<GeneratedCareMoment> generate({
+    required SceneGenerationSource source,
+    required String clientRequestId,
+  }) async {
+    final presetSource = source as PresetSceneGenerationSource;
+    sources.add(presetSource);
+    return moments[_index++];
+  }
+}
+
+PresetSceneDefinition _presetDefinition(String activityId) {
+  return PresetSceneDefinition(
+    presetSceneId: activityId,
+    publishedVersion: 1,
+    spaceId: 'daily_care',
+    title: activityId,
+    summary: activityId,
+    sceneTag: activityId,
+    coachTip: activityId,
+    sortOrder: 1,
+  );
+}
+
 class _BundledOnlyPracticeRepository implements PracticeRepository {
   int bundledCalls = 0;
   int remoteCalls = 0;
@@ -958,7 +1121,13 @@ class _ExistingGeneratedBundlePracticeRepository
   }
 }
 
-GeneratedCareMoment _presetMoment() {
+GeneratedCareMoment _presetMoment({
+  String generatedContentId = 'generated_preset_1',
+  String spaceId = 'daily_care',
+  String activityId = 'bath_time',
+  String? presetSceneId,
+  int presetSceneVersion = 1,
+}) {
   GeneratedCareUtterance utterance(
     String suffix, {
     required GeneratedCareUtteranceRole role,
@@ -989,18 +1158,18 @@ GeneratedCareMoment _presetMoment() {
 
   return GeneratedCareMoment(
     schemaVersion: generatedCareMomentSchemaVersion,
-    generatedContentId: 'generated_preset_1',
-    sceneId: 'daily_care',
-    spaceId: 'daily_care',
-    momentId: 'bath_time',
-    activityId: 'bath_time',
+    generatedContentId: generatedContentId,
+    sceneId: spaceId,
+    spaceId: spaceId,
+    momentId: activityId,
+    activityId: activityId,
     title: '洗澡时间',
     sceneTag: 'bath',
     coachTip: '慢慢说',
     source: 'generated',
     inputSource: SceneGenerationSourceType.preset,
-    presetSceneId: 'bath_time',
-    presetSceneVersion: 1,
+    presetSceneId: presetSceneId ?? activityId,
+    presetSceneVersion: presetSceneVersion,
     starter: utterance(
       'starter',
       role: GeneratedCareUtteranceRole.starter,
