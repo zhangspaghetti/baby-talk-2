@@ -7,6 +7,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/features/account/presentation/account_surface_phase.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
@@ -14,7 +15,7 @@ import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dar
 import 'package:mobile/l10n/app_localizations.dart';
 
 Future<void> openAccountSurface(BuildContext context) {
-  return GoRouter.of(context).push('/account');
+  return GoRouter.of(context).push(AppRouteNames.account);
 }
 
 String _accountBodyForPhase(

@@ -460,6 +460,78 @@ abstract class AppLocalizations {
   /// **'暂时无法生成，请稍后再试。'**
   String get customSceneUnexpected;
 
+  /// No description provided for @customSceneSubmissionAnotherDraftPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前已有另一段描述待处理，请先完成或取消。'**
+  String get customSceneSubmissionAnotherDraftPending;
+
+  /// No description provided for @customSceneSubmissionRestoreUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请重新填写。'**
+  String get customSceneSubmissionRestoreUnavailable;
+
+  /// No description provided for @customSceneSubmissionAccountChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号已切换，请重新填写描述。'**
+  String get customSceneSubmissionAccountChanged;
+
+  /// No description provided for @customSceneSubmissionUnknownOutcome.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果尚未确认，请重试以继续。'**
+  String get customSceneSubmissionUnknownOutcome;
+
+  /// No description provided for @customSceneSubmissionPreviousRequestUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次请求的结果尚未确认，请重试以继续。'**
+  String get customSceneSubmissionPreviousRequestUnknown;
+
+  /// No description provided for @customSceneSubmissionRetryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法继续，请重新填写描述。'**
+  String get customSceneSubmissionRetryUnavailable;
+
+  /// No description provided for @customSceneSubmissionHandoffRouteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法打开照护内容，请再试一次。'**
+  String get customSceneSubmissionHandoffRouteFailed;
+
+  /// No description provided for @customSceneSubmissionSaveUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法保存描述，请稍后再试。'**
+  String get customSceneSubmissionSaveUnavailable;
+
+  /// No description provided for @customSceneSubmissionPreparedContentSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容已准备好，但暂时无法保存。请重试以继续。'**
+  String get customSceneSubmissionPreparedContentSaveFailed;
+
+  /// No description provided for @customSceneSubmissionDraftExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次描述已过期，请重新填写。'**
+  String get customSceneSubmissionDraftExpired;
+
+  /// No description provided for @customSceneSubmissionDraftRecoveryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请稍后再试。'**
+  String get customSceneSubmissionDraftRecoveryUnavailable;
+
+  /// No description provided for @customSceneSubmissionDraftInconsistent.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请重新填写。'**
+  String get customSceneSubmissionDraftInconsistent;
+
   /// No description provided for @bootErrorUnknown.
   ///
   /// In zh, this message translates to:
@@ -1375,6 +1447,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'尚未加入共享家庭'**
   String get meHouseholdIdentityNoMembership;
+
+  /// No description provided for @meHouseholdIdentityUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭身份暂时不可用'**
+  String get meHouseholdIdentityUnavailable;
+
+  /// No description provided for @meHouseholdIdentityReadError.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭状态读取失败，请稍后重试。'**
+  String get meHouseholdIdentityReadError;
+
+  /// No description provided for @meHouseholdIdentityStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭状态正在更新，暂不显示上一份身份。'**
+  String get meHouseholdIdentityStale;
 
   /// No description provided for @householdMember.
   ///

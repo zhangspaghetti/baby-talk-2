@@ -65,6 +65,38 @@ enum CustomSceneSubmissionPhase {
   recoverableError,
 }
 
+enum CustomSceneSubmissionMessageKey {
+  anotherDraftPending,
+  authenticationRequired,
+  restoreUnavailable,
+  accountChanged,
+  unknownOutcome,
+  previousRequestUnknown,
+  retryUnavailable,
+  handoffRouteFailed,
+  saveUnavailable,
+  preparedContentSaveFailed,
+  requestTerminal,
+  draftExpired,
+  draftRecoveryUnavailable,
+  draftInconsistent,
+}
+
+@immutable
+class CustomSceneSubmissionMessage {
+  const CustomSceneSubmissionMessage(
+    this.key, {
+    this.data = const <String, Object?>{},
+  });
+
+  final CustomSceneSubmissionMessageKey key;
+
+  /// Only stable, non-sensitive values may be carried here. User input,
+  /// account identifiers, tokens, and profile identifiers never belong in UI
+  /// status data.
+  final Map<String, Object?> data;
+}
+
 @immutable
 class CustomSceneSubmissionState {
   const CustomSceneSubmissionState({
@@ -83,10 +115,15 @@ class CustomSceneSubmissionState {
       canCancelRetainedDraft = false;
 
   final CustomSceneSubmissionPhase phase;
-  final String? message;
+  final CustomSceneSubmissionMessage? message;
   final CustomSceneFailure? failure;
   final String? generatedContentId;
   final bool canCancelRetainedDraft;
+
+  CustomSceneSubmissionMessageKey? get messageKey => message?.key;
+
+  Map<String, Object?> get messageData =>
+      message?.data ?? const <String, Object?>{};
 
   CustomSceneFailureKind? get failureKind => failure?.kind;
 
@@ -162,7 +199,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         );
         await _submitStored(stored, accountContext: accountContext);
       } on CustomSceneSubmissionException {
-        _setState(_recoverable('当前已有另一段描述待处理，请先完成或取消。'));
+        _setState(
+          _recoverable(
+            const CustomSceneSubmissionMessage(
+              CustomSceneSubmissionMessageKey.anotherDraftPending,
+            ),
+          ),
+        );
       }
     });
     _activeSubmission = operation;
@@ -210,7 +253,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.needsAuthentication,
-          message: '请先登录后再生成。',
+          message: CustomSceneSubmissionMessage(
+            CustomSceneSubmissionMessageKey.authenticationRequired,
+          ),
         ),
       );
       return;
@@ -239,12 +284,24 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       }
       if (result.status != CustomSceneDraftReadStatus.available ||
           result.draft == null) {
-        _setState(_recoverable('暂时无法恢复这次描述，请重新填写。'));
+        _setState(
+          _recoverable(
+            const CustomSceneSubmissionMessage(
+              CustomSceneSubmissionMessageKey.restoreUnavailable,
+            ),
+          ),
+        );
         return;
       }
       final draft = result.draft!;
       if (!_matchesAccount(draft, accountContext)) {
-        _setState(_recoverable('账号已切换，请重新填写描述。'));
+        _setState(
+          _recoverable(
+            const CustomSceneSubmissionMessage(
+              CustomSceneSubmissionMessageKey.accountChanged,
+            ),
+          ),
+        );
         return;
       }
       if (draft.state == CustomSceneStoredDraftState.readyForHandoff) {
@@ -276,7 +333,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.unknownOutcome,
-          message: '上次请求的结果尚未确认，请重试以继续。',
+          message: CustomSceneSubmissionMessage(
+            CustomSceneSubmissionMessageKey.previousRequestUnknown,
+          ),
         ),
       );
     });
@@ -293,7 +352,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         _setState(
           const CustomSceneSubmissionState(
             phase: CustomSceneSubmissionPhase.needsAuthentication,
-            message: '请先登录后再生成。',
+            message: CustomSceneSubmissionMessage(
+              CustomSceneSubmissionMessageKey.authenticationRequired,
+            ),
           ),
         );
         return;
@@ -301,12 +362,24 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       final result = await _draftStore.readResult(now: _clock().toUtc());
       if (result.status != CustomSceneDraftReadStatus.available ||
           result.draft == null) {
-        _setState(_recoverable('暂时无法继续，请重新填写描述。'));
+        _setState(
+          _recoverable(
+            const CustomSceneSubmissionMessage(
+              CustomSceneSubmissionMessageKey.retryUnavailable,
+            ),
+          ),
+        );
         return;
       }
       final draft = result.draft!;
       if (!_matchesAccount(draft, accountContext)) {
-        _setState(_recoverable('账号已切换，请重新填写描述。'));
+        _setState(
+          _recoverable(
+            const CustomSceneSubmissionMessage(
+              CustomSceneSubmissionMessageKey.accountChanged,
+            ),
+          ),
+        );
         return;
       }
       if (draft.state == CustomSceneStoredDraftState.readyForHandoff) {
@@ -349,7 +422,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     _setState(
       CustomSceneSubmissionState(
         phase: CustomSceneSubmissionPhase.handoffFailed,
-        message: '暂时无法打开照护内容，请再试一次。',
+        message: const CustomSceneSubmissionMessage(
+          CustomSceneSubmissionMessageKey.handoffRouteFailed,
+        ),
         generatedContentId: generatedContentId,
       ),
     );
@@ -416,7 +491,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       return;
     }
     if (!_matchesAccount(draft, accountContext)) {
-      _setState(_recoverable('账号已切换，请重新填写描述。'));
+      _setState(
+        _recoverable(
+          const CustomSceneSubmissionMessage(
+            CustomSceneSubmissionMessageKey.accountChanged,
+          ),
+        ),
+      );
       return;
     }
     final submitting = draft.copyWith(
@@ -427,7 +508,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     try {
       await _draftStore.write(submitting);
     } on Object {
-      _setState(_recoverable('暂时无法保存描述，请稍后再试。'));
+      _setState(
+        _recoverable(
+          const CustomSceneSubmissionMessage(
+            CustomSceneSubmissionMessageKey.saveUnavailable,
+          ),
+        ),
+      );
       return;
     }
     if (!_isOperationCurrent(operationEpoch)) {
@@ -522,7 +609,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       );
     } on Object {
       if (_isOperationCurrent(operationEpoch)) {
-        _setState(_recoverable('内容已准备好，但暂时无法保存。请重试以继续。'));
+        _setState(
+          _recoverable(
+            const CustomSceneSubmissionMessage(
+              CustomSceneSubmissionMessageKey.preparedContentSaveFailed,
+            ),
+          ),
+        );
       }
     }
   }
@@ -586,11 +679,19 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.needsAuthentication,
-          message: '请先登录后再生成。',
+          message: CustomSceneSubmissionMessage(
+            CustomSceneSubmissionMessageKey.authenticationRequired,
+          ),
         ),
       );
     } on Object {
-      _setState(_recoverable('暂时无法保存描述，请稍后再试。'));
+      _setState(
+        _recoverable(
+          const CustomSceneSubmissionMessage(
+            CustomSceneSubmissionMessageKey.saveUnavailable,
+          ),
+        ),
+      );
     }
   }
 
@@ -610,7 +711,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.unknownOutcome,
-          message: '结果尚未确认，请重试以继续。',
+          message: CustomSceneSubmissionMessage(
+            CustomSceneSubmissionMessageKey.unknownOutcome,
+          ),
         ),
       );
     }
@@ -688,22 +791,32 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     return switch (status) {
       CustomSceneDraftContinuationStatus.notFound ||
       CustomSceneDraftContinuationStatus.expired => _recoverable(
-        '这次描述已过期，请重新填写。',
+        const CustomSceneSubmissionMessage(
+          CustomSceneSubmissionMessageKey.draftExpired,
+        ),
       ),
       CustomSceneDraftContinuationStatus.accountMismatch => _recoverable(
-        '账号已切换，请重新填写描述。',
+        const CustomSceneSubmissionMessage(
+          CustomSceneSubmissionMessageKey.accountChanged,
+        ),
       ),
       CustomSceneDraftContinuationStatus.unavailable => _recoverable(
-        '暂时无法恢复这次描述，请稍后再试。',
+        const CustomSceneSubmissionMessage(
+          CustomSceneSubmissionMessageKey.draftRecoveryUnavailable,
+        ),
       ),
       CustomSceneDraftContinuationStatus.inconsistent ||
       CustomSceneDraftContinuationStatus.otherIntentPending => _recoverable(
-        '暂时无法恢复这次描述，请重新填写。',
+        const CustomSceneSubmissionMessage(
+          CustomSceneSubmissionMessageKey.draftInconsistent,
+        ),
       ),
       CustomSceneDraftContinuationStatus.readyForAuthentication =>
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.needsAuthentication,
-          message: '请先登录后再生成。',
+          message: CustomSceneSubmissionMessage(
+            CustomSceneSubmissionMessageKey.authenticationRequired,
+          ),
         ),
       CustomSceneDraftContinuationStatus.readyForSubmission =>
         const CustomSceneSubmissionState.editing(),
@@ -711,7 +824,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   }
 
   CustomSceneSubmissionState _recoverable(
-    String? message, {
+    CustomSceneSubmissionMessage? message, {
     CustomSceneFailure? failure,
     bool canCancelRetainedDraft = false,
   }) {

@@ -193,6 +193,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get customSceneUnexpected => '暂时无法生成，请稍后再试。';
 
   @override
+  String get customSceneSubmissionAnotherDraftPending =>
+      '当前已有另一段描述待处理，请先完成或取消。';
+
+  @override
+  String get customSceneSubmissionRestoreUnavailable => '暂时无法恢复这次描述，请重新填写。';
+
+  @override
+  String get customSceneSubmissionAccountChanged => '账号已切换，请重新填写描述。';
+
+  @override
+  String get customSceneSubmissionUnknownOutcome => '结果尚未确认，请重试以继续。';
+
+  @override
+  String get customSceneSubmissionPreviousRequestUnknown =>
+      '上次请求的结果尚未确认，请重试以继续。';
+
+  @override
+  String get customSceneSubmissionRetryUnavailable => '暂时无法继续，请重新填写描述。';
+
+  @override
+  String get customSceneSubmissionHandoffRouteFailed => '暂时无法打开照护内容，请再试一次。';
+
+  @override
+  String get customSceneSubmissionSaveUnavailable => '暂时无法保存描述，请稍后再试。';
+
+  @override
+  String get customSceneSubmissionPreparedContentSaveFailed =>
+      '内容已准备好，但暂时无法保存。请重试以继续。';
+
+  @override
+  String get customSceneSubmissionDraftExpired => '这次描述已过期，请重新填写。';
+
+  @override
+  String get customSceneSubmissionDraftRecoveryUnavailable =>
+      '暂时无法恢复这次描述，请稍后再试。';
+
+  @override
+  String get customSceneSubmissionDraftInconsistent => '暂时无法恢复这次描述，请重新填写。';
+
+  @override
   String get bootErrorUnknown => '未知启动错误';
 
   @override
@@ -695,6 +735,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get meHouseholdIdentityNoMembership => '尚未加入共享家庭';
+
+  @override
+  String get meHouseholdIdentityUnavailable => '家庭身份暂时不可用';
+
+  @override
+  String get meHouseholdIdentityReadError => '家庭状态读取失败，请稍后重试。';
+
+  @override
+  String get meHouseholdIdentityStale => '家庭状态正在更新，暂不显示上一份身份。';
 
   @override
   String get householdMember => '家庭成员';

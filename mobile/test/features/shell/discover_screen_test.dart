@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -416,14 +417,16 @@ Widget _buildApp({
   required DiscoverCatalogLoader catalogLoader,
   DiscoverPracticeOpener? practiceOpener,
 }) {
-  return MaterialApp(
-    theme: AppTheme.build(),
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    home: Scaffold(
-      body: DiscoverScreen(
-        catalogLoader: catalogLoader,
-        practiceOpener: practiceOpener,
+  return ProviderScope(
+    child: MaterialApp(
+      theme: AppTheme.build(),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: DiscoverScreen(
+          catalogLoader: catalogLoader,
+          practiceOpener: practiceOpener,
+        ),
       ),
     ),
   );

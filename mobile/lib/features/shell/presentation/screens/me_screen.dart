@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_settings_screen.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
@@ -17,10 +19,29 @@ HouseholdIdentityLabel householdIdentityLabel(
   HouseholdNotifier notifier,
   AppLocalizations l,
 ) {
-  if (notifier.isLoading || !notifier.hasLoaded) {
+  if (!notifier.hasLoaded) {
     return (badge: l.meHouseholdIdentityLoading, detail: null);
   }
-  return switch (notifier.snapshot.role) {
+  if (notifier.isLoading) {
+    return (
+      badge: l.meHouseholdIdentityLoading,
+      detail: l.meHouseholdIdentityStale,
+    );
+  }
+  final snapshot = notifier.snapshot;
+  if (_hasHouseholdIdentityError(snapshot)) {
+    final hasStaleIdentity =
+        snapshot.householdId != null ||
+        snapshot.role != null ||
+        snapshot.sharedContext != null;
+    return (
+      badge: l.meHouseholdIdentityUnavailable,
+      detail: hasStaleIdentity
+          ? l.meHouseholdIdentityStale
+          : l.meHouseholdIdentityReadError,
+    );
+  }
+  return switch (snapshot.role) {
     HouseholdRole.primaryCaregiver => (
       badge: l.householdPrimaryCaregiver,
       detail: null,
@@ -31,6 +52,31 @@ HouseholdIdentityLabel householdIdentityLabel(
     ),
     null => (badge: l.meHouseholdIdentityNoMembership, detail: null),
   };
+}
+
+bool _hasHouseholdIdentityError(HouseholdLocalSnapshot snapshot) {
+  if (snapshot.lastVisibleError?.trim().isNotEmpty == true) {
+    return true;
+  }
+  final phase = snapshot.lastPhase.trim().toLowerCase();
+  if (phase.isEmpty || phase == 'idle' || phase.endsWith('_ready')) {
+    return false;
+  }
+  const errorMarkers = <String>[
+    'error',
+    'failed',
+    'unavailable',
+    'timeout',
+    'offline',
+    'malformed',
+    'invalid',
+    'consent_required',
+    'account_deleted',
+    'role_not_allowed',
+    'persist_failed',
+    'reset',
+  ];
+  return errorMarkers.any(phase.contains);
 }
 
 /// The "Me" tab screen — user profile, garden/growth summary, and function grid.
@@ -452,25 +498,25 @@ class _FunctionGrid extends StatelessWidget {
         icon: Icons.notifications_outlined,
         label: l.meReminders,
         key: const Key('me-function-reminder'),
-        route: '/me/settings/reminder',
+        route: AppRouteNames.meReminder,
       ),
       _GridEntry(
         icon: Icons.child_care_outlined,
         label: l.meBabyProfile,
         key: const Key('me-function-baby-profile'),
-        route: '/me/settings/baby-profile',
+        route: AppRouteNames.meBabyProfile,
       ),
       _GridEntry(
         icon: Icons.play_circle_outline,
         label: l.mePlaybackPrefs,
         key: const Key('me-function-playback'),
-        route: '/me/settings/playback',
+        route: AppRouteNames.mePlayback,
       ),
       _GridEntry(
         icon: Icons.help_outline,
         label: l.meHelp,
         key: const Key('me-function-help'),
-        route: '/me/settings/help',
+        route: AppRouteNames.meHelp,
       ),
     ];
 

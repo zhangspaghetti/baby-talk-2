@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/router/account_entry_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
@@ -85,7 +86,9 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     final state = controller?.state;
     final busy = state?.isBusy ?? false;
     final message =
-        _inputError ?? _failureMessage(l, state?.failure) ?? state?.message;
+        _inputError ??
+        _failureMessage(l, state?.failure) ??
+        _submissionMessage(l, state?.message);
     final isAvailable = controller != null;
     final canOpenPreparedContent = state?.canOpenPreparedContent ?? false;
     final canCancelRetainedDraft = state?.canCancelRetainedDraft ?? false;
@@ -356,9 +359,9 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       case CustomSceneRecoveryAction.householdStatus:
         await GoRouter.of(
           context,
-        ).push('/account', extra: AccountEntryOrigin.settings);
+        ).push(AppRouteNames.account, extra: AccountEntryOrigin.settings);
       case CustomSceneRecoveryAction.babyProfile:
-        await GoRouter.of(context).push('/me/settings/baby-profile');
+        await GoRouter.of(context).push(AppRouteNames.meBabyProfile);
     }
   }
 
@@ -402,6 +405,46 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
         l.customSceneMalformedResponse,
       CustomSceneFailureKind.rejected => l.customSceneRejected,
       CustomSceneFailureKind.unexpected => l.customSceneUnexpected,
+    };
+  }
+
+  String? _submissionMessage(
+    AppLocalizations l,
+    CustomSceneSubmissionMessage? message,
+  ) {
+    final key = message?.key;
+    if (key == null) {
+      return null;
+    }
+    return switch (key) {
+      CustomSceneSubmissionMessageKey.anotherDraftPending =>
+        l.customSceneSubmissionAnotherDraftPending,
+      CustomSceneSubmissionMessageKey.authenticationRequired =>
+        l.customSceneAuthenticationRequired,
+      CustomSceneSubmissionMessageKey.restoreUnavailable =>
+        l.customSceneSubmissionRestoreUnavailable,
+      CustomSceneSubmissionMessageKey.accountChanged =>
+        l.customSceneSubmissionAccountChanged,
+      CustomSceneSubmissionMessageKey.unknownOutcome =>
+        l.customSceneSubmissionUnknownOutcome,
+      CustomSceneSubmissionMessageKey.previousRequestUnknown =>
+        l.customSceneSubmissionPreviousRequestUnknown,
+      CustomSceneSubmissionMessageKey.retryUnavailable =>
+        l.customSceneSubmissionRetryUnavailable,
+      CustomSceneSubmissionMessageKey.handoffRouteFailed =>
+        l.customSceneSubmissionHandoffRouteFailed,
+      CustomSceneSubmissionMessageKey.saveUnavailable =>
+        l.customSceneSubmissionSaveUnavailable,
+      CustomSceneSubmissionMessageKey.preparedContentSaveFailed =>
+        l.customSceneSubmissionPreparedContentSaveFailed,
+      CustomSceneSubmissionMessageKey.requestTerminal =>
+        l.customSceneRequestTerminal,
+      CustomSceneSubmissionMessageKey.draftExpired =>
+        l.customSceneSubmissionDraftExpired,
+      CustomSceneSubmissionMessageKey.draftRecoveryUnavailable =>
+        l.customSceneSubmissionDraftRecoveryUnavailable,
+      CustomSceneSubmissionMessageKey.draftInconsistent =>
+        l.customSceneSubmissionDraftInconsistent,
     };
   }
 

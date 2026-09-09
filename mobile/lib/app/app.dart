@@ -514,7 +514,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           builder: (context, state) => buildAccountRoute(state.extra),
         ),
         GoRoute(
-          path: '/me/settings',
+          path: AppRouteNames.meSettings,
           builder: (context, state) => const SettingsScreen(),
           routes: [
             GoRoute(
@@ -544,7 +544,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           ],
         ),
         GoRoute(
-          path: '/me/growth',
+          path: AppRouteNames.meGrowth,
           builder: (context, state) =>
               const GardenGrowthCombinedScreen(initialTab: GrowthTab.growth),
         ),

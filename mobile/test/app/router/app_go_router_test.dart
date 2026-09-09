@@ -173,6 +173,18 @@ void main() {
       practiceRepository.completeError(StateError('test end'));
     },
   );
+
+  test('router exposes runtime baby-profile route contract', () {
+    final router = createAppRouter();
+    addTearDown(router.dispose);
+
+    expect(
+      router.configuration
+          .findMatch(Uri.parse(AppRouteNames.meBabyProfile))
+          .error,
+      isNull,
+    );
+  });
 }
 
 class _PendingRepository implements SceneGenerationRepository {

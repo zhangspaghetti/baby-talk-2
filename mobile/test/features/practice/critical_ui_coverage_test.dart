@@ -10,6 +10,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
+import 'package:mobile/features/care_path/presentation/care_path_view_model.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
@@ -17,6 +18,7 @@ import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -37,6 +39,7 @@ import 'package:mobile/features/practice/presentation/practice_session_notifier.
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
@@ -1394,7 +1397,7 @@ void main() {
 
     await _pumpApp(
       tester,
-      const AppShellScreen(customSceneEnabled: true),
+      const AppShellScreen(),
       scaffold: false,
       overrides: [
         practiceRepositoryProvider.overrideWith(
@@ -1579,6 +1582,86 @@ void main() {
       ),
     );
   });
+
+  testWidgets(
+    'Shell custom-scene flag controls caregiver Home and Discover launchers',
+    (tester) async {
+      final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+      final continuitySnapshot = _continuitySnapshot();
+      Future<void> pumpShell(bool enabled) async {
+        final householdNotifier = HouseholdNotifier(
+          repository: _HomeHouseholdRepository(
+            snapshot: const HouseholdLocalSnapshot(
+              householdId: 'household_caregiver',
+              role: HouseholdRole.caregiver,
+              lastPhase: 'shared_context_ready',
+            ),
+          ),
+        );
+        await householdNotifier.initialize();
+        await _pumpApp(
+          tester,
+          const AppShellScreen(),
+          scaffold: false,
+          overrides: [
+            customSceneFeatureEnabledProvider.overrideWithValue(enabled),
+            practiceRepositoryProvider.overrideWith(
+              (ref) async => _CarePathScreenPracticeRepository(),
+            ),
+            accountNotifierProvider.overrideWith((ref) {
+              return AccountNotifier(repository: _ScreenAccountRepository());
+            }),
+            practiceContinuityNotifierProvider.overrideWith((ref) {
+              return _homeContinuityNotifier(continuitySnapshot);
+            }),
+            carePathNotifierProvider.overrideWith(
+              (ref) => _IdleCarePathNotifier(),
+            ),
+            gardenGrowthNotifierProvider.overrideWith((ref) {
+              return GardenGrowthNotifier(
+                repository: _HomeGardenGrowthRepository(gardenSnapshot),
+                refreshTimeout: Duration.zero,
+              );
+            }),
+            householdNotifierProvider.overrideWith((ref) => householdNotifier),
+            gardenFertilizerNotifierProvider.overrideWith(
+              (ref) => _FertilizerNotifierStub(
+                ref.watch(gardenGrowthNotifierProvider),
+              ),
+            ),
+            shareNotifierProvider.overrideWith((ref) {
+              return ShareNotifier(
+                repository: _HomeShareRepository(),
+                initialGrowthSnapshot: gardenSnapshot,
+                initialContinuitySnapshot: continuitySnapshot,
+              );
+            }),
+          ],
+        );
+        await _pumpFrames(tester, count: 8);
+      }
+
+      await pumpShell(false);
+      expect(find.byKey(const Key('custom-scene-entry-today')), findsNothing);
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(1);
+      await _pumpFrames(tester, count: 8);
+      expect(find.byKey(const Key('custom-scene-entry-scene')), findsNothing);
+
+      await pumpShell(true);
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(0);
+      await _pumpFrames(tester, count: 8);
+      expect(find.byKey(const Key('custom-scene-entry-today')), findsOneWidget);
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(1);
+      await _pumpFrames(tester, count: 8);
+      expect(find.byKey(const Key('custom-scene-entry-scene')), findsOneWidget);
+    },
+  );
 }
 
 /// Static fertilizer notifier stub: renders the empty panel state without the
@@ -1602,6 +1685,20 @@ class _FertilizerNotifierStub extends GardenFertilizerNotifier {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _IdleCarePathNotifier extends CarePathNotifier {
+  _IdleCarePathNotifier()
+    : super(
+        repository: CarePathRepository(
+          practiceRepository: _HomeCarePathPracticeRepository(
+            _continuitySnapshot(),
+          ),
+        ),
+      );
+
+  @override
+  CarePathViewModel get viewModel => CarePathViewModel.idle();
 }
 
 Future<void> _pumpApp(

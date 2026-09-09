@@ -274,6 +274,59 @@ void main() {
       expect(find.text('尚未加入共享家庭'), findsOneWidget);
       expect(find.text('家庭身份同步中'), findsNothing);
     });
+
+    testWidgets('does not claim no membership for a local-load error', (
+      tester,
+    ) async {
+      await _pumpMeScreen(
+        tester,
+        householdSnapshot: const HouseholdLocalSnapshot(
+          lastPhase: 'local_store_unavailable',
+          lastVisibleError: '本地家庭状态暂时不可用。',
+        ),
+      );
+
+      expect(find.text('尚未加入共享家庭'), findsNothing);
+      expect(find.text('家庭身份暂时不可用'), findsOneWidget);
+      expect(find.text('家庭状态读取失败，请稍后重试。'), findsOneWidget);
+    });
+
+    testWidgets('hides stale role while household refresh is in flight', (
+      tester,
+    ) async {
+      final notifier = _HouseholdNotifierIdentityStub(
+        isLoading: true,
+        hasLoaded: true,
+        value: const HouseholdLocalSnapshot(
+          householdId: 'household_stale',
+          role: HouseholdRole.caregiver,
+        ),
+      );
+
+      await _pumpMeScreen(tester, householdNotifier: notifier);
+      expect(find.text('次照护者'), findsNothing);
+      expect(find.text('家庭身份同步中'), findsOneWidget);
+      expect(find.text('家庭状态正在更新，暂不显示上一份身份。'), findsOneWidget);
+    });
+
+    testWidgets('hides stale role after a household refresh error', (
+      tester,
+    ) async {
+      await _pumpMeScreen(
+        tester,
+        householdSnapshot: const HouseholdLocalSnapshot(
+          householdId: 'household_stale',
+          role: HouseholdRole.caregiver,
+          lastPhase: 'shared_context_offline',
+          lastVisibleError: '当前离线，已保留最近一次稳定状态。',
+        ),
+      );
+
+      expect(find.text('次照护者'), findsNothing);
+      expect(find.text('尚未加入共享家庭'), findsNothing);
+      expect(find.text('家庭身份暂时不可用'), findsOneWidget);
+      expect(find.text('家庭状态正在更新，暂不显示上一份身份。'), findsOneWidget);
+    });
   });
 }
 
@@ -555,4 +608,23 @@ class _StaticHouseholdRepository extends Fake implements HouseholdRepository {
 
   @override
   Future<void> close() async {}
+}
+
+class _HouseholdNotifierIdentityStub extends HouseholdNotifier {
+  _HouseholdNotifierIdentityStub({
+    required this.isLoading,
+    required this.hasLoaded,
+    required this.value,
+  }) : super(repository: _StaticHouseholdRepository(snapshot: value));
+
+  @override
+  final bool isLoading;
+
+  @override
+  final bool hasLoaded;
+
+  final HouseholdLocalSnapshot value;
+
+  @override
+  HouseholdLocalSnapshot get snapshot => value;
 }

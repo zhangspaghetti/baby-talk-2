@@ -19,10 +19,17 @@ import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
 import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
@@ -57,6 +64,9 @@ import 'package:mobile/features/practice/presentation/practice_session_notifier.
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
+import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
+import 'package:mobile/features/settings/data/repositories/settings_repository.dart';
+import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 import 'package:mobile/features/scene_generation/application/scene_generation_controller.dart';
 import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
 import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
@@ -367,6 +377,113 @@ void main() {
 
     expect(find.byType(CustomSceneInputScreen), findsOneWidget);
   });
+
+  testWidgets(
+    'production custom-scene recovery uses runtime routes and keeps state after pop',
+    (WidgetTester tester) async {
+      final harness = (await tester.runAsync<_AppBootHarness>(_createHarness))!;
+      addTearDown(harness.close);
+      addTearDown(() async => _disposeWidgetTree(tester));
+
+      final controller = _ProductionCustomSceneSubmissionController(
+        directory: harness.tempDir,
+        failureKind: CustomSceneFailureKind.sharedProfileUnavailable,
+      );
+      addTearDown(controller.dispose);
+      final accountNotifier = AccountNotifier(
+        repository: _SignedInAccountRepository(),
+      );
+      await accountNotifier.initialize();
+      final settingsDataSource = (await tester
+          .runAsync<SettingsLocalDataSource>(() {
+            return SettingsLocalDataSource.open(
+              directory: harness.tempDir.path,
+              name: 'settings_custom_scene_recovery_test',
+            );
+          }))!;
+      final settingsRepository = SettingsRepository(
+        localDataSource: settingsDataSource,
+      );
+      addTearDown(() => settingsDataSource.close(deleteFromDisk: true));
+      final settingsNotifier = SettingsNotifier(
+        repository: settingsRepository,
+        accountStateListenable: accountNotifier,
+      );
+      final householdNotifier = HouseholdNotifier(
+        repository: _AcceptingHouseholdRepository(
+          directory: harness.tempDir,
+          practiceArgs: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => null,
+          customSceneSubmissionController: controller,
+          accountNotifier: accountNotifier,
+          householdNotifier: householdNotifier,
+          settingsNotifier: settingsNotifier,
+        ),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('boot-route-onboarding')),
+      );
+
+      final router = GoRouter.of(
+        tester.element(find.byKey(const Key('boot-route-onboarding'))),
+      );
+      router.go(AppRouteNames.customScene);
+      await _pumpUntilFound(tester, find.byType(CustomSceneInputScreen));
+      expect(find.text('查看家庭状态'), findsOneWidget);
+
+      await tester.tap(find.text('查看家庭状态'));
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('account-entry-surface')),
+      );
+      expect(router.state.uri.path, AppRouteNames.account);
+      expect(
+        controller.state.failureKind,
+        CustomSceneFailureKind.sharedProfileUnavailable,
+      );
+      router.pop();
+      await _pumpUntilFound(tester, find.byType(CustomSceneInputScreen));
+      expect(find.text('查看家庭状态'), findsOneWidget);
+      expect(
+        controller.state.failureKind,
+        CustomSceneFailureKind.sharedProfileUnavailable,
+      );
+
+      controller.publishFailure(CustomSceneFailureKind.profileUnavailable);
+      await tester.pump();
+      expect(find.text('完善宝宝档案'), findsOneWidget);
+      final profileAction = tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('custom-scene-recovery-action')),
+          )
+          .onPressed!;
+      profileAction();
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        AppRouteNames.meBabyProfile,
+      );
+      await tester.pump();
+      expect(router.canPop(), isTrue);
+      router.pop();
+      await tester.pump();
+      expect(find.byType(CustomSceneInputScreen), findsOneWidget);
+      expect(find.text('完善宝宝档案'), findsOneWidget);
+      expect(
+        controller.state.failureKind,
+        CustomSceneFailureKind.profileUnavailable,
+      );
+    },
+  );
 
   testWidgets(
     'production app router gates preset entries and bypasses generated/onboarding',
@@ -1503,6 +1620,62 @@ class _PendingSceneGenerationRepository implements SceneGenerationRepository {
   }
 }
 
+class _ProductionCustomSceneSubmissionController
+    extends CustomSceneSubmissionController {
+  _ProductionCustomSceneSubmissionController({
+    required Directory directory,
+    required CustomSceneFailureKind failureKind,
+  }) : super(
+         repository: _NoopCustomSceneRepository(),
+         draftStore: CustomSceneDraftStore(
+           directoryResolver: () async => directory,
+         ),
+         draftContinuationCoordinator: CustomSceneDraftContinuationCoordinator(
+           draftStore: CustomSceneDraftStore(
+             directoryResolver: () async => directory,
+           ),
+           authContinuationCoordinator: AuthContinuationCoordinator(
+             store: AuthContinuationStore(
+               directoryResolver: () async => directory,
+             ),
+           ),
+         ),
+         approvedContentRegistrar: _NoopCustomSceneRegistrar(),
+         accountContextLoader: () async => 'production_test_account',
+       ) {
+    publishFailure(failureKind);
+  }
+
+  CustomSceneSubmissionState _testState =
+      const CustomSceneSubmissionState.editing();
+
+  @override
+  CustomSceneSubmissionState get state => _testState;
+
+  void publishFailure(CustomSceneFailureKind kind) {
+    _testState = CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.recoverableError,
+      failure: CustomSceneFailure(kind: kind, retryable: false),
+    );
+    notifyListeners();
+  }
+}
+
+class _NoopCustomSceneRepository implements CustomSceneRepository {
+  @override
+  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) async {
+    return _generatedColdBootMoment();
+  }
+}
+
+class _NoopCustomSceneRegistrar implements CustomSceneApprovedContentRegistrar {
+  @override
+  Future<void> register({
+    required String accountContext,
+    required GeneratedCareMoment moment,
+  }) async {}
+}
+
 class _SignedInAccountRepository implements AccountRepositoryContract {
   static final AccountLocalSnapshot _snapshot = AccountLocalSnapshot(
     consentState: AccountConsentState.acceptedPendingSync,
@@ -1619,6 +1792,8 @@ Widget _bootApp(
   InviteReentryCoordinator? inviteReentryCoordinator,
   AccountNotifier? accountNotifier,
   HouseholdNotifier? householdNotifier,
+  CustomSceneSubmissionController? customSceneSubmissionController,
+  SettingsNotifier? settingsNotifier,
 }) {
   return ProviderScope(
     overrides: [
@@ -1660,6 +1835,12 @@ Widget _bootApp(
         accountNotifierProvider.overrideWith((ref) => accountNotifier),
       if (householdNotifier != null)
         householdNotifierProvider.overrideWith((ref) => householdNotifier),
+      if (customSceneSubmissionController != null)
+        customSceneSubmissionControllerProvider.overrideWith(
+          (ref) async => customSceneSubmissionController,
+        ),
+      if (settingsNotifier != null)
+        settingsNotifierProvider.overrideWith((ref) => settingsNotifier),
     ],
     child: BabyTalkApp(
       bootState: harness.bootState,

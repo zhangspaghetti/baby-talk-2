@@ -325,6 +325,54 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('宝宝档案页'), findsOneWidget);
   });
+
+  testWidgets('renders every typed submission message through localization', (
+    tester,
+  ) async {
+    const cases = <(CustomSceneSubmissionMessageKey, String)>[
+      (
+        CustomSceneSubmissionMessageKey.anotherDraftPending,
+        '当前已有另一段描述待处理，请先完成或取消。',
+      ),
+      (CustomSceneSubmissionMessageKey.authenticationRequired, '请先登录后再生成。'),
+      (CustomSceneSubmissionMessageKey.restoreUnavailable, '暂时无法恢复这次描述，请重新填写。'),
+      (CustomSceneSubmissionMessageKey.accountChanged, '账号已切换，请重新填写描述。'),
+      (CustomSceneSubmissionMessageKey.unknownOutcome, '结果尚未确认，请重试以继续。'),
+      (
+        CustomSceneSubmissionMessageKey.previousRequestUnknown,
+        '上次请求的结果尚未确认，请重试以继续。',
+      ),
+      (CustomSceneSubmissionMessageKey.retryUnavailable, '暂时无法继续，请重新填写描述。'),
+      (CustomSceneSubmissionMessageKey.handoffRouteFailed, '暂时无法打开照护内容，请再试一次。'),
+      (CustomSceneSubmissionMessageKey.saveUnavailable, '暂时无法保存描述，请稍后再试。'),
+      (
+        CustomSceneSubmissionMessageKey.preparedContentSaveFailed,
+        '内容已准备好，但暂时无法保存。请重试以继续。',
+      ),
+      (CustomSceneSubmissionMessageKey.requestTerminal, '这次生成已结束，请重新生成。'),
+      (CustomSceneSubmissionMessageKey.draftExpired, '这次描述已过期，请重新填写。'),
+      (
+        CustomSceneSubmissionMessageKey.draftRecoveryUnavailable,
+        '暂时无法恢复这次描述，请稍后再试。',
+      ),
+      (CustomSceneSubmissionMessageKey.draftInconsistent, '暂时无法恢复这次描述，请重新填写。'),
+    ];
+
+    for (final (key, copy) in cases) {
+      final controller = _ImmediateSubmissionController()..publishMessage(key);
+      await _pump(
+        tester,
+        CustomSceneInputScreen(
+          routeArgs: const CustomSceneRouteArgs(
+            entrySource: CustomSceneEntrySource.scene,
+          ),
+          controller: controller,
+        ),
+      );
+      expect(find.text(copy), findsOneWidget, reason: key.name);
+      controller.dispose();
+    }
+  });
 }
 
 Future<void> _pumpWithRecoveryRouter(
@@ -436,15 +484,26 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
   void publishUnknownOutcome() {
     _testState = const CustomSceneSubmissionState(
       phase: CustomSceneSubmissionPhase.unknownOutcome,
-      message: '结果尚未确认，请重试以继续。',
+      message: CustomSceneSubmissionMessage(
+        CustomSceneSubmissionMessageKey.unknownOutcome,
+      ),
     );
   }
 
   void publishTerminalFailure() {
     _testState = const CustomSceneSubmissionState(
       phase: CustomSceneSubmissionPhase.recoverableError,
-      message: '这次生成已结束，请重新生成。',
+      message: CustomSceneSubmissionMessage(
+        CustomSceneSubmissionMessageKey.requestTerminal,
+      ),
       canCancelRetainedDraft: true,
+    );
+  }
+
+  void publishMessage(CustomSceneSubmissionMessageKey key) {
+    _testState = CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.recoverableError,
+      message: CustomSceneSubmissionMessage(key),
     );
   }
 
