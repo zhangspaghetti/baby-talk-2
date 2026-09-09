@@ -70,6 +70,7 @@ class CustomSceneSubmissionState {
   const CustomSceneSubmissionState({
     required this.phase,
     this.message,
+    this.failure,
     this.generatedContentId,
     this.canCancelRetainedDraft = false,
   });
@@ -77,13 +78,19 @@ class CustomSceneSubmissionState {
   const CustomSceneSubmissionState.editing()
     : phase = CustomSceneSubmissionPhase.editing,
       message = null,
+      failure = null,
       generatedContentId = null,
       canCancelRetainedDraft = false;
 
   final CustomSceneSubmissionPhase phase;
   final String? message;
+  final CustomSceneFailure? failure;
   final String? generatedContentId;
   final bool canCancelRetainedDraft;
+
+  CustomSceneFailureKind? get failureKind => failure?.kind;
+
+  CustomSceneRecoveryAction? get recoveryAction => failure?.recoveryAction;
 
   bool get isBusy => switch (phase) {
     CustomSceneSubmissionPhase.restoring ||
@@ -543,7 +550,8 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     }
     _setState(
       _recoverable(
-        failure.presentationMessage,
+        null,
+        failure: failure,
         canCancelRetainedDraft:
             failure.kind == CustomSceneFailureKind.requestTerminal,
       ),
@@ -703,12 +711,14 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   }
 
   CustomSceneSubmissionState _recoverable(
-    String message, {
+    String? message, {
+    CustomSceneFailure? failure,
     bool canCancelRetainedDraft = false,
   }) {
     return CustomSceneSubmissionState(
       phase: CustomSceneSubmissionPhase.recoverableError,
       message: message,
+      failure: failure,
       canCancelRetainedDraft: canCancelRetainedDraft,
     );
   }

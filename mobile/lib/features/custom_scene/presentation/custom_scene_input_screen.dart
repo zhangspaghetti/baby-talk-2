@@ -7,7 +7,9 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 typedef CustomSceneAccountEntryOpener =
     Future<AccountEntryResult?> Function(BuildContext context);
@@ -16,6 +18,11 @@ typedef CustomScenePresetFallback = Future<void> Function();
 typedef CustomScenePreparedContentOpener = Future<void> Function();
 
 enum CustomSceneInputExit { presetFallback }
+
+AppLocalizations _customSceneLocalizations(BuildContext context) {
+  return AppLocalizations.of(context) ??
+      lookupAppLocalizations(const Locale('zh'));
+}
 
 class CustomSceneInputScreen extends StatefulWidget {
   const CustomSceneInputScreen({
@@ -73,13 +80,16 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = _customSceneLocalizations(context);
     final controller = _controller;
     final state = controller?.state;
     final busy = state?.isBusy ?? false;
-    final message = _inputError ?? state?.message;
+    final message =
+        _inputError ?? _failureMessage(l, state?.failure) ?? state?.message;
     final isAvailable = controller != null;
     final canOpenPreparedContent = state?.canOpenPreparedContent ?? false;
     final canCancelRetainedDraft = state?.canCancelRetainedDraft ?? false;
+    final recoveryAction = state?.recoveryAction;
 
     return PopScope<Object?>(
       canPop: _canPop,
@@ -96,7 +106,7 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       },
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        appBar: AppBar(title: const Text('描述一下此刻')),
+        appBar: AppBar(title: Text(l.customSceneTitle)),
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -115,12 +125,12 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '说说现在正在发生什么',
+                        l.customSceneHeading,
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                       const SizedBox(height: AppLayoutConstants.spacingSm),
                       Text(
-                        '写下你想回应的此刻，我们会帮你准备一句自然的表达。',
+                        l.customSceneDescription,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: context.appColors.textSecondary,
                           height: 1.5,
@@ -135,9 +145,9 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                         maxLines: 7,
                         maxLength: 240,
                         textInputAction: TextInputAction.newline,
-                        decoration: const InputDecoration(
-                          labelText: '此刻发生了什么？',
-                          hintText: '例如：洗澡时宝宝不想碰水。',
+                        decoration: InputDecoration(
+                          labelText: l.customSceneFieldLabel,
+                          hintText: l.customSceneFieldHint,
                           alignLabelWithHint: true,
                         ),
                         onChanged: (_) {
@@ -149,9 +159,9 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                       const SizedBox(height: AppLayoutConstants.spacingSm),
                       Semantics(
                         container: true,
-                        label: '隐私说明：请不要填写姓名、电话、地址或其他私密信息。',
+                        label: l.customScenePrivacySemantics,
                         child: Text(
-                          '请不要填写姓名、电话、地址或其他私密信息。',
+                          l.customScenePrivacyNote,
                           key: const Key('custom-scene-privacy-note'),
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
@@ -172,6 +182,21 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                           ),
                         ),
                       ],
+                      if (recoveryAction != null) ...[
+                        const SizedBox(height: AppLayoutConstants.spacingMd),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            key: const Key('custom-scene-recovery-action'),
+                            onPressed: busy
+                                ? null
+                                : () => _openRecoveryAction(recoveryAction),
+                            child: Text(
+                              _recoveryActionLabel(l, recoveryAction),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: AppLayoutConstants.spacingXl),
                       SizedBox(
                         width: double.infinity,
@@ -188,17 +213,17 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                               : _submitOrContinueAuthentication,
                           child: Text(
                             canOpenPreparedContent
-                                ? '打开已准备内容'
+                                ? l.customSceneOpenPrepared
                                 : busy
-                                ? '正在准备…'
+                                ? l.customScenePreparing
                                 : state?.phase ==
                                       CustomSceneSubmissionPhase
                                           .needsAuthentication
-                                ? '登录后继续'
+                                ? l.customSceneContinueAfterLogin
                                 : state?.phase ==
                                       CustomSceneSubmissionPhase.unknownOutcome
-                                ? '继续确认结果'
-                                : '帮我准备一句',
+                                ? l.customSceneConfirmResult
+                                : l.customSceneSubmit,
                           ),
                         ),
                       ),
@@ -212,7 +237,7 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                             onPressed: busy
                                 ? null
                                 : _confirmCancelRetainedDraft,
-                            child: const Text('取消并重新开始'),
+                            child: Text(l.customSceneCancelRetainedDraft),
                           ),
                         ),
                       ],
@@ -222,7 +247,7 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                           child: TextButton(
                             key: const Key('custom-scene-abandon-prepared'),
                             onPressed: busy ? null : _confirmAbandonPrepared,
-                            child: const Text('放弃这条内容'),
+                            child: Text(l.customSceneAbandonPrepared),
                           ),
                         ),
                       ],
@@ -231,13 +256,13 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                         child: TextButton(
                           key: const Key('custom-scene-preset-fallback'),
                           onPressed: busy ? null : _returnToPresetScenes,
-                          child: const Text('查看已有场景'),
+                          child: Text(l.customSceneViewExisting),
                         ),
                       ),
                       if (!isAvailable) ...[
                         const SizedBox(height: AppLayoutConstants.spacingSm),
                         Text(
-                          '这个入口正在准备中。',
+                          l.customSceneUnavailable,
                           key: const Key('custom-scene-unavailable-note'),
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: context.appColors.textMuted),
@@ -274,7 +299,11 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     }
     final text = _textController.text.trim();
     if (text.isEmpty) {
-      setState(() => _inputError = '请先描述一下此刻。');
+      setState(
+        () => _inputError = _customSceneLocalizations(
+          context,
+        ).customSceneEmptyInput,
+      );
       _fieldFocusNode.requestFocus();
       return;
     }
@@ -319,6 +348,63 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     // Account-stable recovery is app-owned. This page only resumes rendering.
   }
 
+  Future<void> _openRecoveryAction(CustomSceneRecoveryAction action) async {
+    if (!mounted) {
+      return;
+    }
+    switch (action) {
+      case CustomSceneRecoveryAction.householdStatus:
+        await GoRouter.of(
+          context,
+        ).push('/account', extra: AccountEntryOrigin.settings);
+      case CustomSceneRecoveryAction.babyProfile:
+        await GoRouter.of(context).push('/me/settings/baby-profile');
+    }
+  }
+
+  String _recoveryActionLabel(
+    AppLocalizations l,
+    CustomSceneRecoveryAction action,
+  ) {
+    return switch (action) {
+      CustomSceneRecoveryAction.householdStatus =>
+        l.customSceneViewHouseholdStatus,
+      CustomSceneRecoveryAction.babyProfile => l.customSceneCompleteProfile,
+    };
+  }
+
+  String? _failureMessage(AppLocalizations l, CustomSceneFailure? failure) {
+    final kind = failure?.kind;
+    if (kind == null) {
+      return null;
+    }
+    return switch (kind) {
+      CustomSceneFailureKind.authenticationRequired =>
+        l.customSceneAuthenticationRequired,
+      CustomSceneFailureKind.profileUnavailable =>
+        l.customSceneProfileUnavailable,
+      CustomSceneFailureKind.householdAccessRequired =>
+        l.customSceneHouseholdAccessRequired,
+      CustomSceneFailureKind.sharedProfileUnavailable =>
+        l.customSceneSharedProfileUnavailable,
+      CustomSceneFailureKind.presetSceneUnavailable =>
+        l.customScenePresetSceneUnavailable,
+      CustomSceneFailureKind.invalidDraft => l.customSceneInvalidDraft,
+      CustomSceneFailureKind.requestConflict => l.customSceneRequestConflict,
+      CustomSceneFailureKind.requestTerminal => l.customSceneRequestTerminal,
+      CustomSceneFailureKind.generationInProgress =>
+        l.customSceneGenerationInProgress,
+      CustomSceneFailureKind.rateLimited => l.customSceneRateLimited,
+      CustomSceneFailureKind.unavailable => l.customSceneUnavailableError,
+      CustomSceneFailureKind.timeout => l.customSceneTimeout,
+      CustomSceneFailureKind.network => l.customSceneNetwork,
+      CustomSceneFailureKind.malformedResponse =>
+        l.customSceneMalformedResponse,
+      CustomSceneFailureKind.rejected => l.customSceneRejected,
+      CustomSceneFailureKind.unexpected => l.customSceneUnexpected,
+    };
+  }
+
   Future<AccountEntryResult?> _defaultAccountOpener(BuildContext context) {
     return GoRouter.of(context).push<AccountEntryResult>(
       '/account',
@@ -346,16 +432,20 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('放弃已准备内容？'),
-        content: const Text('放弃后需要重新描述，才会准备新内容。'),
+        title: Text(_customSceneLocalizations(context).customSceneAbandonTitle),
+        content: Text(
+          _customSceneLocalizations(context).customSceneAbandonBody,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('继续保留'),
+            child: Text(_customSceneLocalizations(context).customSceneKeep),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('确认放弃'),
+            child: Text(
+              _customSceneLocalizations(context).customSceneConfirmAbandon,
+            ),
           ),
         ],
       ),
@@ -374,16 +464,18 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('取消这次描述？'),
-        content: const Text('取消后需要重新描述，才会准备新内容。'),
+        title: Text(_customSceneLocalizations(context).customSceneCancelTitle),
+        content: Text(_customSceneLocalizations(context).customSceneCancelBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('继续保留'),
+            child: Text(_customSceneLocalizations(context).customSceneKeep),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('确认取消'),
+            child: Text(
+              _customSceneLocalizations(context).customSceneConfirmCancel,
+            ),
           ),
         ],
       ),
