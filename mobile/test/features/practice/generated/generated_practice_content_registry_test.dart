@@ -238,6 +238,229 @@ void main() {
         expect(migratedRecord['inputSource'], 'custom');
         expect(migratedRecord['presetSceneId'], isNull);
         expect(migratedRecord['presetSceneVersion'], isNull);
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+      },
+    );
+
+    test(
+      'retains legacy schema file when migration replacement fails',
+      () async {
+        final moment = _moment('legacy_migration_failure');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root['schemaVersion'] = 2;
+        for (final value in root['records'] as List<dynamic>) {
+          (value as Map<String, dynamic>)
+            ..remove('inputSource')
+            ..remove('presetSceneId')
+            ..remove('presetSceneVersion');
+        }
+        await file.writeAsString(jsonEncode(root));
+
+        var failNextReplacement = true;
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, targetPath) async {
+            if (failNextReplacement &&
+                source.path.endsWith('.tmp') &&
+                targetPath == file.path) {
+              failNextReplacement = false;
+              throw StateError('simulated migration rename failure');
+            }
+            return source.rename(targetPath);
+          },
+        );
+
+        await expectLater(
+          failingStore.readAll(),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        final retained =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        expect(retained['schemaVersion'], 2);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+
+        final recovered = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        expect(
+          (await recovered.readAll()).single.moment.inputSource,
+          SceneGenerationSourceType.custom,
+        );
+      },
+    );
+
+    test(
+      'keeps current bundles readable when replacement rename fails',
+      () async {
+        final first = _moment('replacement_before');
+        final second = _moment('replacement_after');
+        await registry.register(accountContext: accountContext, moment: first);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        var failNextReplacement = true;
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, targetPath) async {
+            if (failNextReplacement &&
+                source.path.endsWith('.tmp') &&
+                targetPath == file.path) {
+              failNextReplacement = false;
+              throw StateError('simulated replacement rename failure');
+            }
+            return source.rename(targetPath);
+          },
+        );
+
+        await expectLater(
+          failingStore.upsert(
+            StoredGeneratedCareMoment(
+              accountContext: accountContext,
+              moment: second,
+            ),
+          ),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        final retained =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        expect(retained['schemaVersion'], 3);
+        final retainedIds = (retained['records'] as List<dynamic>)
+            .map(
+              (value) => (value as Map<String, dynamic>)['generatedContentId'],
+            )
+            .toList(growable: false);
+        expect(retainedIds, <String>[first.generatedContentId]);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+      },
+    );
+
+    test(
+      'restores old bundles when rotating target reports failure after moving it',
+      () async {
+        final first = _moment('rotation_before');
+        final second = _moment('rotation_after');
+        await registry.register(accountContext: accountContext, moment: first);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        var failAfterMove = true;
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, targetPath) async {
+            if (failAfterMove && source.path == file.path) {
+              failAfterMove = false;
+              await source.rename(targetPath);
+              throw StateError('simulated rotation failure after move');
+            }
+            return source.rename(targetPath);
+          },
+        );
+
+        await expectLater(
+          failingStore.upsert(
+            StoredGeneratedCareMoment(
+              accountContext: accountContext,
+              moment: second,
+            ),
+          ),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isTrue);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(
+          (await GeneratedCareMomentLocalStore(
+            directoryResolver: () async => tempDir,
+          ).readAll()).single.moment.generatedContentId,
+          first.generatedContentId,
+        );
+      },
+    );
+
+    test(
+      'restores a backup left by an interrupted replacement before reading',
+      () async {
+        final moment = _moment('interrupted_replacement');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final backup = File('${file.path}.bak');
+        await file.rename(backup.path);
+
+        final recovered = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+
+        expect(
+          (await recovered.readAll()).single.moment.generatedContentId,
+          moment.generatedContentId,
+        );
+        expect(await backup.exists(), isFalse);
+      },
+    );
+
+    test(
+      'lifecycle clear removes backup so cleared bundles cannot resurrect',
+      () async {
+        final moment = _moment('clear_interrupted_replacement');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final backup = File('${file.path}.bak');
+        await file.rename(backup.path);
+
+        await store.clearForLifecycle();
+
+        expect(await file.exists(), isFalse);
+        expect(await backup.exists(), isFalse);
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
+      'resolves latest valid preset bundle by stable activity route',
+      () async {
+        final older = _moment(
+          'preset_route_older',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        final newer = _moment(
+          'preset_route_newer',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 2,
+        );
+        await registry.register(accountContext: accountContext, moment: older);
+        await registry.register(accountContext: accountContext, moment: newer);
+
+        final resolved = await registry.resolveActivity(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        expect(resolved?.generatedContentId, newer.generatedContentId);
+        expect(resolved?.presetSceneVersion, 2);
+        expect(
+          (await registry.resolveGeneratedContent(
+            generatedContentId: older.generatedContentId,
+          ))?.presetSceneVersion,
+          1,
+        );
       },
     );
 

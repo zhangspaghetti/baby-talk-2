@@ -694,7 +694,23 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
   _loadGeneratedContinuityActivities({
     String? resumableGeneratedContentId,
   }) async {
-    final snapshots = await getGeneratedActivitySnapshots();
+    final snapshots = (await getGeneratedActivitySnapshots()).toList();
+    if (resumableGeneratedContentId != null &&
+        !snapshots.any(
+          (snapshot) =>
+              snapshot.generatedContentId == resumableGeneratedContentId,
+        )) {
+      try {
+        snapshots.add(
+          await getGeneratedActivitySnapshot(
+            generatedContentId: resumableGeneratedContentId,
+          ),
+        );
+      } on Object {
+        // A stale marker is ignored; the marker store remains available for
+        // the caller to clear through its normal account-scoped cleanup.
+      }
+    }
     if (snapshots.isEmpty) {
       return const <PracticeCatalogActivitySummary>[];
     }

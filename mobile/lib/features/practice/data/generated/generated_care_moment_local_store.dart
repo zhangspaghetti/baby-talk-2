@@ -6,6 +6,12 @@ import 'package:mobile/features/practice/domain/models/interaction_event_payload
 import 'package:path_provider/path_provider.dart';
 
 typedef GeneratedCareMomentDirectoryResolver = Future<Directory> Function();
+typedef GeneratedCareMomentFileExists = Future<bool> Function(File file);
+typedef GeneratedCareMomentFileDelete = Future<void> Function(File file);
+typedef GeneratedCareMomentFileRename =
+    Future<File> Function(File source, String targetPath);
+typedef GeneratedCareMomentFileWrite =
+    Future<void> Function(File file, String contents, {required bool flush});
 
 class StoredGeneratedCareMoment {
   StoredGeneratedCareMoment({
@@ -41,14 +47,26 @@ class GeneratedCareMomentLocalStore {
     GeneratedCareMomentDirectoryResolver? directoryResolver,
     this.fileName = 'generated_care_moments.json',
     DateTime Function()? clock,
+    GeneratedCareMomentFileExists? existsFile,
+    GeneratedCareMomentFileDelete? deleteFile,
+    GeneratedCareMomentFileRename? renameFile,
+    GeneratedCareMomentFileWrite? writeFile,
   }) : _directoryResolver = directoryResolver ?? getApplicationSupportDirectory,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _existsFile = existsFile ?? _defaultExists,
+       _deleteFile = deleteFile ?? _defaultDelete,
+       _renameFile = renameFile ?? _defaultRename,
+       _writeFile = writeFile ?? _defaultWrite;
 
   static const _storeSchemaVersion = 3;
   static const _legacyStoreSchemaVersion = 2;
 
   final GeneratedCareMomentDirectoryResolver _directoryResolver;
   final DateTime Function() _clock;
+  final GeneratedCareMomentFileExists _existsFile;
+  final GeneratedCareMomentFileDelete _deleteFile;
+  final GeneratedCareMomentFileRename _renameFile;
+  final GeneratedCareMomentFileWrite _writeFile;
   final String fileName;
   Future<void> _mutationTail = Future<void>.value();
 
@@ -125,7 +143,10 @@ class GeneratedCareMomentLocalStore {
     final File file;
     try {
       file = await _resolveFile();
-      if (!await file.exists()) {
+      if (!await _existsFile(file)) {
+        await _restoreBackupIfNeeded(file);
+      }
+      if (!await _existsFile(file)) {
         return const _StoreState.empty();
       }
       final raw = await file.readAsString();
@@ -288,12 +309,16 @@ class GeneratedCareMomentLocalStore {
     List<_QuarantineEntry> diagnostics,
   ) async {
     File? temporaryFile;
+    File? backupFile;
+    var backupCreated = false;
     try {
       final file = await _resolveFile();
       temporaryFile = File('${file.path}.tmp');
+      backupFile = File('${file.path}.bak');
       await file.parent.create(recursive: true);
       await _deleteFileIfExists(temporaryFile);
-      await temporaryFile.writeAsString(
+      await _writeFile(
+        temporaryFile,
         jsonEncode(<String, Object?>{
           'schemaVersion': _storeSchemaVersion,
           'records': records.map(_encodeRecord).toList(growable: false),
@@ -303,11 +328,37 @@ class GeneratedCareMomentLocalStore {
         }),
         flush: true,
       );
-      if (Platform.isWindows && await file.exists()) {
-        await file.delete();
+
+      // Recover an interrupted prior replacement before rotating current
+      // last-good target into its backup.
+      if (!await _existsFile(file) && await _existsFile(backupFile)) {
+        await _renameFile(backupFile, file.path);
       }
-      await temporaryFile.rename(file.path);
+      await _deleteFileIfExists(backupFile);
+      if (await _existsFile(file)) {
+        await _renameFile(file, backupFile.path);
+        backupCreated = true;
+      }
+      await _renameFile(temporaryFile, file.path);
+      await _deleteFileIfExists(backupFile);
+      backupCreated = false;
     } on Object {
+      if (backupFile != null && temporaryFile != null) {
+        try {
+          final file = await _resolveFile();
+          final backupExists = await _existsFile(backupFile);
+          final fileExists = await _existsFile(file);
+          if (backupExists && (backupCreated || !fileExists)) {
+            if (fileExists) {
+              await _deleteFileIfExists(file);
+            }
+            await _renameFile(backupFile, file.path);
+            backupCreated = false;
+          }
+        } on Object {
+          // Preserve backup for a later recovery attempt if restore is blocked.
+        }
+      }
       if (temporaryFile != null) {
         try {
           await _deleteFileIfExists(temporaryFile);
@@ -324,8 +375,21 @@ class GeneratedCareMomentLocalStore {
       final file = await _resolveFile();
       await _deleteFileIfExists(file);
       await _deleteFileIfExists(File('${file.path}.tmp'));
+      await _deleteFileIfExists(File('${file.path}.bak'));
     } on Object {
       throw const GeneratedCareMomentLocalStoreException();
+    }
+  }
+
+  Future<void> _restoreBackupIfNeeded(File file) async {
+    final backup = File('${file.path}.bak');
+    if (await _existsFile(file) || !await _existsFile(backup)) {
+      return;
+    }
+    try {
+      await _renameFile(backup, file.path);
+    } on Object {
+      // Leave backup in place for a later read/retry.
     }
   }
 
@@ -341,8 +405,8 @@ class GeneratedCareMomentLocalStore {
   }
 
   Future<void> _deleteFileIfExists(File file) async {
-    if (await file.exists()) {
-      await file.delete();
+    if (await _existsFile(file)) {
+      await _deleteFile(file);
     }
   }
 }
@@ -352,6 +416,18 @@ class GeneratedCareMomentLocalStoreException implements Exception {
 
   @override
   String toString() => 'Generated care moment storage unavailable.';
+}
+
+Future<bool> _defaultExists(File file) => file.exists();
+
+Future<void> _defaultDelete(File file) => file.delete();
+
+Future<File> _defaultRename(File source, String targetPath) {
+  return source.rename(targetPath);
+}
+
+Future<void> _defaultWrite(File file, String contents, {required bool flush}) {
+  return file.writeAsString(contents, flush: flush);
 }
 
 class _StoreState {

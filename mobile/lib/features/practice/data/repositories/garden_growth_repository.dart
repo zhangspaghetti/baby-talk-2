@@ -2,6 +2,8 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
 
 class GardenGrowthRepository {
   GardenGrowthRepository({
@@ -23,10 +25,15 @@ class GardenGrowthRepository {
     };
     final activityStates = <_ActivityKey, _ActivityProjectionState>{};
     final phraseRefs = <_PhraseKey, _PhraseReference>{};
+    final seedSpacesById = <String, SeedSpace>{
+      for (final space in content.spaces) space.id: space,
+    };
+    final seedActivitiesByKey = <_ActivityKey, SeedActivity>{};
 
     for (final space in content.spaces) {
       for (final activity in space.activities) {
         final activityKey = _ActivityKey(space.id, activity.id);
+        seedActivitiesByKey[activityKey] = activity;
         activityStates[activityKey] = _ActivityProjectionState.fromSeed(
           space: space,
           activity: activity,
@@ -56,14 +63,33 @@ class GardenGrowthRepository {
     final coveredSpaceIds = <String>{};
     DateTime? streakLastDay;
     var streakRun = 0;
+    final generatedSnapshotsByContentId = <String, PracticeActivitySnapshot?>{};
 
     for (final event in inspection.validEvents) {
-      final phraseRef =
-          phraseRefs[_PhraseKey(
-            event.spaceId,
-            event.activityId,
-            event.phraseId,
-          )];
+      final generatedPreset = event.generatedContentId == null
+          ? null
+          : await _resolvePresetSnapshot(
+              generatedContentId: event.generatedContentId!,
+              cache: generatedSnapshotsByContentId,
+            );
+      final phraseRef = generatedPreset == null
+          ? event.generatedContentId == null
+                ? phraseRefs[_PhraseKey(
+                    event.spaceId,
+                    event.activityId,
+                    event.phraseId,
+                  )]
+                : null
+          : _toPresetPhraseReference(
+              event: event,
+              snapshot: generatedPreset,
+              space: seedSpacesById[event.spaceId],
+              activity:
+                  seedActivitiesByKey[_ActivityKey(
+                    event.spaceId,
+                    event.activityId,
+                  )],
+            );
       if (phraseRef == null) {
         skippedUnknownContentEvents += 1;
         continue;
@@ -79,7 +105,11 @@ class GardenGrowthRepository {
       final wasSpaceStarted = spaceState.totalKnownEvents > 0;
       final hadCooperatingReaction = sawCooperatingReaction;
 
-      activityState.record(event);
+      if (generatedPreset == null) {
+        activityState.record(event);
+      } else {
+        activityState.recordGeneratedPreset(event);
+      }
       spaceState.record(
         activityId: event.activityId,
         eventTime: event.clientTimestamp,
@@ -305,6 +335,9 @@ class GardenGrowthRepository {
     LatestPracticeImpact? latestImpact;
 
     for (final snapshot in snapshots) {
+      if (snapshot.inputSource == SceneGenerationSourceType.preset) {
+        continue;
+      }
       final generatedContentId = snapshot.generatedContentId;
       if (generatedContentId == null) {
         continue;
@@ -412,6 +445,71 @@ class GardenGrowthRepository {
       diaryEntries: List.unmodifiable(diaryEntries),
       knownEvents: knownEvents,
       latestImpact: latestImpact,
+    );
+  }
+
+  Future<PracticeActivitySnapshot?> _resolvePresetSnapshot({
+    required String generatedContentId,
+    required Map<String, PracticeActivitySnapshot?> cache,
+  }) async {
+    if (cache.containsKey(generatedContentId)) {
+      return cache[generatedContentId];
+    }
+    try {
+      final snapshot = await _practiceRepository.getGeneratedActivitySnapshot(
+        generatedContentId: generatedContentId,
+      );
+      final preset = snapshot.inputSource == SceneGenerationSourceType.preset
+          ? snapshot
+          : null;
+      cache[generatedContentId] = preset;
+      return preset;
+    } on Object {
+      cache[generatedContentId] = null;
+      return null;
+    }
+  }
+
+  _PhraseReference? _toPresetPhraseReference({
+    required InteractionEventPayload event,
+    required PracticeActivitySnapshot snapshot,
+    required SeedSpace? space,
+    required SeedActivity? activity,
+  }) {
+    if (space == null ||
+        activity == null ||
+        snapshot.generatedContentId != event.generatedContentId ||
+        snapshot.spaceId != event.spaceId ||
+        snapshot.activityId != event.activityId) {
+      return null;
+    }
+    final expectedUtteranceId = snapshot.utteranceIdForPhrase(event.phraseId);
+    if (expectedUtteranceId == null ||
+        event.utteranceId != expectedUtteranceId) {
+      return null;
+    }
+    PracticePhrase? generatedPhrase;
+    for (final phrase in snapshot.phrases) {
+      if (phrase.phraseId == event.phraseId) {
+        generatedPhrase = phrase;
+        break;
+      }
+    }
+    if (generatedPhrase == null) {
+      return null;
+    }
+    return _PhraseReference(
+      space: space,
+      activity: activity,
+      phrase: SeedPhrase(
+        id: generatedPhrase.phraseId,
+        step: generatedPhrase.step,
+        english: generatedPhrase.english,
+        chinese: generatedPhrase.chinese,
+        pronunciation: generatedPhrase.pronunciation,
+        difficulty: generatedPhrase.difficulty,
+        audioAsset: '',
+      ),
     );
   }
 
@@ -726,6 +824,14 @@ class _ActivityProjectionState {
   void record(InteractionEventPayload event) {
     totalEvents += 1;
     completedPhraseIds.add(event.phraseId);
+    hasCooperatingReaction =
+        hasCooperatingReaction ||
+        event.reactionType == BabyReactionType.cooperating;
+    lastEventTime = event.clientTimestamp;
+  }
+
+  void recordGeneratedPreset(InteractionEventPayload event) {
+    totalEvents += 1;
     hasCooperatingReaction =
         hasCooperatingReaction ||
         event.reactionType == BabyReactionType.cooperating;

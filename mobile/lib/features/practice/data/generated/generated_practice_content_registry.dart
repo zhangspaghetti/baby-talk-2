@@ -95,16 +95,42 @@ class GeneratedPracticeContentRegistry
       return null;
     }
     try {
-      final record = (await _store.readAll()).where(
-        (candidate) =>
-            candidate.accountContext == accountContext &&
-            candidate.moment.spaceId == spaceId.trim() &&
-            candidate.moment.activityId == activityId.trim(),
-      );
-      if (record.length != 1) {
+      final records = (await _store.readAll())
+          .where(
+            (candidate) =>
+                candidate.accountContext == accountContext &&
+                candidate.moment.spaceId == spaceId.trim() &&
+                candidate.moment.activityId == activityId.trim(),
+          )
+          .toList(growable: false);
+      if (records.isEmpty) {
         return null;
       }
-      return _toSnapshot(record.single.moment);
+      if (records.length == 1) {
+        return _toSnapshot(records.single.moment);
+      }
+      final presetRecords =
+          records
+              .where(
+                (candidate) =>
+                    candidate.moment.inputSource ==
+                    SceneGenerationSourceType.preset,
+              )
+              .toList(growable: false)
+            ..sort((left, right) {
+              final versionComparison = right.moment.presetSceneVersion!
+                  .compareTo(left.moment.presetSceneVersion!);
+              if (versionComparison != 0) {
+                return versionComparison;
+              }
+              return left.moment.generatedContentId.compareTo(
+                right.moment.generatedContentId,
+              );
+            });
+      if (presetRecords.isEmpty) {
+        return null;
+      }
+      return _toSnapshot(presetRecords.first.moment);
     } on Object {
       return null;
     }
