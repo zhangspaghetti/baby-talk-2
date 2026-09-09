@@ -17,6 +17,7 @@ import 'package:mobile/features/practice/domain/models/practice_continuity_snaps
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
 
 class PracticeActivitySnapshot {
   const PracticeActivitySnapshot({
@@ -29,6 +30,9 @@ class PracticeActivitySnapshot {
     required this.phrases,
     this.contentSource = PracticeContentSource.seed,
     this.generatedContentId,
+    this.inputSource,
+    this.presetSceneId,
+    this.presetSceneVersion,
     this.utteranceIdsByPhraseId = const <String, String>{},
     this.reactionSupportPhraseIds = const <BabyReactionType, String>{},
   });
@@ -42,6 +46,9 @@ class PracticeActivitySnapshot {
   final List<PracticePhrase> phrases;
   final PracticeContentSource contentSource;
   final String? generatedContentId;
+  final SceneGenerationSourceType? inputSource;
+  final String? presetSceneId;
+  final int? presetSceneVersion;
   final Map<String, String> utteranceIdsByPhraseId;
   final Map<BabyReactionType, String> reactionSupportPhraseIds;
 
@@ -387,6 +394,9 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
     var skippedMalformedEvents = 0;
     var skippedUnknownContentEvents = 0;
     String? lastIssueMessage = scanErrorMessage;
+    final resolvedGeneratedByContentId = <String, PracticeActivitySnapshot?>{
+      ...generatedByContentId,
+    };
 
     for (final entity in rawEntities) {
       try {
@@ -395,9 +405,27 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
 
         final generated = event.generatedContentId == null
             ? null
-            : generatedByContentId[event.generatedContentId];
+            : await _resolveGeneratedContentForCatalog(
+                generatedContentId: event.generatedContentId!,
+                cache: resolvedGeneratedByContentId,
+              );
         if (generated != null && _matchesGeneratedEvent(event, generated)) {
-          knownGeneratedEvents += 1;
+          if (generated.inputSource == SceneGenerationSourceType.preset) {
+            final activityState =
+                activityStates[_CatalogActivityKey(
+                  event.spaceId,
+                  event.activityId,
+                )];
+            if (activityState == null) {
+              skippedUnknownContentEvents += 1;
+              lastIssueMessage =
+                  '跳过未知 preset activity 事件：${event.spaceId}/${event.activityId}/${event.phraseId}';
+              continue;
+            }
+            activityState.recordGeneratedPreset(event, generated);
+          } else {
+            knownGeneratedEvents += 1;
+          }
           continue;
         }
 
@@ -1408,6 +1436,25 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
     }
   }
 
+  Future<PracticeActivitySnapshot?> _resolveGeneratedContentForCatalog({
+    required String generatedContentId,
+    required Map<String, PracticeActivitySnapshot?> cache,
+  }) async {
+    if (cache.containsKey(generatedContentId)) {
+      return cache[generatedContentId];
+    }
+    try {
+      final snapshot = await _contentResolver?.resolveGeneratedContent(
+        generatedContentId: generatedContentId,
+      );
+      cache[generatedContentId] = snapshot;
+      return snapshot;
+    } on Object {
+      cache[generatedContentId] = null;
+      return null;
+    }
+  }
+
   List<InteractionEventPayload> _filterDerivableEvents({
     required PracticeActivitySnapshot snapshot,
     required List<InteractionEventPayload> events,
@@ -1432,13 +1479,16 @@ class PracticeRepository implements BundledPracticeReactionRecorder {
     PracticeActivitySnapshot snapshot,
   ) {
     final generatedContentId = snapshot.generatedContentId;
-    if (generatedContentId == null ||
+    if (snapshot.contentSource != PracticeContentSource.generated ||
+        generatedContentId == null ||
         event.generatedContentId != generatedContentId ||
         event.spaceId != snapshot.spaceId ||
         event.activityId != snapshot.activityId) {
       return false;
     }
-    return event.utteranceId == snapshot.utteranceIdForPhrase(event.phraseId);
+    final expectedUtteranceId = snapshot.utteranceIdForPhrase(event.phraseId);
+    return expectedUtteranceId != null &&
+        event.utteranceId == expectedUtteranceId;
   }
 
   PracticeHomeSummary _buildHomeSummary({
@@ -1698,6 +1748,7 @@ class _CatalogActivityState {
   int skippedUnknownPhraseCount = 0;
   int skippedMalformedEventCount = 0;
   InteractionEventPayload? latestKnownEvent;
+  String? latestKnownPhraseEnglish;
   String? latestWarningMessage;
 
   bool containsPhrase(String phraseId) => _phraseById.containsKey(phraseId);
@@ -1706,6 +1757,38 @@ class _CatalogActivityState {
     totalEvents += 1;
     _completedPhraseIds.add(event.phraseId);
     latestKnownEvent = event;
+    latestKnownPhraseEnglish = _phraseById[event.phraseId]?.english;
+  }
+
+  void recordGeneratedPreset(
+    InteractionEventPayload event,
+    PracticeActivitySnapshot snapshot,
+  ) {
+    if (snapshot.contentSource != PracticeContentSource.generated ||
+        snapshot.inputSource != SceneGenerationSourceType.preset ||
+        snapshot.generatedContentId == null ||
+        snapshot.generatedContentId != event.generatedContentId ||
+        snapshot.spaceId != event.spaceId ||
+        snapshot.activityId != event.activityId) {
+      throw const FormatException('invalid generated preset event identity');
+    }
+    PracticePhrase? generatedPhrase;
+    for (final phrase in snapshot.phrases) {
+      if (phrase.phraseId == event.phraseId) {
+        generatedPhrase = phrase;
+        break;
+      }
+    }
+    if (generatedPhrase == null ||
+        snapshot.utteranceIdForPhrase(event.phraseId) != event.utteranceId) {
+      throw const FormatException('invalid generated preset phrase identity');
+    }
+    totalEvents += 1;
+    if (_phraseById.containsKey(event.phraseId)) {
+      _completedPhraseIds.add(event.phraseId);
+    }
+    latestKnownEvent = event;
+    latestKnownPhraseEnglish = generatedPhrase.english;
   }
 
   void recordUnknownPhrase(InteractionEventPayload event) {
@@ -1743,9 +1826,7 @@ class _CatalogActivityState {
     }
     nextPhrase ??= _phrases.isEmpty ? null : _phrases.last;
 
-    final latestPhrase = latestKnownEvent == null
-        ? null
-        : _phraseById[latestKnownEvent!.phraseId];
+    final latestPhraseEnglish = latestKnownPhraseEnglish;
 
     return PracticeCatalogActivitySummary(
       spaceId: spaceId,
@@ -1764,11 +1845,11 @@ class _CatalogActivityState {
       skippedUnknownPhraseCount: skippedUnknownPhraseCount,
       skippedMalformedEventCount: skippedMalformedEventCount,
       lastEventTime: latestKnownEvent?.clientTimestamp,
-      recentResult: latestKnownEvent == null || latestPhrase == null
+      recentResult: latestKnownEvent == null || latestPhraseEnglish == null
           ? null
           : PracticeCatalogRecentResultSummary(
               phraseId: latestKnownEvent!.phraseId,
-              phraseEnglish: latestPhrase.english,
+              phraseEnglish: latestPhraseEnglish,
               reactionType: latestKnownEvent!.reactionType,
               eventTime: latestKnownEvent!.clientTimestamp,
               totalEvents: totalEvents,

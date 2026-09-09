@@ -154,6 +154,152 @@ void main() {
     );
 
     test(
+      'persists preset source metadata while keeping both sources resolvable',
+      () async {
+        final custom = _moment('custom_round_trip');
+        final preset = _moment(
+          'preset_round_trip',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 7,
+        );
+        await registry.register(accountContext: accountContext, moment: custom);
+        await registry.register(accountContext: accountContext, moment: preset);
+
+        final restartedRegistry = GeneratedPracticeContentRegistry(
+          store: GeneratedCareMomentLocalStore(
+            directoryResolver: () async => tempDir,
+          ),
+          resumeStore: resumeStore,
+          accountContextLoader: () async => accountContext,
+        );
+
+        final resolvedCustom = await restartedRegistry.resolveGeneratedContent(
+          generatedContentId: custom.generatedContentId,
+        );
+        final resolvedPreset = await restartedRegistry.resolveGeneratedContent(
+          generatedContentId: preset.generatedContentId,
+        );
+
+        expect(resolvedCustom?.inputSource, SceneGenerationSourceType.custom);
+        expect(resolvedCustom?.presetSceneId, isNull);
+        expect(resolvedPreset?.inputSource, SceneGenerationSourceType.preset);
+        expect(resolvedPreset?.presetSceneId, 'bath_time');
+        expect(resolvedPreset?.presetSceneVersion, 7);
+        expect(
+          (await restartedRegistry.resolveActivity(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ))?.inputSource,
+          SceneGenerationSourceType.preset,
+        );
+        expect(
+          (await restartedRegistry.listGeneratedActivities()).map(
+            (activity) => activity.generatedContentId,
+          ),
+          <String>[custom.generatedContentId],
+        );
+      },
+    );
+
+    test(
+      'migrates legacy records without inputSource as custom history',
+      () async {
+        final moment = _moment('legacy_custom_round_trip');
+        await registry.register(accountContext: accountContext, moment: moment);
+
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root['schemaVersion'] = 2;
+        for (final value in root['records'] as List<dynamic>) {
+          (value as Map<String, dynamic>)
+            ..remove('inputSource')
+            ..remove('presetSceneId')
+            ..remove('presetSceneVersion');
+        }
+        await file.writeAsString(jsonEncode(root));
+
+        final resolved = await registry.resolveGeneratedContent(
+          generatedContentId: moment.generatedContentId,
+        );
+
+        expect(resolved?.inputSource, SceneGenerationSourceType.custom);
+        final migrated =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        expect(migrated['schemaVersion'], 3);
+        final migratedRecord =
+            (migrated['records'] as List<dynamic>).single
+                as Map<String, dynamic>;
+        expect(migratedRecord['inputSource'], 'custom');
+        expect(migratedRecord['presetSceneId'], isNull);
+        expect(migratedRecord['presetSceneVersion'], isNull);
+      },
+    );
+
+    test(
+      'quarantines a preset record missing source identity instead of decoding custom',
+      () async {
+        final moment = _moment(
+          'malformed_preset_identity',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(accountContext: accountContext, moment: moment);
+
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root['schemaVersion'] = 3;
+        final record =
+            (root['records'] as List<dynamic>).single as Map<String, dynamic>;
+        record['inputSource'] = 'preset';
+        record.remove('presetSceneId');
+        record.remove('presetSceneVersion');
+        await file.writeAsString(jsonEncode(root));
+
+        expect(
+          await registry.resolveGeneratedContent(
+            generatedContentId: moment.generatedContentId,
+          ),
+          isNull,
+        );
+        final diagnostics = await store.readQuarantineDiagnostics();
+        expect(diagnostics.single.reasonCode, 'invalid_generated_bundle');
+        expect(
+          await file.readAsString(),
+          isNot(contains(moment.starter.english)),
+        );
+      },
+    );
+
+    test(
+      'rejects preset source identity that disagrees with stable activity route',
+      () {
+        expect(
+          () => _moment(
+            'mismatched_preset_identity',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            inputSource: SceneGenerationSourceType.preset,
+            presetSceneId: 'feeding_time',
+            presetSceneVersion: 1,
+          ),
+          throwsArgumentError,
+        );
+      },
+    );
+
+    test(
       'generated projection distinguishes unavailable account from empty',
       () async {
         final unavailableRegistry = GeneratedPracticeContentRegistry(
@@ -1219,11 +1365,17 @@ GeneratedCareMoment _moment(
   String generatedContentId, {
   String? spaceId,
   String? activityId,
+  SceneGenerationSourceType inputSource = SceneGenerationSourceType.custom,
+  String? presetSceneId,
+  int? presetSceneVersion,
 }) {
   return generatedCareMomentFixture(
     generatedContentId: generatedContentId,
     spaceId: spaceId,
     activityId: activityId,
+    inputSource: inputSource,
+    presetSceneId: presetSceneId,
+    presetSceneVersion: presetSceneVersion,
   );
 }
 

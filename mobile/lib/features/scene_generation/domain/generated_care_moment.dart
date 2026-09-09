@@ -212,6 +212,11 @@ class GeneratedCareMoment {
             'preset scene generation requires positive version',
           );
         }
+        if (presetSceneId!.trim() != activityId) {
+          throw ArgumentError(
+            'preset scene generation route identity must match activity',
+          );
+        }
     }
   }
 }

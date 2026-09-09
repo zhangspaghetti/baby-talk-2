@@ -44,7 +44,8 @@ class GeneratedCareMomentLocalStore {
   }) : _directoryResolver = directoryResolver ?? getApplicationSupportDirectory,
        _clock = clock ?? DateTime.now;
 
-  static const _storeSchemaVersion = 2;
+  static const _storeSchemaVersion = 3;
+  static const _legacyStoreSchemaVersion = 2;
 
   final GeneratedCareMomentDirectoryResolver _directoryResolver;
   final DateTime Function() _clock;
@@ -139,7 +140,8 @@ class GeneratedCareMomentLocalStore {
       }
       final root = _stringKeyedMap(decoded, 'generated care moment root');
       final schemaVersion = root['schemaVersion'];
-      if (schemaVersion != _storeSchemaVersion) {
+      final isLegacySchema = schemaVersion == _legacyStoreSchemaVersion;
+      if (schemaVersion != _storeSchemaVersion && !isLegacySchema) {
         return _quarantineWholeFile(
           raw,
           'unsupported_store_schema',
@@ -155,7 +157,12 @@ class GeneratedCareMomentLocalStore {
       });
       final encodedDiagnostics = root['quarantineDiagnostics'];
       if (encodedDiagnostics is! List) {
-        return _quarantineWholeFile(raw, 'invalid_quarantine_metadata', '2', 0);
+        return _quarantineWholeFile(
+          raw,
+          'invalid_quarantine_metadata',
+          schemaVersion.toString(),
+          0,
+        );
       }
       final diagnostics = <_QuarantineEntry>[
         for (final entry in encodedDiagnostics)
@@ -163,14 +170,22 @@ class GeneratedCareMomentLocalStore {
       ];
       final encodedRecords = root['records'];
       if (encodedRecords is! List) {
-        return _quarantineWholeFile(raw, 'invalid_store_records', '2', 0);
+        return _quarantineWholeFile(
+          raw,
+          'invalid_store_records',
+          schemaVersion.toString(),
+          0,
+        );
       }
       final parsed = <StoredGeneratedCareMoment>[];
       final quarantined = <_QuarantineEntry>[...diagnostics];
       for (final entry in encodedRecords) {
         try {
           parsed.add(
-            _decodeRecord(_stringKeyedMap(entry, 'generated care moment')),
+            _decodeRecord(
+              _stringKeyedMap(entry, 'generated care moment'),
+              allowLegacyMissingInputSource: isLegacySchema,
+            ),
           );
         } on Object {
           quarantined.add(
@@ -199,7 +214,7 @@ class GeneratedCareMomentLocalStore {
           accountContexts: parsed.map((record) => record.accountContext),
         );
       }
-      if (quarantined.length != diagnostics.length) {
+      if (quarantined.length != diagnostics.length || isLegacySchema) {
         final state = _StoreState(parsed, quarantined);
         await _writeState(state.records, state.diagnostics);
         return state;
@@ -437,6 +452,9 @@ Map<String, Object?> _encodeRecord(StoredGeneratedCareMoment record) {
     'sceneTag': moment.sceneTag,
     'coachTip': moment.coachTip,
     'source': moment.source,
+    'inputSource': moment.inputSource.wireValue,
+    'presetSceneId': moment.presetSceneId,
+    'presetSceneVersion': moment.presetSceneVersion,
     'starter': _encodeUtterance(moment.starter),
     'reactionSupports': <String, Object?>{
       for (final reaction in BabyReactionType.values)
@@ -445,8 +463,11 @@ Map<String, Object?> _encodeRecord(StoredGeneratedCareMoment record) {
   };
 }
 
-StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
-  _requireExactKeys(json, const <String>{
+StoredGeneratedCareMoment _decodeRecord(
+  Map<String, dynamic> json, {
+  required bool allowLegacyMissingInputSource,
+}) {
+  final expectedKeys = <String>{
     'accountContext',
     'schemaVersion',
     'generatedContentId',
@@ -460,7 +481,13 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
     'source',
     'starter',
     'reactionSupports',
-  });
+    if (!allowLegacyMissingInputSource) ...<String>[
+      'inputSource',
+      'presetSceneId',
+      'presetSceneVersion',
+    ],
+  };
+  _requireExactKeys(json, expectedKeys);
   final supports = _stringKeyedMap(
     json['reactionSupports'],
     'reactionSupports',
@@ -473,6 +500,17 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
   if (source != 'generated') {
     throw const FormatException('invalid generated care moment source');
   }
+  final inputSource = allowLegacyMissingInputSource
+      ? SceneGenerationSourceType.custom
+      : SceneGenerationSourceType.parse(
+          _requiredString(json['inputSource'], 'inputSource'),
+        );
+  final presetSceneId = allowLegacyMissingInputSource
+      ? null
+      : _optionalString(json['presetSceneId'], 'presetSceneId');
+  final presetSceneVersion = allowLegacyMissingInputSource
+      ? null
+      : _optionalInt(json['presetSceneVersion'], 'presetSceneVersion');
   return StoredGeneratedCareMoment(
     accountContext: _requiredString(json['accountContext'], 'accountContext'),
     moment: GeneratedCareMoment(
@@ -489,7 +527,9 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
       sceneTag: _requiredString(json['sceneTag'], 'sceneTag'),
       coachTip: _requiredString(json['coachTip'], 'coachTip'),
       source: source,
-      inputSource: SceneGenerationSourceType.custom,
+      inputSource: inputSource,
+      presetSceneId: presetSceneId,
+      presetSceneVersion: presetSceneVersion,
       starter: _decodeUtterance(_stringKeyedMap(json['starter'], 'starter')),
       reactionSupports: GeneratedReactionSupportMap(
         <BabyReactionType, GeneratedCareUtterance>{
@@ -618,6 +658,23 @@ String _requiredString(Object? value, String name) {
     throw FormatException('invalid generated care moment $name');
   }
   return value.trim();
+}
+
+String? _optionalString(Object? value, String name) {
+  if (value == null) {
+    return null;
+  }
+  return _requiredString(value, name);
+}
+
+int? _optionalInt(Object? value, String name) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! int) {
+    throw FormatException('invalid generated care moment $name');
+  }
+  return value;
 }
 
 int _requiredNonNegativeInt(Object? value, String name) {

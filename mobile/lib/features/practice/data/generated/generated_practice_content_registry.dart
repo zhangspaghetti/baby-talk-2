@@ -135,6 +135,11 @@ class GeneratedPracticeContentRegistry
       final records =
           (await _store.readAll())
               .where((candidate) => candidate.accountContext == accountContext)
+              .where(
+                (candidate) =>
+                    candidate.moment.inputSource ==
+                    SceneGenerationSourceType.custom,
+              )
               .map((candidate) => _toSnapshot(candidate.moment))
               .toList(growable: false)
             ..sort(
@@ -293,6 +298,9 @@ class GeneratedPracticeContentRegistry
       coachTip: moment.coachTip,
       contentSource: PracticeContentSource.generated,
       generatedContentId: moment.generatedContentId,
+      inputSource: moment.inputSource,
+      presetSceneId: moment.presetSceneId,
+      presetSceneVersion: moment.presetSceneVersion,
       utteranceIdsByPhraseId: <String, String>{
         for (final utterance in utterances)
           utterance.phraseId: utterance.utteranceId,
@@ -339,6 +347,16 @@ class GeneratedPracticeContentRegistry
         moment.spaceId.trim().isEmpty ||
         moment.activityId.trim().isEmpty) {
       throw const FormatException('invalid approved generated care moment');
+    }
+    if (moment.inputSource == SceneGenerationSourceType.preset &&
+        (moment.presetSceneId?.trim() != moment.activityId ||
+            moment.presetSceneVersion == null ||
+            moment.presetSceneVersion! < 1)) {
+      throw const FormatException('invalid approved preset scene identity');
+    }
+    if (moment.inputSource == SceneGenerationSourceType.custom &&
+        (moment.presetSceneId != null || moment.presetSceneVersion != null)) {
+      throw const FormatException('invalid approved custom scene identity');
     }
     final branches = <GeneratedCareUtterance>[
       moment.starter,

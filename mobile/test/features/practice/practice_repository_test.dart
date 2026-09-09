@@ -5,7 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
@@ -15,6 +18,7 @@ import 'package:mobile/features/practice/domain/models/practice_continuity_snaps
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
 import '../../support/isar_test_library.dart';
+import '../../support/generated_care_moment_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -183,6 +187,76 @@ void main() {
       );
       expect(catalog.knownEvents, 0);
     });
+
+    test(
+      'attributes a matching preset event to its stable catalog activity',
+      () async {
+        final generatedStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final resumeStore = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+        final registry = GeneratedPracticeContentRegistry(
+          store: generatedStore,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => 'account_preset',
+        );
+        final preset = generatedCareMomentFixture(
+          generatedContentId: 'preset_generated_bath',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(
+          accountContext: 'account_preset',
+          moment: preset,
+        );
+        final presetRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: registry,
+        );
+
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'preset_event_1',
+            installationId: 'install_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: preset.starter.phraseId,
+            reactionType: BabyReactionType.cooperating,
+            clientTimestamp: DateTime.utc(2026, 9, 8, 10),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: preset.starter.utteranceId,
+          ),
+        );
+
+        final catalog = await presetRepository.getActivityCatalog();
+        final bath = catalog.findActivity(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        expect(bath, isNotNull);
+        expect(bath!.totalEvents, 1);
+        expect(bath.generatedContentId, isNull);
+        expect(
+          catalog.activities.where(
+            (activity) => activity.generatedContentId != null,
+          ),
+          isEmpty,
+        );
+        expect(catalog.knownEvents, 1);
+        expect(catalog.skippedUnknownContentEvents, 0);
+      },
+    );
 
     test('generated projection 读取故障与未知错误继续显式失败', () async {
       final errors = <Object>[
