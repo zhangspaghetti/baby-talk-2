@@ -9,7 +9,7 @@ void main() {
   test('serializes exact guest contract and parses domain result', () async {
     final dio = _mockDio((options) async {
       expect(options.path, '/api/v1/onboarding/conversations');
-      expect(options.headers['X-App-Version'], '1.2.0');
+      expect(options.headers['X-App-Version'], '1.3.0');
       expect(options.data, <String, Object?>{
         'installationId': 'install-test-1234',
         'localEventId': 'onboarding-request-1',
@@ -83,7 +83,7 @@ void main() {
       audioCapabilities: vault,
       dio: _mockDio((options) async {
         expect(options.path, '/api/v1/onboarding/conversations/onbc_1/turns');
-        expect(options.headers['X-App-Version'], '1.2.0');
+        expect(options.headers['X-App-Version'], '1.3.0');
         expect(options.data, <String, Object?>{
           'localEventId': 'next-event-1',
           'previousUtteranceId': 'utterance-1',

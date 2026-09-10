@@ -2240,6 +2240,65 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsLanguageBilingual => '双语';
 
   @override
+  String get presetGenerationProgress => '正在为宝宝准备个性化练习…';
+
+  @override
+  String get presetGenerationUnavailable => '个性化练习暂时不可用，请重试。';
+
+  @override
+  String get presetGenerationGenericFallback => '使用通用内容';
+
+  @override
+  String get sceneGenerationAuthenticationRequired => '请先登录后再生成。';
+
+  @override
+  String get sceneGenerationProfileUnavailable => '宝宝档案暂不可用，请先完善宝宝档案后再试。';
+
+  @override
+  String get sceneGenerationSharedProfileUnavailable =>
+      '共享宝宝档案暂不可用，请让主照护者先完成档案后再试。';
+
+  @override
+  String get sceneGenerationHouseholdAccessRequired =>
+      '请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。';
+
+  @override
+  String get sceneGenerationPresetUnavailable => '预置场景暂不可用，请稍后再试。';
+
+  @override
+  String get sceneGenerationInvalidInput => '请调整场景描述后再试。';
+
+  @override
+  String get sceneGenerationRequestConflict => '这次场景描述已变更，请重新开始生成。';
+
+  @override
+  String get sceneGenerationRequestTerminal => '这次生成已结束，请使用新的请求重新生成。';
+
+  @override
+  String get sceneGenerationInProgress => '场景正在生成，请稍后查看。';
+
+  @override
+  String get sceneGenerationRateLimited => '生成次数过多，请稍后再试。';
+
+  @override
+  String get sceneGenerationUnavailable => '生成服务暂不可用，请稍后再试。';
+
+  @override
+  String get sceneGenerationTimeout => '生成超时，请稍后重试。';
+
+  @override
+  String get sceneGenerationNetwork => '网络暂不可用，请检查后重试。';
+
+  @override
+  String get sceneGenerationMalformedResponse => '生成响应异常，请稍后再试。';
+
+  @override
+  String get sceneGenerationRejected => '这段场景描述暂不适合生成，请调整后再试。';
+
+  @override
+  String get sceneGenerationUnexpected => '生成失败，请稍后再试。';
+
+  @override
   String get mentorBubbleCaption => '禾';
 
   @override

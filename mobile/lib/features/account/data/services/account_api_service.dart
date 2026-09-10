@@ -4,13 +4,11 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/api_version.dart';
 import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
-const String defaultAccountApiVersion = String.fromEnvironment(
-  'BABY_TALK_API_VERSION',
-  defaultValue: '1.3.0',
-);
+const String defaultAccountApiVersion = defaultAppApiVersion;
 const String defaultAccountApiBaseUrl = String.fromEnvironment(
   'BABY_TALK_API_BASE_URL',
   defaultValue: 'http://127.0.0.1:8080',

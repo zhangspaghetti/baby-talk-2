@@ -48,10 +48,12 @@ void main() {
       await store.clearForHouseholdScope('household_a');
 
       expect(await store.readForAccount('account_a'), isNull);
+      householdScope = 'household_b';
       expect(
         (await store.readForAccount('account_b'))?.generatedContentId,
         'generated_b',
       );
+      householdScope = null;
       expect(
         (await store.readForAccount('account_standalone'))?.generatedContentId,
         'generated_standalone',
@@ -62,6 +64,21 @@ void main() {
       expect(raw, isNot(contains('household_a')));
       expect(raw, contains('householdScopeFingerprint'));
     });
+
+    test(
+      'does not return a marker after the current household scope changes',
+      () async {
+        householdScope = 'household_a';
+        await store.write(
+          accountContext: 'account_a',
+          generatedContentId: 'generated_a',
+          confirmedAt: DateTime.utc(2026, 9, 9),
+        );
+        householdScope = 'household_b';
+
+        expect(await store.readForAccount('account_a'), isNull);
+      },
+    );
 
     test(
       'retries household marker cleanup after a failed replacement',

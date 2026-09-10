@@ -37,6 +37,413 @@ const _completePresetSource = PresetSceneGenerationSource(
 
 void main() {
   test(
+    'controller source identity treats published version as immutable',
+    () async {
+      final requests = <PresetSceneGenerationSource>[];
+      var attempt = 0;
+      final controller = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async {
+            requests.add(source as PresetSceneGenerationSource);
+            attempt += 1;
+            if (attempt == 1) {
+              throw const SceneGenerationFailure(
+                kind: SceneGenerationFailureKind.timeout,
+                retryable: true,
+              );
+            }
+            return _presetMoment(presetSceneVersion: 1);
+          },
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+
+      await controller.generate(
+        source: const PresetSceneGenerationSource(
+          'bath_time',
+          presetSceneVersion: 1,
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+        clientRequestId: 'version_1',
+      );
+      await controller.generate(
+        source: const PresetSceneGenerationSource(
+          'bath_time',
+          presetSceneVersion: 2,
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+        clientRequestId: 'version_2',
+      );
+
+      expect(requests, hasLength(1));
+      expect(
+        controller.status,
+        SceneGenerationControllerStatus.recoverableError,
+      );
+      expect(controller.source, isA<PresetSceneGenerationSource>());
+      expect(
+        (controller.source! as PresetSceneGenerationSource).presetSceneVersion,
+        1,
+      );
+    },
+  );
+
+  testWidgets(
+    'default provider identity includes the published preset version',
+    (tester) async {
+      final controllerV1 = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async =>
+              _presetMoment(presetSceneVersion: 1),
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      final controllerV2 = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async =>
+              _presetMoment(
+                generatedContentId: 'generated_preset_v2',
+                presetSceneVersion: 2,
+              ),
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      final registry = _NoOpGeneratedPracticeContentRegistry(
+        store: GeneratedCareMomentLocalStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+        resumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+      );
+      final routed = <String>[];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sceneGenerationControllerProvider(
+              'daily_care/bath_time',
+            ).overrideWith((ref) => controllerV1),
+            sceneGenerationControllerProvider(
+              'daily_care/bath_time@v2',
+            ).overrideWith((ref) => controllerV2),
+            generatedPracticeContentRegistryProvider.overrideWithValue(
+              registry,
+            ),
+          ],
+          child: MaterialApp(
+            home: PresetSceneGenerationGateScreen(
+              routeEntry: PracticeRouteEntry.fromObject(
+                const PracticeRouteArgs(
+                  spaceId: 'daily_care',
+                  activityId: 'bath_time',
+                ),
+              ),
+              presetDefinitionLoader: (args) async => _presetDefinition(
+                args.normalizedActivityId,
+                publishedVersion: 2,
+              ),
+              bundledFallbackLoader: (_) async => false,
+              onGenerated: (args) async => routed.add(args.generatedContentId),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(controllerV1.state.status, SceneGenerationControllerStatus.idle);
+      expect(
+        controllerV2.state.status,
+        SceneGenerationControllerStatus.success,
+      );
+      expect(routed, <String>['generated_preset_v2']);
+    },
+  );
+
+  testWidgets(
+    'preset unavailable retry refreshes catalog and binds the new version',
+    (tester) async {
+      var currentVersion = 1;
+      var refreshCalls = 0;
+      final controllerV1 = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async {
+            throw const SceneGenerationFailure(
+              kind: SceneGenerationFailureKind.presetSceneUnavailable,
+              retryable: true,
+            );
+          },
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      final controllerV2 = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async =>
+              _presetMoment(
+                generatedContentId: 'generated_after_refresh',
+                presetSceneVersion: 2,
+              ),
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      final registry = _NoOpGeneratedPracticeContentRegistry(
+        store: GeneratedCareMomentLocalStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+        resumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+      );
+      final routed = <String>[];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sceneGenerationControllerProvider(
+              'daily_care/bath_time@v1',
+            ).overrideWith((ref) => controllerV1),
+            sceneGenerationControllerProvider(
+              'daily_care/bath_time@v2',
+            ).overrideWith((ref) => controllerV2),
+            generatedPracticeContentRegistryProvider.overrideWithValue(
+              registry,
+            ),
+          ],
+          child: MaterialApp(
+            home: PresetSceneGenerationGateScreen(
+              routeEntry: PracticeRouteEntry.fromObject(
+                const PracticeRouteArgs(
+                  spaceId: 'daily_care',
+                  activityId: 'bath_time',
+                ),
+              ),
+              presetDefinitionLoader: (args) async => _presetDefinition(
+                args.normalizedActivityId,
+                publishedVersion: currentVersion,
+              ),
+              refreshCatalog: () async {
+                refreshCalls += 1;
+                currentVersion = 2;
+              },
+              bundledFallbackLoader: (_) async => false,
+              onGenerated: (args) async => routed.add(args.generatedContentId),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('preset-generation-retry')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('preset-generation-retry-button')));
+      await tester.pumpAndSettle();
+
+      expect(refreshCalls, 1);
+      expect(
+        controllerV2.state.status,
+        SceneGenerationControllerStatus.success,
+      );
+      expect(routed, <String>['generated_after_refresh']);
+    },
+  );
+
+  testWidgets('removed preset remains unavailable after catalog refresh', (
+    tester,
+  ) async {
+    var available = true;
+    var refreshCalls = 0;
+    final controller = SceneGenerationController(
+      repository: _FakeSceneGenerationRepository(
+        onGenerate: ({required source, required clientRequestId}) async {
+          throw const SceneGenerationFailure(
+            kind: SceneGenerationFailureKind.presetSceneUnavailable,
+            retryable: true,
+          );
+        },
+      ),
+      approvedBundleRegistrar: (_) async {},
+    );
+    final registry = _NoOpGeneratedPracticeContentRegistry(
+      store: GeneratedCareMomentLocalStore(
+        directoryResolver: () async => Directory.systemTemp,
+      ),
+      resumeStore: GeneratedCareTurnResumeMarkerStore(
+        directoryResolver: () async => Directory.systemTemp,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sceneGenerationControllerProvider(
+            'daily_care/bath_time@v1',
+          ).overrideWith((ref) => controller),
+          generatedPracticeContentRegistryProvider.overrideWithValue(registry),
+        ],
+        child: MaterialApp(
+          home: PresetSceneGenerationGateScreen(
+            routeEntry: PracticeRouteEntry.fromObject(
+              const PracticeRouteArgs(
+                spaceId: 'daily_care',
+                activityId: 'bath_time',
+              ),
+            ),
+            presetDefinitionLoader: (args) async =>
+                available ? _presetDefinition(args.normalizedActivityId) : null,
+            refreshCatalog: () async {
+              refreshCalls += 1;
+              available = false;
+            },
+            bundledFallbackLoader: (_) async => true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preset-generation-retry-button')));
+    await tester.pumpAndSettle();
+
+    expect(refreshCalls, 1);
+    expect(find.byKey(const Key('preset-generation-error')), findsOneWidget);
+    expect(find.text('使用通用内容'), findsOneWidget);
+    expect(
+      controller.state.status,
+      SceneGenerationControllerStatus.recoverableError,
+    );
+  });
+
+  testWidgets(
+    'missing preset retry refreshes catalog before re-resolving definition',
+    (tester) async {
+      var available = false;
+      var refreshCalls = 0;
+      final controller = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async =>
+              _presetMoment(),
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      final registry = _NoOpGeneratedPracticeContentRegistry(
+        store: GeneratedCareMomentLocalStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+        resumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+      );
+      final routed = <String>[];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sceneGenerationControllerProvider(
+              'daily_care/bath_time@v1',
+            ).overrideWith((ref) => controller),
+            generatedPracticeContentRegistryProvider.overrideWithValue(
+              registry,
+            ),
+          ],
+          child: MaterialApp(
+            home: PresetSceneGenerationGateScreen(
+              routeEntry: PracticeRouteEntry.fromObject(
+                const PracticeRouteArgs(
+                  spaceId: 'daily_care',
+                  activityId: 'bath_time',
+                ),
+              ),
+              presetDefinitionLoader: (args) async => available
+                  ? _presetDefinition(args.normalizedActivityId)
+                  : null,
+              refreshCatalog: () async {
+                refreshCalls += 1;
+                available = true;
+              },
+              bundledFallbackLoader: (_) async => false,
+              onGenerated: (args) async => routed.add(args.generatedContentId),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('preset-generation-error')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('preset-generation-retry-button')));
+      await tester.pumpAndSettle();
+
+      expect(refreshCalls, 1);
+      expect(routed, <String>['generated_preset_1']);
+    },
+  );
+
+  testWidgets(
+    'preset unavailable retry keeps cached version when refresh is offline',
+    (tester) async {
+      var attempts = 0;
+      final requests = <String>[];
+      final controller = SceneGenerationController(
+        repository: _FakeSceneGenerationRepository(
+          onGenerate: ({required source, required clientRequestId}) async {
+            requests.add(clientRequestId);
+            attempts += 1;
+            if (attempts == 1) {
+              throw const SceneGenerationFailure(
+                kind: SceneGenerationFailureKind.presetSceneUnavailable,
+                retryable: true,
+              );
+            }
+            return _presetMoment(presetSceneVersion: 1);
+          },
+        ),
+        approvedBundleRegistrar: (_) async {},
+      );
+      final registry = _NoOpGeneratedPracticeContentRegistry(
+        store: GeneratedCareMomentLocalStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+        resumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => Directory.systemTemp,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sceneGenerationControllerProvider(
+              'daily_care/bath_time@v1',
+            ).overrideWith((ref) => controller),
+            generatedPracticeContentRegistryProvider.overrideWithValue(
+              registry,
+            ),
+          ],
+          child: MaterialApp(
+            home: PresetSceneGenerationGateScreen(
+              routeEntry: PracticeRouteEntry.fromObject(
+                const PracticeRouteArgs(
+                  spaceId: 'daily_care',
+                  activityId: 'bath_time',
+                ),
+              ),
+              presetDefinitionLoader: (args) async =>
+                  _presetDefinition(args.normalizedActivityId),
+              refreshCatalog: () async => throw StateError('offline'),
+              bundledFallbackLoader: (_) async => false,
+              onGenerated: (_) async {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final firstRequest = requests.single;
+      await tester.tap(find.byKey(const Key('preset-generation-retry-button')));
+      await tester.pumpAndSettle();
+
+      expect(requests, [firstRequest, firstRequest]);
+      expect(controller.state.status, SceneGenerationControllerStatus.success);
+    },
+  );
+
+  test(
     'route entry policy distinguishes preset, generated, onboarding, invalid',
     () {
       final preset = PracticeRouteEntry.fromObject(
@@ -601,7 +1008,7 @@ void main() {
         ProviderScope(
           overrides: [
             sceneGenerationControllerProvider(
-              'daily_care/bath_time',
+              'daily_care/bath_time@v1',
             ).overrideWith((ref) {
               ref.onDispose(() => disposed = true);
               return controllerCompleter.future;
@@ -888,6 +1295,7 @@ void main() {
       for (var index = 0; index < 40 && stableRouted.isEmpty; index += 1) {
         await tester.pump(const Duration(milliseconds: 25));
       }
+      await tester.pump();
 
       expect(stableRouted, ['generated_preset_1']);
       expect(movingRouted, ['generated_preset_1']);
@@ -1168,10 +1576,11 @@ class _SequencedSceneGenerationRepository implements SceneGenerationRepository {
 PresetSceneDefinition _presetDefinition(
   String activityId, {
   String spaceId = 'daily_care',
+  int publishedVersion = 1,
 }) {
   return PresetSceneDefinition(
     presetSceneId: activityId,
-    publishedVersion: 1,
+    publishedVersion: publishedVersion,
     spaceId: spaceId,
     title: activityId,
     summary: activityId,

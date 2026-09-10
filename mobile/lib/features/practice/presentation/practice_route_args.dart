@@ -20,12 +20,14 @@ class PracticeRouteArgs implements PracticeRouteTarget {
     required this.activityId,
     this.shareToken,
     this.entrySource = PracticeRouteEntrySource.inApp,
+    this.publishedVersion,
   });
 
   final String spaceId;
   final String activityId;
   final String? shareToken;
   final PracticeRouteEntrySource entrySource;
+  final int? publishedVersion;
 
   String get normalizedSpaceId => spaceId.trim();
   String get normalizedActivityId => activityId.trim();
@@ -35,7 +37,9 @@ class PracticeRouteArgs implements PracticeRouteTarget {
   String get scopeLabel => '$normalizedSpaceId/$normalizedActivityId';
 
   bool get isValid =>
-      normalizedSpaceId.isNotEmpty && normalizedActivityId.isNotEmpty;
+      normalizedSpaceId.isNotEmpty &&
+      normalizedActivityId.isNotEmpty &&
+      (publishedVersion == null || publishedVersion! > 0);
 
   bool isSupportedBy(SeedContentBundle content) {
     for (final space in content.spaces) {
@@ -57,6 +61,7 @@ class PracticeRouteArgs implements PracticeRouteTarget {
       activityId: normalizedActivityId,
       shareToken: normalizedShareToken,
       entrySource: entrySource,
+      publishedVersion: publishedVersion,
     );
   }
 
@@ -65,6 +70,7 @@ class PracticeRouteArgs implements PracticeRouteTarget {
     required String? activityId,
     String? shareToken,
     PracticeRouteEntrySource entrySource = PracticeRouteEntrySource.inApp,
+    int? publishedVersion,
   }) {
     final resolvedSpaceId = (spaceId ?? '').trim();
     final resolvedActivityId = (activityId ?? '').trim();
@@ -76,6 +82,7 @@ class PracticeRouteArgs implements PracticeRouteTarget {
       activityId: resolvedActivityId,
       shareToken: _trimToNull(shareToken),
       entrySource: entrySource,
+      publishedVersion: publishedVersion,
     );
   }
 

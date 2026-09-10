@@ -139,7 +139,7 @@ void main() {
         ProviderScope(
           overrides: [
             sceneGenerationControllerProvider(
-              'daily_care/bath_time',
+              'daily_care/bath_time@v1',
             ).overrideWith((ref) => controller),
             practiceRepositoryProvider.overrideWith(
               (ref) => practiceRepository.future,

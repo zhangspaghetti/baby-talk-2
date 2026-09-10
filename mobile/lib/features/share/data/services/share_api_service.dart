@@ -4,12 +4,10 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/api_version.dart';
 import 'package:mobile/features/share/domain/models/share_link_draft.dart';
 
-const String defaultShareApiVersion = String.fromEnvironment(
-  'BABY_TALK_API_VERSION',
-  defaultValue: '1.2.0',
-);
+const String defaultShareApiVersion = defaultAppApiVersion;
 const String defaultShareApiBaseUrl = String.fromEnvironment(
   'BABY_TALK_API_BASE_URL',
   defaultValue: 'http://127.0.0.1:8080',

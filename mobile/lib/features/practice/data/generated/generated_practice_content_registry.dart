@@ -3,9 +3,17 @@ import 'package:mobile/features/scene_generation/domain/generated_care_moment.da
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
+import 'package:mobile/features/practice/domain/generated_practice_access_context.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+
+export 'package:mobile/features/practice/domain/generated_practice_access_context.dart'
+    show
+        GeneratedPracticeAccessContext,
+        GeneratedPracticeAccessDeniedReason,
+        GeneratedPracticeCurrentAccessContextLoader,
+        GeneratedPracticeAccessContextLoader;
 
 typedef GeneratedPracticeAccountContextLoader = Future<String?> Function();
 typedef GeneratedPracticeHouseholdScopeLoader = Future<String?> Function();
@@ -48,19 +56,31 @@ class GeneratedPracticeContentRegistry
   GeneratedPracticeContentRegistry({
     required GeneratedCareMomentLocalStore store,
     required GeneratedCareTurnResumeStore resumeStore,
-    required GeneratedPracticeAccountContextLoader accountContextLoader,
+    GeneratedPracticeAccountContextLoader? accountContextLoader,
     GeneratedPracticeHouseholdScopeLoader? householdScopeLoader,
+    GeneratedPracticeCurrentAccessContextLoader? currentAccessContextLoader,
+    GeneratedPracticeAccessContextLoader? accessContextLoader,
   }) : _store = store,
        _resumeStore = resumeStore,
-       _accountContextLoader = accountContextLoader,
-       _householdScopeLoader = householdScopeLoader ?? (() async => null);
+       _accountContextLoader = accountContextLoader ?? (() async => null),
+       _householdScopeLoader = householdScopeLoader ?? (() async => null),
+       _currentAccessContextLoader =
+           currentAccessContextLoader ?? accessContextLoader;
 
   final GeneratedCareMomentLocalStore _store;
   final GeneratedCareTurnResumeStore _resumeStore;
   final GeneratedPracticeAccountContextLoader _accountContextLoader;
   final GeneratedPracticeHouseholdScopeLoader _householdScopeLoader;
+  final GeneratedPracticeCurrentAccessContextLoader?
+  _currentAccessContextLoader;
 
-  Future<String?> loadCurrentAccountContext() => _loadCurrentAccountContext();
+  bool get _usesTypedAccessContext => _currentAccessContextLoader != null;
+
+  Future<String?> loadCurrentAccountContext() async {
+    final access = await _loadAccessContext();
+    final value = access.accountContext?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
 
   @override
   Future<void> register({
@@ -71,19 +91,30 @@ class GeneratedPracticeContentRegistry
     if (normalizedAccountContext.isEmpty) {
       throw ArgumentError.value(accountContext, 'accountContext', '不能为空。');
     }
-    final currentAccountContext = await _loadCurrentAccountContext();
-    if (currentAccountContext == null ||
-        currentAccountContext != normalizedAccountContext) {
+    final access = await _loadAccessContext();
+    if (!access.canRegister ||
+        access.accountContext?.trim() != normalizedAccountContext) {
       throw StateError('当前账号与 approved generated content 不匹配。');
     }
     _validateMoment(moment);
-    final householdScope = await _householdScopeLoader();
+    if (_usesTypedAccessContext &&
+        moment.inputSource == SceneGenerationSourceType.preset &&
+        access.householdScopeFingerprint == null) {
+      throw StateError('preset generated content requires a household scope.');
+    }
+    final String? storedHouseholdScopeFingerprint;
+    if (_usesTypedAccessContext) {
+      storedHouseholdScopeFingerprint = access.householdScopeFingerprint;
+    } else {
+      final householdScope = await _householdScopeLoader();
+      storedHouseholdScopeFingerprint = householdScope == null
+          ? null
+          : householdScopeFingerprint(householdScope);
+    }
     await _store.upsert(
       StoredGeneratedCareMoment(
         accountContext: normalizedAccountContext,
-        householdScopeFingerprint: householdScope == null
-            ? null
-            : householdScopeFingerprint(householdScope),
+        householdScopeFingerprint: storedHouseholdScopeFingerprint,
         moment: moment,
       ),
     );
@@ -106,15 +137,15 @@ class GeneratedPracticeContentRegistry
     if (!enabled || publishedVersion != null && publishedVersion < 1) {
       return null;
     }
-    final accountContext = await _loadCurrentAccountContext();
-    if (accountContext == null) {
+    final access = await _loadAccessContext();
+    if (!access.canRead || access.accountContext == null) {
       return null;
     }
     try {
       final records = (await _store.readAll())
           .where(
             (candidate) =>
-                candidate.accountContext == accountContext &&
+                _canReadRecord(access, candidate) &&
                 candidate.moment.spaceId == spaceId.trim() &&
                 candidate.moment.activityId == activityId.trim(),
           )
@@ -169,8 +200,8 @@ class GeneratedPracticeContentRegistry
     if (publishedVersion < 1) {
       return null;
     }
-    final accountContext = await _loadCurrentAccountContext();
-    if (accountContext == null) {
+    final access = await _loadAccessContext();
+    if (!access.canRead || access.accountContext == null) {
       return null;
     }
     try {
@@ -178,7 +209,7 @@ class GeneratedPracticeContentRegistry
           (await _store.readAll())
               .where(
                 (candidate) =>
-                    candidate.accountContext == accountContext &&
+                    _canReadRecord(access, candidate) &&
                     candidate.moment.inputSource ==
                         SceneGenerationSourceType.preset &&
                     candidate.moment.spaceId == spaceId.trim() &&
@@ -205,13 +236,13 @@ class GeneratedPracticeContentRegistry
   Future<PracticeActivitySnapshot?> resolveGeneratedContent({
     required String generatedContentId,
   }) async {
-    final accountContext = await _loadCurrentAccountContext();
-    if (accountContext == null) {
+    final access = await _loadAccessContext();
+    if (!access.canRead || access.accountContext == null) {
       return null;
     }
     try {
       return _resolveGeneratedContentForAccount(
-        accountContext: accountContext,
+        access: access,
         generatedContentId: generatedContentId,
       );
     } on Object {
@@ -221,11 +252,31 @@ class GeneratedPracticeContentRegistry
 
   @override
   Future<List<PracticeActivitySnapshot>> listGeneratedActivities() async {
-    final accountContext = await _requireCurrentAccountContextForProjection();
+    final GeneratedPracticeAccessContext access;
+    final String? legacyAccountContext;
+    if (_usesTypedAccessContext) {
+      access = await _loadAccessContext();
+      legacyAccountContext = null;
+    } else {
+      legacyAccountContext = await _requireCurrentAccountContextForProjection();
+      access = GeneratedPracticeAccessContext.accepted(
+        accountContext: legacyAccountContext,
+      );
+    }
+    if (_usesTypedAccessContext && !access.canRead) {
+      return const <PracticeActivitySnapshot>[];
+    }
+    final accountContext = _usesTypedAccessContext
+        ? access.accountContext!
+        : legacyAccountContext!;
     try {
       final records =
           (await _store.readAll())
-              .where((candidate) => candidate.accountContext == accountContext)
+              .where(
+                (candidate) => _usesTypedAccessContext
+                    ? _canReadRecord(access, candidate)
+                    : candidate.accountContext == accountContext,
+              )
               .where(
                 (candidate) =>
                     candidate.moment.inputSource ==
@@ -249,24 +300,24 @@ class GeneratedPracticeContentRegistry
   @override
   Future<GeneratedCareTurnResumeMarker?>
   loadGeneratedCareTurnResumeMarker() async {
-    final accountContext = await _loadCurrentAccountContext();
-    if (accountContext == null) {
+    final access = await _loadAccessContext();
+    if (!access.canRead || access.accountContext == null) {
       return null;
     }
     try {
-      final marker = await _resumeStore.readForAccount(accountContext);
+      final marker = await _resumeStore.readForAccount(access.accountContext!);
       if (marker == null) {
         return null;
       }
       final content = await _resolveGeneratedContentForAccount(
-        accountContext: accountContext,
+        access: access,
         generatedContentId: marker.generatedContentId,
       );
       if (content != null) {
         return marker;
       }
       await _resumeStore.clearMatching(
-        accountContext: accountContext,
+        accountContext: access.accountContext!,
         generatedContentId: marker.generatedContentId,
       );
       return null;
@@ -279,12 +330,12 @@ class GeneratedPracticeContentRegistry
   Future<void> completeGeneratedCareTurnResume({
     required String generatedContentId,
   }) async {
-    final accountContext = await _loadCurrentAccountContext();
-    if (accountContext == null) {
+    final access = await _loadAccessContext();
+    if (!access.canRead || access.accountContext == null) {
       return;
     }
     await _resumeStore.clearMatching(
-      accountContext: accountContext,
+      accountContext: access.accountContext!,
       generatedContentId: generatedContentId,
     );
   }
@@ -340,12 +391,12 @@ class GeneratedPracticeContentRegistry
   }
 
   Future<PracticeActivitySnapshot?> _resolveGeneratedContentForAccount({
-    required String accountContext,
+    required GeneratedPracticeAccessContext access,
     required String generatedContentId,
   }) async {
     final records = (await _store.readAll()).where(
       (candidate) =>
-          candidate.accountContext == accountContext &&
+          _canReadRecord(access, candidate) &&
           candidate.moment.generatedContentId == generatedContentId.trim(),
     );
     if (records.length != 1) {
@@ -354,13 +405,45 @@ class GeneratedPracticeContentRegistry
     return _toSnapshot(records.single.moment);
   }
 
-  Future<String?> _loadCurrentAccountContext() async {
-    try {
-      final value = (await _accountContextLoader())?.trim();
-      return value == null || value.isEmpty ? null : value;
-    } on Object {
-      return null;
+  Future<GeneratedPracticeAccessContext> _loadAccessContext() async {
+    final loader = _currentAccessContextLoader;
+    if (loader != null) {
+      try {
+        return await loader();
+      } on Object {
+        return const GeneratedPracticeAccessContext.accountReadUnavailable();
+      }
     }
+    // Legacy constructor path remains available for existing standalone
+    // custom callers. Production wiring uses the typed loader above.
+    final String? accountContext;
+    try {
+      accountContext = await _accountContextLoader();
+    } on Object {
+      return const GeneratedPracticeAccessContext.accountReadUnavailable();
+    }
+    final householdScope = await _householdScopeLoader();
+    return GeneratedPracticeAccessContext.accepted(
+      accountContext: accountContext ?? '',
+      householdScopeFingerprint: householdScope == null
+          ? null
+          : householdScopeFingerprint(householdScope),
+    );
+  }
+
+  bool _canReadRecord(
+    GeneratedPracticeAccessContext access,
+    StoredGeneratedCareMoment record,
+  ) {
+    if (_usesTypedAccessContext) {
+      return access.canReadStoredContent(
+        recordAccountContext: record.accountContext,
+        recordHouseholdScopeFingerprint: record.householdScopeFingerprint,
+        inputSource: record.moment.inputSource,
+      );
+    }
+    return access.canRead &&
+        access.accountContext?.trim() == record.accountContext.trim();
   }
 
   Future<String> _requireCurrentAccountContextForProjection() async {

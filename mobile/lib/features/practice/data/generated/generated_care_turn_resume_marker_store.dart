@@ -22,7 +22,8 @@ class GeneratedCareTurnResumeMarkerStore
     this.fileName = 'generated_care_turn_resume.json',
   }) : _directoryResolver = directoryResolver ?? getApplicationSupportDirectory,
        _fileReader = fileReader ?? ((file) => file.readAsString()),
-       _householdScopeLoader = householdScopeLoader ?? (() async => null);
+       _householdScopeLoader = householdScopeLoader ?? (() async => null),
+       _hasHouseholdScopeLoader = householdScopeLoader != null;
 
   static const _schemaVersion = 2;
   static const _legacySchemaVersion = 1;
@@ -32,6 +33,7 @@ class GeneratedCareTurnResumeMarkerStore
   final GeneratedCareTurnResumeDirectoryResolver _directoryResolver;
   final GeneratedCareTurnResumeFileReader _fileReader;
   final GeneratedCareTurnResumeHouseholdScopeLoader _householdScopeLoader;
+  final bool _hasHouseholdScopeLoader;
   final String fileName;
   Future<void> _mutationTail = Future<void>.value();
 
@@ -69,8 +71,20 @@ class GeneratedCareTurnResumeMarkerStore
   Future<GeneratedCareTurnResumeMarker?> readForAccount(String accountContext) {
     final scopeFingerprint = _scopeFingerprint(accountContext);
     return _enqueueMutation(() async {
+      final currentHouseholdScopeFingerprint = _hasHouseholdScopeLoader
+          ? await _readCurrentHouseholdScopeFingerprint()
+          : null;
       final matches = (await _readRecords())
-          .where((record) => record.scopeFingerprint == scopeFingerprint)
+          .where(
+            (record) =>
+                record.scopeFingerprint == scopeFingerprint &&
+                (!_hasHouseholdScopeLoader ||
+                        record.householdScopeFingerprint == null
+                    ? true
+                    : currentHouseholdScopeFingerprint != null &&
+                          record.householdScopeFingerprint ==
+                              currentHouseholdScopeFingerprint),
+          )
           .toList(growable: false);
       if (matches.length != 1) {
         return null;
@@ -218,6 +232,13 @@ class GeneratedCareTurnResumeMarkerStore
       await _persistOrDelete(retained, clearIntent: clearIntent);
     }
     return retained;
+  }
+
+  Future<String?> _readCurrentHouseholdScopeFingerprint() async {
+    final householdScope = await _householdScopeLoader();
+    return householdScope == null
+        ? null
+        : householdScopeFingerprint(householdScope);
   }
 
   Future<void> _persistOrDelete(

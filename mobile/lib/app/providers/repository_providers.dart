@@ -16,6 +16,7 @@ import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_backup_pro
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/care_entry/data/file_onboarding_care_turn_continuation_store.dart';
@@ -261,6 +262,62 @@ final generatedPracticeContentRegistryProvider =
         },
         householdScopeLoader: () async =>
             (await ref.read(householdLocalStoreProvider).read()).householdId,
+        currentAccessContextLoader: () async {
+          final AccountLocalSnapshot accountSnapshot;
+          try {
+            accountSnapshot = await AccountLocalStore().read();
+          } on Object {
+            return const GeneratedPracticeAccessContext.accountReadUnavailable();
+          }
+          final session = accountSnapshot.session;
+          if (session == null ||
+              accountSnapshot.consentState == AccountConsentState.localOnly ||
+              accountSnapshot.consentState == AccountConsentState.signedOut) {
+            return GeneratedPracticeAccessContext.denied(
+              accountContext: session?.accountId,
+              reason: GeneratedPracticeAccessDeniedReason.signedOut,
+            );
+          }
+          if (accountSnapshot.consentState == AccountConsentState.revoked) {
+            return GeneratedPracticeAccessContext.denied(
+              accountContext: session.accountId,
+              reason: GeneratedPracticeAccessDeniedReason.consentRevoked,
+            );
+          }
+          if (accountSnapshot.consentState == AccountConsentState.deleted) {
+            return GeneratedPracticeAccessContext.denied(
+              accountContext: session.accountId,
+              reason: GeneratedPracticeAccessDeniedReason.accountDeleted,
+            );
+          }
+          if (accountSnapshot.consentState !=
+              AccountConsentState.acceptedPendingSync) {
+            return GeneratedPracticeAccessContext.denied(
+              accountContext: session.accountId,
+              reason: GeneratedPracticeAccessDeniedReason.consentRequired,
+            );
+          }
+
+          final HouseholdLocalSnapshot householdSnapshot;
+          try {
+            householdSnapshot = await ref
+                .read(householdLocalStoreProvider)
+                .read();
+          } on Object {
+            return GeneratedPracticeAccessContext.householdReadUnavailable(
+              accountContext: session.accountId,
+            );
+          }
+          final householdId = householdSnapshot.householdId;
+          return GeneratedPracticeAccessContext.accepted(
+            accountContext: session.accountId,
+            householdScopeFingerprint: householdId == null
+                ? null
+                : householdScopeFingerprint(householdId),
+            pendingClearHouseholdScopeFingerprint:
+                householdSnapshot.pendingClearHouseholdScopeFingerprint,
+          );
+        },
       );
     });
 

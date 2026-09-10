@@ -4196,6 +4196,120 @@ abstract class AppLocalizations {
   /// **'双语'**
   String get settingsLanguageBilingual;
 
+  /// No description provided for @presetGenerationProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在为宝宝准备个性化练习…'**
+  String get presetGenerationProgress;
+
+  /// No description provided for @presetGenerationUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'个性化练习暂时不可用，请重试。'**
+  String get presetGenerationUnavailable;
+
+  /// No description provided for @presetGenerationGenericFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用通用内容'**
+  String get presetGenerationGenericFallback;
+
+  /// No description provided for @sceneGenerationAuthenticationRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先登录后再生成。'**
+  String get sceneGenerationAuthenticationRequired;
+
+  /// No description provided for @sceneGenerationProfileUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝档案暂不可用，请先完善宝宝档案后再试。'**
+  String get sceneGenerationProfileUnavailable;
+
+  /// No description provided for @sceneGenerationSharedProfileUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享宝宝档案暂不可用，请让主照护者先完成档案后再试。'**
+  String get sceneGenerationSharedProfileUnavailable;
+
+  /// No description provided for @sceneGenerationHouseholdAccessRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。'**
+  String get sceneGenerationHouseholdAccessRequired;
+
+  /// No description provided for @sceneGenerationPresetUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'预置场景暂不可用，请稍后再试。'**
+  String get sceneGenerationPresetUnavailable;
+
+  /// No description provided for @sceneGenerationInvalidInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'请调整场景描述后再试。'**
+  String get sceneGenerationInvalidInput;
+
+  /// No description provided for @sceneGenerationRequestConflict.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次场景描述已变更，请重新开始生成。'**
+  String get sceneGenerationRequestConflict;
+
+  /// No description provided for @sceneGenerationRequestTerminal.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次生成已结束，请使用新的请求重新生成。'**
+  String get sceneGenerationRequestTerminal;
+
+  /// No description provided for @sceneGenerationInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景正在生成，请稍后查看。'**
+  String get sceneGenerationInProgress;
+
+  /// No description provided for @sceneGenerationRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成次数过多，请稍后再试。'**
+  String get sceneGenerationRateLimited;
+
+  /// No description provided for @sceneGenerationUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成服务暂不可用，请稍后再试。'**
+  String get sceneGenerationUnavailable;
+
+  /// No description provided for @sceneGenerationTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成超时，请稍后重试。'**
+  String get sceneGenerationTimeout;
+
+  /// No description provided for @sceneGenerationNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络暂不可用，请检查后重试。'**
+  String get sceneGenerationNetwork;
+
+  /// No description provided for @sceneGenerationMalformedResponse.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成响应异常，请稍后再试。'**
+  String get sceneGenerationMalformedResponse;
+
+  /// No description provided for @sceneGenerationRejected.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段场景描述暂不适合生成，请调整后再试。'**
+  String get sceneGenerationRejected;
+
+  /// No description provided for @sceneGenerationUnexpected.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成失败，请稍后再试。'**
+  String get sceneGenerationUnexpected;
+
   /// No description provided for @mentorBubbleCaption.
   ///
   /// In zh, this message translates to:

@@ -12,6 +12,8 @@ import 'package:mobile/features/scene_generation/application/scene_generation_co
 import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/scene_generation/domain/scene_generation_failure.dart';
 import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
+import 'package:mobile/l10n/app_localizations.dart';
+import 'package:mobile/l10n/app_localizations_zh.dart';
 
 typedef PresetSceneBundledFallbackLoader =
     Future<bool> Function(PracticeRouteArgs args);
@@ -35,6 +37,7 @@ class PresetSceneGenerationGateScreen extends ConsumerStatefulWidget {
     this.clientRequestId,
     this.bundledFallbackLoader,
     this.presetDefinitionLoader,
+    this.refreshCatalog,
     this.fallbackBuilder,
     this.onGenerated,
   });
@@ -44,6 +47,7 @@ class PresetSceneGenerationGateScreen extends ConsumerStatefulWidget {
   final String? clientRequestId;
   final PresetSceneBundledFallbackLoader? bundledFallbackLoader;
   final PresetSceneDefinitionLoader? presetDefinitionLoader;
+  final Future<void> Function()? refreshCatalog;
   final PresetSceneFallbackBuilder? fallbackBuilder;
   final PresetSceneGeneratedRouteHandler? onGenerated;
 
@@ -62,6 +66,8 @@ class _PresetSceneGenerationGateScreenState
   bool _started = false;
   bool _navigationScheduled = false;
   bool _providerResolutionScheduled = false;
+  bool _controllerAttachScheduled = false;
+  bool _retryAfterCatalogRefresh = false;
   PresetSceneDefinition? _presetDefinition;
   PresetSceneGenerationSource? _generationSource;
   int _routeGeneration = 0;
@@ -73,22 +79,14 @@ class _PresetSceneGenerationGateScreenState
 
   PracticeRouteArgs? get _presetArgs => widget.routeEntry.args?.normalized();
 
-  String get _controllerProviderKey =>
-      _presetArgs?.scopeLabel ?? widget.routeEntry.scopeLabel;
+  String get _controllerProviderKey => _presetArgs == null
+      ? widget.routeEntry.scopeLabel
+      : '${_presetArgs!.scopeLabel}@v${_presetDefinition?.publishedVersion ?? _presetArgs!.publishedVersion ?? 0}';
 
   @override
   void initState() {
     super.initState();
-    final injected = widget.controller;
-    if (injected != null) {
-      _bindController(injected);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _startGeneration();
-        }
-      });
-      return;
-    }
+    _schedulePreparation();
   }
 
   @override
@@ -96,6 +94,8 @@ class _PresetSceneGenerationGateScreenState
     super.didUpdateWidget(oldWidget);
     final routeChanged =
         oldWidget.routeEntry.scopeLabel != widget.routeEntry.scopeLabel ||
+        oldWidget.routeEntry.args?.publishedVersion !=
+            widget.routeEntry.args?.publishedVersion ||
         oldWidget.controller != widget.controller ||
         oldWidget.clientRequestId != widget.clientRequestId;
     if (!routeChanged) {
@@ -112,21 +112,92 @@ class _PresetSceneGenerationGateScreenState
     _started = false;
     _navigationScheduled = false;
     _providerResolutionScheduled = false;
+    _controllerAttachScheduled = false;
+    _retryAfterCatalogRefresh = false;
     _presetDefinition = null;
     _generationSource = null;
+    _schedulePreparation();
+  }
 
-    final injected = widget.controller;
-    if (injected != null) {
-      _bindController(injected);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _startGeneration();
-        }
-      });
+  void _schedulePreparation() {
+    if (_providerResolutionScheduled) {
+      return;
+    }
+    _providerResolutionScheduled = true;
+    final routeGeneration = _routeGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || routeGeneration != _routeGeneration) {
+        return;
+      }
+      _providerResolutionScheduled = false;
+      unawaited(_prepareAndAttachController(routeGeneration: routeGeneration));
+    });
+  }
+
+  Future<void> _prepareAndAttachController({
+    required int routeGeneration,
+  }) async {
+    final args = _presetArgs;
+    if (args == null) {
+      if (mounted) {
+        setState(
+          () => _controllerError = const FormatException(
+            'preset practice route args are invalid',
+          ),
+        );
+        _loadFallbackAvailability();
+      }
+      return;
+    }
+
+    final definitionLoader =
+        widget.presetDefinitionLoader ?? _defaultPresetDefinitionLoader;
+    final PresetSceneDefinition? definition;
+    try {
+      definition = await definitionLoader(args);
+      if (definition == null ||
+          definition.spaceId != args.normalizedSpaceId ||
+          definition.presetSceneId != args.normalizedActivityId ||
+          args.publishedVersion != null &&
+              definition.publishedVersion != args.publishedVersion) {
+        throw const FormatException('preset route catalog identity mismatch');
+      }
+    } on Object {
+      if (!mounted || routeGeneration != _routeGeneration) {
+        return;
+      }
+      setState(
+        () => _controllerError = const SceneGenerationFailure(
+          kind: SceneGenerationFailureKind.presetSceneUnavailable,
+          retryable: true,
+        ),
+      );
+      _loadFallbackAvailability();
+      return;
+    }
+
+    if (!mounted || routeGeneration != _routeGeneration) {
+      return;
+    }
+    setState(() {
+      _presetDefinition = definition;
+      _generationSource = _sourceFor(args, definition: definition);
+      _controllerError = null;
+    });
+
+    final injectedController = widget.controller;
+    if (injectedController != null) {
+      _bindController(injectedController);
+      _startGeneration();
     }
   }
 
   void _bindController(SceneGenerationController controller) {
+    if (identical(_controller, controller)) {
+      _handleControllerChange();
+      return;
+    }
+    _controller?.removeListener(_handleControllerChange);
     _controller = controller;
     controller.addListener(_handleControllerChange);
     _handleControllerChange();
@@ -158,7 +229,7 @@ class _PresetSceneGenerationGateScreenState
     setState(() {});
   }
 
-  void _startGeneration() {
+  Future<void> _startGeneration() async {
     if (_started || !mounted) {
       return;
     }
@@ -187,67 +258,34 @@ class _PresetSceneGenerationGateScreenState
         return;
       }
       _generationSource = existingSource;
+      if (_retryAfterCatalogRefresh &&
+          controller.failure?.kind ==
+              SceneGenerationFailureKind.presetSceneUnavailable) {
+        _retryAfterCatalogRefresh = false;
+        await controller.retry();
+        return;
+      }
       _handleControllerChange();
       return;
     }
     _started = true;
-    final routeGeneration = _routeGeneration;
-    final clientRequestId = _clientRequestId;
-    unawaited(
-      _resolveDefinitionAndGenerate(
-        args: args,
-        controller: controller,
-        routeGeneration: routeGeneration,
-        clientRequestId: clientRequestId,
-      ),
+    _retryAfterCatalogRefresh = false;
+    final source = _generationSource ?? _sourceFor(args);
+    _generationSource = source;
+    await controller.generate(
+      source: source,
+      clientRequestId: _clientRequestId,
     );
   }
 
-  Future<void> _resolveDefinitionAndGenerate({
-    required PracticeRouteArgs args,
-    required SceneGenerationController controller,
-    required int routeGeneration,
-    required String clientRequestId,
-  }) async {
-    final shouldResolveDefinition =
-        widget.presetDefinitionLoader != null || widget.controller == null;
-    if (shouldResolveDefinition) {
-      try {
-        final definition =
-            await (widget.presetDefinitionLoader ??
-                _defaultPresetDefinitionLoader)(args);
-        if (definition == null ||
-            definition.spaceId != args.normalizedSpaceId ||
-            definition.presetSceneId != args.normalizedActivityId) {
-          throw const FormatException('preset route catalog identity mismatch');
-        }
-        _presetDefinition = definition;
-      } on Object {
-        if (!mounted || routeGeneration != _routeGeneration) {
-          return;
-        }
-        setState(
-          () => _controllerError = const SceneGenerationFailure(
-            kind: SceneGenerationFailureKind.presetSceneUnavailable,
-            retryable: true,
-          ),
-        );
-        _loadFallbackAvailability();
-        return;
-      }
-    }
-    if (!mounted || routeGeneration != _routeGeneration) {
-      return;
-    }
-    final source = _sourceFor(args);
-    _generationSource = source;
-    await controller.generate(source: source, clientRequestId: clientRequestId);
-  }
-
-  PresetSceneGenerationSource _sourceFor(PracticeRouteArgs args) {
+  PresetSceneGenerationSource _sourceFor(
+    PracticeRouteArgs args, {
+    PresetSceneDefinition? definition,
+  }) {
     return PresetSceneGenerationSource(
       args.normalizedActivityId,
-      presetSceneVersion: _presetDefinition?.publishedVersion,
+      presetSceneVersion:
+          definition?.publishedVersion ?? _presetDefinition?.publishedVersion,
       spaceId: args.normalizedSpaceId,
       activityId: args.normalizedActivityId,
     );
@@ -283,10 +321,9 @@ class _PresetSceneGenerationGateScreenState
         source.hasCompleteIdentity &&
             moment.inputSource == SceneGenerationSourceType.preset &&
             moment.presetSceneId == presetSceneId.trim() &&
-            (presetSceneVersion == null ||
-                moment.presetSceneVersion == presetSceneVersion) &&
-            (spaceId == null || moment.spaceId == spaceId.trim()) &&
-            (activityId == null || moment.activityId == activityId.trim()),
+            moment.presetSceneVersion == presetSceneVersion &&
+            moment.spaceId == spaceId!.trim() &&
+            moment.activityId == activityId!.trim(),
     };
   }
 
@@ -294,7 +331,10 @@ class _PresetSceneGenerationGateScreenState
     PresetSceneGenerationSource source,
     PracticeRouteArgs args,
   ) {
+    final expectedVersion =
+        _presetDefinition?.publishedVersion ?? args.publishedVersion;
     return source.presetSceneId.trim() == args.normalizedActivityId &&
+        source.presetSceneVersion == expectedVersion &&
         source.spaceId?.trim() == args.normalizedSpaceId &&
         source.activityId?.trim() == args.normalizedActivityId;
   }
@@ -382,16 +422,29 @@ class _PresetSceneGenerationGateScreenState
   Future<void> _retry() async {
     final controller = _controller;
     if (controller == null) {
+      if (_controllerError is SceneGenerationFailure &&
+          (_controllerError as SceneGenerationFailure).kind ==
+              SceneGenerationFailureKind.presetSceneUnavailable) {
+        await _refreshCatalogAndRetry();
+        return;
+      }
       ref.invalidate(sceneGenerationControllerProvider(_controllerProviderKey));
       if (mounted) {
         setState(() {
           _controllerError = null;
           _providerResolutionScheduled = false;
+          _controllerAttachScheduled = false;
           _presetDefinition = null;
           _generationSource = null;
           _started = false;
         });
+        _schedulePreparation();
       }
+      return;
+    }
+    if (controller.failure?.kind ==
+        SceneGenerationFailureKind.presetSceneUnavailable) {
+      await _refreshCatalogAndRetry();
       return;
     }
     if (controller.state.status == SceneGenerationControllerStatus.idle) {
@@ -401,10 +454,45 @@ class _PresetSceneGenerationGateScreenState
         _generationSource = null;
         _started = false;
       });
-      _startGeneration();
+      _schedulePreparation();
       return;
     }
     await controller.retry();
+  }
+
+  Future<void> _refreshCatalogAndRetry() async {
+    final routeGeneration = _routeGeneration;
+    final args = _presetArgs;
+    if (args == null) {
+      return;
+    }
+    setState(() {
+      _controller?.removeListener(_handleControllerChange);
+      _controller = null;
+      _controllerError = null;
+      _fallbackFuture = null;
+      _fallbackAvailable = false;
+      _presetDefinition = null;
+      _generationSource = null;
+      _started = false;
+      _controllerAttachScheduled = false;
+      _retryAfterCatalogRefresh = true;
+    });
+    try {
+      final refreshCatalog = widget.refreshCatalog;
+      if (refreshCatalog != null) {
+        await refreshCatalog();
+      } else {
+        await ref.read(presetSceneCatalogRepositoryProvider).refreshCatalog();
+      }
+    } on Object {
+      // A custom definition loader or an offline cache may still resolve the
+      // current published definition below.
+    }
+    if (!mounted || routeGeneration != _routeGeneration) {
+      return;
+    }
+    _schedulePreparation();
   }
 
   void _selectGenericFallback() {
@@ -416,16 +504,18 @@ class _PresetSceneGenerationGateScreenState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.controller == null) {
+    if (widget.controller == null && _presetDefinition != null) {
+      // Keep identity-keyed provider alive while preparation awaits it. The
+      // preparation path resolves the catalog definition before binding.
       final providerValue = ref.watch(
         sceneGenerationControllerProvider(_controllerProviderKey),
       );
-      if (!_providerResolutionScheduled &&
+      if (!_controllerAttachScheduled &&
           _controller == null &&
           _controllerError == null) {
         final providerController = providerValue.valueOrNull;
         if (providerController != null) {
-          _providerResolutionScheduled = true;
+          _controllerAttachScheduled = true;
           final routeGeneration = _routeGeneration;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || routeGeneration != _routeGeneration) {
@@ -435,7 +525,7 @@ class _PresetSceneGenerationGateScreenState
             _startGeneration();
           });
         } else if (providerValue.hasError) {
-          _providerResolutionScheduled = true;
+          _controllerAttachScheduled = true;
           final providerError = providerValue.error;
           final routeGeneration = _routeGeneration;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -509,7 +599,8 @@ class _PresetGenerationProgressScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final l = AppLocalizations.of(context) ?? AppLocalizationsZh();
+    return Scaffold(
       body: SafeArea(
         child: Center(
           child: Column(
@@ -518,8 +609,8 @@ class _PresetGenerationProgressScaffold extends StatelessWidget {
               CircularProgressIndicator(key: Key('preset-generation-progress')),
               SizedBox(height: 16),
               Text(
-                '正在为宝宝准备个性化练习…',
-                key: Key('preset-generation-progress-text'),
+                l.presetGenerationProgress,
+                key: const Key('preset-generation-progress-text'),
               ),
             ],
           ),
@@ -544,7 +635,8 @@ class _PresetGenerationFailureScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final message = failure?.presentationMessage ?? '个性化练习暂时不可用，请重试。';
+    final l = AppLocalizations.of(context) ?? AppLocalizationsZh();
+    final message = _localizedFailureMessage(l, failure);
     return Scaffold(
       key: const Key('preset-generation-error'),
       body: SafeArea(
@@ -561,7 +653,7 @@ class _PresetGenerationFailureScaffold extends StatelessWidget {
                   child: FilledButton(
                     key: const Key('preset-generation-retry-button'),
                     onPressed: onRetry,
-                    child: const Text('重试'),
+                    child: Text(l.retry),
                   ),
                 ),
                 if (fallbackAvailable) ...[
@@ -573,7 +665,7 @@ class _PresetGenerationFailureScaffold extends StatelessWidget {
                         'preset-generation-generic-fallback-button',
                       ),
                       onPressed: onGenericFallback,
-                      child: const Text('使用通用内容'),
+                      child: Text(l.presetGenerationGenericFallback),
                     ),
                   ),
                 ],
@@ -584,6 +676,41 @@ class _PresetGenerationFailureScaffold extends StatelessWidget {
       ),
     );
   }
+}
+
+String _localizedFailureMessage(
+  AppLocalizations l,
+  SceneGenerationFailure? failure,
+) {
+  final kind = failure?.kind;
+  return switch (kind) {
+    null => l.presetGenerationUnavailable,
+    SceneGenerationFailureKind.authenticationRequired =>
+      l.sceneGenerationAuthenticationRequired,
+    SceneGenerationFailureKind.profileUnavailable =>
+      l.sceneGenerationProfileUnavailable,
+    SceneGenerationFailureKind.sharedProfileUnavailable =>
+      l.sceneGenerationSharedProfileUnavailable,
+    SceneGenerationFailureKind.householdAccessRequired =>
+      l.sceneGenerationHouseholdAccessRequired,
+    SceneGenerationFailureKind.presetSceneUnavailable =>
+      l.sceneGenerationPresetUnavailable,
+    SceneGenerationFailureKind.invalidInput => l.sceneGenerationInvalidInput,
+    SceneGenerationFailureKind.requestConflict =>
+      l.sceneGenerationRequestConflict,
+    SceneGenerationFailureKind.requestTerminal =>
+      l.sceneGenerationRequestTerminal,
+    SceneGenerationFailureKind.generationInProgress =>
+      l.sceneGenerationInProgress,
+    SceneGenerationFailureKind.rateLimited => l.sceneGenerationRateLimited,
+    SceneGenerationFailureKind.unavailable => l.sceneGenerationUnavailable,
+    SceneGenerationFailureKind.timeout => l.sceneGenerationTimeout,
+    SceneGenerationFailureKind.network => l.sceneGenerationNetwork,
+    SceneGenerationFailureKind.malformedResponse =>
+      l.sceneGenerationMalformedResponse,
+    SceneGenerationFailureKind.rejected => l.sceneGenerationRejected,
+    SceneGenerationFailureKind.unexpected => l.sceneGenerationUnexpected,
+  };
 }
 
 String _defaultClientRequestId() {

@@ -106,6 +106,15 @@ class SceneGenerationController extends ChangeNotifier {
     if (active != null) {
       return active;
     }
+    if (_source != null && !_sameSourceIdentity(_source!, source)) {
+      _setFailure(
+        const SceneGenerationFailure(
+          kind: SceneGenerationFailureKind.malformedResponse,
+          retryable: false,
+        ),
+      );
+      return Future<void>.value();
+    }
     if (_state.status == SceneGenerationControllerStatus.success) {
       return Future<void>.value();
     }
@@ -289,10 +298,9 @@ class SceneGenerationController extends ChangeNotifier {
       ) =>
         moment.inputSource == SceneGenerationSourceType.preset &&
             moment.presetSceneId == presetSceneId.trim() &&
-            (presetSceneVersion == null ||
-                moment.presetSceneVersion == presetSceneVersion) &&
-            (spaceId == null || moment.spaceId == spaceId.trim()) &&
-            (activityId == null || moment.activityId == activityId.trim()),
+            moment.presetSceneVersion == presetSceneVersion &&
+            moment.spaceId == spaceId!.trim() &&
+            moment.activityId == activityId!.trim(),
     };
     if (matches) {
       return null;
@@ -301,6 +309,24 @@ class SceneGenerationController extends ChangeNotifier {
       kind: SceneGenerationFailureKind.malformedResponse,
       retryable: false,
     );
+  }
+
+  bool _sameSourceIdentity(
+    SceneGenerationSource left,
+    SceneGenerationSource right,
+  ) {
+    if (left is CustomSceneGenerationSource &&
+        right is CustomSceneGenerationSource) {
+      return left.text == right.text;
+    }
+    if (left is PresetSceneGenerationSource &&
+        right is PresetSceneGenerationSource) {
+      return left.presetSceneId.trim() == right.presetSceneId.trim() &&
+          left.presetSceneVersion == right.presetSceneVersion &&
+          left.spaceId?.trim() == right.spaceId?.trim() &&
+          left.activityId?.trim() == right.activityId?.trim();
+    }
+    return false;
   }
 
   String _nextRequestId(String previous) {
