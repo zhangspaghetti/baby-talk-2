@@ -5,7 +5,9 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ci_runtime_dir=''
 empty_kubeconfig=''
 dependency_tree=''
+base_version_lock=''
 relay_container_id=''
+testcontainers_host_override=''
 
 fail() {
   printf 'full-ci: %s\n' "$*" >&2
@@ -114,6 +116,28 @@ sanitize_environment() {
   export TESTCONTAINERS_RYUK_DISABLED=false
 }
 
+capture_safe_testcontainers_host_override() {
+  case "${TESTCONTAINERS_HOST_OVERRIDE:-}" in
+    host.docker.internal)
+      testcontainers_host_override='host.docker.internal'
+      ;;
+    *)
+      testcontainers_host_override=''
+      ;;
+  esac
+}
+
+verify_local_act_playwright_system_deps() {
+  local soname
+
+  command -v ldconfig >/dev/null 2>&1 \
+    || fail 'preinstalled local act runner image is missing ldconfig'
+  for soname in libasound.so.2 libatk-1.0.so.0 libnss3.so libxkbcommon.so.0; do
+    ldconfig -p | grep -Fq "$soname" \
+      || fail "preinstalled local act runner image is missing $soname"
+  done
+}
+
 cleanup() {
   local status=$?
   local cleanup_failed=0
@@ -126,6 +150,10 @@ cleanup() {
   fi
   if [[ -n "$dependency_tree" ]] && \
     ! rm -f -- "$dependency_tree" >/dev/null 2>&1; then
+    cleanup_failed=1
+  fi
+  if [[ -n "$base_version_lock" ]] && \
+    ! rm -f -- "$base_version_lock" >/dev/null 2>&1; then
     cleanup_failed=1
   fi
   if [[ -n "$empty_kubeconfig" ]] && \
@@ -164,7 +192,11 @@ refresh_flutter_windows_generated_metadata() {
 }
 
 initialize_ci_environment() {
+  capture_safe_testcontainers_host_override
   sanitize_environment
+  if [[ -n "$testcontainers_host_override" ]]; then
+    export TESTCONTAINERS_HOST_OVERRIDE="$testcontainers_host_override"
+  fi
   source "$repo_root/ci/download-sources.sh"
 
   ci_runtime_dir="$(mktemp -d "${TMPDIR:-/tmp}/babytalk-full-ci.XXXXXX")"
@@ -200,6 +232,17 @@ main() {
   ORIGIN_DEVELOP_SHA="$(git rev-parse --verify 'refs/remotes/origin/Develop^{commit}')"
   MERGE_BASE_SHA="$(git merge-base "$HEAD_SHA" "$ORIGIN_DEVELOP_SHA")"
   [[ -n "$MERGE_BASE_SHA" ]] || fail 'HEAD and origin/Develop have no merge base'
+  base_version_lock="${ci_runtime_dir}/practice-ai-version-lock-origin-develop.yml"
+
+  stage 'practice-ai-version-lock-base' 'read origin/Develop practice AI version lock or use an empty immutable base'
+  if git cat-file -e "${ORIGIN_DEVELOP_SHA}:backend/app-api/src/main/resources/config/practice-ai/version-lock.yml"; then
+    git show "${ORIGIN_DEVELOP_SHA}:backend/app-api/src/main/resources/config/practice-ai/version-lock.yml" \
+      >"$base_version_lock"
+  else
+    printf '%s\n' \
+      'schema-version: practice-ai-version-lock-schema-v1' \
+      'resources: []' >"$base_version_lock"
+  fi
 
   stage 'docker-preflight' 'docker info (Linux containers and tcp://localhost:2375)'
   command -v docker >/dev/null 2>&1 || fail 'docker is required'
@@ -239,6 +282,27 @@ main() {
   stage 'spring-ai-resolved' 'python3 tool/verify_spring_ai_2_backend_platform.py --dependency-tree <owned-temp>'
   python3 tool/verify_spring_ai_2_backend_platform.py --dependency-tree "$dependency_tree"
 
+  stage 'practice-ai-version-lock' 'python3 tool/verify_practice_ai_version_lock.py --verify --base-lock <origin-Develop-lock>'
+  python3 tool/verify_practice_ai_version_lock.py --verify --base-lock "$base_version_lock"
+
+  stage 'practice-generation-privacy-fixture' 'python3 test/tool/verify_practice_generation_privacy_test.py'
+  python3 test/tool/verify_practice_generation_privacy_test.py
+
+  stage 'practice-generation-privacy' 'python3 tool/verify_practice_generation_privacy.py'
+  python3 tool/verify_practice_generation_privacy.py
+
+  stage 'client-version-contract' 'python3 -m unittest test/ci/test_client_version_contract.py'
+  python3 -m unittest test/ci/test_client_version_contract.py
+
+  stage 'root-dart-dependencies' 'flutter pub get'
+  flutter pub get
+
+  stage 'practice-ai-helm-fixture' 'dart test test/tool/verify_practice_ai_helm_test.dart'
+  dart test test/tool/verify_practice_ai_helm_test.dart
+
+  stage 'practice-ai-helm' 'dart run tool/verify_practice_ai_helm.dart'
+  dart run tool/verify_practice_ai_helm.dart
+
   stage 'backend-reactor' 'bash ci/backend-test.sh'
   bash ci/backend-test.sh
 
@@ -271,23 +335,31 @@ main() {
   stage 'admin-web-unit' 'pnpm --filter admin-web test:coverage'
   pnpm --filter admin-web test:coverage
 
+  stage 'admin-web-build' 'pnpm --filter admin-web build'
+  pnpm --filter admin-web build
+
+  if [[ "${LOCAL_ACT_RUNNER_IMAGE:-}" == 'true' ]]; then
+    stage 'admin-web-browser-system-deps' 'verify preinstalled local act runner image'
+    verify_local_act_playwright_system_deps
+  fi
+
   stage 'admin-web-browsers' 'pnpm --filter admin-web install:browsers'
   pnpm --filter admin-web install:browsers
 
   stage 'admin-web-e2e' 'pnpm --filter admin-web test:e2e:p0 --reporter=list'
   pnpm --filter admin-web test:e2e:p0 --reporter=list
 
-  stage 'admin-web-build' 'pnpm --filter admin-web build'
-  pnpm --filter admin-web build
-
   stage 'mobile-analyze' 'bash ci/mobile-analyze.sh'
   bash ci/mobile-analyze.sh
 
-  stage 'mobile-test' 'cd mobile && flutter test'
-  (
-    cd mobile
-    flutter test
-  )
+  stage 'mobile-format-baseline-regression' 'bash test/tool/mobile_format_changed_test.sh'
+  bash test/tool/mobile_format_changed_test.sh
+
+  stage 'mobile-format-baseline' 'MOBILE_FORMAT_BASE_REF=<merge-base> bash ci/mobile-format-changed.sh'
+  MOBILE_FORMAT_BASE_REF="$MERGE_BASE_SHA" bash ci/mobile-format-changed.sh
+
+  stage 'custom-scene-production-release' 'dart tool/verify_custom_scene_production_release.dart'
+  dart tool/verify_custom_scene_production_release.dart
 
   stage 'mobile-r4' 'bash ci/mobile-r4-release-gates.sh'
   bash ci/mobile-r4-release-gates.sh

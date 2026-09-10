@@ -1,5 +1,7 @@
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
 
 enum CarePathNodeState { current, nearby, doneToday, unavailable }
 
@@ -14,6 +16,58 @@ enum CareTurnPhase {
   error,
 }
 
+enum CareTurnFailureKind {
+  momentUnavailable,
+  reactionUnknownOutcome,
+  reactionRejected,
+  localStateUnavailable,
+}
+
+sealed class CareAudioSource {
+  const CareAudioSource();
+}
+
+class CareAssetAudioSource extends CareAudioSource {
+  const CareAssetAudioSource({required this.assetPath});
+
+  final String assetPath;
+
+  @override
+  bool operator ==(Object other) {
+    return other is CareAssetAudioSource && other.assetPath == assetPath;
+  }
+
+  @override
+  int get hashCode => assetPath.hashCode;
+}
+
+class GeneratedCareAudioSource extends CareAudioSource {
+  const GeneratedCareAudioSource({
+    required this.generatedContentId,
+    required this.utteranceId,
+    this.voiceVersion = 'generated-tts-v1',
+    this.format = 'mp3',
+  });
+
+  final String generatedContentId;
+  final String utteranceId;
+  final String voiceVersion;
+  final String format;
+
+  @override
+  bool operator ==(Object other) {
+    return other is GeneratedCareAudioSource &&
+        other.generatedContentId == generatedContentId &&
+        other.utteranceId == utteranceId &&
+        other.voiceVersion == voiceVersion &&
+        other.format == format;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(generatedContentId, utteranceId, voiceVersion, format);
+}
+
 class CareMoment {
   const CareMoment({
     required this.spaceId,
@@ -24,6 +78,8 @@ class CareMoment {
     required this.careActionLabel,
     required this.coachTip,
     required this.nodeState,
+    this.contentSource = PracticeContentSource.seed,
+    this.generatedContentId,
   });
 
   final String spaceId;
@@ -34,6 +90,8 @@ class CareMoment {
   final String careActionLabel;
   final String coachTip;
   final CarePathNodeState nodeState;
+  final PracticeContentSource contentSource;
+  final String? generatedContentId;
 
   CareMoment copyWith({
     String? spaceId,
@@ -44,6 +102,8 @@ class CareMoment {
     String? careActionLabel,
     String? coachTip,
     CarePathNodeState? nodeState,
+    PracticeContentSource? contentSource,
+    Object? generatedContentId = _unset,
   }) {
     return CareMoment(
       spaceId: spaceId ?? this.spaceId,
@@ -54,6 +114,10 @@ class CareMoment {
       careActionLabel: careActionLabel ?? this.careActionLabel,
       coachTip: coachTip ?? this.coachTip,
       nodeState: nodeState ?? this.nodeState,
+      contentSource: contentSource ?? this.contentSource,
+      generatedContentId: identical(generatedContentId, _unset)
+          ? this.generatedContentId
+          : generatedContentId as String?,
     );
   }
 
@@ -68,7 +132,9 @@ class CareMoment {
             other.sceneTag == sceneTag &&
             other.careActionLabel == careActionLabel &&
             other.coachTip == coachTip &&
-            other.nodeState == nodeState;
+            other.nodeState == nodeState &&
+            other.contentSource == contentSource &&
+            other.generatedContentId == generatedContentId;
   }
 
   @override
@@ -81,6 +147,8 @@ class CareMoment {
     careActionLabel,
     coachTip,
     nodeState,
+    contentSource,
+    generatedContentId,
   );
 }
 
@@ -93,6 +161,8 @@ class CareUtterance {
     required this.audioAsset,
     required this.whenToSay,
     required this.isFallback,
+    this.audioSource,
+    this.sourceIdentity,
   });
 
   final String phraseId;
@@ -102,6 +172,8 @@ class CareUtterance {
   final String? audioAsset;
   final String whenToSay;
   final bool isFallback;
+  final CareAudioSource? audioSource;
+  final String? sourceIdentity;
 
   CareUtterance copyWith({
     String? phraseId,
@@ -111,6 +183,8 @@ class CareUtterance {
     Object? audioAsset = _unset,
     String? whenToSay,
     bool? isFallback,
+    Object? audioSource = _unset,
+    Object? sourceIdentity = _unset,
   }) {
     return CareUtterance(
       phraseId: phraseId ?? this.phraseId,
@@ -122,6 +196,12 @@ class CareUtterance {
           : audioAsset as String?,
       whenToSay: whenToSay ?? this.whenToSay,
       isFallback: isFallback ?? this.isFallback,
+      audioSource: identical(audioSource, _unset)
+          ? this.audioSource
+          : audioSource as CareAudioSource?,
+      sourceIdentity: identical(sourceIdentity, _unset)
+          ? this.sourceIdentity
+          : sourceIdentity as String?,
     );
   }
 
@@ -135,7 +215,9 @@ class CareUtterance {
             other.pronunciation == pronunciation &&
             other.audioAsset == audioAsset &&
             other.whenToSay == whenToSay &&
-            other.isFallback == isFallback;
+            other.isFallback == isFallback &&
+            other.audioSource == audioSource &&
+            other.sourceIdentity == sourceIdentity;
   }
 
   @override
@@ -147,6 +229,8 @@ class CareUtterance {
     audioAsset,
     whenToSay,
     isFallback,
+    audioSource,
+    sourceIdentity,
   );
 }
 
@@ -160,6 +244,9 @@ class CareTurnSnapshot {
     required this.traceEventKey,
     required this.latestGardenImpact,
     required this.message,
+    this.failureKind,
+    this.onboardingContinuation,
+    this.bundledOnly = false,
   });
 
   final CareMoment moment;
@@ -170,6 +257,9 @@ class CareTurnSnapshot {
   final String? traceEventKey;
   final LatestPracticeImpact? latestGardenImpact;
   final String? message;
+  final CareTurnFailureKind? failureKind;
+  final OnboardingCareTurnHandoff? onboardingContinuation;
+  final bool bundledOnly;
 
   CareTurnSnapshot copyWith({
     CareMoment? moment,
@@ -180,6 +270,9 @@ class CareTurnSnapshot {
     Object? traceEventKey = _unset,
     Object? latestGardenImpact = _unset,
     Object? message = _unset,
+    Object? failureKind = _unset,
+    Object? onboardingContinuation = _unset,
+    bool? bundledOnly,
   }) {
     return CareTurnSnapshot(
       moment: moment ?? this.moment,
@@ -200,6 +293,13 @@ class CareTurnSnapshot {
           ? this.latestGardenImpact
           : latestGardenImpact as LatestPracticeImpact?,
       message: identical(message, _unset) ? this.message : message as String?,
+      failureKind: identical(failureKind, _unset)
+          ? this.failureKind
+          : failureKind as CareTurnFailureKind?,
+      onboardingContinuation: identical(onboardingContinuation, _unset)
+          ? this.onboardingContinuation
+          : onboardingContinuation as OnboardingCareTurnHandoff?,
+      bundledOnly: bundledOnly ?? this.bundledOnly,
     );
   }
 
@@ -214,7 +314,10 @@ class CareTurnSnapshot {
             other.phase == phase &&
             other.traceEventKey == traceEventKey &&
             other.latestGardenImpact == latestGardenImpact &&
-            other.message == message;
+            other.message == message &&
+            other.failureKind == failureKind &&
+            other.onboardingContinuation == onboardingContinuation &&
+            other.bundledOnly == bundledOnly;
   }
 
   @override
@@ -227,6 +330,9 @@ class CareTurnSnapshot {
     traceEventKey,
     latestGardenImpact,
     message,
+    failureKind,
+    onboardingContinuation,
+    bundledOnly,
   );
 }
 

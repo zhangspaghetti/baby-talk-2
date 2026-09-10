@@ -112,7 +112,10 @@ public class PalaceHybridRetrievalService {
         try {
             return retrieveInternal(safeRequest);
         } catch (Exception e) {
-            log.error("hybrid retrieval failed, falling back to vector-only path: query='{}'", safeRequest.query(), e);
+            log.error(
+                    "event=palace_hybrid_retrieval_failed queryLength={} exceptionType={}",
+                    safeTextLength(safeRequest.query()),
+                    e.getClass().getSimpleName());
             return fallbackVectorOnly(safeRequest, e);
         }
     }
@@ -148,6 +151,7 @@ public class PalaceHybridRetrievalService {
                 vectorCandidates,
                 keywordCandidates,
                 traversal.extraTraversedRoomKeys(),
+                traversal.currentProjectionRoomKeys(),
                 kgAgeWindow);
 
         QueryTrace trace = new QueryTrace(
@@ -160,13 +164,13 @@ public class PalaceHybridRetrievalService {
         persistTrace(trace, null);
 
         log.info(
-                "hybrid retrieval complete: query='{}', vectorCount={}, keywordCount={}, resultCount={}, temporalRule='{}', projectionVersion='{}'",
-                request.query(),
+                "event=palace_hybrid_retrieval_complete queryLength={} vectorCount={} keywordCount={} resultCount={} temporalRuleApplied={} projectionVersionPresent={}",
+                safeTextLength(request.query()),
                 vectorCandidates.size(),
                 keywordCandidates.size(),
                 rankingOutcome.candidates().size(),
-                trace.temporalRuleApplied(),
-                trace.projectionVersionUsed());
+                trace.temporalRuleApplied() != null,
+                trace.projectionVersionUsed() != null);
 
         return new RetrievalResult(rankingOutcome.candidates(), trace);
     }
@@ -179,17 +183,21 @@ public class PalaceHybridRetrievalService {
                     palaceSearchService.search(request.query(), request.wingHint(), request.roomHint(), request.maxResults()),
                     List.of(),
                     Set.of(),
+                    Set.of(),
                     null);
             candidates = rankingOutcome.candidates();
         } catch (Exception vectorFailure) {
-            log.error("vector-only fallback also failed: query='{}'", request.query(), vectorFailure);
+            log.error(
+                    "event=palace_hybrid_vector_fallback_failed queryLength={} exceptionType={}",
+                    safeTextLength(request.query()),
+                    vectorFailure.getClass().getSimpleName());
             candidates = List.of();
         }
 
         String baseTemporalRule = request.childAgeMonths() == null
                 ? "skipped"
                 : "soft-boost: child=%dmo".formatted(request.childAgeMonths());
-        String temporalRule = "error-fallback: %s; %s".formatted(compactMessage(cause), baseTemporalRule);
+        String temporalRule = "error-fallback: %s; %s".formatted(cause.getClass().getSimpleName(), baseTemporalRule);
         QueryTrace trace = new QueryTrace(
                 inferEntryRoomLabels(request),
                 List.of(),
@@ -206,6 +214,7 @@ public class PalaceHybridRetrievalService {
             List<Document> vectorCandidates,
             List<ChunkResult> keywordCandidates,
             Set<String> traversedRoomKeys,
+            Set<String> currentProjectionRoomKeys,
             AgeWindow kgAgeWindow) {
         Map<String, CandidateAccumulator> merged = new LinkedHashMap<>();
         addVectorCandidates(merged, vectorCandidates);
@@ -218,7 +227,10 @@ public class PalaceHybridRetrievalService {
         }
 
         List<HybridCandidate> rankedWithDefaultFloor = buildRankedCandidates(
-                merged.values(), request.childAgeMonths(), DEFAULT_AGE_FLOOR, traversedRoomKeys, kgAgeWindow, false);
+                merged.values(), request.childAgeMonths(), DEFAULT_AGE_FLOOR, traversedRoomKeys,
+                currentProjectionRoomKeys, kgAgeWindow, false);
+        rankedWithDefaultFloor = restrictToCurrentProjection(
+                rankedWithDefaultFloor, currentProjectionRoomKeys);
 
         long countAboveDefaultFloor = rankedWithDefaultFloor.stream()
                 .filter(candidate -> candidate.ageBoostApplied() > DEFAULT_AGE_FLOOR)
@@ -229,8 +241,10 @@ public class PalaceHybridRetrievalService {
                 && !rankedWithDefaultFloor.isEmpty();
 
         List<HybridCandidate> finalCandidates = fallbackApplied
-                ? buildRankedCandidates(merged.values(), request.childAgeMonths(), WIDENED_AGE_FLOOR, traversedRoomKeys, kgAgeWindow, true)
+                ? buildRankedCandidates(merged.values(), request.childAgeMonths(), WIDENED_AGE_FLOOR,
+                        traversedRoomKeys, currentProjectionRoomKeys, kgAgeWindow, true)
                 : rankedWithDefaultFloor;
+        finalCandidates = restrictToCurrentProjection(finalCandidates, currentProjectionRoomKeys);
 
         finalCandidates = finalCandidates.stream()
                 .sorted(Comparator
@@ -244,11 +258,23 @@ public class PalaceHybridRetrievalService {
         return new RankingOutcome(finalCandidates, temporalRuleApplied);
     }
 
+    private List<HybridCandidate> restrictToCurrentProjection(
+            List<HybridCandidate> candidates,
+            Set<String> currentProjectionRoomKeys) {
+        if (currentProjectionRoomKeys.isEmpty()) {
+            return candidates;
+        }
+        return candidates.stream()
+                .filter(HybridCandidate::currentProjectionMember)
+                .toList();
+    }
+
     private List<HybridCandidate> buildRankedCandidates(
             Collection<CandidateAccumulator> accumulators,
             Integer childAgeMonths,
             double ageFloor,
             Set<String> traversedRoomKeys,
+            Set<String> currentProjectionRoomKeys,
             AgeWindow kgAgeWindow,
             boolean fallbackApplied) {
         List<HybridCandidate> ranked = new ArrayList<>();
@@ -263,6 +289,7 @@ public class PalaceHybridRetrievalService {
             }
 
             String roomKey = roomKey(accumulator.metadata());
+            boolean currentProjectionMember = currentProjectionRoomKeys.contains(roomKey);
             double traversedRoomFactor = traversedRoomKeys.contains(roomKey) ? TRAVERSED_ROOM_MULTIPLIER : 1.0d;
             double mergedScore = accumulator.hybridScore() * traversedRoomFactor;
             AgeBoost ageBoost = computeAgeBoost(childAgeMonths, effectiveAgeWindow, ageFloor);
@@ -273,6 +300,9 @@ public class PalaceHybridRetrievalService {
                     : accumulator.vectorScore() != null ? "vector-only" : "keyword-only");
             if (traversedRoomFactor > 1.0d) {
                 reasons.add("projection-room-match");
+            }
+            if (currentProjectionMember) {
+                reasons.add("current-projection-member");
             }
             if (usedKgHint) {
                 reasons.add("kg-age-hint");
@@ -296,7 +326,8 @@ public class PalaceHybridRetrievalService {
                     candidateAgeRangeRaw,
                     ageBoost.factor(),
                     String.join(", ", reasons),
-                    extractString(accumulator.metadata(), "source_book")));
+                    extractString(accumulator.metadata(), "source_book"),
+                    currentProjectionMember));
         }
         return ranked;
     }
@@ -335,6 +366,7 @@ public class PalaceHybridRetrievalService {
                     List.of(),
                     List.of(),
                     Set.of(),
+                    Set.of(),
                     "not-ready");
         }
 
@@ -343,12 +375,18 @@ public class PalaceHybridRetrievalService {
                 .orElse(null);
 
         List<PalaceRoom> entryRooms = resolveEntryRooms(request);
+        Set<String> currentProjectionRoomKeys = projectionVersion == null
+                ? Set.of()
+                : palaceRoomRepository.findAll().stream()
+                        .map(this::roomKey)
+                        .collect(LinkedHashSet::new, Set::add, Set::addAll);
         if (entryRooms.isEmpty()) {
             return new ProjectionTraversal(
                     List.of(),
                     List.of(),
                     List.of(),
                     Set.of(),
+                    currentProjectionRoomKeys,
                     projectionVersion == null ? null : projectionVersion.toString());
         }
 
@@ -398,6 +436,7 @@ public class PalaceHybridRetrievalService {
                 visitedRoomLabels,
                 bridgeEdgeLabels,
                 extraTraversedRooms,
+                currentProjectionRoomKeys,
                 projectionVersion == null ? null : projectionVersion.toString());
     }
 
@@ -432,7 +471,10 @@ public class PalaceHybridRetrievalService {
             int max = matches.stream().map(KgEntity::validToMonths).max(Integer::compareTo).orElse(min);
             return new AgeWindow(min, max, "kg:%d-%dmo".formatted(min, max));
         } catch (Exception e) {
-            log.warn("kg entity hint lookup failed for query='{}': {}", request.query(), e.getMessage());
+            log.warn(
+                    "event=palace_kg_hint_lookup_failed queryLength={} exceptionType={}",
+                    safeTextLength(request.query()),
+                    e.getClass().getSimpleName());
             return null;
         }
     }
@@ -557,13 +599,8 @@ public class PalaceHybridRetrievalService {
         return "fallback-%d-%d".formatted(index, Objects.hashCode(content));
     }
 
-    private String compactMessage(Exception exception) {
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            return exception.getClass().getSimpleName();
-        }
-        String compact = message.replaceAll("\\s+", " ").trim();
-        return compact.length() <= 120 ? compact : compact.substring(0, 120);
+    private int safeTextLength(String value) {
+        return value == null ? 0 : value.codePointCount(0, value.length());
     }
 
     private List<String> inferEntryRoomLabels(RetrievalRequest request) {
@@ -647,6 +684,7 @@ public class PalaceHybridRetrievalService {
             List<String> roomsTraversed,
             List<String> bridgeEdgesCrossed,
             Set<String> extraTraversedRoomKeys,
+            Set<String> currentProjectionRoomKeys,
             String projectionVersionUsed) {
     }
 

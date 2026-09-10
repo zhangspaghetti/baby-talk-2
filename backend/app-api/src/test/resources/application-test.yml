@@ -15,6 +15,8 @@ spring:
 
 # 测试环境 embedding 配置（集成测试中使用 mock EmbeddingModel 覆盖此 bean）
 app:
+  auth:
+    sensitive-data-pepper: test-auth-sensitive-data-pepper-0123456789abcdef
   embedding:
     mode: openai
     base-url: https://test.example.com

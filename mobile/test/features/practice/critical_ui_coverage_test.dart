@@ -10,6 +10,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
+import 'package:mobile/features/care_path/presentation/care_path_view_model.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
@@ -17,6 +18,7 @@ import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
@@ -37,6 +39,7 @@ import 'package:mobile/features/practice/presentation/practice_session_notifier.
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/screens/home_screen.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:mobile/features/practice/presentation/widgets/activation_frame.dart';
 import 'package:mobile/features/practice/presentation/widgets/phrase_card.dart';
@@ -181,10 +184,7 @@ void main() {
       expect(find.byKey(const Key('practice-progress-text')), findsNothing);
       expect(find.byKey(const Key('practice-completion-view')), findsNothing);
       expect(find.text('第 1 / 3 句'), findsNothing);
-      expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('care-reaction-cooperating')), findsNothing);
 
       await tester.tap(find.text('听一下'));
       await tester.pump();
@@ -199,13 +199,11 @@ void main() {
       await tester.tap(find.text('我说了'));
       await tester.pump();
       expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        find.byKey(const Key('care-reaction-cooperating')),
         findsOneWidget,
       );
 
-      await tester.tap(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-      );
+      await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
       await _pumpFrames(tester, count: 8);
 
       expect(repository.recordedEvents, hasLength(1));
@@ -254,27 +252,27 @@ void main() {
 
         _expectNoFlutterException(tester);
         await tester.ensureVisible(
-          find.byKey(const Key('practice-current-utterance')),
+          find.byKey(const Key('care-turn-current-utterance')),
         );
         await tester.ensureVisible(
-          find.byKey(const Key('practice-listen-once')),
+          find.byKey(const Key('care-turn-listen-once')),
         );
         await tester.ensureVisible(
-          find.byKey(const Key('practice-said-button')),
+          find.byKey(const Key('care-turn-said-button')),
         );
-        _expectMinTouchTarget(tester, const Key('practice-listen-once'));
-        _expectMinTouchTarget(tester, const Key('practice-said-button'));
+        _expectMinTouchTarget(tester, const Key('care-turn-listen-once'));
+        _expectMinTouchTarget(tester, const Key('care-turn-said-button'));
 
-        await tester.tap(find.byKey(const Key('practice-said-button')));
+        await tester.tap(find.byKey(const Key('care-turn-said-button')));
         await tester.pump();
         _expectNoFlutterException(tester);
 
         const reactionKeys = [
-          Key('reaction-bath_time_warm_water-cooperating'),
-          Key('reaction-bath_time_warm_water-hesitant'),
-          Key('reaction-bath_time_warm_water-resisting'),
-          Key('reaction-bath_time_warm_water-no_response'),
-          Key('reaction-bath_time_warm_water-other'),
+          Key('care-reaction-cooperating'),
+          Key('care-reaction-hesitant'),
+          Key('care-reaction-resisting'),
+          Key('care-reaction-no_response'),
+          Key('care-reaction-other'),
         ];
         for (final key in reactionKeys) {
           await tester.ensureVisible(find.byKey(key));
@@ -286,10 +284,10 @@ void main() {
         _expectNoFlutterException(tester);
 
         await tester.ensureVisible(
-          find.byKey(const Key('practice-next-support')),
+          find.byKey(const Key('care-turn-next-support')),
         );
         await tester.ensureVisible(
-          find.byKey(const Key('practice-garden-trace')),
+          find.byKey(const Key('care-turn-garden-trace')),
         );
 
         expect(find.text('Warm water.'), findsOneWidget);
@@ -336,7 +334,7 @@ void main() {
       expect(find.bySemanticsLabel('听一下'), findsOneWidget);
       expect(find.bySemanticsLabel('我说了'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('practice-said-button')));
+      await tester.tap(find.byKey(const Key('care-turn-said-button')));
       await tester.pump();
 
       expect(find.bySemanticsLabel('宝宝刚刚是什么反应？'), findsOneWidget);
@@ -359,9 +357,7 @@ void main() {
         expect(find.bySemanticsLabel(blocked), findsNothing);
       }
 
-      await tester.tap(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-      );
+      await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
       await _pumpFrames(tester, count: 8);
 
       expect(find.bySemanticsLabel('下一句照护支持'), findsOneWidget);
@@ -443,7 +439,7 @@ void main() {
       await tester.pump();
 
       expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        find.byKey(const Key('care-reaction-cooperating')),
         findsOneWidget,
       );
     },
@@ -572,7 +568,7 @@ void main() {
       await tester.tap(find.text('我说了'));
       await tester.pump();
       expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
+        find.byKey(const Key('care-reaction-cooperating')),
         findsOneWidget,
       );
 
@@ -590,10 +586,7 @@ void main() {
         find.byKey(const Key('practice-repository-loading')),
         findsOneWidget,
       );
-      expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('care-reaction-cooperating')), findsNothing);
       await _pumpFrames(tester, count: 8);
 
       expect(notifier.startMomentCalls, [
@@ -602,10 +595,7 @@ void main() {
       ]);
       expect(find.text('Warm water.'), findsOneWidget);
       expect(find.text('我说了'), findsOneWidget);
-      expect(
-        find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('care-reaction-cooperating')), findsNothing);
     },
   );
 
@@ -747,11 +737,11 @@ void main() {
     final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
     final continuitySnapshot = _continuitySnapshot();
     final stageMatch = StageMatchCatalog.forAgeBucket(
-      OnboardingAgeBucket.sixToTwelve,
+      OnboardingAgeBucket.sevenToTwelve,
     );
     final onboardingSnapshot = OnboardingSnapshot(
       childDisplayName: '米米',
-      ageBucket: OnboardingAgeBucket.sixToTwelve,
+      ageBucket: OnboardingAgeBucket.sevenToTwelve,
       approxMonths: stageMatch.approxMonths,
       currentStage: stageMatch.stageId,
       starterSpaceId: 'home',
@@ -875,7 +865,10 @@ void main() {
     await tester.tap(find.byKey(const Key('home-today-primary-cta')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('practice-current-utterance')), findsOneWidget);
+    expect(
+      find.byKey(const Key('care-turn-current-utterance')),
+      findsOneWidget,
+    );
     expect(find.text('听一下'), findsOneWidget);
     expect(find.text('我说了'), findsOneWidget);
     expect(openedArgs?.spaceId, 'home');
@@ -934,7 +927,10 @@ void main() {
     await tester.tap(find.text('现在说一句').first);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('practice-current-utterance')), findsOneWidget);
+    expect(
+      find.byKey(const Key('care-turn-current-utterance')),
+      findsOneWidget,
+    );
     expect(find.text('Warm water.'), findsOneWidget);
     expect(find.text('温温的水。'), findsOneWidget);
     expect(find.text('听一下'), findsOneWidget);
@@ -1005,17 +1001,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Warm water.'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('practice-said-button')));
+    await tester.tap(find.byKey(const Key('care-turn-said-button')));
     await tester.pump();
-    expect(
-      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-      findsOneWidget,
-    );
-    await tester.tap(
-      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-    );
+    expect(find.byKey(const Key('care-reaction-cooperating')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
     await _pumpFrames(tester, count: 8);
-    expect(find.byKey(const Key('practice-next-support')), findsOneWidget);
+    expect(find.byKey(const Key('care-turn-next-support')), findsOneWidget);
 
     router.pop();
     await tester.pumpAndSettle();
@@ -1028,11 +1019,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Splash splash.'), findsOneWidget);
-    expect(find.byKey(const Key('practice-next-support')), findsNothing);
-    expect(
-      find.byKey(const Key('reaction-bath_time_warm_water-cooperating')),
-      findsNothing,
-    );
+    expect(find.byKey(const Key('care-turn-next-support')), findsNothing);
+    expect(find.byKey(const Key('care-reaction-cooperating')), findsNothing);
     expect(find.byKey(const Key('practice-completion-view')), findsNothing);
     expect(find.text('完成总结'), findsNothing);
   });
@@ -1340,7 +1328,7 @@ void main() {
       AppShellScreen(
         onboardingSnapshot: OnboardingSnapshot(
           childDisplayName: '米米',
-          ageBucket: OnboardingAgeBucket.twelveToEighteen,
+          ageBucket: OnboardingAgeBucket.oneToTwo,
           approxMonths: 15,
           currentStage: 'gesture_plus_words',
           starterSpaceId: 'home',
@@ -1395,6 +1383,7 @@ void main() {
   testWidgets('Shell labels use Today/Scene and Garden remains index 2', (
     tester,
   ) async {
+    final practiceRepository = _CarePathScreenPracticeRepository();
     final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
     final continuitySnapshot = _continuitySnapshot();
     final householdNotifier = HouseholdNotifier(
@@ -1411,6 +1400,9 @@ void main() {
       const AppShellScreen(),
       scaffold: false,
       overrides: [
+        practiceRepositoryProvider.overrideWith(
+          (ref) async => practiceRepository,
+        ),
         accountNotifierProvider.overrideWith((ref) {
           return AccountNotifier(repository: _ScreenAccountRepository());
         }),
@@ -1472,6 +1464,67 @@ void main() {
     expect(find.byKey(const Key('shell-mentor-fab')), findsOneWidget);
     expect(find.byKey(const Key('shell-settings-gear')), findsNothing);
 
+    final semantics = tester.ensureSemantics();
+    try {
+      final entryFinder = find.byKey(const Key('custom-scene-entry-scene'));
+      await tester.ensureVisible(entryFinder);
+      await tester.pumpAndSettle();
+      final finalCardAction = tester.getSemantics(
+        find.descendant(
+          of: find.byKey(const Key('discover-phrase-card-song_time')),
+          matching: find.byType(InkWell),
+        ),
+      );
+      final entry = tester.getSemantics(entryFinder);
+      final mentorFab = tester.getSemantics(
+        find.byKey(const Key('shell-mentor-fab')),
+      );
+      final todayNavigation = tester.getSemantics(
+        find.byKey(const Key('shell-nav-home')),
+      );
+      final traversal = tester.semantics
+          .simulatedAccessibilityTraversal()
+          .toList(growable: false);
+      final finalCardIndex = traversal.indexWhere(
+        (node) => node.id == finalCardAction.id,
+      );
+      final entryIndex = traversal.indexWhere((node) => node.id == entry.id);
+      final todayIndex = traversal.indexWhere(
+        (node) => node.id == todayNavigation.id,
+      );
+      final mentorFabIndex = traversal.indexWhere(
+        (node) => node.id == mentorFab.id,
+      );
+
+      expect(
+        <int>[
+          finalCardIndex,
+          entryIndex,
+          todayIndex,
+          mentorFabIndex,
+        ].every((index) => index >= 0),
+        isTrue,
+      );
+      expect(entryIndex, finalCardIndex + 1);
+      expect(todayIndex, entryIndex + 1);
+      expect(mentorFabIndex, greaterThan(todayIndex));
+
+      final reverse = traversal.reversed.toList(growable: false);
+      final reverseTodayIndex = reverse.indexWhere(
+        (node) => node.id == todayNavigation.id,
+      );
+      final reverseEntryIndex = reverse.indexWhere(
+        (node) => node.id == entry.id,
+      );
+      final reverseFinalCardIndex = reverse.indexWhere(
+        (node) => node.id == finalCardAction.id,
+      );
+      expect(reverseEntryIndex, reverseTodayIndex + 1);
+      expect(reverseFinalCardIndex, reverseEntryIndex + 1);
+    } finally {
+      semantics.dispose();
+    }
+
     // §5 规则2：花园 Tab 隐藏全局 FAB（花园有自己的施肥交互）。
     tester
         .widget<NavigationBar>(find.byType(NavigationBar))
@@ -1529,6 +1582,86 @@ void main() {
       ),
     );
   });
+
+  testWidgets(
+    'Shell custom-scene flag controls caregiver Home and Discover launchers',
+    (tester) async {
+      final gardenSnapshot = _gardenSnapshot(spaces: [_gardenPatch()]);
+      final continuitySnapshot = _continuitySnapshot();
+      Future<void> pumpShell(bool enabled) async {
+        final householdNotifier = HouseholdNotifier(
+          repository: _HomeHouseholdRepository(
+            snapshot: const HouseholdLocalSnapshot(
+              householdId: 'household_caregiver',
+              role: HouseholdRole.caregiver,
+              lastPhase: 'shared_context_ready',
+            ),
+          ),
+        );
+        await householdNotifier.initialize();
+        await _pumpApp(
+          tester,
+          const AppShellScreen(),
+          scaffold: false,
+          overrides: [
+            customSceneFeatureEnabledProvider.overrideWithValue(enabled),
+            practiceRepositoryProvider.overrideWith(
+              (ref) async => _CarePathScreenPracticeRepository(),
+            ),
+            accountNotifierProvider.overrideWith((ref) {
+              return AccountNotifier(repository: _ScreenAccountRepository());
+            }),
+            practiceContinuityNotifierProvider.overrideWith((ref) {
+              return _homeContinuityNotifier(continuitySnapshot);
+            }),
+            carePathNotifierProvider.overrideWith(
+              (ref) => _IdleCarePathNotifier(),
+            ),
+            gardenGrowthNotifierProvider.overrideWith((ref) {
+              return GardenGrowthNotifier(
+                repository: _HomeGardenGrowthRepository(gardenSnapshot),
+                refreshTimeout: Duration.zero,
+              );
+            }),
+            householdNotifierProvider.overrideWith((ref) => householdNotifier),
+            gardenFertilizerNotifierProvider.overrideWith(
+              (ref) => _FertilizerNotifierStub(
+                ref.watch(gardenGrowthNotifierProvider),
+              ),
+            ),
+            shareNotifierProvider.overrideWith((ref) {
+              return ShareNotifier(
+                repository: _HomeShareRepository(),
+                initialGrowthSnapshot: gardenSnapshot,
+                initialContinuitySnapshot: continuitySnapshot,
+              );
+            }),
+          ],
+        );
+        await _pumpFrames(tester, count: 8);
+      }
+
+      await pumpShell(false);
+      expect(find.byKey(const Key('custom-scene-entry-today')), findsNothing);
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(1);
+      await _pumpFrames(tester, count: 8);
+      expect(find.byKey(const Key('custom-scene-entry-scene')), findsNothing);
+
+      await pumpShell(true);
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(0);
+      await _pumpFrames(tester, count: 8);
+      expect(find.byKey(const Key('custom-scene-entry-today')), findsOneWidget);
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .onDestinationSelected!(1);
+      await _pumpFrames(tester, count: 8);
+      expect(find.byKey(const Key('custom-scene-entry-scene')), findsOneWidget);
+    },
+  );
 }
 
 /// Static fertilizer notifier stub: renders the empty panel state without the
@@ -1552,6 +1685,20 @@ class _FertilizerNotifierStub extends GardenFertilizerNotifier {
 
   @override
   Future<void> initialize() async {}
+}
+
+class _IdleCarePathNotifier extends CarePathNotifier {
+  _IdleCarePathNotifier()
+    : super(
+        repository: CarePathRepository(
+          practiceRepository: _HomeCarePathPracticeRepository(
+            _continuitySnapshot(),
+          ),
+        ),
+      );
+
+  @override
+  CarePathViewModel get viewModel => CarePathViewModel.idle();
 }
 
 Future<void> _pumpApp(
@@ -1865,9 +2012,14 @@ class _TrackingCarePathNotifier extends CarePathNotifier {
   Future<void> startMoment({
     required String spaceId,
     required String activityId,
+    bool bundledOnly = false,
   }) {
     startMomentCalls.add('$spaceId/$activityId');
-    return super.startMoment(spaceId: spaceId, activityId: activityId);
+    return super.startMoment(
+      spaceId: spaceId,
+      activityId: activityId,
+      bundledOnly: bundledOnly,
+    );
   }
 }
 
@@ -2071,6 +2223,8 @@ class _CarePathScreenPracticeRepository implements PracticeRepository {
     required String activityId,
     required String phraseId,
     required BabyReactionType reactionType,
+    String? generatedContentId,
+    String? utteranceId,
     DateTime? clientTimestamp,
     String? localEventId,
   }) async {

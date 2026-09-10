@@ -21,8 +21,10 @@ class FertilizerState {
   final DateTime? lastAppliedAt;
 
   /// Packs claimed into the backpack but not yet applied.
-  int get backpackCount =>
-      (claimedEventKeys.length - appliedCount).clamp(0, claimedEventKeys.length);
+  int get backpackCount => (claimedEventKeys.length - appliedCount).clamp(
+    0,
+    claimedEventKeys.length,
+  );
 }
 
 /// A single fertilizer pack derived from a practice trace (痕迹).
@@ -59,6 +61,8 @@ class GardenFertilizerViewState {
     required this.claimedPacks,
     required this.backpackCount,
     required this.stageInfo,
+    this.errorMessage,
+    this.canRetry = false,
   });
 
   const GardenFertilizerViewState.loading()
@@ -66,7 +70,9 @@ class GardenFertilizerViewState {
       pendingPacks = const <FertilizerPack>[],
       claimedPacks = const <FertilizerPack>[],
       backpackCount = 0,
-      stageInfo = null;
+      stageInfo = null,
+      errorMessage = null,
+      canRetry = false;
 
   final bool isLoading;
 
@@ -81,6 +87,12 @@ class GardenFertilizerViewState {
 
   /// Current flower stage info; null only while loading.
   final FertilizerStageInfo? stageInfo;
+
+  /// Human-readable failure state. Never contains transport or backend codes.
+  final String? errorMessage;
+
+  /// Retry is available only for a failed authenticated request.
+  final bool canRetry;
 
   bool get hasPendingPacks => pendingPacks.isNotEmpty;
 

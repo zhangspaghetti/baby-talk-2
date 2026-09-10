@@ -4,6 +4,10 @@
 imagePullSecrets:
   - name: acr-credential
 
+candidate:
+  id: release-placeholder
+  requiredMigrationVersion: "38"
+
 appApi:
   replicaCount: 2
   image:
@@ -99,7 +103,38 @@ gateway:
       cpu: 1000m
       memory: 512Mi
 
+# Production credentials come from this externally managed dedicated Secret.
+# Do not add Practice AI keys to the shared `secret` block below.
+practiceAi:
+  providerMode: agentic
+  # Bound worst-case generator + judge + repair + judge chain (11m) with margin.
+  maxGenerationAttempts: 2
+  generationLease: 15m
+  routingPolicyVersion: custom-scene-routing-v1
+  providers:
+    dashscope-qwen:
+      type: openai-compatible
+      baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+      apiKeyEnvironmentVariable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
+      model: qwen3.6-flash
+      # Complete-bundle reasoning gets a 120s provider deadline floor.
+      # This is a maximum deadline, not expected request latency.
+      timeout: 120s
+      # Safe maximum floor for the versioned six-sentence complete-bundle contract.
+      # This limit does not imply that each request consumes this many tokens.
+      maxTokens: 8192
+  capabilities:
+    custom-scene-generator: [dashscope-qwen]
+    custom-scene-quality-judge: [dashscope-qwen]
+    custom-scene-repair: [dashscope-qwen]
+  secret:
+    existingSecret: babytalk-practice-ai
+    # Operators must increment this marker whenever the external Secret rotates.
+    rolloutVersion: "1"
+    values: {}
+
 config:
+  BABY_TALK_CONSENT_VERSION: "pipl-v1"
   BABY_TALK_UPGRADE_URL: "https://babytalk.example.com/upgrade?channel=stable&source=version_gate"
   BABY_TALK_ANDROID_STABLE_URL: "https://download.babytalk.example.com/android/stable/babytalk.apk"
   BABY_TALK_IOS_STABLE_URL: "https://apps.apple.com/app/id0000000000"
@@ -136,6 +171,7 @@ secret:
   BABY_TALK_DB_USERNAME: "change-me-prod-db-user"
   BABY_TALK_DB_PASSWORD: "change-me-prod-db-password"
   BABY_TALK_CONSUMER_JWT_SECRET: "change-me-prod-consumer-jwt-secret"
+  BABY_TALK_AUTH_SENSITIVE_DATA_PEPPER: "change-me-prod-auth-sensitive-data-pepper"
   BABY_TALK_AI_API_KEY: "change-me-prod-ai-api-key"
   BABY_TALK_MINIO_ENDPOINT: "https://storage.babytalk.example.com"
   BABY_TALK_MINIO_ACCESS_KEY: "change-me-prod-storage-access-key"

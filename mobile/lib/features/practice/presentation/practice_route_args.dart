@@ -1,31 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 
 enum PracticeRouteEntrySource { inApp, shareReentry, inviteReentry }
 
-class PracticeRouteArgs {
+enum PracticeEntryKind { preset, generated, onboarding, invalid }
+
+abstract interface class PracticeRouteTarget {
+  String get scopeLabel;
+
+  Future<T?> push<T>(BuildContext context);
+}
+
+class PracticeRouteArgs implements PracticeRouteTarget {
   const PracticeRouteArgs({
     required this.spaceId,
     required this.activityId,
     this.shareToken,
     this.entrySource = PracticeRouteEntrySource.inApp,
+    this.publishedVersion,
   });
 
   final String spaceId;
   final String activityId;
   final String? shareToken;
   final PracticeRouteEntrySource entrySource;
+  final int? publishedVersion;
 
   String get normalizedSpaceId => spaceId.trim();
   String get normalizedActivityId => activityId.trim();
   String? get normalizedShareToken => _trimToNull(shareToken);
   String? get reentryToken => normalizedShareToken;
+  @override
   String get scopeLabel => '$normalizedSpaceId/$normalizedActivityId';
 
   bool get isValid =>
-      normalizedSpaceId.isNotEmpty && normalizedActivityId.isNotEmpty;
+      normalizedSpaceId.isNotEmpty &&
+      normalizedActivityId.isNotEmpty &&
+      (publishedVersion == null || publishedVersion! > 0);
 
   bool isSupportedBy(SeedContentBundle content) {
     for (final space in content.spaces) {
@@ -47,6 +61,7 @@ class PracticeRouteArgs {
       activityId: normalizedActivityId,
       shareToken: normalizedShareToken,
       entrySource: entrySource,
+      publishedVersion: publishedVersion,
     );
   }
 
@@ -55,6 +70,7 @@ class PracticeRouteArgs {
     required String? activityId,
     String? shareToken,
     PracticeRouteEntrySource entrySource = PracticeRouteEntrySource.inApp,
+    int? publishedVersion,
   }) {
     final resolvedSpaceId = (spaceId ?? '').trim();
     final resolvedActivityId = (activityId ?? '').trim();
@@ -66,6 +82,7 @@ class PracticeRouteArgs {
       activityId: resolvedActivityId,
       shareToken: _trimToNull(shareToken),
       entrySource: entrySource,
+      publishedVersion: publishedVersion,
     );
   }
 
@@ -76,6 +93,7 @@ class PracticeRouteArgs {
     return null;
   }
 
+  @override
   Future<T?> push<T>(BuildContext context) {
     return GoRouter.of(
       context,
@@ -91,18 +109,145 @@ class PracticeRouteArgs {
   }
 }
 
+/// Explicit in-gate fallback identity. It preserves the original preset route
+/// while telling the session loader to use Task 2's bundled-only seam.
+class GenericFallbackPracticeRouteArgs {
+  const GenericFallbackPracticeRouteArgs({required this.presetArgs});
+
+  final PracticeRouteArgs presetArgs;
+
+  bool get isValid => presetArgs.isValid;
+
+  String get scopeLabel => 'generic-fallback:${presetArgs.scopeLabel}';
+}
+
+typedef PracticeGenericFallbackArgs = GenericFallbackPracticeRouteArgs;
+
+/// The generated Care Turn route carries only durable approved-content
+/// identity. The formal Practice resolver supplies all display content.
+class GeneratedCareTurnRouteArgs implements PracticeRouteTarget {
+  GeneratedCareTurnRouteArgs({required String generatedContentId})
+    : generatedContentId = _required(generatedContentId);
+
+  final String generatedContentId;
+
+  @override
+  String get scopeLabel => 'generated:$generatedContentId';
+
+  static GeneratedCareTurnRouteArgs? maybeFromObject(Object? raw) {
+    return raw is GeneratedCareTurnRouteArgs ? raw : null;
+  }
+
+  @override
+  Future<T?> push<T>(BuildContext context) {
+    return GoRouter.of(context).push<T>(AppRouteNames.practice, extra: this);
+  }
+
+  static String _required(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(value, 'generatedContentId', '不能为空。');
+    }
+    return normalized;
+  }
+}
+
+class OnboardingCareTurnRouteArgs implements PracticeRouteTarget {
+  const OnboardingCareTurnRouteArgs({
+    required this.completionId,
+    required this.spaceId,
+    required this.activityId,
+    required this.entryTitle,
+    required this.utteranceId,
+    required this.english,
+    required this.chinese,
+    required this.source,
+  });
+
+  final String completionId;
+  final String spaceId;
+  final String activityId;
+  final String entryTitle;
+  final String utteranceId;
+  final String english;
+  final String chinese;
+  final OnboardingCareTurnSource source;
+
+  @override
+  String get scopeLabel =>
+      'onboarding:${spaceId.trim()}/${activityId.trim()}/${utteranceId.trim()}';
+
+  bool get isValid => <String>[
+    completionId,
+    spaceId,
+    activityId,
+    entryTitle,
+    utteranceId,
+    english,
+    chinese,
+  ].every((value) => value.trim().isNotEmpty);
+
+  static OnboardingCareTurnRouteArgs? maybeFromObject(Object? raw) =>
+      raw is OnboardingCareTurnRouteArgs && raw.isValid ? raw : null;
+
+  @override
+  Future<T?> push<T>(BuildContext context) {
+    return GoRouter.of(context).push<T>(AppRouteNames.practice, extra: this);
+  }
+}
+
 class PracticeRouteEntry {
-  const PracticeRouteEntry._({this.args, this.errorMessage});
+  const PracticeRouteEntry._({
+    this.args,
+    this.generatedArgs,
+    this.onboardingArgs,
+    this.errorMessage,
+  });
 
   final PracticeRouteArgs? args;
+  final GeneratedCareTurnRouteArgs? generatedArgs;
+  final OnboardingCareTurnRouteArgs? onboardingArgs;
   final String? errorMessage;
 
-  bool get hasValidArgs => args != null && errorMessage == null;
+  bool get hasValidArgs =>
+      (args != null || generatedArgs != null || onboardingArgs != null) &&
+      errorMessage == null;
+
+  PracticeEntryKind get kind {
+    if (args != null) {
+      return PracticeEntryKind.preset;
+    }
+    if (generatedArgs != null) {
+      return PracticeEntryKind.generated;
+    }
+    if (onboardingArgs != null) {
+      return PracticeEntryKind.onboarding;
+    }
+    return PracticeEntryKind.invalid;
+  }
+
+  bool get isGeneratedCareTurn => generatedArgs != null;
+
+  String get scopeLabel =>
+      args?.scopeLabel ??
+      generatedArgs?.scopeLabel ??
+      onboardingArgs?.scopeLabel ??
+      '';
 
   static PracticeRouteEntry fromObject(Object? raw) {
     final resolvedArgs = PracticeRouteArgs.maybeFromObject(raw);
     if (resolvedArgs != null) {
       return PracticeRouteEntry._(args: resolvedArgs);
+    }
+
+    final generatedArgs = GeneratedCareTurnRouteArgs.maybeFromObject(raw);
+    if (generatedArgs != null) {
+      return PracticeRouteEntry._(generatedArgs: generatedArgs);
+    }
+
+    final onboardingArgs = OnboardingCareTurnRouteArgs.maybeFromObject(raw);
+    if (onboardingArgs != null) {
+      return PracticeRouteEntry._(onboardingArgs: onboardingArgs);
     }
 
     return const PracticeRouteEntry._(

@@ -105,6 +105,7 @@ class FullCiEnvironmentProcessTest(unittest.TestCase):
             payload = json.loads(result.stdout.strip().splitlines()[-1])
             self.assertEqual(payload["leaked_names"], [])
             self.assertEqual(payload["ryuk_disabled"], "false")
+            self.assertIsNone(payload["testcontainers_host_override"])
             self.assertTrue(payload["kubeconfig_exists"])
             self.assertNotEqual(payload["kubeconfig"], str(hostile_kubeconfig))
             self.assertIn("apiVersion: v1", payload["kubeconfig_text"])
@@ -120,6 +121,32 @@ class FullCiEnvironmentProcessTest(unittest.TestCase):
                 },
             )
             self.assertFalse(Path(payload["kubeconfig"]).exists())
+        self.assertEqual(_git_status(), status_before)
+
+    def test_act_safe_testcontainers_host_override_is_retained(self) -> None:
+        status_before = _git_status()
+        env = os.environ.copy()
+        env["TESTCONTAINERS_HOST_OVERRIDE"] = "host.docker.internal"
+        command = (
+            "source ci/full-ci.sh; "
+            "initialize_ci_environment; "
+            "python3 test/ci/fixtures/full_ci_environment_probe.py"
+        )
+        result = subprocess.run(
+            [_bash_executable(), "-c", command],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertEqual(
+            payload["testcontainers_host_override"], "host.docker.internal"
+        )
+        self.assertEqual(payload["ryuk_disabled"], "false")
         self.assertEqual(_git_status(), status_before)
 
     def test_cleanup_failure_is_reported_without_overwriting_gate_status(self) -> None:

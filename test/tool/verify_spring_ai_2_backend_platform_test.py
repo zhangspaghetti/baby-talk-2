@@ -402,6 +402,79 @@ class SpringAi2BackendPlatformVerifierTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Manual OpenAiChatModel construction lacks explicit timeout", result.stderr)
 
+    def test_accepts_exact_practice_ai_options_factory_delegation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = write_valid_platform(pathlib.Path(tmp))
+            source.mkdir(parents=True)
+            self.write_practice_ai_delegation(source, ".maxRetries(0)")
+
+            result = run_verifier(source.parents[5])
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_rejects_practice_ai_options_factory_without_max_retries_zero(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = write_valid_platform(pathlib.Path(tmp))
+            source.mkdir(parents=True)
+            self.write_practice_ai_delegation(source, "")
+
+            result = run_verifier(source.parents[5])
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("PracticeAiOpenAiOptionsFactory must hard-code maxRetries(0)", result.stderr)
+
+    def test_rejects_practice_ai_options_factory_with_positive_retries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = write_valid_platform(pathlib.Path(tmp))
+            source.mkdir(parents=True)
+            self.write_practice_ai_delegation(source, ".maxRetries(1)")
+
+            result = run_verifier(source.parents[5])
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("PracticeAiOpenAiOptionsFactory must hard-code maxRetries(0)", result.stderr)
+
+    def write_practice_ai_delegation(self, source: pathlib.Path, max_retries: str) -> None:
+        (source / "PracticeAiChatClientFactory.java").write_text(
+            """
+            class PracticeAiChatClientFactory {
+                private final PracticeAiOpenAiOptionsFactory optionsFactory;
+
+                Object create(ProviderDefinition provider, String apiKey) {
+                    OpenAiChatOptions options = optionsFactory.build(provider, apiKey);
+                    return OpenAiChatModel.builder().options(options).build();
+                }
+            }
+            """,
+            encoding="utf-8",
+        )
+        (source / "PracticeAiOpenAiOptionsFactory.java").write_text(
+            f"""
+            class PracticeAiOpenAiOptionsFactory {{
+                OpenAiChatOptions build(ProviderDefinition provider, String apiKey) {{
+                    var builder = OpenAiChatOptions.builder()
+                            .baseUrl(provider.baseUrl().toString())
+                            .apiKey(apiKey)
+                            .model(provider.model())
+                            .timeout(provider.timeout())
+                            .n(1)
+                            {max_retries};
+                    if (provider.temperature() != null) {{
+                        builder.temperature(provider.temperature());
+                    }}
+                    if (provider.maxTokens() != null) {{
+                        builder.maxTokens(provider.maxTokens());
+                    }}
+                    if (provider.maxCompletionTokens() != null) {{
+                        builder.maxCompletionTokens(provider.maxCompletionTokens());
+                    }}
+                    return builder.build();
+                }}
+            }}
+            """,
+            encoding="utf-8",
+        )
+
     def test_accepts_routes_after_other_webflux_options(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = pathlib.Path(tmp)

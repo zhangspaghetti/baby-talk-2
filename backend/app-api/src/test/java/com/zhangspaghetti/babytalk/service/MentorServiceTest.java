@@ -31,6 +31,9 @@ class MentorServiceTest extends AbstractIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private SensitiveAuthDataProtector sensitiveAuthDataProtector;
+
     @BeforeEach
     void resetTables() {
                 resetDatabase(jdbcTemplate);
@@ -104,6 +107,38 @@ class MentorServiceTest extends AbstractIntegrationTest {
         assertThat(turn.requestSummary()).doesNotContain("13800138000");
         assertThat(turn.requestSummary()).doesNotContain("246810");
         assertThat(turn.requestSummary()).doesNotContain("sess_secret_token");
+    }
+
+    @Test
+    void mentorTurnAndAuditPersistInstallationReferenceInsteadOfRawInstallationId() {
+        var rawInstallationId = "install-mentor-privacy";
+
+        mentorService.chat(
+                new MentorService.ChatCommand(
+                        rawInstallationId,
+                        "宝宝哭了我该怎么安抚？",
+                        "home",
+                        "single_turn",
+                        "corr_mentor_privacy",
+                        null,
+                        null
+                ),
+                null
+        );
+
+        var expectedReference = sensitiveAuthDataProtector.installationLookupRef(rawInstallationId);
+        assertThat(jdbcTemplate.queryForList(
+                "select installation_id from mentor_audit_logs where correlation_id = ? order by audit_id",
+                String.class,
+                "corr_mentor_privacy"
+        )).allSatisfy(storedInstallationId -> assertThat(storedInstallationId)
+                .isEqualTo(expectedReference)
+                .doesNotContain(rawInstallationId));
+        assertThat(jdbcTemplate.queryForObject(
+                "select installation_id from mentor_turns where correlation_id = ?",
+                String.class,
+                "corr_mentor_privacy"
+        )).isEqualTo(expectedReference);
     }
 
     @Test

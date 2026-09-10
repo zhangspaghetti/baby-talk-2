@@ -23,6 +23,7 @@ class SettingsSnapshot {
     this.autoPlayEnabled = true,
     this.audioSpeed = 1.0,
     this.appVersion = '',
+    this.profileAccountId,
     this.lastModifiedAt,
   });
 
@@ -41,6 +42,7 @@ class SettingsSnapshot {
       autoPlayEnabled: json['autoPlayEnabled'] as bool? ?? true,
       audioSpeed: (json['audioSpeed'] as num?)?.toDouble() ?? 1.0,
       appVersion: json['appVersion'] as String? ?? '',
+      profileAccountId: json['profileAccountId'] as String?,
       lastModifiedAt: _readOptionalDateTime(json, 'lastModifiedAt'),
     );
   }
@@ -60,6 +62,7 @@ class SettingsSnapshot {
       'autoPlayEnabled': autoPlayEnabled,
       'audioSpeed': audioSpeed,
       'appVersion': appVersion,
+      'profileAccountId': profileAccountId,
       'lastModifiedAt': lastModifiedAt?.toUtc().toIso8601String(),
     };
   }
@@ -90,6 +93,11 @@ class SettingsSnapshot {
   final bool autoPlayEnabled;
   final double audioSpeed;
   final String appVersion;
+
+  /// Account scope of the last remotely confirmed baby profile projection.
+  /// Null means this snapshot is local-only and must not be treated as a
+  /// server authority.
+  final String? profileAccountId;
   final DateTime? lastModifiedAt;
 
   /// Returns a new copy with the given fields overridden.
@@ -107,6 +115,9 @@ class SettingsSnapshot {
     bool? autoPlayEnabled,
     double? audioSpeed,
     String? appVersion,
+    String? profileAccountId,
+    bool clearProfileAccountId = false,
+    bool clearChildAgeMonths = false,
     DateTime? lastModifiedAt,
   }) {
     return SettingsSnapshot(
@@ -114,15 +125,21 @@ class SettingsSnapshot {
       reminderHour: reminderHour ?? this.reminderHour,
       reminderMinute: reminderMinute ?? this.reminderMinute,
       childName: childName ?? this.childName,
-      childBirthDate:
-          clearChildBirthDate ? null : (childBirthDate ?? this.childBirthDate),
-      childAgeMonths: childAgeMonths ?? this.childAgeMonths,
+      childBirthDate: clearChildBirthDate
+          ? null
+          : (childBirthDate ?? this.childBirthDate),
+      childAgeMonths: clearChildAgeMonths
+          ? null
+          : (childAgeMonths ?? this.childAgeMonths),
       childStage: childStage ?? this.childStage,
       caregiverRole: caregiverRole ?? this.caregiverRole,
       preferredLanguage: preferredLanguage ?? this.preferredLanguage,
       autoPlayEnabled: autoPlayEnabled ?? this.autoPlayEnabled,
       audioSpeed: audioSpeed ?? this.audioSpeed,
       appVersion: appVersion ?? this.appVersion,
+      profileAccountId: clearProfileAccountId
+          ? null
+          : (profileAccountId ?? this.profileAccountId),
       lastModifiedAt: lastModifiedAt ?? this.lastModifiedAt,
     );
   }
@@ -144,9 +161,13 @@ class SettingsSnapshot {
 
 class SettingsRepository {
   SettingsRepository({required SettingsLocalDataSource localDataSource})
-      : _localDataSource = localDataSource;
+    : _localDataSource = localDataSource;
 
   final SettingsLocalDataSource _localDataSource;
+
+  /// Exposes the lifecycle-owned store so the app clearance registry can
+  /// delete it without creating a second Isar instance.
+  SettingsLocalDataSource get localDataSource => _localDataSource;
 
   /// Reads the persisted settings, falling back to defaults on first launch.
   Future<SettingsSnapshot> readSettings() async {

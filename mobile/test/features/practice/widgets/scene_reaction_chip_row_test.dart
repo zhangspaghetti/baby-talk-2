@@ -79,5 +79,6 @@ void main() {
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     final node = tester.getSemantics(find.text('配合'));
     expect(node.flagsCollection.isSelected, Tristate.isTrue);
+    expect(node.hint, '宝宝有明显回应。');
   });
 }

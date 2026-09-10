@@ -11,7 +11,7 @@ enum ShareViewStatus { idle, success, cancelled, error }
 
 typedef GardenGrowthSnapshotLoader = GardenGrowthSnapshot? Function();
 typedef PracticeContinuitySnapshotLoader =
-  PracticeContinuitySnapshot? Function();
+    PracticeContinuitySnapshot? Function();
 
 class ShareNotifier extends ChangeNotifier {
   ShareNotifier({
@@ -23,7 +23,8 @@ class ShareNotifier extends ChangeNotifier {
   }) : _repository = repository,
        _growthSnapshot = initialGrowthSnapshot,
        _continuitySnapshot = initialContinuitySnapshot {
-    _growthSnapshotLoader = growthSnapshotLoader ?? _defaultGrowthSnapshotLoader;
+    _growthSnapshotLoader =
+        growthSnapshotLoader ?? _defaultGrowthSnapshotLoader;
     _continuitySnapshotLoader =
         continuitySnapshotLoader ?? _defaultContinuitySnapshotLoader;
   }

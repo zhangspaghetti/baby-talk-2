@@ -84,6 +84,23 @@ management:
 
 babytalk:
   practice:
+    generated-audio:
+      enabled: ${BABY_TALK_GENERATED_AUDIO_ENABLED:false}
+      provider-mode: ${BABY_TALK_GENERATED_AUDIO_PROVIDER_MODE:disabled}
+      timeout: ${BABY_TALK_GENERATED_AUDIO_TIMEOUT:5s}
+      max-bytes: ${BABY_TALK_GENERATED_AUDIO_MAX_BYTES:524288}
+      response-max-bytes: ${BABY_TALK_GENERATED_AUDIO_RESPONSE_MAX_BYTES:16384}
+      voice-version: ${BABY_TALK_GENERATED_AUDIO_VOICE_VERSION:generated-tts-v1}
+      format: ${BABY_TALK_GENERATED_AUDIO_FORMAT:mp3}
+      base-url: ${BABY_TALK_GENERATED_AUDIO_BASE_URL:}
+      api-key-environment-variable: ${BABY_TALK_GENERATED_AUDIO_API_KEY_ENVIRONMENT_VARIABLE:}
+      model: ${BABY_TALK_GENERATED_AUDIO_MODEL:}
+      voice: ${BABY_TALK_GENERATED_AUDIO_VOICE:}
+      provider-profile: ${BABY_TALK_GENERATED_AUDIO_PROVIDER_PROFILE:default}
+      allowed-download-hosts: ${BABY_TALK_GENERATED_AUDIO_ALLOWED_DOWNLOAD_HOSTS:}
+    agentic:
+      versioned-resources:
+        profile: ${BABY_TALK_PRACTICE_AI_PROFILE:classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml}
     discovery:
       custom-scene:
         enabled: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_ENABLED:false}
@@ -97,16 +114,20 @@ babytalk:
         account-daily-limit: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_ACCOUNT_DAILY_LIMIT:20}
         burst-window: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_BURST_WINDOW:10m}
         daily-window: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_DAILY_WINDOW:1d}
+        max-generation-attempts: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_MAX_GENERATION_ATTEMPTS:2}
+        generation-lease: ${BABY_TALK_PRACTICE_DISCOVERY_CUSTOM_SCENE_GENERATION_LEASE:5m}
 
 app:
   auth:
     issuer: ${BABY_TALK_CONSUMER_JWT_ISSUER:babytalk-app-api}
     jwt-secret: ${BABY_TALK_CONSUMER_JWT_SECRET}
+    sensitive-data-pepper: ${BABY_TALK_AUTH_SENSITIVE_DATA_PEPPER}
     access-token-ttl: ${BABY_TALK_CONSUMER_ACCESS_TOKEN_TTL:PT15M}
     refresh-token-ttl: ${BABY_TALK_CONSUMER_REFRESH_TOKEN_TTL:P30D}
   contract:
-    min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.2.0}
+    min-supported-version: ${BABY_TALK_MIN_SUPPORTED_VERSION:1.3.0}
     upgrade-url: ${BABY_TALK_UPGRADE_URL:https://example.com/baby-talk/upgrade?channel=stable&source=version_gate}
+    consent-version: ${BABY_TALK_CONSENT_VERSION:pipl-v1}
     sync-max-batch-size: ${BABY_TALK_SYNC_MAX_BATCH_SIZE:100}
     bootstrap-max-events: ${BABY_TALK_BOOTSTRAP_MAX_EVENTS:200}
   distribution:

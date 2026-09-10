@@ -1,7 +1,8 @@
 package com.zhangspaghetti.babytalk.service;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -13,8 +14,40 @@ public class CaregiverInviteRepository {
         this.mapper = mapper;
     }
 
-    Optional<HouseholdMemberRow> findActiveMembershipByAccount(String accountId) {
+    public Optional<HouseholdMemberRow> findActiveMembershipByAccount(String accountId) {
         return Optional.ofNullable(mapper.findActiveMembershipByAccount(accountId));
+    }
+
+    public Optional<GenerationAccessStateRow> findGenerationAccessStateByAccount(String accountId) {
+        return Optional.ofNullable(mapper.findGenerationAccessStateByAccount(accountId));
+    }
+
+    /**
+     * Creates the account's primary household only when it has no membership.
+     * The database uniqueness constraint remains the final cross-request guard.
+     */
+    public HouseholdMemberRow ensurePrimaryHousehold(String accountId, OffsetDateTime now) {
+        var existing = findActiveMembershipByAccount(accountId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        var householdId = "household_" + UUID.randomUUID();
+        insertHousehold(new HouseholdRow(householdId, accountId, "active", now, null));
+        var inserted = mapper.insertMemberIfAbsent(new HouseholdMemberRow(
+                0,
+                householdId,
+                accountId,
+                "primary_caregiver",
+                "active",
+                null,
+                now,
+                null
+        ));
+        if (inserted == 0) {
+            mapper.deleteHouseholdIfUnassigned(householdId);
+        }
+        return findActiveMembershipByAccount(accountId).orElseThrow(() ->
+                new IllegalStateException("primary household membership was not persisted"));
     }
 
     Optional<HouseholdMemberRow> findMembershipByHouseholdAndAccount(String householdId, String accountId) {
@@ -35,20 +68,20 @@ public class CaregiverInviteRepository {
         mapper.insertInvite(invite);
     }
 
-    Optional<InviteRow> findInviteByToken(String token) {
-        return Optional.ofNullable(mapper.findInviteByToken(token));
+    Optional<InviteRow> findInviteByTokenLookupRef(String tokenLookupRef) {
+        return Optional.ofNullable(mapper.findInviteByTokenLookupRef(tokenLookupRef));
     }
 
-    void markInviteAccepted(String token, String acceptedByAccountId, Instant acceptedAt) {
-        mapper.markInviteAccepted(token, acceptedByAccountId, acceptedAt);
+    void markInviteAccepted(String tokenLookupRef, String acceptedByAccountId, OffsetDateTime acceptedAt) {
+        mapper.markInviteAccepted(tokenLookupRef, acceptedByAccountId, acceptedAt);
     }
 
-    void markInviteExpired(String token, String failureReason) {
-        mapper.markInviteExpired(token, failureReason);
+    void markInviteExpired(String tokenLookupRef, String failureReason) {
+        mapper.markInviteExpired(tokenLookupRef, failureReason);
     }
 
-    void markInviteRevoked(String token, Instant revokedAt, String failureReason) {
-        mapper.markInviteRevoked(token, revokedAt, failureReason);
+    void markInviteRevoked(String tokenLookupRef, OffsetDateTime revokedAt, String failureReason) {
+        mapper.markInviteRevoked(tokenLookupRef, revokedAt, failureReason);
     }
 
     void upsertSharedContext(SharedContextRow row) {
@@ -90,8 +123,8 @@ public class CaregiverInviteRepository {
             String householdId,
             String ownerAccountId,
             String status,
-            Instant createdAt,
-            Instant revokedAt
+            OffsetDateTime createdAt,
+            OffsetDateTime revokedAt
     ) {
     }
 
@@ -102,23 +135,36 @@ public class CaregiverInviteRepository {
             String role,
             String status,
             String invitedByAccountId,
-            Instant joinedAt,
-            Instant lastAcceptedAt
+            OffsetDateTime joinedAt,
+            OffsetDateTime lastAcceptedAt
+    ) {
+    }
+
+    /**
+     * Single-row access decision from the database. {@code accessState} is
+     * one of never_member, active_membership, inactive_membership, or
+     * inactive_household.
+     */
+    public record GenerationAccessStateRow(
+            String accessState,
+            String householdId,
+            String accountId,
+            String role
     ) {
     }
 
     public record InviteRow(
             long inviteId,
-            String token,
+            String tokenLookupRef,
             String householdId,
             String inviterAccountId,
             String targetRole,
             String source,
             String status,
-            Instant createdAt,
-            Instant expiresAt,
-            Instant acceptedAt,
-            Instant revokedAt,
+            OffsetDateTime createdAt,
+            OffsetDateTime expiresAt,
+            OffsetDateTime acceptedAt,
+            OffsetDateTime revokedAt,
             String acceptedByAccountId,
             String failureReason
     ) {
@@ -131,8 +177,8 @@ public class CaregiverInviteRepository {
             String gardenSummary,
             String spaceId,
             String activityId,
-            Instant latestInteractionAt,
-            Instant updatedAt,
+            OffsetDateTime latestInteractionAt,
+            OffsetDateTime updatedAt,
             String latestActorRole,
             String latestActorSource,
             String latestActorResult,
@@ -145,14 +191,14 @@ public class CaregiverInviteRepository {
     public record SharedContextViewRow(
             String householdId,
             String role,
-            Instant lastAcceptedAt,
+            OffsetDateTime lastAcceptedAt,
             String babyProfileSummary,
             String continuitySummary,
             String gardenSummary,
             String spaceId,
             String activityId,
-            Instant latestInteractionAt,
-            Instant updatedAt,
+            OffsetDateTime latestInteractionAt,
+            OffsetDateTime updatedAt,
             String latestActorRole,
             String latestActorSource,
             String latestActorResult,
@@ -166,7 +212,7 @@ public class CaregiverInviteRepository {
             String latestSpaceId,
             String latestActivityId,
             String latestActorResult,
-            Instant latestInteractionAt,
+            OffsetDateTime latestInteractionAt,
             String latestActorRole,
             int totalEvents,
             int activeMemberCount,
@@ -180,7 +226,7 @@ public class CaregiverInviteRepository {
             String spaceId,
             String activityId,
             String reactionType,
-            Instant clientTimestamp,
+            OffsetDateTime clientTimestamp,
             String sourceAccountId
     ) {
     }
@@ -189,12 +235,12 @@ public class CaregiverInviteRepository {
             String spaceId,
             String activityId,
             int eventCount,
-            Instant latestInteractionAt
+            OffsetDateTime latestInteractionAt
     ) {
     }
 
     public record EventRow(
-            String token,
+            String tokenLookupRef,
             String householdId,
             String actorAccountId,
             String entrypoint,
@@ -203,7 +249,7 @@ public class CaregiverInviteRepository {
             String platform,
             String result,
             String failureReason,
-            Instant createdAt
+            OffsetDateTime createdAt
     ) {
     }
 }

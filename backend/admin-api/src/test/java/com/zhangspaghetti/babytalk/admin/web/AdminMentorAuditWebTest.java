@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.admin.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
@@ -13,6 +14,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.admin.auth.AdminAuthService;
 import com.zhangspaghetti.babytalk.admin.rbac.AdminPermissionCatalog;
+import com.zhangspaghetti.babytalk.security.SensitiveAuthDataProtector;
 import java.sql.Timestamp;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,6 +89,9 @@ class AdminMentorAuditWebTest {
     @Autowired
     private AdminAuthService adminAuthService;
 
+    @Autowired
+    private SensitiveAuthDataProtector sensitiveAuthDataProtector;
+
     @BeforeEach
     void resetTables() {
         jdbcTemplate.execute(
@@ -109,6 +114,8 @@ class AdminMentorAuditWebTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(3)))
                 .andExpect(jsonPath("$[0].correlationId").value("corr_timeout"))
+                .andExpect(jsonPath("$[0].installationId")
+                        .value(sensitiveAuthDataProtector.installationLookupRef("install-beta")))
                 .andExpect(jsonPath("$[0].flagCode").value("provider_timeout"))
                 .andExpect(jsonPath("$[*].correlationId", not(hasItem("corr_success"))));
 
@@ -118,7 +125,9 @@ class AdminMentorAuditWebTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[*].correlationId", hasItem("corr_blocked")))
-                .andExpect(jsonPath("$[*].correlationId", hasItem("corr_rate_limited")));
+                .andExpect(jsonPath("$[*].correlationId", hasItem("corr_rate_limited")))
+                .andExpect(jsonPath("$[0].installationId")
+                        .value(sensitiveAuthDataProtector.installationLookupRef("install-alpha")));
 
         mockMvc.perform(get("/api/admin/mentor/audits")
                         .param("flag", "rate_limited")
@@ -136,10 +145,12 @@ class AdminMentorAuditWebTest {
         var now = Instant.now();
         seedBlockedIncident("corr_blocked", "install-alpha", now.minusSeconds(90));
 
-        mockMvc.perform(get("/api/admin/mentor/audits/{correlationId}", "corr_blocked")
+        var detail = mockMvc.perform(get("/api/admin/mentor/audits/{correlationId}", "corr_blocked")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.scope").value("incident_evidence"))
+                .andExpect(jsonPath("$.installationId")
+                        .value(sensitiveAuthDataProtector.installationLookupRef("install-alpha")))
                 .andExpect(jsonPath("$.flagCode").value("blocked_fallback"))
                 .andExpect(jsonPath("$.latestPhase").value("blocked_fallback"))
                 .andExpect(jsonPath("$.deliveryState").value("delivered"))
@@ -150,7 +161,9 @@ class AdminMentorAuditWebTest {
                 .andExpect(jsonPath("$.timeline[1].eventType").value("blocked_fallback"))
                 .andExpect(jsonPath("$.liveRateLimit.currentCount").value(1))
                 .andExpect(jsonPath("$.liveRateLimit.remaining").value(1))
-                .andExpect(jsonPath("$.liveRateLimit.limited").value(false));
+                .andExpect(jsonPath("$.liveRateLimit.limited").value(false))
+                .andReturn();
+        assertThat(detail.getResponse().getContentAsString()).doesNotContain("install-alpha");
     }
 
     @Test

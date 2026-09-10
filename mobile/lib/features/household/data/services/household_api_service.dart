@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/api_version.dart';
 import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
@@ -15,10 +16,7 @@ const String defaultHouseholdApiBaseUrl = String.fromEnvironment(
   'BABY_TALK_API_BASE_URL',
   defaultValue: 'http://127.0.0.1:8080',
 );
-const String defaultHouseholdApiVersion = String.fromEnvironment(
-  'BABY_TALK_API_VERSION',
-  defaultValue: '1.2.0',
-);
+const String defaultHouseholdApiVersion = defaultAppApiVersion;
 
 enum HouseholdApiFailureKind { network, timeout, malformed, http }
 
@@ -51,6 +49,7 @@ class HouseholdApiException implements Exception {
   bool get isUnauthorized => statusCode == 401 || code == 'invalid_session';
   bool get isConsentRequired => code == 'consent_required';
   bool get isConsentRevoked => code == 'consent_revoked';
+  bool get isMembershipMissing => code == 'household_membership_missing';
   bool get isRoleNotAllowed => code == 'role_not_allowed';
   bool get isInviteExpired => code == 'invite_expired';
   bool get isInviteAlreadyUsed => code == 'invite_already_used';
@@ -63,7 +62,10 @@ class HouseholdApiException implements Exception {
 
   @override
   String toString() {
-    return 'HouseholdApiException(kind: $kind, statusCode: $statusCode, code: $code, message: $message)';
+    // Server messages may contain private household or child text. Callers
+    // receive the sanitized visible message separately; diagnostics expose
+    // only stable transport classification.
+    return 'HouseholdApiException(kind: $kind, statusCode: $statusCode, code: $code)';
   }
 }
 

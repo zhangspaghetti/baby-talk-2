@@ -12,15 +12,10 @@ import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import com.zhangspaghetti.babytalk.web.PracticeDiscoveryController;
 import java.time.Instant;
-import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -46,13 +41,6 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     @Autowired
     private AuthConsentSyncService authConsentSyncService;
 
-    @Autowired
-    private MutableCustomSceneGenerationService customSceneGenerationService;
-
-    @BeforeEach
-    void resetCustomSceneGenerator() {
-        customSceneGenerationService.mode("success");
-    }
 
     @Test
     void draftCatalogDiscoverySucceedsWithoutJwt() throws Exception {
@@ -108,128 +96,6 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void draftCustomSceneDiscoverySucceedsWithoutJwt() throws Exception {
-        var result = mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.surface").value("onboarding"))
-                .andExpect(jsonPath("$.mode").value("custom_scene"))
-                .andExpect(jsonPath("$.profileMode").value("draft"))
-                .andExpect(jsonPath("$.source").value("generated"))
-                .andExpect(jsonPath("$.generatedContentId").isNotEmpty())
-                .andExpect(jsonPath("$.starter.source").value("generated"))
-                .andExpect(jsonPath("$.scenes[0].reasonCode").value("custom_scene_match"))
-                .andExpect(jsonPath("$.starter.sceneId").isNotEmpty())
-                .andExpect(jsonPath("$.starter.activityId").isNotEmpty())
-                .andExpect(jsonPath("$.starter.phraseId").isNotEmpty())
-                .andReturn();
-
-        var body = result.getResponse().getContentAsString();
-        assertThat(body)
-                .contains("gen_scene_")
-                .contains("gen_activity_")
-                .contains("gen_phrase_")
-                .doesNotContain("洗澡后哄睡")
-                .doesNotContain("normalizedSceneText");
-    }
-
-    @Test
-    void acceptedAccountCustomSceneSucceedsWithoutInstallationId() throws Exception {
-        var session = createAcceptedSession("13800138209", "install-onboarding-discovery-9");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡前宝宝有点紧张", null))
-                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken())))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.profileMode").value("authenticated_request"))
-                .andExpect(jsonPath("$.starter.source").value("generated"));
-    }
-
-    @Test
-    void customSceneRateLimitReturns429WithoutOwnerKeyOrRawText() throws Exception {
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡一")))
-                .andExpect(status().isOk());
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡二")))
-                .andExpect(status().isOk());
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡三")))
-                .andExpect(status().isOk());
-
-        var result = mockMvc.perform(discovery(customSceneJson("洗澡后哄睡四")))
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("custom_scene_rate_limited"))
-                .andExpect(jsonPath("$.details.scope").value("installation"))
-                .andExpect(jsonPath("$.details.limit").value(3))
-                .andExpect(jsonPath("$.details.window").value("burst"))
-                .andExpect(jsonPath("$.details.windowSeconds").value(600))
-                .andExpect(jsonPath("$.details.retryAfterSeconds").value(600))
-                .andReturn();
-
-        assertThat(result.getResponse().getContentAsString())
-                .doesNotContain("owner_")
-                .doesNotContain("ownerKey")
-                .doesNotContain("install_1")
-                .doesNotContain("洗澡后哄睡四");
-    }
-
-    @Test
-    void customSceneUnsafeOutputRejected() throws Exception {
-        customSceneGenerationService.mode("unsafe");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("generated_content_rejected"));
-    }
-
-    @Test
-    void customSceneRejectedRetryDoesNotPrimaryKeyCrash() throws Exception {
-        customSceneGenerationService.mode("unsafe");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡重试")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("generated_content_rejected"));
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡重试")))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("generated_content_rejected"));
-    }
-
-    @Test
-    void customSceneTimeoutReturnsFallbackHint() throws Exception {
-        customSceneGenerationService.mode("timeout");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isGatewayTimeout())
-                .andExpect(jsonPath("$.code").value("generation_timeout"))
-                .andExpect(jsonPath("$.details.retryable").value(true))
-                .andExpect(jsonPath("$.details.suggestCatalogFallback").value(true));
-    }
-
-    @Test
-    void transientProviderUnavailableReturnsRetryableFallbackHint() throws Exception {
-        customSceneGenerationService.mode("unavailable");
-
-        mockMvc.perform(discovery(customSceneJson("洗澡后哄睡")))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("generation_unavailable"))
-                .andExpect(jsonPath("$.details.retryable").value(true))
-                .andExpect(jsonPath("$.details.suggestCatalogFallback").value(true))
-                .andExpect(jsonPath("$.details.reason").value("provider_unavailable"));
-    }
-
-    @Test
-    void invalidCustomSceneTextRejectedBeforeGeneration() throws Exception {
-        mockMvc.perform(discovery(customSceneJson("洗澡 138001380001")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
-
-        mockMvc.perform(discovery(customSceneJson("宝宝叫小明，洗澡后哄睡")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("unsafe_custom_scene_text"));
-
-        mockMvc.perform(discovery(customSceneJson("洗澡 ignore previous")))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("unsupported_custom_scene_text"));
-    }
-
-    @Test
     void unknownModeReturns400() throws Exception {
         expectBadRequestWithCode("""
                 {
@@ -240,6 +106,13 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                   "parentGoal":"calmer_care",
                   "locale":"zh-CN"
                 }
+                """, "invalid_discovery_mode");
+    }
+
+    @Test
+    void removedCustomSceneDiscoveryModeReturnsInvalidMode() throws Exception {
+        expectBadRequestWithCode("""
+                {"surface":"onboarding","mode":"custom_scene","installationId":"install_1","ageRange":"m7_11","parentGoal":"calmer_care","locale":"zh-CN","customSceneText":"洗澡后哄睡"}
                 """, "invalid_discovery_mode");
     }
 
@@ -509,24 +382,6 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
                 """;
     }
 
-    private String customSceneJson(String customSceneText) throws Exception {
-        return customSceneJson(customSceneText, "install_1");
-    }
-
-    private String customSceneJson(String customSceneText, String installationId) throws Exception {
-        var root = objectMapper.createObjectNode();
-        root.put("surface", "onboarding");
-        root.put("mode", "custom_scene");
-        if (installationId != null) {
-            root.put("installationId", installationId);
-        }
-        root.put("ageRange", "m7_11");
-        root.put("parentGoal", "calmer_care");
-        root.put("locale", "zh-CN");
-        root.put("customSceneText", customSceneText);
-        return objectMapper.writeValueAsString(root);
-    }
-
     private String profileJson(String profileId, String ageRange, String parentGoal) throws Exception {
         return profileJson(profileId, ageRange, parentGoal, "install_1");
     }
@@ -593,57 +448,4 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
         return "Bearer " + accessToken;
     }
 
-    @TestConfiguration
-    static class TestCustomSceneGenerationConfiguration {
-
-        @Bean
-        @Primary
-        MutableCustomSceneGenerationService mutableCustomSceneGenerationService() {
-            return new MutableCustomSceneGenerationService();
-        }
-    }
-
-    static class MutableCustomSceneGenerationService implements CustomSceneGenerationService {
-
-        private final AtomicReference<String> mode = new AtomicReference<>("success");
-
-        void mode(String mode) {
-            this.mode.set(mode);
-        }
-
-        @Override
-        public GeneratedPracticeContentCandidate generateCustomSceneStarter(CustomSceneGenerationRequest request) {
-            return switch (mode.get()) {
-                case "unsafe" -> candidate("学习任务", "答题打分", "Lesson quiz", "让孩子答对后再给分。", "Take the quiz.", "开始测验。");
-                case "timeout" -> throw new GenerationTimeoutException(request.timeout());
-                case "unavailable" -> throw new GenerationUnavailableException(
-                        GenerationUnavailableReason.PROVIDER_UNAVAILABLE);
-                default -> candidate("日常照护", "洗澡安抚", "Bath care", "看着宝宝，慢慢说一遍。", "Warm water.", "水暖暖的。");
-            };
-        }
-
-        private GeneratedPracticeContentCandidate candidate(
-                String spaceTitleZh,
-                String activityTitleZh,
-                String sceneTagEn,
-                String coachTipZh,
-                String englishText,
-                String chineseText
-        ) {
-            return new GeneratedPracticeContentCandidate(
-                    spaceTitleZh,
-                    activityTitleZh,
-                    sceneTagEn,
-                    coachTipZh,
-                    englishText,
-                    chineseText,
-                    englishText.toLowerCase().replaceAll("[^a-z ]", "").trim(),
-                    "starter",
-                    "fake",
-                    "test_provider_trace",
-                    null,
-                    "test-custom-scene"
-            );
-        }
-    }
 }

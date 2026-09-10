@@ -30,7 +30,7 @@ QA 环境与 dev 环境**隔离**运行，互不影响：
 | Kubernetes namespace | `babytalk` | `babytalk-qa` |
 | Infra release | `babytalk-infra` | `babytalk-qa-infra` |
 | App release | `babytalk-app` | `babytalk-qa-app` |
-| Gateway 本地端口 | 8090 | **8091** |
+| Gateway 本地端口 | 8090 | **19091** |
 | Admin-web 本地端口 | 3000 | **3001** |
 | Infra 持久化存储 | emptyDir（重启丢失） | **PVC（hostpath，持久化）** |
 
@@ -42,6 +42,22 @@ cp deploy/helm/babytalk-app/values-kind-qa-secrets.example.yaml \
    deploy/helm/babytalk-app/values-kind-qa-secrets.yaml
 # 编辑 values-kind-qa-secrets.yaml，设置 JWT secret 和 admin 密码
 ```
+
+### Agentic Practice AI owner-key
+
+QA 使用 `practiceAi.providerMode: agentic` 时，还必须在本机 QA secrets
+overlay 中设置 `BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET`。它是 app-api
+用于派生 owner 与请求 HMAC 指纹的稳定服务端密钥，**不是** LLM API key。
+
+```bash
+# 只在本机终端生成；不要把输出提交、粘贴到工单或日志
+python tool/generate_practice_discovery_owner_key.py --yaml
+```
+
+将输出的 `secret:` 段粘入
+`deploy/helm/babytalk-app/values-kind-qa-secrets.yaml`。默认生成 32-byte、64 位
+hex 随机值。不要复用 LLM API key、JWT secret 或数据库密码；同一 QA 环境应保持
+该值稳定，轮换会改变已有生成内容的 owner/幂等匹配。
 
 ### 一键拉起 QA 环境 + 打包 APK
 
@@ -55,7 +71,7 @@ cp deploy/helm/babytalk-app/values-kind-qa-secrets.example.yaml \
 2. **Infra** — 部署 `babytalk-qa-infra`（Postgres + Redis + MinIO，全部启用 PVC 持久化）到 `babytalk-qa` namespace
 3. **App** — 部署 `babytalk-qa-app`（gateway + app-api + admin-api + admin-web + db-migration）到 `babytalk-qa` namespace
 4. **Rollout 验证** — 等待所有 Deployment 就绪
-5. **Port-forward（后台）** — gateway → `127.0.0.1:8091`，admin-web → `127.0.0.1:3001`
+5. **Port-forward（后台）** — gateway → `127.0.0.1:19091`，admin-web → `127.0.0.1:3001`
 6. **Gateway smoke** — curl 健康检查
 7. **APK 构建** — `flutter build apk --debug`
 8. **APK 安装** — 检测 `adb devices`；有模拟器/真机则自动 `adb install`，否则输出 APK 路径
@@ -65,7 +81,7 @@ cp deploy/helm/babytalk-app/values-kind-qa-secrets.example.yaml \
 ```
 qa_status=ok
 namespace=babytalk-qa
-gateway_url=http://127.0.0.1:8091/
+gateway_url=http://127.0.0.1:19091/
 admin_web_url=http://127.0.0.1:3001
 apk_path=mobile/build/app/outputs/flutter-apk/app-debug.apk
 ```
@@ -113,7 +129,7 @@ adb install -r mobile/build/app/outputs/flutter-apk/app-debug.apk
 
 ```bash
 # 指定 QA gateway 端口并自动拉起指定模拟器
-./scripts/qa-install-apk.sh --gateway-port 8091 --avd <avd_name>
+./scripts/qa-install-apk.sh --gateway-port 19091 --avd <avd_name>
 
 # 跳过构建，直接安装已有 APK 到指定设备
 ./scripts/qa-install-apk.sh --skip-build --device <serial>
@@ -282,7 +298,7 @@ helm upgrade --install babytalk-app deploy/helm/babytalk-app -f deploy/helm/baby
 模块级验证继续使用：
 
 ```bash
-./backend/mvnw -f backend/pom.xml test -DexcludedGroups=llm-it
+./backend/mvnw -f backend/pom.xml test
 bash ci/backend-test.sh
 ```
 

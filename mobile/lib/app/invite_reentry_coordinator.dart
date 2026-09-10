@@ -81,6 +81,16 @@ class InviteReentryCoordinator extends ChangeNotifier {
     return command;
   }
 
+  /// Keeps a valid invite pending while sign-in is required. The command is
+  /// deliberately not consumed, so post-authentication recovery can run once.
+  void markAwaitingAuthentication() {
+    if (_pendingTarget != InviteReentryDispatchTarget.acceptInvite) {
+      return;
+    }
+    _displayMessage = '请先登录并完成同意，再继续接受照护邀请。';
+    notifyListeners();
+  }
+
   bool takePendingShellFallback() {
     if (_pendingTarget != InviteReentryDispatchTarget.shellFallback) {
       return false;

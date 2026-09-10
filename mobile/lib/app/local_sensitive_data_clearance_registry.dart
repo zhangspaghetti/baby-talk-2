@@ -1,9 +1,16 @@
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
+import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
+import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
 
 RegistryLocalSensitiveDataClearanceOrchestrator
 createLocalSensitiveDataClearanceOrchestrator({
@@ -12,6 +19,16 @@ createLocalSensitiveDataClearanceOrchestrator({
   required HouseholdRepository householdRepository,
   required PracticeRepository practiceRepository,
   required MentorRepository mentorRepository,
+  required AuthContinuationCoordinator authContinuationCoordinator,
+  required CustomSceneDraftContinuationCoordinator
+  customSceneDraftContinuationCoordinator,
+  required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
+  required PresetSceneCatalogStore presetSceneCatalogStore,
+  PresetSceneCatalogRepository? presetSceneCatalogRepository,
+  required GeneratedAudioMemoryCache generatedAudioMemoryCache,
+  required SettingsLocalDataSource settingsLocalDataSource,
+  required LocalSensitiveDataClearanceCallback
+  onboardingCareTurnContinuationClearance,
 }) {
   return RegistryLocalSensitiveDataClearanceOrchestrator(
     steps: createLocalSensitiveDataClearanceSteps(
@@ -20,6 +37,16 @@ createLocalSensitiveDataClearanceOrchestrator({
       householdRepository: householdRepository,
       practiceRepository: practiceRepository,
       mentorRepository: mentorRepository,
+      authContinuationCoordinator: authContinuationCoordinator,
+      customSceneDraftContinuationCoordinator:
+          customSceneDraftContinuationCoordinator,
+      generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+      presetSceneCatalogStore: presetSceneCatalogStore,
+      presetSceneCatalogRepository: presetSceneCatalogRepository,
+      generatedAudioMemoryCache: generatedAudioMemoryCache,
+      settingsLocalDataSource: settingsLocalDataSource,
+      onboardingCareTurnContinuationClearance:
+          onboardingCareTurnContinuationClearance,
     ),
   );
 }
@@ -30,6 +57,16 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
   required HouseholdRepository householdRepository,
   required PracticeRepository practiceRepository,
   required MentorRepository mentorRepository,
+  required AuthContinuationCoordinator authContinuationCoordinator,
+  required CustomSceneDraftContinuationCoordinator
+  customSceneDraftContinuationCoordinator,
+  required GeneratedPracticeContentRegistry generatedPracticeContentRegistry,
+  required PresetSceneCatalogStore presetSceneCatalogStore,
+  PresetSceneCatalogRepository? presetSceneCatalogRepository,
+  required GeneratedAudioMemoryCache generatedAudioMemoryCache,
+  required SettingsLocalDataSource settingsLocalDataSource,
+  required LocalSensitiveDataClearanceCallback
+  onboardingCareTurnContinuationClearance,
 }) {
   return <LocalSensitiveDataClearanceStep>[
     LocalSensitiveDataClearanceStep(
@@ -38,9 +75,60 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       clear: accountRepository.deleteLocalSnapshotForLifecycle,
     ),
     LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.authContinuation,
+      primitiveName: 'AuthContinuationCoordinator.clear',
+      clear: authContinuationCoordinator.clear,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.customSceneDraft,
+      primitiveName:
+          'CustomSceneDraftContinuationCoordinator.clearForLifecycle',
+      clear: customSceneDraftContinuationCoordinator.clearForLifecycle,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.generatedCareMoments,
+      primitiveName: 'GeneratedPracticeContentRegistry.clearForLifecycle',
+      clear: generatedPracticeContentRegistry.clearForLifecycle,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.presetSceneCatalog,
+      primitiveName: 'PresetSceneCatalogStore.clearForLifecycle',
+      clear: () async {
+        Object? failure;
+        try {
+          // Invalidate in-flight remote work and memory before planting the
+          // disk marker. Late responses then fail the generation check and
+          // cannot repopulate the cleared catalog.
+          await presetSceneCatalogRepository?.clearForLifecycle();
+        } on Object catch (error) {
+          failure = error;
+        }
+        try {
+          await presetSceneCatalogStore.clearForLifecycle();
+        } on Object catch (error) {
+          failure ??= error;
+        }
+        final error = failure;
+        if (error != null) {
+          throw error;
+        }
+      },
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.generatedAudioMemory,
+      primitiveName: 'GeneratedAudioMemoryCache.clear',
+      clear: () async => generatedAudioMemoryCache.clear(),
+    ),
+    LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.onboardingSnapshot,
-      primitiveName: 'OnboardingRepository.clearSnapshot',
-      clear: onboardingRepository.clearSnapshot,
+      primitiveName: 'OnboardingRepository.clearAllLocalState',
+      clear: onboardingRepository.clearAllLocalState,
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.onboardingCareTurnContinuation,
+      primitiveName:
+          'FileOnboardingCareTurnContinuationStore.clearForLifecycle',
+      clear: onboardingCareTurnContinuationClearance,
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.householdSnapshot,
@@ -56,6 +144,11 @@ List<LocalSensitiveDataClearanceStep> createLocalSensitiveDataClearanceSteps({
       target: LocalSensitiveDataTarget.mentorFactEvents,
       primitiveName: 'MentorRepository.close(deleteFromDisk: true)',
       clear: () => mentorRepository.close(deleteFromDisk: true),
+    ),
+    LocalSensitiveDataClearanceStep(
+      target: LocalSensitiveDataTarget.settingsSnapshot,
+      primitiveName: 'SettingsLocalDataSource.clearForLifecycle',
+      clear: settingsLocalDataSource.clearForLifecycle,
     ),
     LocalSensitiveDataClearanceStep(
       target: LocalSensitiveDataTarget.installationId,

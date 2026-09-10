@@ -1,0 +1,66 @@
+enum CustomSceneEntrySource { today, scene }
+
+extension CustomSceneEntrySourceWire on CustomSceneEntrySource {
+  String get wireValue => switch (this) {
+    CustomSceneEntrySource.today => 'today',
+    CustomSceneEntrySource.scene => 'scene',
+  };
+}
+
+CustomSceneEntrySource parseCustomSceneEntrySource(String value) {
+  return switch (value.trim()) {
+    'today' => CustomSceneEntrySource.today,
+    'scene' => CustomSceneEntrySource.scene,
+    _ => throw FormatException('未知 custom scene entry source。'),
+  };
+}
+
+class CustomSceneRequestIdentity {
+  CustomSceneRequestIdentity({required String clientRequestId})
+    : clientRequestId = _required(clientRequestId, 'clientRequestId');
+
+  factory CustomSceneRequestIdentity.create({DateTime? now}) {
+    final encodedEpoch = (now ?? DateTime.now())
+        .toUtc()
+        .microsecondsSinceEpoch
+        .toRadixString(36);
+    final splitAt = encodedEpoch.length > 8 ? encodedEpoch.length - 8 : 0;
+    final safeEpoch = splitAt == 0
+        ? encodedEpoch
+        : '${encodedEpoch.substring(0, splitAt)}_'
+              '${encodedEpoch.substring(splitAt)}';
+    return CustomSceneRequestIdentity(
+      clientRequestId: 'custom_scene_$safeEpoch',
+    );
+  }
+
+  final String clientRequestId;
+
+  static String _required(String value, String fieldName) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(value, fieldName, '不能为空。');
+    }
+    return normalized;
+  }
+}
+
+class CustomSceneDraft {
+  CustomSceneDraft({
+    required String text,
+    required this.entrySource,
+    required this.requestIdentity,
+  }) : text = _required(text, 'text');
+
+  final String text;
+  final CustomSceneEntrySource entrySource;
+  final CustomSceneRequestIdentity requestIdentity;
+
+  static String _required(String value, String fieldName) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(value, fieldName, '不能为空。');
+    }
+    return normalized;
+  }
+}

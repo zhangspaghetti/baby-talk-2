@@ -1,0 +1,23 @@
+version: custom-scene-quality-v1
+schema-version: judge-rubric-schema-v1
+dimensions:
+  - scene_alignment
+  - parent_speakability
+  - non_course_framing
+  - tpr_quality
+  - delivery_guidance_quality
+  - age_suitability
+  - bilingual_consistency
+  - low_pressure_support
+verdict-policy:
+  reject-on-fail:
+    - age_suitability
+  repair-on-fail:
+    - scene_alignment
+    - parent_speakability
+    - non_course_framing
+    - tpr_quality
+    - delivery_guidance_quality
+    - bilingual_consistency
+    - low_pressure_support
+  repair-on-abstain: true

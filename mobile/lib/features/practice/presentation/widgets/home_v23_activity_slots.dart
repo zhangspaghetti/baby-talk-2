@@ -135,7 +135,11 @@ class _ActivitySlot extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: colors.outlineSoft),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: colors.outlineSoft,
+              ),
             ],
           ),
         ),

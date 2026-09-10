@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
@@ -162,6 +164,46 @@ void main() {
       await continuityVM.refresh(reason: 'test_reuse_after_reset');
       expect(continuityVM.status, isNot(PracticeContinuityLoadStatus.idle));
     });
+
+    test('continuity account epoch 丢弃切换前的在途结果', () async {
+      final firstLoad = Completer<PracticeContinuitySnapshot>();
+      final continuityVM = PracticeContinuityNotifier(
+        continuitySnapshotLoader:
+            ({String? starterSpaceId, String? starterActivityId}) =>
+                firstLoad.future,
+        activitySnapshotLoader:
+            ({required String spaceId, required String activityId}) async =>
+                throw StateError('stale activity loader must not run'),
+        refreshTimeout: Duration.zero,
+      );
+
+      continuityVM.bindAccountContext('account-a');
+      final pending = continuityVM.refresh(reason: 'account-a-refresh');
+      continuityVM.bindAccountContext('account-b');
+      firstLoad.completeError(StateError('stale account-a result'));
+      await pending;
+
+      expect(continuityVM.status, PracticeContinuityLoadStatus.idle);
+      expect(continuityVM.snapshot, isNull);
+      expect(continuityVM.lastRefreshReason, isNull);
+    });
+
+    test('Garden account epoch 丢弃切换前的在途结果', () async {
+      final firstLoad = Completer<GardenGrowthSnapshot>();
+      final gardenVM = GardenGrowthNotifier(
+        repository: _DelayedGardenGrowthRepository(firstLoad.future),
+        refreshTimeout: Duration.zero,
+      );
+
+      gardenVM.bindAccountContext('account-a');
+      final pending = gardenVM.refresh();
+      gardenVM.bindAccountContext('account-b');
+      firstLoad.completeError(StateError('stale account-a result'));
+      await pending;
+
+      expect(gardenVM.status, GardenGrowthLoadStatus.idle);
+      expect(gardenVM.snapshot, GardenGrowthSnapshot.empty());
+    });
   });
 
   group('dev-text absence — 内部开发诊断文案不应出现', () {
@@ -199,6 +241,15 @@ class _FakeGardenGrowthRepository implements GardenGrowthRepository {
     }
     return null;
   }
+}
+
+class _DelayedGardenGrowthRepository implements GardenGrowthRepository {
+  _DelayedGardenGrowthRepository(this.result);
+
+  final Future<GardenGrowthSnapshot> result;
+
+  @override
+  Future<GardenGrowthSnapshot> buildSnapshot() => result;
 }
 
 /// Fake HouseholdRepository——noSuchMethod 处理所有调用

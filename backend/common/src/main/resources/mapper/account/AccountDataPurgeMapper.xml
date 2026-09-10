@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.account.AccountDataPurgeMapper">
+
+    <resultMap id="accountStateMap" type="com.zhangspaghetti.babytalk.account.AccountDataPurgeMapper$AccountState">
+        <constructor>
+            <arg column="account_id" javaType="java.lang.String"/>
+            <arg column="phone_lookup_ref" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="lockAccount" resultMap="accountStateMap">
+        select account_id, phone_lookup_ref, status
+        from accounts
+        where account_id = #{accountId}
+        for update
+    </select>
+
+    <delete id="deleteSmsChallenges">
+        delete from sms_challenges
+        where phone_lookup_ref = (
+            select phone_lookup_ref
+            from accounts
+            where account_id = #{accountId}
+        )
+    </delete>
+
+    <delete id="deleteInteractionEvents">
+        delete from interaction_events
+        where account_id = #{accountId}
+    </delete>
+
+    <delete id="deleteMentorTurns">
+        delete from mentor_turns
+        where account_id_hint = #{accountId}
+           or session_id_hint in (
+               select session_id
+               from account_sessions
+               where account_id = #{accountId}
+           )
+    </delete>
+
+    <delete id="deleteMentorAuditLogs">
+        delete from mentor_audit_logs
+        where account_id_hint = #{accountId}
+           or session_id_hint in (
+               select session_id
+               from account_sessions
+               where account_id = #{accountId}
+           )
+    </delete>
+
+    <delete id="deleteGardenApplyLogs">
+        delete from garden_fertilizer_apply_log
+        where user_id = #{accountId}
+    </delete>
+
+    <delete id="deleteGardenClaimLogs">
+        delete from garden_fertilizer_claim_log
+        where user_id = #{accountId}
+    </delete>
+
+    <delete id="deleteGardenState">
+        delete from garden_fertilizer_state
+        where user_id = #{accountId}
+    </delete>
+
+    <update id="clearDerivedBundleReferences">
+        update practice_generated_content_evidence_bundles derived
+        set derived_from_bundle_id = null
+        where derived_from_bundle_id in (
+            select owned.evidence_bundle_id
+            from practice_generated_content_evidence_bundles owned
+            join practice_generated_content content
+              on content.generated_content_id = owned.generated_content_id
+            where content.account_id = #{accountId}
+              and content.owner_scope in ('account', 'profile')
+        )
+    </update>
+
+    <delete id="deleteGeneratedContent">
+        delete from practice_generated_content
+        where account_id = #{accountId}
+          and owner_scope in ('account', 'profile')
+    </delete>
+
+    <delete id="deleteBabyProfile">
+        delete from baby_profiles
+        where account_id = #{accountId}
+    </delete>
+
+    <update id="revokeRefreshTokens">
+        update account_refresh_tokens
+        set status = 'revoked',
+            revoked_at = #{revokedAt},
+            updated_at = #{revokedAt}
+        where account_id = #{accountId}
+          and status = 'active'
+    </update>
+
+    <update id="updateSessions">
+        update account_sessions
+        set status = 'deleted',
+            revoked_at = #{updatedAt},
+            installation_id = case when installation_id ~ '^v1:[A-Za-z0-9_-]{43}$' then installation_id else 'redacted' end
+        where account_id = #{accountId}
+          and status &lt;&gt; 'deleted'
+    </update>
+
+    <update id="redactSessionInstallationReferences">
+        update account_sessions
+        set installation_id = 'redacted'
+        where account_id = #{accountId}
+          and installation_id !~ '^v1:[A-Za-z0-9_-]{43}$'
+    </update>
+
+    <update id="redactConsentAuditInstallationReferences">
+        update consent_audit_logs
+        set installation_id = 'redacted'
+        where account_id = #{accountId}
+          and installation_id !~ '^v1:[A-Za-z0-9_-]{43}$'
+    </update>
+
+    <!-- Shared context is an owner-derived projection. Preserve it when the
+         deleted account is only a caregiver in another active household. -->
+    <delete id="deleteSharedContextOwnedByAccount">
+        delete from household_shared_context
+        where household_id in (
+            select household_id
+            from households
+            where owner_account_id = #{accountId}
+        )
+    </delete>
+
+    <update id="redactInviteEventReferences">
+        update caregiver_invite_events e
+        set actor_account_id = null,
+            token = null
+        where e.actor_account_id = #{accountId}
+           or e.token in (
+               select invite.token
+               from caregiver_invites invite
+               where invite.inviter_account_id = #{accountId}
+                  or invite.accepted_by_account_id = #{accountId}
+           )
+    </update>
+
+    <delete id="deleteInvitesByInviter">
+        delete from caregiver_invites
+        where inviter_account_id = #{accountId}
+    </delete>
+
+    <update id="clearAcceptedByReferences">
+        update caregiver_invites
+        set accepted_by_account_id = null
+        where accepted_by_account_id = #{accountId}
+    </update>
+
+    <update id="clearInvitedByReferences">
+        update household_members
+        set invited_by_account_id = null
+        where invited_by_account_id = #{accountId}
+    </update>
+
+    <update id="transferHouseholdOwners">
+        with candidates as (
+            select distinct on (household.household_id)
+                   household.household_id,
+                   member.account_id as new_owner_account_id
+            from households household
+            join household_members member
+              on member.household_id = household.household_id
+             and member.account_id &lt;&gt; #{accountId}
+             and member.status = 'active'
+            join accounts candidate_account
+              on candidate_account.account_id = member.account_id
+             and candidate_account.status = 'active'
+            where household.owner_account_id = #{accountId}
+            order by household.household_id,
+                     (member.role = 'primary_caregiver') desc,
+                     member.joined_at asc,
+                     member.account_id asc
+        ), updated as (
+            update households household
+            set owner_account_id = candidate.new_owner_account_id
+            from candidates candidate
+            where household.household_id = candidate.household_id
+            returning household.household_id, household.owner_account_id
+        )
+        update household_members member
+        set role = 'primary_caregiver'
+        from updated
+        where member.household_id = updated.household_id
+          and member.account_id = updated.owner_account_id
+          and member.status = 'active'
+    </update>
+
+    <delete id="deleteMembership">
+        delete from household_members
+        where account_id = #{accountId}
+    </delete>
+
+    <delete id="deleteEmptyOwnedHouseholdEvents">
+        delete from caregiver_invite_events
+        where household_id in (
+            select household_id
+            from households
+            where owner_account_id = #{accountId}
+        )
+    </delete>
+
+    <delete id="deleteEmptyOwnedHouseholdContext">
+        delete from household_shared_context
+        where household_id in (
+            select household_id
+            from households
+            where owner_account_id = #{accountId}
+        )
+    </delete>
+
+    <delete id="deleteEmptyOwnedHouseholdInvites">
+        delete from caregiver_invites
+        where household_id in (
+            select household_id
+            from households
+            where owner_account_id = #{accountId}
+        )
+    </delete>
+
+    <delete id="deleteEmptyOwnedHouseholdMembers">
+        delete from household_members
+        where household_id in (
+            select household_id
+            from households
+            where owner_account_id = #{accountId}
+        )
+    </delete>
+
+    <delete id="deleteEmptyOwnedHouseholds">
+        delete from households
+        where owner_account_id = #{accountId}
+    </delete>
+
+    <update id="tombstoneAccount">
+        update accounts
+        set status = 'deleted',
+            phone_lookup_ref = concat('deleted:', account_id),
+            phone_mask = '账号已删除',
+            latest_consent_status = 'deleted',
+            deleted_at = #{deletedAt}
+        where account_id = #{accountId}
+          and status = 'active'
+    </update>
+</mapper>

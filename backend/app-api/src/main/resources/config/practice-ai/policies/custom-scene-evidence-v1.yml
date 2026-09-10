@@ -1,0 +1,13 @@
+version: custom-scene-evidence-v1
+schema-version: evidence-policy-schema-v1
+minimum-confidence: 0.70
+required-claim-coverage:
+  - scene_support
+  - parent_speakability
+  - age_guidance
+  - low_pressure_delivery
+trusted-source-types:
+  - strategy_pack
+  - communication_primitive
+  - curated_knowledge
+  - approved_external_snapshot

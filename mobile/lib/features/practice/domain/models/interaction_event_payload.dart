@@ -122,6 +122,8 @@ class InteractionEventPayload with _$InteractionEventPayload {
     required String phraseId,
     required BabyReactionType reactionType,
     required DateTime clientTimestamp,
+    String? generatedContentId,
+    String? utteranceId,
     @Default(InteractionSyncState.pending) InteractionSyncState syncState,
     String? lastSyncPhase,
     String? lastSyncError,
@@ -136,6 +138,8 @@ class InteractionEventPayload with _$InteractionEventPayload {
     required String phraseId,
     required BabyReactionType reactionType,
     required DateTime clientTimestamp,
+    String? generatedContentId,
+    String? utteranceId,
     InteractionSyncState syncState = InteractionSyncState.pending,
     String? lastSyncPhase,
     String? lastSyncError,
@@ -156,6 +160,12 @@ class InteractionEventPayload with _$InteractionEventPayload {
     if (phraseId.trim().isEmpty) {
       throw const FormatException('phraseId 不能为空。');
     }
+    final normalizedGeneratedContentId = _trimToNull(generatedContentId);
+    final normalizedUtteranceId = _trimToNull(utteranceId);
+    if ((normalizedGeneratedContentId == null) !=
+        (normalizedUtteranceId == null)) {
+      throw const FormatException('generatedContentId 与 utteranceId 必须同时存在。');
+    }
     if (lastSyncPhase != null && lastSyncPhase.trim().isEmpty) {
       throw const FormatException('lastSyncPhase 不能为空字符串。');
     }
@@ -170,6 +180,8 @@ class InteractionEventPayload with _$InteractionEventPayload {
       phraseId: phraseId,
       reactionType: reactionType,
       clientTimestamp: clientTimestamp.toUtc(),
+      generatedContentId: normalizedGeneratedContentId,
+      utteranceId: normalizedUtteranceId,
       syncState: syncState,
       lastSyncPhase: lastSyncPhase,
       lastSyncError: lastSyncError,
@@ -185,6 +197,8 @@ class InteractionEventPayload with _$InteractionEventPayload {
     required String phraseId,
     required String reactionType,
     required DateTime clientTimestamp,
+    String? generatedContentId,
+    String? utteranceId,
     String? eventKey,
     String syncState = 'pending',
     String? lastSyncPhase,
@@ -199,6 +213,8 @@ class InteractionEventPayload with _$InteractionEventPayload {
       phraseId: phraseId,
       reactionType: parseBabyReactionType(reactionType),
       clientTimestamp: clientTimestamp,
+      generatedContentId: generatedContentId,
+      utteranceId: utteranceId,
       syncState: parseInteractionSyncState(syncState),
       lastSyncPhase: lastSyncPhase,
       lastSyncError: lastSyncError,
@@ -233,6 +249,8 @@ class InteractionEventPayload with _$InteractionEventPayload {
       phraseId: phraseId,
       reactionType: reactionType,
       clientTimestamp: clientTimestamp,
+      generatedContentId: generatedContentId,
+      utteranceId: utteranceId,
       syncState: syncState ?? this.syncState,
       lastSyncPhase: lastSyncPhase ?? this.lastSyncPhase,
       lastSyncError: clearLastSyncError
@@ -252,6 +270,8 @@ class InteractionEventPayload with _$InteractionEventPayload {
       'phraseId': phraseId,
       'reactionType': reactionType.wireValue,
       'clientTimestamp': clientTimestamp.toIso8601String(),
+      'generatedContentId': generatedContentId,
+      'utteranceId': utteranceId,
     };
   }
 
@@ -262,5 +282,10 @@ class InteractionEventPayload with _$InteractionEventPayload {
       'lastSyncError': lastSyncError,
       'lastSyncAt': lastSyncAt?.toIso8601String(),
     };
+  }
+
+  static String? _trimToNull(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
   }
 }

@@ -1,0 +1,2 @@
+# Historical Dart formatter debt baseline, captured before M1 onboarding.
+# Keep this set unchanged or smaller until the dedicated cleanup lands.

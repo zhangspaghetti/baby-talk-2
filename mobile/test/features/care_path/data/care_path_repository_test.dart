@@ -1,5 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
+import 'package:mobile/features/practice/data/remote/preset_scene_catalog_api.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
@@ -9,6 +15,7 @@ import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.da
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 
 import '../../practice/practice_repository_characterization_harness.dart';
 
@@ -111,6 +118,7 @@ void main() {
           saved.traceEventKey,
           '$practiceCharacterizationInstallationId:evt_care_path_hesitant',
         );
+        expect(saved.currentUtterance?.phraseId, 'bath_time_warm_water');
         expect(saved.nextSupportUtterance?.phraseId, 'bath_time_splash_splash');
 
         final events = await harness.repository.listEventHistory(
@@ -122,6 +130,29 @@ void main() {
         expect(events.single.reactionType, BabyReactionType.hesitant);
       },
     );
+
+    test('recordReaction retry with the same event id returns next support '
+        'without duplicate trace', () async {
+      final turn = await repository.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      final first = await repository.recordReaction(
+        turn: turn,
+        reactionType: BabyReactionType.hesitant,
+        localEventId: 'evt_care_path_reconcile',
+      );
+      final retry = await repository.recordReaction(
+        turn: turn,
+        reactionType: BabyReactionType.hesitant,
+        localEventId: 'evt_care_path_reconcile',
+      );
+
+      expect(retry.traceEventKey, first.traceEventKey);
+      expect(retry.phase, CareTurnPhase.nextSupportReady);
+      expect(retry.nextSupportUtterance, isNotNull);
+      expect(await harness.repository.listEventHistory(), hasLength(1));
+    });
 
     test(
       'records BabyReactionType.other canonically after mark-said state handoff',
@@ -185,6 +216,36 @@ void main() {
           BabyReactionType.cooperating,
         );
         expect(saved.latestGardenImpact?.phraseTitle, 'Warm water.');
+      },
+    );
+
+    test(
+      'keeps confirmed trace and next support when Garden snapshot fails',
+      () async {
+        final repository = CarePathRepository(
+          practiceRepository: harness.repository,
+          gardenGrowthRepository: _FailingGardenGrowthRepository(),
+        );
+        final turn = await repository.startMoment(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        final saved = await repository.recordReaction(
+          turn: turn,
+          reactionType: BabyReactionType.cooperating,
+          localEventId: 'evt_care_path_garden_failure',
+        );
+
+        expect(saved.phase, CareTurnPhase.nextSupportReady);
+        expect(
+          saved.traceEventKey,
+          '$practiceCharacterizationInstallationId:'
+          'evt_care_path_garden_failure',
+        );
+        expect(saved.nextSupportUtterance, isNotNull);
+        expect(saved.latestGardenImpact, isNull);
+        expect(await harness.repository.listEventHistory(), hasLength(1));
       },
     );
 
@@ -266,10 +327,121 @@ void main() {
         expect(snapshot.phase, CareTurnPhase.error);
         expect(snapshot.moment.nodeState, CarePathNodeState.unavailable);
         expect(snapshot.currentUtterance, isNull);
-        expect(snapshot.message, isNotNull);
+        expect(snapshot.message, '当前照护内容暂时不可用。');
+        expect(snapshot.message, isNot(contains('care path')));
+      },
+    );
+
+    test(
+      'onboarding continuation uses bundled activity without remote catalog',
+      () async {
+        await harness.dispose();
+        for (final mode in <_OnboardingCatalogMode>[
+          _OnboardingCatalogMode.empty,
+          _OnboardingCatalogMode.failure,
+        ]) {
+          final api = _CountingCatalogApi(mode);
+          final tempDir = await Directory.systemTemp.createTemp(
+            'onboarding_catalog_',
+          );
+          final catalogRepository = PresetSceneCatalogRepository(
+            api: api,
+            store: PresetSceneCatalogStore(
+              directoryResolver: () async => tempDir,
+            ),
+            assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          );
+          harness = await PracticeRepositoryCharacterizationHarness.create(
+            presetSceneCatalogRepository: catalogRepository,
+          );
+          final carePath = CarePathRepository(
+            practiceRepository: harness.repository,
+            gardenGrowthRepository: GardenGrowthRepository(
+              practiceRepository: harness.repository,
+              assetPhraseService: AssetPhraseService(bundle: rootBundle),
+            ),
+            onboardingContinuationPort: const _TestContinuationPort(),
+          );
+          const handoff = OnboardingCareTurnHandoff(
+            completionId: 'completion-static',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            entryTitle: '继续洗澡',
+            utteranceId: 'support.bath.hesitant',
+            english: 'Try when ready.',
+            chinese: '准备好再试。',
+            source: OnboardingCareTurnSource.localFallback,
+          );
+
+          final onboarding = await carePath.startContinuation(handoff);
+          expect(onboarding.phase, CareTurnPhase.utteranceReady);
+          expect(onboarding.moment.title, '继续洗澡');
+          expect(onboarding.currentUtterance?.english, 'Try when ready.');
+          expect(api.calls, 0);
+
+          final afterReaction = await carePath.recordReaction(
+            turn: onboarding.copyWith(phase: CareTurnPhase.reactionPrompt),
+            reactionType: BabyReactionType.cooperating,
+          );
+          expect(afterReaction.traceEventKey, isNotNull);
+          expect(api.calls, 0);
+
+          final ordinaryCatalog = await harness.repository.getActivityCatalog();
+          expect(api.calls, 1);
+          expect(
+            ordinaryCatalog.activities,
+            mode == _OnboardingCatalogMode.empty ? isEmpty : hasLength(5),
+          );
+          await harness.dispose();
+          if (await tempDir.exists()) {
+            await tempDir.delete(recursive: true);
+          }
+        }
       },
     );
   });
+}
+
+enum _OnboardingCatalogMode { empty, failure }
+
+class _CountingCatalogApi extends PresetSceneCatalogApi {
+  _CountingCatalogApi(this.mode);
+
+  final _OnboardingCatalogMode mode;
+  int calls = 0;
+
+  @override
+  Future<List<PresetSceneDefinition>> fetchPublishedScenes() async {
+    calls += 1;
+    if (mode == _OnboardingCatalogMode.failure) {
+      throw const PresetSceneCatalogApiException.network();
+    }
+    return const <PresetSceneDefinition>[];
+  }
+}
+
+class _TestContinuationPort implements OnboardingCareTurnContinuationPort {
+  const _TestContinuationPort();
+
+  @override
+  Future<OnboardingCareTurnHandoff> verify(
+    OnboardingCareTurnHandoff handoff,
+  ) async => handoff;
+
+  @override
+  Future<OnboardingContinuationReactionRecord> recordReaction({
+    required OnboardingCareTurnHandoff handoff,
+    required String reaction,
+    required DateTime occurredAt,
+  }) async {
+    return OnboardingContinuationReactionRecord(
+      eventId: 'event-${handoff.completionId}',
+      completionId: handoff.completionId,
+      utteranceId: handoff.utteranceId,
+      reaction: reaction,
+      occurredAt: occurredAt,
+    );
+  }
 }
 
 class _NoNextSupportPracticeRepository implements PracticeRepository {
@@ -373,6 +545,8 @@ class _NoNextSupportPracticeRepository implements PracticeRepository {
     required String activityId,
     required String phraseId,
     required BabyReactionType reactionType,
+    String? generatedContentId,
+    String? utteranceId,
     DateTime? clientTimestamp,
     String? localEventId,
   }) async {
@@ -440,6 +614,16 @@ class _StubGardenGrowthRepository implements GardenGrowthRepository {
       skippedMalformedEvents: 0,
       skippedUnknownContentEvents: 0,
     );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FailingGardenGrowthRepository implements GardenGrowthRepository {
+  @override
+  Future<GardenGrowthSnapshot> buildSnapshot() {
+    throw StateError('simulated Garden snapshot failure');
   }
 
   @override

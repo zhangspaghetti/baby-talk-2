@@ -2,37 +2,49 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/app/account_readiness_bootstrap.dart';
 import 'package:mobile/app/app_reentry_orchestrator.dart';
+import 'package:mobile/app/custom_scene_recovery_coordinator.dart';
 import 'package:mobile/app/auth_state.dart';
 import 'package:mobile/app/feature_gates.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
+import 'package:mobile/app/onboarding_v4_migration.dart';
+import 'package:mobile/app/router/account_route_builder.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/app/router/root_navigator_key.dart';
+import 'package:mobile/app/router/onboarding_care_turn_handoff.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
-import 'package:mobile/features/auth/presentation/screens/auth_screen.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
+import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
+import 'package:mobile/features/care_entry/presentation/care_entry_providers.dart';
+import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_name_screen.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_practice_screen.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_complete_screen.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_garden_welcome_screen.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
+import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show
+        AsyncData,
+        Consumer,
         ConsumerState,
         ConsumerStatefulWidget,
         ConsumerWidget,
@@ -107,6 +119,7 @@ class _AppLaunchState {
   const _AppLaunchState({
     required this.practiceRepository,
     required this.onboardingRepository,
+    required this.onboardingConversationRepository,
     required this.accountRepository,
     required this.householdRepository,
     required this.mentorRepository,
@@ -119,6 +132,7 @@ class _AppLaunchState {
 
   final PracticeRepository practiceRepository;
   final OnboardingRepository onboardingRepository;
+  final OnboardingConversationRepository onboardingConversationRepository;
   final AccountRepository accountRepository;
   final HouseholdRepository householdRepository;
   final MentorRepository mentorRepository;
@@ -140,6 +154,7 @@ class BabyTalkApp extends ConsumerStatefulWidget {
     required this.bootState,
     this.audioControllerFactory,
     this.completedSnapshotLoader,
+    this.presetSceneDefinitionLoader,
     this.shareUriStream,
     this.shareReentryCoordinator,
     this.inviteReentryCoordinator,
@@ -150,6 +165,7 @@ class BabyTalkApp extends ConsumerStatefulWidget {
   final AppBootState bootState;
   final PracticeAudioControllerFactory? audioControllerFactory;
   final OnboardingCompletedSnapshotLoader? completedSnapshotLoader;
+  final PresetSceneDefinitionLoader? presetSceneDefinitionLoader;
   final Stream<Uri>? shareUriStream;
   final ShareReentryCoordinator? shareReentryCoordinator;
   final InviteReentryCoordinator? inviteReentryCoordinator;
@@ -164,32 +180,31 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   late Future<_AppLaunchState> _launchStateFuture;
   late final ShareReentryCoordinator _shareReentryCoordinator;
   late final InviteReentryCoordinator _inviteReentryCoordinator;
-  late final bool _ownsShareReentryCoordinator;
-  late final bool _ownsInviteReentryCoordinator;
   late final AppReentryOrchestrator _reentryOrchestrator;
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   GoRouter? _currentRouter;
   _AppLaunchState? _resolvedLaunchState;
 
   @override
   void initState() {
     super.initState();
-    _ownsShareReentryCoordinator = widget.shareReentryCoordinator == null;
-    _ownsInviteReentryCoordinator = widget.inviteReentryCoordinator == null;
     _shareReentryCoordinator =
-        widget.shareReentryCoordinator ?? ShareReentryCoordinator();
+        widget.shareReentryCoordinator ??
+        ref.read(shareReentryCoordinatorProvider);
     _inviteReentryCoordinator =
-        widget.inviteReentryCoordinator ?? InviteReentryCoordinator();
+        widget.inviteReentryCoordinator ??
+        ref.read(inviteReentryCoordinatorProvider);
     _reentryOrchestrator = AppReentryOrchestrator(
       shareReentryCoordinator: _shareReentryCoordinator,
       inviteReentryCoordinator: _inviteReentryCoordinator,
       goRouterProvider: () => _currentRouter,
       mountedCheck: () => mounted,
       launchDestinationProvider: () => _resolvedLaunchState?.destination,
-      seedContentProvider: () => widget.bootState.content,
       householdNotifierLookup: _lookupNotifier<HouseholdNotifier>,
       continuityNotifierLookup: _lookupNotifier<PracticeContinuityNotifier>,
       gardenGrowthNotifierLookup: _lookupNotifier<GardenGrowthNotifier>,
+      isInviteAuthenticationReady: () =>
+          _lookupNotifier<AccountNotifier>()?.isSignedIn ?? false,
+      inviteAuthenticationNotifierLookup: _lookupNotifier<AccountNotifier>,
     );
     _reentryOrchestrator.configureShareUriSubscription(widget.shareUriStream);
     _launchStateFuture = _buildLaunchStateFuture();
@@ -278,16 +293,16 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
         return ProviderScope(
           overrides: _buildRiverpodOverrides(
             onboardingRepository: onboardingRepository,
+            onboardingConversationRepository:
+                launchState.onboardingConversationRepository,
             defaultPracticeArgs: launchState.defaultPracticeArgs,
             practiceRepository: launchState.practiceRepository,
             continuitySeed: launchState.continuitySeed,
           ),
           child: MaterialApp.router(
-            routerConfig: _resolveRouter(
-              launchState: launchState,
-              onboardingRepository: onboardingRepository,
-            ),
-            builder: (context, child) => _ReentryOverlay(child: child),
+            routerConfig: _resolveRouter(launchState: launchState),
+            builder: (context, child) =>
+                AccountReadinessBootstrap(child: _ReentryOverlay(child: child)),
             debugShowCheckedModeBanner: false,
             title: 'Baby Talk 2',
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -303,12 +318,19 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
 
   List<Override> _buildRiverpodOverrides({
     required OnboardingRepository onboardingRepository,
+    required OnboardingConversationRepository onboardingConversationRepository,
     required PracticeRouteArgs defaultPracticeArgs,
     required PracticeRepository practiceRepository,
     required PracticeContinuitySeedState? continuitySeed,
   }) {
     return [
       onboardingRepositoryProvider.overrideWith((ref) => onboardingRepository),
+      onboardingConversationRepositoryProvider.overrideWithValue(
+        onboardingConversationRepository,
+      ),
+      onboardingInstallationIdLoaderProvider.overrideWithValue(
+        practiceRepository.ensureInstallationId,
+      ),
       defaultPracticeRouteArgsProvider.overrideWithValue(defaultPracticeArgs),
       practiceContinuityNotifierProvider.overrideWith((ref) {
         return PracticeContinuityNotifier(
@@ -330,17 +352,11 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
   @override
   void dispose() {
     _reentryOrchestrator.dispose();
-    if (_ownsShareReentryCoordinator) {
-      _shareReentryCoordinator.dispose();
-    }
-    if (_ownsInviteReentryCoordinator) {
-      _inviteReentryCoordinator.dispose();
-    }
     super.dispose();
   }
 
   T? _lookupNotifier<T>() {
-    final context = _navigatorKey.currentContext;
+    final context = appRootNavigatorKey.currentContext;
     if (context == null) {
       return null;
     }
@@ -349,6 +365,9 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       // Match by runtime type since Riverpod providers are typed.
       if (T == HouseholdNotifier) {
         return container.read(householdNotifierProvider) as T;
+      }
+      if (T == AccountNotifier) {
+        return container.read(accountNotifierProvider) as T;
       }
       if (T == PracticeContinuityNotifier) {
         return container.read(practiceContinuityNotifierProvider) as T;
@@ -362,12 +381,9 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     }
   }
 
-  GoRouter _resolveRouter({
-    required _AppLaunchState launchState,
-    required OnboardingRepository onboardingRepository,
-  }) {
+  GoRouter _resolveRouter({required _AppLaunchState launchState}) {
     _currentRouter = GoRouter(
-      navigatorKey: _navigatorKey,
+      navigatorKey: appRootNavigatorKey,
       initialLocation: launchState.initialRoute,
       routes: [
         GoRoute(
@@ -378,56 +394,127 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
                 : launchState.completedSnapshot;
             return _BootRouteMarker(
               routeKey: const Key('boot-route-shell'),
-              child: AppShellScreen(onboardingSnapshot: routedSnapshot),
+              child: AppShellScreen(
+                onboardingSnapshot: routedSnapshot,
+                initialDestination: state.extra is AppShellDestination
+                    ? state.extra! as AppShellDestination
+                    : AppShellDestination.today,
+              ),
             );
           },
         ),
         GoRoute(
           path: AppRouteNames.onboarding,
-          builder: (context, state) => const _BootRouteMarker(
+          builder: (context, state) => _BootRouteMarker(
             routeKey: Key('boot-route-onboarding'),
-            child: OnboardingSceneScreen(),
+            child: CareEntryOnboardingScreen(
+              onDeferred: () {
+                if (context.mounted) context.go(AppRouteNames.shell);
+              },
+              onContinueCareTurn: (handoff) {
+                if (context.mounted) {
+                  context.go(
+                    AppRouteNames.practice,
+                    extra: onboardingCareTurnRouteArgs(handoff),
+                  );
+                }
+              },
+              onToday: () {
+                if (context.mounted) {
+                  context.go(
+                    AppRouteNames.shell,
+                    extra: AppShellDestination.today,
+                  );
+                }
+              },
+              onGarden: () {
+                if (context.mounted) {
+                  context.go(
+                    AppRouteNames.shell,
+                    extra: AppShellDestination.garden,
+                  );
+                }
+              },
+            ),
           ),
-          routes: [
-            GoRoute(
-              path: 'name',
-              builder: (context, state) => const OnboardingNameScreen(),
-            ),
-            GoRoute(
-              path: 'scene',
-              builder: (context, state) => const OnboardingSceneScreen(),
-            ),
-            GoRoute(
-              path: 'practice',
-              builder: (context, state) => const OnboardingPracticeScreen(),
-            ),
-            GoRoute(
-              path: 'complete',
-              builder: (context, state) => const OnboardingCompleteScreen(),
-            ),
-            GoRoute(
-              path: 'garden-welcome',
-              builder: (context, state) =>
-                  const OnboardingGardenWelcomeScreen(),
-            ),
-          ],
         ),
         GoRoute(
           path: AppRouteNames.practice,
           builder: (context, state) {
             final routeEntry = PracticeRouteEntry.fromObject(state.extra);
-            return PracticeSessionScreen(
-              routeEntry: routeEntry,
-              audioControllerFactory: widget.audioControllerFactory,
+            return switch (routeEntry.kind) {
+              PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
+                key: ValueKey('preset-gate:${routeEntry.scopeLabel}'),
+                routeEntry: routeEntry,
+                presetDefinitionLoader: widget.presetSceneDefinitionLoader,
+                fallbackBuilder: (context, entry) => PracticeSessionScreen(
+                  routeEntry: entry,
+                  audioControllerFactory: widget.audioControllerFactory,
+                  genericFallbackArgs: entry.args == null
+                      ? null
+                      : GenericFallbackPracticeRouteArgs(
+                          presetArgs: entry.args!,
+                        ),
+                ),
+              ),
+              PracticeEntryKind.generated ||
+              PracticeEntryKind.onboarding ||
+              PracticeEntryKind.invalid => PracticeSessionScreen(
+                routeEntry: routeEntry,
+                audioControllerFactory: widget.audioControllerFactory,
+              ),
+            };
+          },
+        ),
+        GoRoute(
+          path: AppRouteNames.customScene,
+          builder: (context, state) {
+            final args =
+                CustomSceneRouteArgs.maybeFromObject(state.extra) ??
+                const CustomSceneRouteArgs(
+                  entrySource: CustomSceneEntrySource.scene,
+                );
+            return Consumer(
+              builder: (context, ref, _) {
+                final controller = ref.watch(
+                  customSceneSubmissionControllerProvider,
+                );
+                final recoveryCoordinator = ref.watch(
+                  customSceneRecoveryCoordinatorProvider,
+                );
+                final resolvedController =
+                    controller is AsyncData<CustomSceneSubmissionController>
+                    ? controller.value
+                    : null;
+                final resolvedRecoveryCoordinator =
+                    recoveryCoordinator
+                        is AsyncData<CustomSceneRecoveryCoordinator>
+                    ? recoveryCoordinator.value
+                    : null;
+                return CustomSceneInputScreen(
+                  routeArgs: args,
+                  controller: resolvedController,
+                  onPresetFallback: () async {
+                    if (context.mounted) {
+                      context.go(
+                        AppRouteNames.shell,
+                        extra: AppShellDestination.discover,
+                      );
+                    }
+                  },
+                  onOpenPreparedContent:
+                      resolvedRecoveryCoordinator?.openPreparedContent,
+                );
+              },
             );
           },
         ),
         GoRoute(
           path: AppRouteNames.account,
-          builder: (context, state) => const AuthScreen(),
+          builder: (context, state) => buildAccountRoute(state.extra),
         ),
         GoRoute(
-          path: '/me/settings',
+          path: AppRouteNames.meSettings,
           builder: (context, state) => const SettingsScreen(),
           routes: [
             GoRoute(
@@ -457,7 +544,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           ],
         ),
         GoRoute(
-          path: '/me/growth',
+          path: AppRouteNames.meGrowth,
           builder: (context, state) =>
               const GardenGrowthCombinedScreen(initialTab: GrowthTab.growth),
         ),
@@ -491,16 +578,27 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     );
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingStore,
-      practiceRepository: practiceRepository,
-      starterSpaceId: widget.bootState.primarySpaceId!,
-      starterActivityId: widget.bootState.primaryActivityId!,
     );
+    final onboardingConversationRepository =
+        FileOnboardingConversationRepository(
+          directoryResolver: () async => directory,
+        );
+    final legacyOnboardingSnapshot = await onboardingRepository.readSnapshot();
 
     // 3. AuthState: 读取认证状态
     final authState = await AuthState.load(
       onboardingRepository: onboardingRepository,
       completedSnapshotLoader: widget.completedSnapshotLoader,
     );
+    final conversationSnapshot =
+        await OnboardingV4Migration(
+          directoryResolver: () async => directory,
+          conversationRepository: onboardingConversationRepository,
+          clock: DateTime.now,
+        ).run(
+          legacySnapshot:
+              legacyOnboardingSnapshot ?? authState.completedSnapshot,
+        );
 
     // 4. FeatureGates: 解析启动目标和 feature gates
     final featureGates = await FeatureGates.resolve(
@@ -514,10 +612,15 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
     return _AppLaunchState(
       practiceRepository: practiceRepository,
       onboardingRepository: onboardingRepository,
+      onboardingConversationRepository: onboardingConversationRepository,
       accountRepository: accountRepository,
       householdRepository: householdRepository,
       mentorRepository: mentorRepository,
-      destination: featureGates.destination,
+      destination: resolveOnboardingLaunchDestination(
+        completedSnapshot: authState.completedSnapshot,
+        conversationSnapshot: conversationSnapshot,
+        hasExistingCareActivity: featureGates.hasExistingCareActivity,
+      ),
       starterArgs: featureGates.starterArgs,
       defaultPracticeArgs: featureGates.defaultPracticeArgs,
       continuitySeed: featureGates.continuitySeed,
@@ -675,20 +778,28 @@ class _ReentryOverlay extends ConsumerWidget {
                                 ),
                           ),
                         ),
-                        IconButton(
-                          tooltip: '关闭提示',
-                          icon: Icon(
-                            Icons.close,
-                            size: 18,
-                            color: colors.warning,
+                        Semantics(
+                          button: true,
+                          label: '关闭提示',
+                          child: IconButton(
+                            // This overlay is composed above the router's
+                            // Navigator. That builder context has no
+                            // Overlay ancestor, so IconButton's tooltip
+                            // would assert during startup/test composition.
+                            tooltip: null,
+                            icon: Icon(
+                              Icons.close,
+                              size: 18,
+                              color: colors.warning,
+                            ),
+                            onPressed: () {
+                              if (hasInviteMessage) {
+                                inviteCoordinator.clearMessage();
+                              } else {
+                                shareCoordinator.clearMessage();
+                              }
+                            },
                           ),
-                          onPressed: () {
-                            if (hasInviteMessage) {
-                              inviteCoordinator.clearMessage();
-                            } else {
-                              shareCoordinator.clearMessage();
-                            }
-                          },
                         ),
                       ],
                     ),

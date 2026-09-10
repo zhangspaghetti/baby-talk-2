@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
@@ -15,9 +14,11 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/presentation/care_path_view_model.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart'
-    show PracticeContinuityLoadStatusLabel;
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/widgets/home_botanical_header.dart';
 
@@ -26,10 +27,12 @@ class HomeScreen extends ConsumerStatefulWidget {
     super.key,
     this.onboardingSnapshot,
     this.embeddedInShell = false,
+    this.customSceneEntryOpener,
   });
 
   final OnboardingSnapshot? onboardingSnapshot;
   final bool embeddedInShell;
+  final CustomSceneEntryOpener? customSceneEntryOpener;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -41,6 +44,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
   ModalRoute<dynamic>? _subscribedRoute;
   String? _lastResolvedScopeLabel;
   AccountNotifier? _cachedAccountNotifier;
+  String? _lastReadyAccountContext;
   String? _todayNavigationError;
 
   @override
@@ -52,6 +56,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
       }
       final accountNotifier = ref.read(accountNotifierProvider);
       _cachedAccountNotifier = accountNotifier;
+      _lastReadyAccountContext = accountNotifier.stableAccountContext;
       unawaited(accountNotifier.initialize());
       accountNotifier.addListener(_handleAccountRuntimeChange);
       final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
@@ -157,24 +162,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
         ref.read(gardenGrowthNotifierProvider).resetToSafeEmpty();
         ref.read(householdNotifierProvider).resetToSafeEmpty();
       }
+      _lastReadyAccountContext = null;
       return;
     }
     if (accountNotifier.isLocalOnly) {
       // localOnly user's account state is stable; boot seed is up-to-date
       return;
     }
-    unawaited(_refreshContinuity(reason: 'account_runtime_change'));
-    unawaited(_refreshCarePath());
-    final gardenGrowthNotifier = ref.read(gardenGrowthNotifierProvider);
-    unawaited(gardenGrowthNotifier.refresh());
+    final accountContext = accountNotifier.stableAccountContext;
+    if (accountContext == null) {
+      return;
+    }
+    if (_lastReadyAccountContext != accountContext) {
+      _lastReadyAccountContext = accountContext;
+      unawaited(_refreshCarePath());
+      return;
+    }
+    unawaited(_refreshTodaySurface(reason: 'account_runtime_changed'));
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
     final continuityNotifier = ref.watch(practiceContinuityNotifierProvider);
     final carePathNotifier = ref.watch(carePathNotifierProvider);
     final carePathViewModel = carePathNotifier.viewModel;
+    final customSceneEnabled = ref.watch(customSceneFeatureEnabledProvider);
     final isInitialCarePathLoading =
         carePathViewModel.isLoading && carePathViewModel.moment == null;
 
@@ -218,20 +230,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                               viewModel: carePathViewModel,
                               navigationError: _todayNavigationError,
                               onStart: _openCurrentCareMoment,
+                              showCustomSceneEntry:
+                                  customSceneEnabled &&
+                                  _shouldOfferCustomSceneToday(
+                                    carePathViewModel,
+                                  ),
+                              onOpenCustomScene: () =>
+                                  (widget.customSceneEntryOpener ??
+                                  _openCustomScene)(
+                                    context,
+                                    CustomSceneEntrySource.today,
+                                  ),
                             ),
 
                             const SizedBox(height: 24),
-
-                            if (kDebugMode) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                'continuity: ${continuityNotifier.status.label}${continuityNotifier.lastRefreshReason == null ? '' : ' · refresh: ${continuityNotifier.lastRefreshReason}'}',
-                                key: const Key('home-debug-status'),
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: colors.textMuted),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -267,7 +279,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
 
   Future<void> _refreshTodaySurface({required String reason}) async {
     await _refreshContinuity(reason: reason);
+    if (!mounted) {
+      return;
+    }
     await _refreshCarePath();
+    if (!mounted) {
+      return;
+    }
     await ref.read(gardenGrowthNotifierProvider).refresh();
   }
 
@@ -296,11 +314,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
 
   Future<void> _openCurrentCareMoment() async {
     final moment = ref.read(carePathNotifierProvider).viewModel.moment;
-    final routeArgs = PracticeRouteArgs.maybeCreate(
-      spaceId: moment?.spaceId,
-      activityId: moment?.activityId,
-    );
-    if (routeArgs == null) {
+    final generatedContentId = moment?.generatedContentId?.trim();
+    final PracticeRouteTarget? routeTarget;
+    if (generatedContentId != null && generatedContentId.isNotEmpty) {
+      routeTarget = GeneratedCareTurnRouteArgs(
+        generatedContentId: generatedContentId,
+      );
+    } else {
+      routeTarget = PracticeRouteArgs.maybeCreate(
+        spaceId: moment?.spaceId,
+        activityId: moment?.activityId,
+      );
+    }
+    if (routeTarget == null) {
       setState(() {
         _todayNavigationError = '这个场景暂时打不开，请稍后再试。';
       });
@@ -312,7 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     });
 
     try {
-      await routeArgs.push<void>(context);
+      await routeTarget.push<void>(context);
     } catch (_) {
       if (!mounted) {
         return;
@@ -321,6 +347,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
         _todayNavigationError = '这个场景暂时打不开，请稍后再试。';
       });
     }
+  }
+
+  bool _shouldOfferCustomSceneToday(CarePathViewModel viewModel) {
+    final moment = viewModel.moment;
+    final hasOpenableMoment =
+        moment != null &&
+        moment.nodeState != CarePathNodeState.unavailable &&
+        moment.spaceId.trim().isNotEmpty &&
+        moment.activityId.trim().isNotEmpty;
+    return shouldOfferCustomSceneFromToday(
+      CustomSceneTodayEntryContext(
+        currentRecommendationMatches:
+            hasOpenableMoment && !viewModel.isHeldWithFallback,
+        userSkippedRecommendation: false,
+        hasOpenableMoment: hasOpenableMoment,
+      ),
+    );
+  }
+
+  Future<void> _openCustomScene(
+    BuildContext context,
+    CustomSceneEntrySource source,
+  ) {
+    return CustomSceneRouteArgs(entrySource: source).push<void>(context);
   }
 
   PracticeRouteArgs? _resolveStarterArgs() {
@@ -344,11 +394,15 @@ class _HomeTodayCareNodeCard extends StatelessWidget {
     required this.viewModel,
     required this.navigationError,
     required this.onStart,
+    required this.showCustomSceneEntry,
+    required this.onOpenCustomScene,
   });
 
   final CarePathViewModel viewModel;
   final String? navigationError;
   final VoidCallback onStart;
+  final bool showCustomSceneEntry;
+  final VoidCallback onOpenCustomScene;
 
   @override
   Widget build(BuildContext context) {
@@ -498,6 +552,13 @@ class _HomeTodayCareNodeCard extends StatelessWidget {
               child: Text(ctaLabel),
             ),
           ),
+          if (showCustomSceneEntry) ...[
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            CustomSceneEntryLink(
+              source: CustomSceneEntrySource.today,
+              onOpen: (_, _) async => onOpenCustomScene(),
+            ),
+          ],
         ],
       ),
     );

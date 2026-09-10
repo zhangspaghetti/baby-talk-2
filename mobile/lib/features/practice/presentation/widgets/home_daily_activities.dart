@@ -7,11 +7,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 /// Shows a header "Daily Growth Activities" with a chevron, and a row
 /// of three tappable activity cards (Read Together, Sing Songs, Play Talk).
 class HomeDailyActivities extends StatelessWidget {
-  const HomeDailyActivities({
-    super.key,
-    this.onActivityTap,
-    this.onSeeAll,
-  });
+  const HomeDailyActivities({super.key, this.onActivityTap, this.onSeeAll});
 
   /// Called when an activity card is tapped with the activity name.
   final void Function(String activityName)? onActivityTap;
@@ -20,18 +16,9 @@ class HomeDailyActivities extends StatelessWidget {
   final VoidCallback? onSeeAll;
 
   static const List<_Activity> _activities = [
-    _Activity(
-      name: 'Read Together',
-      icon: Icons.menu_book_rounded,
-    ),
-    _Activity(
-      name: 'Sing Songs',
-      icon: Icons.music_note_rounded,
-    ),
-    _Activity(
-      name: 'Play Talk',
-      icon: Icons.chat_bubble_rounded,
-    ),
+    _Activity(name: 'Read Together', icon: Icons.menu_book_rounded),
+    _Activity(name: 'Sing Songs', icon: Icons.music_note_rounded),
+    _Activity(name: 'Play Talk', icon: Icons.chat_bubble_rounded),
   ];
 
   @override
@@ -126,30 +113,26 @@ class _ActivityCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          key: Key('activity-card-${activity.name.toLowerCase().replaceAll(' ', '-')}'),
+          key: Key(
+            'activity-card-${activity.name.toLowerCase().replaceAll(' ', '-')}',
+          ),
           width: 100,
           height: 100,
           decoration: BoxDecoration(
             color: colors.bgSurface,
-            borderRadius: BorderRadius.circular(
-              AppLayoutConstants.cardRadius,
-            ),
+            borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
             border: Border.all(color: colors.outlineSoft),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                activity.icon,
-                size: 32,
-                color: colors.accentDark,
-              ),
+              Icon(activity.icon, size: 32, color: colors.accentDark),
               const SizedBox(height: AppLayoutConstants.spacingXs),
               Text(
                 activity.name,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.textPrimary,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.textPrimary),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -163,10 +146,7 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class _Activity {
-  const _Activity({
-    required this.name,
-    required this.icon,
-  });
+  const _Activity({required this.name, required this.icon});
 
   final String name;
   final IconData icon;

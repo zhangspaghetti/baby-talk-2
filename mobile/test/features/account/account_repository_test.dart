@@ -64,10 +64,16 @@ void main() {
       ];
 
       final repository = harness.buildRepository();
-      final snapshot = await repository.signIn(
+      final verified = await repository.signIn(
         phoneNumber: '13800138000',
         verificationCode: '246810',
       );
+
+      expect(verified.session, isNotNull);
+      expect(harness.api.acceptedConsentAccessTokens, isEmpty);
+      expect(harness.api.syncedBatches, isEmpty);
+
+      final snapshot = await repository.acceptConsent();
 
       expect(snapshot.consentState, AccountConsentState.acceptedPendingSync);
       expect(snapshot.session?.maskedPhoneNumber, '138****8000');
@@ -117,6 +123,39 @@ void main() {
       expect(restore.resumeInfo.completedCount, 2);
       expect(restore.homeSummary.recentResult?.phraseEnglish, 'Warm water.');
     });
+
+    test(
+      'loadSnapshotWithStatus distinguishes explicit signed-out from read failures',
+      () async {
+        final repository = harness.buildLocalOnlyRepository();
+        await harness.accountLocalStore.write(AccountLocalSnapshot.signedOut);
+
+        final explicitSignedOut = await repository.loadSnapshotWithStatus();
+
+        expect(explicitSignedOut.wasReadSuccessfully, isTrue);
+        expect(
+          explicitSignedOut.snapshot.consentState,
+          AccountConsentState.signedOut,
+        );
+
+        for (final failure in <Object>[
+          const FormatException('malformed account snapshot'),
+          const AccountLocalStoreException('secure storage unavailable'),
+          StateError('secure storage platform failure'),
+        ]) {
+          harness._inMemoryStorage.readError = failure;
+
+          final unavailable = await repository.loadSnapshotWithStatus();
+
+          expect(unavailable.wasReadSuccessfully, isFalse);
+          expect(
+            unavailable.snapshot.consentState,
+            AccountConsentState.signedOut,
+          );
+          harness._inMemoryStorage.readError = null;
+        }
+      },
+    );
 
     test('离线重试会保留 pending 并暴露可见错误', () async {
       await harness.practiceRepository.recordReaction(
@@ -366,6 +405,83 @@ void main() {
       expect(localOnly.lastSyncPhase, 'local_only');
     });
 
+    test('正式退出会在覆盖本地会话前调用后端 logout', () async {
+      await harness.seedSignedInSnapshot(refreshToken: 'synthetic_refresh');
+      final repository = harness.buildRepository();
+
+      final signedOut = await repository.clearPlaceholderSession();
+
+      expect(harness.api.logoutRefreshTokens, <String>['synthetic_refresh']);
+      expect(signedOut.consentState, AccountConsentState.signedOut);
+      expect(signedOut.session, isNull);
+    });
+
+    test('后端 logout 失败时保留本地 stable session', () async {
+      await harness.seedSignedInSnapshot(refreshToken: 'synthetic_refresh');
+      harness.api.logoutException = AccountApiException(
+        kind: AccountApiFailureKind.http,
+        statusCode: 503,
+        code: 'synthetic_logout_unavailable',
+        message: 'synthetic server unavailable',
+      );
+      final repository = harness.buildRepository();
+
+      await expectLater(
+        repository.clearPlaceholderSession(),
+        throwsA(isA<AccountApiException>()),
+      );
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.consentState, AccountConsentState.acceptedPendingSync);
+      expect(persisted.session?.refreshToken, 'synthetic_refresh');
+    });
+
+    test('后端拒绝 logout 时保留本地 stable session', () async {
+      await harness.seedSignedInSnapshot(refreshToken: 'synthetic_refresh');
+      harness.api.logoutResponse = AccountLogoutResponse(
+        loggedOut: false,
+        loggedOutAt: DateTime.utc(2026, 4, 9, 2, 1),
+      );
+      final repository = harness.buildRepository();
+
+      await expectLater(
+        repository.clearPlaceholderSession(),
+        throwsA(isA<AccountApiException>()),
+      );
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.consentState, AccountConsentState.acceptedPendingSync);
+      expect(persisted.session?.refreshToken, 'synthetic_refresh');
+    });
+
+    test('远端已退出但本地首次写失败时再次退出可幂等完成', () async {
+      await harness.seedSignedInSnapshot(refreshToken: 'synthetic_refresh');
+      harness.api.logoutExceptionAfterFirstSuccess = AccountApiException(
+        kind: AccountApiFailureKind.http,
+        statusCode: 401,
+        code: 'refresh_token_revoked',
+        message: 'synthetic token already revoked',
+      );
+      harness.failNextAccountSnapshotWrite();
+      final repository = harness.buildRepository();
+
+      await expectLater(
+        repository.clearPlaceholderSession(),
+        throwsA(isA<AccountLocalStoreException>()),
+      );
+      final retained = await harness.accountLocalStore.read();
+      expect(retained.session?.refreshToken, 'synthetic_refresh');
+
+      final signedOut = await repository.clearPlaceholderSession();
+
+      expect(harness.api.logoutRefreshTokens, <String>[
+        'synthetic_refresh',
+        'synthetic_refresh',
+      ]);
+      expect(signedOut.consentState, AccountConsentState.signedOut);
+      expect(signedOut.session, isNull);
+    });
+
     test('远端撤回与删除成功时会同步本地终态', () async {
       await harness.seedSignedInSnapshot();
       final repository = harness.buildRepository();
@@ -413,6 +529,51 @@ void main() {
       final persisted = await harness.accountLocalStore.read();
       expect(persisted.session?.accessToken, 'access_rotated');
       expect(persisted.upgradeUrl, isNull);
+    });
+
+    test('冷启动会复用持久化且未过期的 session，无需再次验证手机号', () async {
+      await harness.seedSignedInSnapshot(
+        accessToken: 'access_cold_start',
+        refreshToken: 'refresh_cold_start',
+      );
+
+      final restartedRepository = harness.buildRepository();
+      final snapshot = await restartedRepository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.appBoot,
+      );
+
+      expect(snapshot.consentState, AccountConsentState.acceptedPendingSync);
+      expect(snapshot.session?.accessToken, 'access_cold_start');
+      expect(snapshot.session?.refreshToken, 'refresh_cold_start');
+      expect(harness.api.bootstrapAccessTokens, <String>['access_cold_start']);
+      expect(harness.api.refreshCallCount, 0);
+      expect(harness.api.acceptedConsentAccessTokens, isEmpty);
+    });
+
+    test('refresh 超时后收敛到可恢复的重新登录状态', () async {
+      await harness.seedSignedInSnapshot(
+        accessToken: 'access_expired',
+        refreshToken: 'refresh_expired',
+      );
+      harness.api.unauthorizedBootstrapTokens.add('access_expired');
+      harness.api.refreshException = const AccountApiException.timeout(
+        message: 'refresh timeout',
+      );
+      final repository = harness.buildRepository();
+
+      final snapshot = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.appBoot,
+      );
+
+      expect(snapshot.consentState, AccountConsentState.signedOut);
+      expect(snapshot.session, isNull);
+      expect(snapshot.lastSyncPhase, 'bootstrap_failed_refresh_timeout');
+      expect(snapshot.lastVisibleError, contains('重新登录'));
+
+      final persisted = await harness.accountLocalStore.read();
+      expect(persisted.consentState, AccountConsentState.signedOut);
+      expect(persisted.session, isNull);
+      expect(persisted.lastSyncPhase, 'bootstrap_failed_refresh_timeout');
     });
 
     test('persistRefreshedSession 拒绝不匹配的账号或 session', () async {
@@ -515,6 +676,7 @@ void main() {
         message: 'server down',
         statusCode: 503,
         code: 'temporary_unavailable',
+        correlationId: 'err_qa1234567890abcdef',
       );
       final repository = harness.buildRepository();
 
@@ -526,11 +688,96 @@ void main() {
       expect(snapshot.failedCount, 0);
       expect(snapshot.lastSyncPhase, 'upload_server_error');
       expect(snapshot.lastVisibleError, contains('服务暂时不可用'));
+      expect(snapshot.lastVisibleError, contains('err_qa1234567890abcdef'));
       final history = await harness.practiceRepository.listEventHistory(
         activityId: 'bath_time',
       );
       expect(history.single.syncState, InteractionSyncState.pending);
       expect(history.single.lastSyncPhase, 'upload_server_error');
+    });
+
+    test('手动重试只在服务端确认后清除真实 pending 记录', () async {
+      await harness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.cooperating,
+        clientTimestamp: DateTime.utc(2026, 4, 10, 2),
+        localEventId: 'evt_retry_after_failure',
+      );
+      await harness.seedSignedInSnapshot();
+      harness.api.syncException = const AccountApiException(
+        kind: AccountApiFailureKind.timeout,
+        message: 'timeout',
+      );
+      final repository = harness.buildRepository();
+
+      final failed = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+      harness.api.syncException = null;
+      final retried = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+
+      expect(failed.pendingSyncCount, 1);
+      expect(failed.lastSyncPhase, 'upload_timeout');
+      expect(retried.pendingSyncCount, 0);
+      expect(retried.lastSyncPhase, 'batch_ack_applied');
+      expect(retried.lastVisibleError, isNull);
+      final history = await harness.practiceRepository.listEventHistory(
+        activityId: 'bath_time',
+      );
+      expect(history.single.syncState, InteractionSyncState.synced);
+    });
+
+    test('sync ACK 后再次 bootstrap 保留本地 raw identity', () async {
+      final local = await harness.practiceRepository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.cooperating,
+        clientTimestamp: DateTime.utc(2026, 4, 10, 3),
+        localEventId: 'evt_ack_then_bootstrap',
+      );
+      await harness.seedSignedInSnapshot();
+      final repository = harness.buildRepository();
+
+      final afterAck = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.manualRetry,
+      );
+      expect(afterAck.pendingSyncCount, 0);
+      expect(afterAck.syncedCount, 1);
+
+      final opaqueInstallation = 'v1:${'B' * 43}';
+      harness.api.bootstrapEvents = [
+        InteractionEventPayload.fromWire(
+          eventKey: '$opaqueInstallation:evt_ack_then_bootstrap',
+          localEventId: 'evt_ack_then_bootstrap',
+          installationId: opaqueInstallation,
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: 'cooperating',
+          clientTimestamp: DateTime.utc(2026, 4, 10, 3),
+          syncState: 'synced',
+          lastSyncPhase: 'bootstrap_import',
+          lastSyncAt: DateTime.utc(2026, 4, 10, 3, 1),
+        ),
+      ];
+
+      final afterBootstrap = await repository.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.foregroundResume,
+      );
+      final history = await harness.practiceRepository.listEventHistory(
+        activityId: 'bath_time',
+      );
+      expect(afterBootstrap.pendingSyncCount, 0);
+      expect(history, hasLength(1));
+      expect(history.single.eventKey, local.eventKey);
+      expect(history.single.installationId, local.installationId);
+      expect(history.single.syncState, InteractionSyncState.synced);
+      expect(history.single.lastSyncPhase, 'bootstrap_import');
     });
   });
 }
@@ -555,6 +802,10 @@ class _AccountRepositoryHarness {
   final String installationId;
   final _FakeAccountApiService api;
   final _InMemorySecureStorage _inMemoryStorage;
+
+  void failNextAccountSnapshotWrite() {
+    _inMemoryStorage.writeFailuresRemaining = 1;
+  }
 
   static Future<_AccountRepositoryHarness> create() async {
     final tempDir = await Directory.systemTemp.createTemp(
@@ -673,6 +924,10 @@ class _FakeAccountApiService extends AccountApiService {
   AccountApiException? refreshException;
   AccountSessionResponse? refreshResponse;
   int refreshCallCount = 0;
+  final List<String> logoutRefreshTokens = <String>[];
+  AccountApiException? logoutException;
+  AccountApiException? logoutExceptionAfterFirstSuccess;
+  AccountLogoutResponse? logoutResponse;
 
   @override
   Future<AccountChallengeResponse> createChallenge({
@@ -718,6 +973,24 @@ class _FakeAccountApiService extends AccountApiService {
           sessionId: 'sess_seed',
           accessToken: 'access_rotated',
           refreshToken: 'refresh_rotated',
+        );
+  }
+
+  @override
+  Future<AccountLogoutResponse> logout({required String refreshToken}) async {
+    logoutRefreshTokens.add(refreshToken);
+    final exception = logoutException;
+    if (exception != null) {
+      throw exception;
+    }
+    if (logoutRefreshTokens.length > 1 &&
+        logoutExceptionAfterFirstSuccess != null) {
+      throw logoutExceptionAfterFirstSuccess!;
+    }
+    return logoutResponse ??
+        AccountLogoutResponse(
+          loggedOut: true,
+          loggedOutAt: DateTime.utc(2026, 4, 9, 2, 1),
         );
   }
 
@@ -848,11 +1121,12 @@ class _FakeAccountApiService extends AccountApiService {
   }
 }
 
-
 class _InMemorySecureStorage extends FlutterSecureStorage {
   _InMemorySecureStorage();
 
   final Map<String, String> _store = {};
+  int writeFailuresRemaining = 0;
+  Object? readError;
 
   @override
   Future<String?> read({
@@ -863,7 +1137,13 @@ class _InMemorySecureStorage extends FlutterSecureStorage {
     WebOptions? webOptions,
     MacOsOptions? mOptions,
     WindowsOptions? wOptions,
-  }) async => _store[key];
+  }) async {
+    final error = readError;
+    if (error != null) {
+      throw error;
+    }
+    return _store[key];
+  }
 
   @override
   Future<void> write({
@@ -876,6 +1156,10 @@ class _InMemorySecureStorage extends FlutterSecureStorage {
     MacOsOptions? mOptions,
     WindowsOptions? wOptions,
   }) async {
+    if (writeFailuresRemaining > 0) {
+      writeFailuresRemaining -= 1;
+      throw StateError('synthetic secure storage write failure');
+    }
     if (value == null) {
       _store.remove(key);
     } else {

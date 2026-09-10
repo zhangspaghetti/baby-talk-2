@@ -12,8 +12,17 @@
             <arg column="role" javaType="java.lang.String"/>
             <arg column="status" javaType="java.lang.String"/>
             <arg column="invited_by_account_id" javaType="java.lang.String"/>
-            <arg column="joined_at" javaType="java.time.Instant"/>
-            <arg column="last_accepted_at" javaType="java.time.Instant"/>
+            <arg column="joined_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="last_accepted_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="generationAccessStateRowMap" type="com.zhangspaghetti.babytalk.service.CaregiverInviteRepository$GenerationAccessStateRow">
+        <constructor>
+            <arg column="access_state" javaType="java.lang.String"/>
+            <arg column="household_id" javaType="java.lang.String"/>
+            <arg column="account_id" javaType="java.lang.String"/>
+            <arg column="role" javaType="java.lang.String"/>
         </constructor>
     </resultMap>
 
@@ -26,10 +35,10 @@
             <arg column="target_role" javaType="java.lang.String"/>
             <arg column="source" javaType="java.lang.String"/>
             <arg column="status" javaType="java.lang.String"/>
-            <arg column="created_at" javaType="java.time.Instant"/>
-            <arg column="expires_at" javaType="java.time.Instant"/>
-            <arg column="accepted_at" javaType="java.time.Instant"/>
-            <arg column="revoked_at" javaType="java.time.Instant"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="expires_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="accepted_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="revoked_at" javaType="java.time.OffsetDateTime"/>
             <arg column="accepted_by_account_id" javaType="java.lang.String"/>
             <arg column="failure_reason" javaType="java.lang.String"/>
         </constructor>
@@ -39,14 +48,14 @@
         <constructor>
             <arg column="household_id" javaType="java.lang.String"/>
             <arg column="role" javaType="java.lang.String"/>
-            <arg column="last_accepted_at" javaType="java.time.Instant"/>
+            <arg column="last_accepted_at" javaType="java.time.OffsetDateTime"/>
             <arg column="baby_profile_summary" javaType="java.lang.String"/>
             <arg column="continuity_summary" javaType="java.lang.String"/>
             <arg column="garden_summary" javaType="java.lang.String"/>
             <arg column="space_id" javaType="java.lang.String"/>
             <arg column="activity_id" javaType="java.lang.String"/>
-            <arg column="latest_interaction_at" javaType="java.time.Instant"/>
-            <arg column="updated_at" javaType="java.time.Instant"/>
+            <arg column="latest_interaction_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="updated_at" javaType="java.time.OffsetDateTime"/>
             <arg column="latest_actor_role" javaType="java.lang.String"/>
             <arg column="latest_actor_source" javaType="java.lang.String"/>
             <arg column="latest_actor_result" javaType="java.lang.String"/>
@@ -61,7 +70,7 @@
             <arg column="latest_space_id" javaType="java.lang.String"/>
             <arg column="latest_activity_id" javaType="java.lang.String"/>
             <arg column="latest_reaction_type" javaType="java.lang.String"/>
-            <arg column="latest_interaction_at" javaType="java.time.Instant"/>
+            <arg column="latest_interaction_at" javaType="java.time.OffsetDateTime"/>
             <arg column="latest_actor_role" javaType="java.lang.String"/>
             <arg column="total_events" javaType="_int"/>
             <arg column="member_count" javaType="_int"/>
@@ -76,7 +85,7 @@
             <arg column="space_id" javaType="java.lang.String"/>
             <arg column="activity_id" javaType="java.lang.String"/>
             <arg column="reaction_type" javaType="java.lang.String"/>
-            <arg column="client_timestamp" javaType="java.time.Instant"/>
+            <arg column="client_timestamp" javaType="java.time.OffsetDateTime"/>
             <arg column="account_id" javaType="java.lang.String"/>
         </constructor>
     </resultMap>
@@ -86,7 +95,7 @@
             <arg column="space_id" javaType="java.lang.String"/>
             <arg column="activity_id" javaType="java.lang.String"/>
             <arg column="event_count" javaType="_int"/>
-            <arg column="latest_interaction_at" javaType="java.time.Instant"/>
+            <arg column="latest_interaction_at" javaType="java.time.OffsetDateTime"/>
         </constructor>
     </resultMap>
 
@@ -102,6 +111,24 @@
         from household_members
         where account_id = #{accountId}
           and status = 'active'
+    </select>
+
+    <select id="findGenerationAccessStateByAccount" resultMap="generationAccessStateRowMap">
+        with requested as (
+            select cast(#{accountId} as varchar(64)) as account_id
+        )
+        select case
+                   when hm.account_id is null then 'never_member'
+                   when hm.status &lt;&gt; 'active' then 'inactive_membership'
+                   when h.household_id is null or h.status &lt;&gt; 'active' then 'inactive_household'
+                   else 'active_membership'
+               end as access_state,
+               hm.household_id,
+               requested.account_id,
+               hm.role
+        from requested
+        left join household_members hm on hm.account_id = requested.account_id
+        left join households h on h.household_id = hm.household_id
     </select>
 
     <select id="findMembershipByHouseholdAndAccount" resultMap="householdMemberRowMap">
@@ -129,8 +156,8 @@
             #{row.householdId},
             #{row.ownerAccountId},
             #{row.status},
-            #{row.createdAt},
-            #{row.revokedAt}
+            #{row.createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{row.revokedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
         )
     </insert>
 
@@ -149,10 +176,40 @@
             #{row.role},
             #{row.status},
             #{row.invitedByAccountId},
-            #{row.joinedAt},
-            #{row.lastAcceptedAt}
+            #{row.joinedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{row.lastAcceptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
         )
     </insert>
+
+    <insert id="insertMemberIfAbsent">
+        insert into household_members (
+            household_id,
+            account_id,
+            role,
+            status,
+            invited_by_account_id,
+            joined_at,
+            last_accepted_at
+        ) values (
+            #{row.householdId},
+            #{row.accountId},
+            #{row.role},
+            #{row.status},
+            #{row.invitedByAccountId},
+            #{row.joinedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{row.lastAcceptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        ) on conflict (account_id) do nothing
+    </insert>
+
+    <delete id="deleteHouseholdIfUnassigned">
+        delete from households h
+        where h.household_id = #{householdId}
+          and not exists (
+              select 1
+              from household_members hm
+              where hm.household_id = h.household_id
+          )
+    </delete>
 
     <insert id="insertInvite">
         insert into caregiver_invites (
@@ -169,22 +226,22 @@
             accepted_by_account_id,
             failure_reason
         ) values (
-            #{row.token},
+            #{row.tokenLookupRef},
             #{row.householdId},
             #{row.inviterAccountId},
             #{row.targetRole},
             #{row.source},
             #{row.status},
-            #{row.createdAt},
-            #{row.expiresAt},
-            #{row.acceptedAt},
-            #{row.revokedAt},
+            #{row.createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{row.expiresAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{row.acceptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{row.revokedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
             #{row.acceptedByAccountId},
             #{row.failureReason}
         )
     </insert>
 
-    <select id="findInviteByToken" resultMap="inviteRowMap">
+    <select id="findInviteByTokenLookupRef" resultMap="inviteRowMap">
         select invite_id,
                token,
                household_id,
@@ -199,16 +256,16 @@
                accepted_by_account_id,
                failure_reason
         from caregiver_invites
-        where token = #{token}
+        where token = #{tokenLookupRef}
     </select>
 
     <update id="markInviteAccepted">
         update caregiver_invites
         set status = 'accepted',
-            accepted_at = #{acceptedAt},
+            accepted_at = #{acceptedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
             accepted_by_account_id = #{acceptedByAccountId},
             failure_reason = null
-        where token = #{token}
+        where token = #{tokenLookupRef}
           and status = 'pending'
     </update>
 
@@ -216,16 +273,16 @@
         update caregiver_invites
         set status = 'expired',
             failure_reason = #{failureReason}
-        where token = #{token}
+        where token = #{tokenLookupRef}
           and status = 'pending'
     </update>
 
     <update id="markInviteRevoked">
         update caregiver_invites
         set status = 'revoked',
-            revoked_at = #{revokedAt},
+            revoked_at = #{revokedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
             failure_reason = #{failureReason}
-        where token = #{token}
+        where token = #{tokenLookupRef}
           and status = 'pending'
     </update>
 
@@ -236,8 +293,8 @@
             garden_summary = #{row.gardenSummary},
             space_id = #{row.spaceId},
             activity_id = #{row.activityId},
-            latest_interaction_at = #{row.latestInteractionAt},
-            updated_at = #{row.updatedAt},
+            latest_interaction_at = #{row.latestInteractionAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            updated_at = #{row.updatedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
             latest_actor_role = #{row.latestActorRole},
             latest_actor_source = #{row.latestActorSource},
             latest_actor_result = #{row.latestActorResult},
@@ -270,8 +327,8 @@
             #{row.gardenSummary},
             #{row.spaceId},
             #{row.activityId},
-            #{row.latestInteractionAt},
-            #{row.updatedAt},
+            #{row.latestInteractionAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{row.updatedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
             #{row.latestActorRole},
             #{row.latestActorSource},
             #{row.latestActorResult},
@@ -419,7 +476,7 @@
             failure_reason,
             created_at
         ) values (
-            #{row.token},
+            #{row.tokenLookupRef},
             #{row.householdId},
             #{row.actorAccountId},
             #{row.entrypoint},
@@ -428,7 +485,7 @@
             #{row.platform},
             #{row.result},
             #{row.failureReason},
-            #{row.createdAt}
+            #{row.createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
         )
     </insert>
 </mapper>

@@ -2,14 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile/app/theme/app_layout_constants.dart';
-import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/app/widgets/app_haptics.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
+import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
-import 'package:mobile/features/practice/presentation/widgets/scene_reaction_chip_row.dart';
+import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
+import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 class PracticeSessionScreen extends ConsumerWidget {
@@ -17,10 +21,12 @@ class PracticeSessionScreen extends ConsumerWidget {
     super.key,
     required this.routeEntry,
     this.audioControllerFactory,
+    this.genericFallbackArgs,
   });
 
   final PracticeRouteEntry routeEntry;
   final PracticeAudioController Function()? audioControllerFactory;
+  final GenericFallbackPracticeRouteArgs? genericFallbackArgs;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,16 +38,24 @@ class PracticeSessionScreen extends ConsumerWidget {
         ),
       );
     }
+    final genericFallbackArgs = this.genericFallbackArgs;
+    if (genericFallbackArgs != null &&
+        (routeEntry.kind != PracticeEntryKind.preset ||
+            !genericFallbackArgs.isValid ||
+            genericFallbackArgs.presetArgs.scopeLabel !=
+                routeEntry.args?.scopeLabel)) {
+      return PracticeFallbackScaffold(
+        message: _careTurnFallbackCopy(l.practiceInvalidParams),
+      );
+    }
 
-    final args = routeEntry.args!;
     final repositoryValue = ref.watch(practiceRepositoryProvider);
     return repositoryValue.when(
-      data: (_) {
-        return _PracticeSessionBody(
-          routeArgs: args,
-          audioControllerFactory: audioControllerFactory,
-        );
-      },
+      data: (_) => _PracticeSessionBody(
+        routeEntry: routeEntry,
+        audioControllerFactory: audioControllerFactory,
+        genericFallbackArgs: genericFallbackArgs,
+      ),
       loading: () => const _PracticeLoadingScaffold(),
       error: (error, stackTrace) => PracticeFallbackScaffold(
         message: _careTurnFallbackCopy(l.homePracticeUnavailable),
@@ -77,12 +91,14 @@ class _PracticeLoadingScaffold extends StatelessWidget {
 
 class _PracticeSessionBody extends ConsumerStatefulWidget {
   const _PracticeSessionBody({
-    required this.routeArgs,
+    required this.routeEntry,
     required this.audioControllerFactory,
+    required this.genericFallbackArgs,
   });
 
-  final PracticeRouteArgs routeArgs;
+  final PracticeRouteEntry routeEntry;
   final PracticeAudioController Function()? audioControllerFactory;
+  final GenericFallbackPracticeRouteArgs? genericFallbackArgs;
 
   @override
   ConsumerState<_PracticeSessionBody> createState() =>
@@ -90,65 +106,53 @@ class _PracticeSessionBody extends ConsumerStatefulWidget {
 }
 
 class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
-  PracticeAudioController? _audioController;
-  StreamSubscription<void>? _audioCompletionSubscription;
   String? _requestedMomentKey;
   String? _completedMomentKey;
+  String? _confirmedGeneratedContentId;
   int _startGeneration = 0;
-  bool _isPlayingAudio = false;
-  String? _audioMessage;
 
   @override
   void initState() {
     super.initState();
-    _initializeAudioController();
     _scheduleStartMoment();
   }
 
   @override
   void didUpdateWidget(covariant _PracticeSessionBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_routeScopeKey(oldWidget.routeArgs) ==
-        _routeScopeKey(widget.routeArgs)) {
-      return;
+    if (_routeScopeKey(
+          oldWidget.routeEntry,
+          fallbackArgs: oldWidget.genericFallbackArgs,
+        ) !=
+        _routeScopeKey(
+          widget.routeEntry,
+          fallbackArgs: widget.genericFallbackArgs,
+        )) {
+      _scheduleStartMoment();
     }
-    _scheduleStartMoment();
   }
 
-  @override
-  void dispose() {
-    _audioCompletionSubscription?.cancel();
-    unawaited(_audioController?.dispose());
-    super.dispose();
-  }
-
-  void _initializeAudioController() {
-    final factory =
-        widget.audioControllerFactory ??
-        AudioplayersPracticeAudioController.new;
-    _audioController = factory();
-    _audioCompletionSubscription = _audioController!.completionStream.listen((
-      _,
-    ) {
-      if (!mounted) {
-        return;
-      }
-      final l = AppLocalizations.of(context)!;
-      setState(() {
-        _isPlayingAudio = false;
-        _audioMessage = l.practiceAudioPlayedOnce;
-      });
-    });
-  }
-
-  String _routeScopeKey(PracticeRouteArgs routeArgs) {
-    final normalized = routeArgs.normalized();
-    return '${normalized.normalizedSpaceId}/${normalized.normalizedActivityId}';
+  String _routeScopeKey(
+    PracticeRouteEntry routeEntry, {
+    required GenericFallbackPracticeRouteArgs? fallbackArgs,
+  }) {
+    if (fallbackArgs != null) {
+      return fallbackArgs.scopeLabel;
+    }
+    return routeEntry.scopeLabel;
   }
 
   void _scheduleStartMoment() {
-    final normalized = widget.routeArgs.normalized();
-    final scopeKey = _routeScopeKey(widget.routeArgs);
+    final generatedContentId =
+        widget.routeEntry.generatedArgs?.generatedContentId;
+    final onboardingArgs = widget.routeEntry.onboardingArgs;
+    final normalized =
+        widget.genericFallbackArgs?.presetArgs.normalized() ??
+        widget.routeEntry.args?.normalized();
+    final scopeKey = _routeScopeKey(
+      widget.routeEntry,
+      fallbackArgs: widget.genericFallbackArgs,
+    );
     if (_requestedMomentKey == scopeKey && _completedMomentKey == scopeKey) {
       return;
     }
@@ -161,12 +165,34 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
           generation != _startGeneration) {
         return;
       }
-      final future = ref
-          .read(carePathNotifierProvider)
-          .startMoment(
-            spaceId: normalized.normalizedSpaceId,
-            activityId: normalized.normalizedActivityId,
-          );
+      final notifier = ref.read(carePathNotifierProvider);
+      final Future<void> future;
+      if (onboardingArgs != null) {
+        future = notifier.startContinuation(
+          OnboardingCareTurnHandoff(
+            completionId: onboardingArgs.completionId,
+            spaceId: onboardingArgs.spaceId,
+            activityId: onboardingArgs.activityId,
+            entryTitle: onboardingArgs.entryTitle,
+            utteranceId: onboardingArgs.utteranceId,
+            english: onboardingArgs.english,
+            chinese: onboardingArgs.chinese,
+            source: onboardingArgs.source,
+          ),
+        );
+      } else if (generatedContentId != null) {
+        future = notifier.startGeneratedMoment(
+          generatedContentId: generatedContentId,
+        );
+      } else if (normalized != null) {
+        future = notifier.startMoment(
+          spaceId: normalized.normalizedSpaceId,
+          activityId: normalized.normalizedActivityId,
+          bundledOnly: widget.genericFallbackArgs != null,
+        );
+      } else {
+        return;
+      }
       unawaited(
         future.whenComplete(() {
           if (!mounted ||
@@ -182,387 +208,158 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     });
   }
 
-  Future<void> _playCurrentUtterance(CareUtterance utterance) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final l = AppLocalizations.of(context)!;
-    final controller = _audioController;
-    final asset = _audioPlayerAsset(utterance);
-    if (controller == null || asset == null || asset.isEmpty) {
-      setState(() {
-        _audioMessage = l.practiceAudioMissingInline;
-      });
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.practiceAudioMissingSnack)),
-      );
-      return;
-    }
-
-    setState(() {
-      _isPlayingAudio = true;
-      _audioMessage = null;
-    });
-
-    try {
-      await controller.playAsset(asset);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isPlayingAudio = false;
-        _audioMessage = l.practiceAudioUnavailableInline;
-      });
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.practiceAudioUnavailableSnack)),
-      );
-    }
-  }
-
-  String? _audioPlayerAsset(CareUtterance utterance) {
-    final asset = utterance.audioAsset?.trim();
-    if (asset == null || asset.isEmpty) {
-      return null;
-    }
-    return asset.startsWith('assets/') ? asset.substring(7) : asset;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final colors = context.appColors;
     final notifier = ref.watch(carePathNotifierProvider);
     final snapshot = notifier.snapshot;
-    final normalizedArgs = widget.routeArgs.normalized();
-    final scopeKey = _routeScopeKey(widget.routeArgs);
-    final hasMatchingSnapshot =
-        snapshot?.moment.spaceId == normalizedArgs.normalizedSpaceId &&
-        snapshot?.moment.activityId == normalizedArgs.normalizedActivityId;
-    final effectiveMessage =
-        snapshot?.message ?? notifier.message ?? l.practiceContextMissing;
+    final generatedContentId =
+        widget.routeEntry.generatedArgs?.generatedContentId;
+    final onboardingArgs = widget.routeEntry.onboardingArgs;
+    final normalizedArgs =
+        widget.genericFallbackArgs?.presetArgs.normalized() ??
+        widget.routeEntry.args?.normalized();
+    final scopeKey = _routeScopeKey(
+      widget.routeEntry,
+      fallbackArgs: widget.genericFallbackArgs,
+    );
+    final bool hasMatchingSnapshot;
+    if (onboardingArgs != null) {
+      final hasExactSupport =
+          snapshot?.currentUtterance?.phraseId == onboardingArgs.utteranceId &&
+          snapshot?.currentUtterance?.sourceIdentity ==
+              onboardingArgs.source.wireValue;
+      final hasScopedFailure =
+          notifier.phase == CareTurnPhase.error &&
+          snapshot?.moment.spaceId == onboardingArgs.spaceId &&
+          snapshot?.moment.activityId == onboardingArgs.activityId;
+      hasMatchingSnapshot = hasExactSupport || hasScopedFailure;
+    } else if (generatedContentId != null) {
+      hasMatchingSnapshot =
+          snapshot?.moment.generatedContentId == generatedContentId;
+    } else if (normalizedArgs != null) {
+      hasMatchingSnapshot =
+          snapshot?.moment.spaceId == normalizedArgs.normalizedSpaceId &&
+          snapshot?.moment.activityId == normalizedArgs.normalizedActivityId;
+    } else {
+      hasMatchingSnapshot = false;
+    }
 
     if (!hasMatchingSnapshot ||
-        snapshot == null ||
         _completedMomentKey != scopeKey ||
         notifier.phase == CareTurnPhase.idle ||
         notifier.phase == CareTurnPhase.loading) {
       return const _PracticeLoadingScaffold();
     }
-    if (notifier.phase == CareTurnPhase.error) {
-      return PracticeFallbackScaffold(message: effectiveMessage);
+
+    if (generatedContentId != null &&
+        _isInteractiveGeneratedStarterReady(generatedContentId)) {
+      _scheduleHandoffConfirmation(generatedContentId);
     }
 
-    final utterance = snapshot.currentUtterance;
-    if (utterance == null) {
-      return PracticeFallbackScaffold(message: effectiveMessage);
+    final playbackPolicy = ref
+        .watch(settingsRepositoryProvider)
+        .when(
+          data: (_) {
+            final settingsNotifier = ref.watch(settingsNotifierProvider);
+            final playbackSettings = settingsNotifier.snapshot;
+            if (settingsNotifier.loadStatus != SettingsLoadStatus.ready) {
+              // The notifier starts with factory defaults (autoplay enabled)
+              // while Isar is loading. Do not let that transient value start
+              // audio before the persisted playback preference is known.
+              return CareTurnAudioPlaybackPolicy.disabled;
+            }
+            return CareTurnAudioPlaybackPolicy(
+              autoPlayEnabled: playbackSettings.autoPlayEnabled,
+              playbackRate: playbackSettings.audioSpeed,
+            );
+          },
+          loading: () => CareTurnAudioPlaybackPolicy.disabled,
+          error: (_, _) => CareTurnAudioPlaybackPolicy.disabled,
+        );
+
+    return CareTurnSurface(
+      notifier: notifier,
+      audioControllerFactory: widget.audioControllerFactory,
+      playbackPolicy: playbackPolicy,
+      careAudioControllerFactory: widget.audioControllerFactory == null
+          ? () => SourceNeutralCareAudioPlaybackController(
+              generatedAudioRepository: ref.read(
+                generatedAudioRepositoryProvider,
+              ),
+            )
+          : null,
+      onQuietExit: onboardingArgs == null
+          ? () => Navigator.of(context).maybePop()
+          : () => context.go(AppRouteNames.shell),
+      title: widget.genericFallbackArgs == null ? null : '通用内容',
+    );
+  }
+
+  void _scheduleHandoffConfirmation(String generatedContentId) {
+    if (_confirmedGeneratedContentId == generatedContentId) {
+      return;
     }
+    _confirmedGeneratedContentId = generatedContentId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _confirmedGeneratedContentId != generatedContentId ||
+          !_isInteractiveGeneratedStarterReady(generatedContentId)) {
+        if (_confirmedGeneratedContentId == generatedContentId) {
+          _confirmedGeneratedContentId = null;
+        }
+        return;
+      }
+      // The post-frame boundary means CareTurnSurface has rendered its starter
+      // and active controls. Route initiation/return are never confirmation.
+      unawaited(
+        ref
+            .read(customSceneHandoffConfirmationCoordinatorProvider)
+            .confirm(generatedContentId: generatedContentId),
+      );
+    });
+  }
 
-    final nextSupportUtterance = snapshot.nextSupportUtterance;
-    final latestImpact = snapshot.latestGardenImpact;
-    final canListen = !_isPlayingAudio;
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        title: Text(l.practiceOneTurnTitle),
-      ),
-      body: SafeArea(
-        child: Semantics(
-          label: l.practiceOneTurnTitle,
-          explicitChildNodes: true,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: AppLayoutConstants.maxContentWidth,
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppLayoutConstants.spacingLg,
-                  AppLayoutConstants.spacingMd,
-                  AppLayoutConstants.spacingLg,
-                  AppLayoutConstants.spacingLg,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _PracticePanel(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            snapshot.moment.title,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: colors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          if (snapshot.moment.careActionLabel
-                              .trim()
-                              .isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              snapshot.moment.careActionLabel,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: colors.textSecondary),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                          Text(
-                            l.practiceWhenToSay,
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(
-                                  color: colors.textSecondary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            utterance.whenToSay,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: colors.textPrimary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppLayoutConstants.spacingMd),
-                    _PracticePanel(
-                      key: const Key('practice-current-utterance'),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            utterance.english,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: colors.textPrimary,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            utterance.chinese,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(color: colors.textPrimary),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            utterance.pronunciation,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: colors.textSecondary),
-                          ),
-                          if (_audioMessage != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              _audioMessage!,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: colors.textSecondary),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppLayoutConstants.spacingMd),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            key: const Key('practice-listen-once'),
-                            onPressed: canListen
-                                ? () => _playCurrentUtterance(utterance)
-                                : null,
-                            icon: Icon(
-                              _isPlayingAudio
-                                  ? Icons.equalizer_rounded
-                                  : Icons.volume_up_rounded,
-                            ),
-                            label: Text(l.practiceListenOnce),
-                          ),
-                        ),
-                        const SizedBox(width: AppLayoutConstants.spacingSm),
-                        Expanded(
-                          child: FilledButton.icon(
-                            key: const Key('practice-said-button'),
-                            onPressed:
-                                snapshot.phase == CareTurnPhase.utteranceReady
-                                ? () {
-                                    AppHaptics.lightTap();
-                                    ref
-                                        .read(carePathNotifierProvider)
-                                        .markSaid();
-                                  }
-                                : null,
-                            icon: const Icon(Icons.check_rounded),
-                            label: Text(l.practiceSaid),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (snapshot.phase == CareTurnPhase.savingTrace) ...[
-                      const SizedBox(height: AppLayoutConstants.spacingMd),
-                      Row(
-                        children: [
-                          const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            l.practiceSavingTrace,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: colors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (snapshot.phase == CareTurnPhase.reactionPrompt) ...[
-                      const SizedBox(height: AppLayoutConstants.spacingMd),
-                      _PracticePanel(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l.practiceReactionPrompt,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            SceneReactionChipRow(
-                              phraseId: utterance.phraseId,
-                              sceneTag: snapshot.moment.sceneTag,
-                              enabled: !notifier.isBusy,
-                              selectedType: snapshot.selectedReaction,
-                              onSelected: (reactionType) async {
-                                AppHaptics.lightTap();
-                                await ref
-                                    .read(carePathNotifierProvider)
-                                    .selectReaction(reactionType);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (nextSupportUtterance != null &&
-                        snapshot.phase == CareTurnPhase.nextSupportReady) ...[
-                      const SizedBox(height: AppLayoutConstants.spacingMd),
-                      _PracticePanel(
-                        key: const Key('practice-next-support'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l.practiceNextSupportTitle,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              nextSupportUtterance.english,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              nextSupportUtterance.chinese,
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(color: colors.textPrimary),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              nextSupportUtterance.pronunciation,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: colors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (snapshot.phase == CareTurnPhase.heldWithFallback) ...[
-                      const SizedBox(height: AppLayoutConstants.spacingMd),
-                      _PracticePanel(
-                        key: const Key('practice-quiet-fallback'),
-                        child: Text(
-                          snapshot.message ?? l.practiceQuietFallback,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: colors.textSecondary),
-                        ),
-                      ),
-                    ],
-                    if (latestImpact != null) ...[
-                      const SizedBox(height: AppLayoutConstants.spacingMd),
-                      _PracticePanel(
-                        key: const Key('practice-garden-trace'),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l.practiceGardenTraceTitle,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              latestImpact.headline,
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    color: colors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              latestImpact.detail,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: colors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+  bool _isInteractiveGeneratedStarterReady(String generatedContentId) {
+    final routeContentId = widget.routeEntry.generatedArgs?.generatedContentId;
+    final scopeKey = _routeScopeKey(
+      widget.routeEntry,
+      fallbackArgs: widget.genericFallbackArgs,
+    );
+    final notifier = ref.read(carePathNotifierProvider);
+    return GeneratedCareTurnHandoffReadiness.isReady(
+      routeContentId: routeContentId,
+      completedMomentKey: _completedMomentKey,
+      routeScopeKey: scopeKey,
+      phase: notifier.phase,
+      snapshot: notifier.snapshot,
     );
   }
 }
 
-class _PracticePanel extends StatelessWidget {
-  const _PracticePanel({super.key, required this.child});
+/// Destination gate for durable custom-scene handoff confirmation. A route
+/// transition alone cannot satisfy it; CareTurnSurface is confirmed next frame.
+class GeneratedCareTurnHandoffReadiness {
+  const GeneratedCareTurnHandoffReadiness._();
 
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppLayoutConstants.spacingLg),
-      decoration: BoxDecoration(
-        color: colors.bgSurface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.outlineSoft),
-      ),
-      child: child,
-    );
+  static bool isReady({
+    required String? routeContentId,
+    required String? completedMomentKey,
+    required String routeScopeKey,
+    required CareTurnPhase phase,
+    required CareTurnSnapshot? snapshot,
+  }) {
+    final starter = snapshot?.currentUtterance;
+    return routeContentId != null &&
+        routeContentId.isNotEmpty &&
+        completedMomentKey == routeScopeKey &&
+        phase == CareTurnPhase.utteranceReady &&
+        snapshot?.moment.generatedContentId == routeContentId &&
+        snapshot?.moment.contentSource == PracticeContentSource.generated &&
+        starter != null &&
+        !starter.isFallback &&
+        snapshot?.selectedReaction == null &&
+        snapshot?.nextSupportUtterance == null &&
+        snapshot?.traceEventKey == null;
   }
 }
 

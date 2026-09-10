@@ -14,6 +14,46 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Custom-scene agentic provider registry. Runtime YAML is mounted only into app-api.
+# Provider credentials belong in the dedicated practiceAi.secret source, never shared secret.
+practiceAi:
+  providerMode: disabled
+  springProfilesActive: ""
+  routingPolicyVersion: custom-scene-routing-v1
+  providers: {}
+  capabilities:
+    custom-scene-generator: []
+    custom-scene-quality-judge: []
+    custom-scene-repair: []
+  secret:
+    # Set this to an externally managed Secret name in production.
+    existingSecret: ""
+    # Bump whenever an externally managed Secret rotates; triggers app-api rollout.
+    rolloutVersion: ""
+    values: {}
+
+# Generated utterance audio is app-api-only. Network modes reuse a named Practice AI
+# credential through the matching Practice AI provider secretKeyRef; no credential
+# value or duplicate Secret key selector belongs in this block.
+generatedAudio:
+  enabled: false
+  providerMode: disabled
+  timeout: 5s
+  responseMaxBytes: 16384
+  downloadMaxBytes: 524288
+  voiceVersion: generated-tts-v1
+  format: mp3
+  endpoint: ""
+  apiKeyEnvironmentVariable: ""
+  model: ""
+  voice: ""
+  providerProfile: default
+  allowedDownloadHosts: []
+
+candidate:
+  id: "1.0.0"
+  requiredMigrationVersion: "38"
+
 appApi:
   replicaCount: 1
   image:
@@ -120,6 +160,8 @@ adminApi:
 
 adminWeb:
   replicaCount: 1
+  nginx:
+    clientMaxBodySize: 100m
   image:
     repository: babytalk/admin-web
     tag: "1.0.0"
@@ -186,7 +228,7 @@ gateway:
     readOnlyRootFilesystem: false
   livenessProbe:
     httpGet:
-      path: /actuator/health
+      path: /actuator/health/liveness
       port: http
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -194,12 +236,20 @@ gateway:
     failureThreshold: 3
   readinessProbe:
     httpGet:
-      path: /actuator/health
+      path: /actuator/health/readiness
       port: http
     initialDelaySeconds: 2
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 2
+  startupProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
   resources:
     requests:
       cpu: 50m
@@ -240,8 +290,9 @@ dbMigration:
       memory: 512Mi
 
 config:
-  BABY_TALK_MIN_SUPPORTED_VERSION: "1.2.0"
+  BABY_TALK_MIN_SUPPORTED_VERSION: "1.3.0"
   BABY_TALK_UPGRADE_URL: "https://example.com/baby-talk/upgrade?channel=stable&source=version_gate"
+  BABY_TALK_CONSENT_VERSION: "pipl-v1"
   BABY_TALK_SYNC_MAX_BATCH_SIZE: "100"
   BABY_TALK_BOOTSTRAP_MAX_EVENTS: "200"
 
@@ -322,6 +373,7 @@ secret:
   BABY_TALK_DB_USERNAME: "babytalk"
   BABY_TALK_DB_PASSWORD: "change-me-db-password"
   BABY_TALK_CONSUMER_JWT_SECRET: "change-me-consumer-jwt-secret"
+  BABY_TALK_AUTH_SENSITIVE_DATA_PEPPER: "change-me-auth-sensitive-data-pepper"
   BABY_TALK_AI_API_KEY: "change-me-ai-api-key"
   BABY_TALK_MINIO_ENDPOINT: "https://minio.example.internal"
   BABY_TALK_MINIO_ACCESS_KEY: "change-me-minio-access-key"

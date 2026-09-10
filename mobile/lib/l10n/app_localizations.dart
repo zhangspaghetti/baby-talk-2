@@ -190,6 +190,348 @@ abstract class AppLocalizations {
   /// **'照护入口暂时不可用。'**
   String get practiceEntryUnavailable;
 
+  /// No description provided for @customSceneTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述一下此刻'**
+  String get customSceneTitle;
+
+  /// No description provided for @customSceneTodayEntryPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'不是正在发生的事？'**
+  String get customSceneTodayEntryPrompt;
+
+  /// No description provided for @customSceneSceneEntryPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'没找到正在发生的场景？'**
+  String get customSceneSceneEntryPrompt;
+
+  /// No description provided for @customSceneDescribeMoment.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述一下此刻'**
+  String get customSceneDescribeMoment;
+
+  /// No description provided for @customSceneHeading.
+  ///
+  /// In zh, this message translates to:
+  /// **'说说现在正在发生什么'**
+  String get customSceneHeading;
+
+  /// No description provided for @customSceneDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'写下你想回应的此刻，我们会帮你准备一句自然的表达。'**
+  String get customSceneDescription;
+
+  /// No description provided for @customSceneFieldLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'此刻发生了什么？'**
+  String get customSceneFieldLabel;
+
+  /// No description provided for @customSceneFieldHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：洗澡时宝宝不想碰水。'**
+  String get customSceneFieldHint;
+
+  /// No description provided for @customScenePrivacyNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'请不要填写姓名、电话、地址或其他私密信息。'**
+  String get customScenePrivacyNote;
+
+  /// No description provided for @customScenePrivacySemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐私说明：请不要填写姓名、电话、地址或其他私密信息。'**
+  String get customScenePrivacySemantics;
+
+  /// No description provided for @customSceneEmptyInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先描述一下此刻。'**
+  String get customSceneEmptyInput;
+
+  /// No description provided for @customSceneSubmit.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮我准备一句'**
+  String get customSceneSubmit;
+
+  /// No description provided for @customScenePreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备…'**
+  String get customScenePreparing;
+
+  /// No description provided for @customSceneContinueAfterLogin.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录后继续'**
+  String get customSceneContinueAfterLogin;
+
+  /// No description provided for @customSceneConfirmResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续确认结果'**
+  String get customSceneConfirmResult;
+
+  /// No description provided for @customSceneOpenPrepared.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开已准备内容'**
+  String get customSceneOpenPrepared;
+
+  /// No description provided for @customSceneCancelRetainedDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消并重新开始'**
+  String get customSceneCancelRetainedDraft;
+
+  /// No description provided for @customSceneAbandonPrepared.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃这条内容'**
+  String get customSceneAbandonPrepared;
+
+  /// No description provided for @customSceneViewExisting.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看已有场景'**
+  String get customSceneViewExisting;
+
+  /// No description provided for @customSceneUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个入口正在准备中。'**
+  String get customSceneUnavailable;
+
+  /// No description provided for @customSceneAbandonTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃已准备内容？'**
+  String get customSceneAbandonTitle;
+
+  /// No description provided for @customSceneAbandonBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃后需要重新描述，才会准备新内容。'**
+  String get customSceneAbandonBody;
+
+  /// No description provided for @customSceneCancelTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消这次描述？'**
+  String get customSceneCancelTitle;
+
+  /// No description provided for @customSceneCancelBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消后需要重新描述，才会准备新内容。'**
+  String get customSceneCancelBody;
+
+  /// No description provided for @customSceneKeep.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续保留'**
+  String get customSceneKeep;
+
+  /// No description provided for @customSceneConfirmAbandon.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认放弃'**
+  String get customSceneConfirmAbandon;
+
+  /// No description provided for @customSceneConfirmCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认取消'**
+  String get customSceneConfirmCancel;
+
+  /// No description provided for @customSceneViewHouseholdStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看家庭状态'**
+  String get customSceneViewHouseholdStatus;
+
+  /// No description provided for @customSceneCompleteProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'完善宝宝档案'**
+  String get customSceneCompleteProfile;
+
+  /// No description provided for @customSceneAuthenticationRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先登录后再生成。'**
+  String get customSceneAuthenticationRequired;
+
+  /// No description provided for @customSceneProfileUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号还没有可用于生成的宝宝档案；主照护者请先完成档案，次照护者请先加入共享照护家庭并接受邀请。'**
+  String get customSceneProfileUnavailable;
+
+  /// No description provided for @customSceneHouseholdAccessRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。'**
+  String get customSceneHouseholdAccessRequired;
+
+  /// No description provided for @customSceneSharedProfileUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享宝宝档案尚未准备好，请让主照护者先完成档案'**
+  String get customSceneSharedProfileUnavailable;
+
+  /// No description provided for @customScenePresetSceneUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'预置场景暂不可用，请稍后再试。'**
+  String get customScenePresetSceneUnavailable;
+
+  /// No description provided for @customSceneInvalidDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'请调整描述后再试。'**
+  String get customSceneInvalidDraft;
+
+  /// No description provided for @customSceneRequestConflict.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次描述已变更，请重新开始生成。'**
+  String get customSceneRequestConflict;
+
+  /// No description provided for @customSceneRequestTerminal.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次生成已结束，请重新生成。'**
+  String get customSceneRequestTerminal;
+
+  /// No description provided for @customSceneGenerationInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在生成，请稍候。'**
+  String get customSceneGenerationInProgress;
+
+  /// No description provided for @customSceneRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'尝试次数较多，请稍后再试。'**
+  String get customSceneRateLimited;
+
+  /// No description provided for @customSceneUnavailableError.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在暂时无法生成，请稍后再试。'**
+  String get customSceneUnavailableError;
+
+  /// No description provided for @customSceneTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待超时，请稍后再试。'**
+  String get customSceneTimeout;
+
+  /// No description provided for @customSceneNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络暂不可用，请检查后重试。'**
+  String get customSceneNetwork;
+
+  /// No description provided for @customSceneMalformedResponse.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务响应异常，请稍后再试。'**
+  String get customSceneMalformedResponse;
+
+  /// No description provided for @customSceneRejected.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段描述暂时无法生成，请换个说法。'**
+  String get customSceneRejected;
+
+  /// No description provided for @customSceneUnexpected.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法生成，请稍后再试。'**
+  String get customSceneUnexpected;
+
+  /// No description provided for @customSceneSubmissionAnotherDraftPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前已有另一段描述待处理，请先完成或取消。'**
+  String get customSceneSubmissionAnotherDraftPending;
+
+  /// No description provided for @customSceneSubmissionRestoreUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请重新填写。'**
+  String get customSceneSubmissionRestoreUnavailable;
+
+  /// No description provided for @customSceneSubmissionAccountChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号已切换，请重新填写描述。'**
+  String get customSceneSubmissionAccountChanged;
+
+  /// No description provided for @customSceneSubmissionUnknownOutcome.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果尚未确认，请重试以继续。'**
+  String get customSceneSubmissionUnknownOutcome;
+
+  /// No description provided for @customSceneSubmissionPreviousRequestUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次请求的结果尚未确认，请重试以继续。'**
+  String get customSceneSubmissionPreviousRequestUnknown;
+
+  /// No description provided for @customSceneSubmissionRetryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法继续，请重新填写描述。'**
+  String get customSceneSubmissionRetryUnavailable;
+
+  /// No description provided for @customSceneSubmissionHandoffRouteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法打开照护内容，请再试一次。'**
+  String get customSceneSubmissionHandoffRouteFailed;
+
+  /// No description provided for @customSceneSubmissionSaveUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法保存描述，请稍后再试。'**
+  String get customSceneSubmissionSaveUnavailable;
+
+  /// No description provided for @customSceneSubmissionPreparedContentSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容已准备好，但暂时无法保存。请重试以继续。'**
+  String get customSceneSubmissionPreparedContentSaveFailed;
+
+  /// No description provided for @customSceneSubmissionDraftExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次描述已过期，请重新填写。'**
+  String get customSceneSubmissionDraftExpired;
+
+  /// No description provided for @customSceneSubmissionDraftRecoveryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请稍后再试。'**
+  String get customSceneSubmissionDraftRecoveryUnavailable;
+
+  /// No description provided for @customSceneSubmissionDraftInconsistent.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请重新填写。'**
+  String get customSceneSubmissionDraftInconsistent;
+
   /// No description provided for @bootErrorUnknown.
   ///
   /// In zh, this message translates to:
@@ -559,258 +901,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{totalEvents} 条本地记录 · 最近一次 {time}'**
   String homeRecentResultDetail(Object totalEvents, Object time);
-
-  /// No description provided for @onboardingTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'先拿一句今天能和宝宝说的英文'**
-  String get onboardingTitle;
-
-  /// No description provided for @onboardingSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'只要昵称和大概月龄，小禾老师会先在本机准备第一句。'**
-  String get onboardingSubtitle;
-
-  /// No description provided for @onboardingLocalOnly.
-  ///
-  /// In zh, this message translates to:
-  /// **'同意前仅保存在这台设备，不需要精确生日。'**
-  String get onboardingLocalOnly;
-
-  /// No description provided for @onboardingMentorGreeting.
-  ///
-  /// In zh, this message translates to:
-  /// **'你好，我会先帮你把英语放进今天就能开口的照护节奏里。'**
-  String get onboardingMentorGreeting;
-
-  /// No description provided for @onboardingAskName.
-  ///
-  /// In zh, this message translates to:
-  /// **'我先怎么称呼宝宝？先用一个你最顺口的小昵称就好。'**
-  String get onboardingAskName;
-
-  /// No description provided for @onboardingAskAge.
-  ///
-  /// In zh, this message translates to:
-  /// **'现在大概几个月？我会用月龄档给你匹配阶段，不会要求精确生日。'**
-  String get onboardingAskAge;
-
-  /// No description provided for @onboardingStagePreview.
-  ///
-  /// In zh, this message translates to:
-  /// **'{childName} 现在更适合从这一类短句开始，先用一句真实照护里的英文试试看。'**
-  String onboardingStagePreview(Object childName);
-
-  /// No description provided for @onboardingWelcomeInfo.
-  ///
-  /// In zh, this message translates to:
-  /// **'先准备两条信息：宝宝昵称 + 月龄档。'**
-  String get onboardingWelcomeInfo;
-
-  /// No description provided for @onboardingWelcomeDetail.
-  ///
-  /// In zh, this message translates to:
-  /// **'完成后会看到第一句英文、什么时候说，以及怎么接住宝宝反应。'**
-  String get onboardingWelcomeDetail;
-
-  /// No description provided for @onboardingStartButton.
-  ///
-  /// In zh, this message translates to:
-  /// **'先开始'**
-  String get onboardingStartButton;
-
-  /// No description provided for @onboardingNameLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'宝宝昵称'**
-  String get onboardingNameLabel;
-
-  /// No description provided for @onboardingNameHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'例如：米米、果果'**
-  String get onboardingNameHint;
-
-  /// No description provided for @onboardingNameHelp.
-  ///
-  /// In zh, this message translates to:
-  /// **'先用一个顺口的小名就够了，之后还可以再改。'**
-  String get onboardingNameHelp;
-
-  /// No description provided for @onboardingBack.
-  ///
-  /// In zh, this message translates to:
-  /// **'上一步'**
-  String get onboardingBack;
-
-  /// No description provided for @onboardingContinue.
-  ///
-  /// In zh, this message translates to:
-  /// **'继续'**
-  String get onboardingContinue;
-
-  /// No description provided for @onboardingAgeTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'月龄快选'**
-  String get onboardingAgeTitle;
-
-  /// No description provided for @onboardingAgeHelp.
-  ///
-  /// In zh, this message translates to:
-  /// **'不需要精确到哪一天，先选最接近的一档就可以。'**
-  String get onboardingAgeHelp;
-
-  /// No description provided for @onboardingAgeMonths.
-  ///
-  /// In zh, this message translates to:
-  /// **'{months}月左右'**
-  String onboardingAgeMonths(Object months);
-
-  /// No description provided for @onboardingContentLoading.
-  ///
-  /// In zh, this message translates to:
-  /// **'正在准备第一句…'**
-  String get onboardingContentLoading;
-
-  /// No description provided for @onboardingContentRetry.
-  ///
-  /// In zh, this message translates to:
-  /// **'重新准备'**
-  String get onboardingContentRetry;
-
-  /// No description provided for @onboardingAgeContinue.
-  ///
-  /// In zh, this message translates to:
-  /// **'准备第一句'**
-  String get onboardingAgeContinue;
-
-  /// No description provided for @onboardingPreviewConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'先播放一下，再说一次；我会把这次开始保存在本机。'**
-  String get onboardingPreviewConfirm;
-
-  /// No description provided for @onboardingPreviewRetryHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'说完可以点“我说了”，不用等宝宝立刻回应。'**
-  String get onboardingPreviewRetryHint;
-
-  /// No description provided for @onboardingPreviewSeedLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'第一句可以先这样说'**
-  String get onboardingPreviewSeedLabel;
-
-  /// No description provided for @onboardingMiniSceneActionHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'洗澡、换衣或抱起宝宝时，都可以先轻轻说这一句。'**
-  String get onboardingMiniSceneActionHint;
-
-  /// No description provided for @onboardingMiniScenePlay.
-  ///
-  /// In zh, this message translates to:
-  /// **'播放一下'**
-  String get onboardingMiniScenePlay;
-
-  /// No description provided for @onboardingMiniScenePlaying.
-  ///
-  /// In zh, this message translates to:
-  /// **'播放中'**
-  String get onboardingMiniScenePlaying;
-
-  /// No description provided for @onboardingMiniSceneSaid.
-  ///
-  /// In zh, this message translates to:
-  /// **'我说了'**
-  String get onboardingMiniSceneSaid;
-
-  /// No description provided for @onboardingMiniSceneRecording.
-  ///
-  /// In zh, this message translates to:
-  /// **'记录中'**
-  String get onboardingMiniSceneRecording;
-
-  /// No description provided for @onboardingMiniSceneRecorded.
-  ///
-  /// In zh, this message translates to:
-  /// **'已在本机种下第一颗种子，首页会接着这句继续。'**
-  String get onboardingMiniSceneRecorded;
-
-  /// No description provided for @onboardingSayFirstBeforeHome.
-  ///
-  /// In zh, this message translates to:
-  /// **'先说一次'**
-  String get onboardingSayFirstBeforeHome;
-
-  /// No description provided for @onboardingPreviewBack.
-  ///
-  /// In zh, this message translates to:
-  /// **'返回调整'**
-  String get onboardingPreviewBack;
-
-  /// No description provided for @onboardingSaving.
-  ///
-  /// In zh, this message translates to:
-  /// **'正在保存到本地'**
-  String get onboardingSaving;
-
-  /// No description provided for @onboardingEnterHome.
-  ///
-  /// In zh, this message translates to:
-  /// **'进入首页继续'**
-  String get onboardingEnterHome;
-
-  /// No description provided for @onboardingStageMatch.
-  ///
-  /// In zh, this message translates to:
-  /// **'现在适合这样开始'**
-  String get onboardingStageMatch;
-
-  /// No description provided for @onboardingMentorCaption.
-  ///
-  /// In zh, this message translates to:
-  /// **'禾'**
-  String get onboardingMentorCaption;
-
-  /// No description provided for @onboardingFirstSeed.
-  ///
-  /// In zh, this message translates to:
-  /// **'第一颗种子'**
-  String get onboardingFirstSeed;
-
-  /// No description provided for @onboardingMentorMessageSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'小禾老师引导消息：{message}'**
-  String onboardingMentorMessageSemantics(Object message);
-
-  /// No description provided for @onboardingMiniSeedCardSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'第一颗种子：{phrase}'**
-  String onboardingMiniSeedCardSemantics(Object phrase);
-
-  /// No description provided for @onboardingStageMatchSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'现在适合这样开始：{stageTitle}。{summary}'**
-  String onboardingStageMatchSemantics(Object stageTitle, Object summary);
-
-  /// No description provided for @onboardingFirstPhraseActionErrorSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'第一句记录失败：{message}'**
-  String onboardingFirstPhraseActionErrorSemantics(Object message);
-
-  /// No description provided for @onboardingSaveErrorSemantics.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存失败：{message}'**
-  String onboardingSaveErrorSemantics(Object message);
 
   /// No description provided for @shellDrawerTooltip.
   ///
@@ -1339,6 +1429,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'次照护者'**
   String get householdCaregiver;
+
+  /// No description provided for @meHouseholdCaregiverDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用家庭共享宝宝档案'**
+  String get meHouseholdCaregiverDetail;
+
+  /// No description provided for @meHouseholdIdentityLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭身份同步中'**
+  String get meHouseholdIdentityLoading;
+
+  /// No description provided for @meHouseholdIdentityNoMembership.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未加入共享家庭'**
+  String get meHouseholdIdentityNoMembership;
+
+  /// No description provided for @meHouseholdIdentityUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭身份暂时不可用'**
+  String get meHouseholdIdentityUnavailable;
+
+  /// No description provided for @meHouseholdIdentityReadError.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭状态读取失败，请稍后重试。'**
+  String get meHouseholdIdentityReadError;
+
+  /// No description provided for @meHouseholdIdentityStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭状态正在更新，暂不显示上一份身份。'**
+  String get meHouseholdIdentityStale;
 
   /// No description provided for @householdMember.
   ///
@@ -2244,6 +2370,36 @@ abstract class AppLocalizations {
   /// **'朗读回应'**
   String get mentorReadResponse;
 
+  /// No description provided for @mentorChatResponseUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近回应已更新'**
+  String get mentorChatResponseUpdated;
+
+  /// No description provided for @mentorChatResponseGenerated.
+  ///
+  /// In zh, this message translates to:
+  /// **'回应已生成'**
+  String get mentorChatResponseGenerated;
+
+  /// No description provided for @mentorChatResponseStatusUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'回应状态已更新'**
+  String get mentorChatResponseStatusUpdated;
+
+  /// No description provided for @mentorChatAccountConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号已连接'**
+  String get mentorChatAccountConnected;
+
+  /// No description provided for @mentorChatRateRemaining.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日剩余 {remaining}/{limit}'**
+  String mentorChatRateRemaining(Object remaining, Object limit);
+
   /// No description provided for @mentorSuggestionIntro.
   ///
   /// In zh, this message translates to:
@@ -2279,6 +2435,330 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'朗读'**
   String get mentorSuggestionRead;
+
+  /// No description provided for @mentorStatusLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态：{status}'**
+  String mentorStatusLabel(Object status);
+
+  /// No description provided for @mentorCurrentTabLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：{tab}'**
+  String mentorCurrentTabLabel(Object tab);
+
+  /// No description provided for @mentorChatStatusLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'聊天：{status}'**
+  String mentorChatStatusLabel(Object status);
+
+  /// No description provided for @mentorStatusPreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'准备中'**
+  String get mentorStatusPreparing;
+
+  /// No description provided for @mentorStatusOrganizing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在整理'**
+  String get mentorStatusOrganizing;
+
+  /// No description provided for @mentorStatusReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议已准备'**
+  String get mentorStatusReady;
+
+  /// No description provided for @mentorStatusLocalFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用本地建议'**
+  String get mentorStatusLocalFallback;
+
+  /// No description provided for @mentorStatusSafeFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保留安全建议'**
+  String get mentorStatusSafeFallback;
+
+  /// No description provided for @mentorChatAvailabilityLoadingTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在读取聊天状态'**
+  String get mentorChatAvailabilityLoadingTitle;
+
+  /// No description provided for @mentorChatAvailabilityReadyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'可以发起一次受控聊天'**
+  String get mentorChatAvailabilityReadyTitle;
+
+  /// No description provided for @mentorChatAvailabilityOfflineTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前离线'**
+  String get mentorChatAvailabilityOfflineTitle;
+
+  /// No description provided for @mentorChatAvailabilityLoginTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要登录'**
+  String get mentorChatAvailabilityLoginTitle;
+
+  /// No description provided for @mentorChatAvailabilityReloginTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要重新登录'**
+  String get mentorChatAvailabilityReloginTitle;
+
+  /// No description provided for @mentorChatAvailabilityConsentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要重新同意'**
+  String get mentorChatAvailabilityConsentTitle;
+
+  /// No description provided for @mentorChatAvailabilityLoadingDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号状态还在加载中，先看本地建议。'**
+  String get mentorChatAvailabilityLoadingDetail;
+
+  /// No description provided for @mentorChatAvailabilityReadyDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'你可以直接描述当下卡住的场景，Mentor 会返回一条安全文本回应。'**
+  String get mentorChatAvailabilityReadyDetail;
+
+  /// No description provided for @mentorChatAvailabilityOfflineDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'离线时不会发聊天请求，先用本地建议继续。'**
+  String get mentorChatAvailabilityOfflineDetail;
+
+  /// No description provided for @mentorChatAvailabilityLoginDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录并同意后才能使用在线 Mentor 聊天；本地建议仍可继续。'**
+  String get mentorChatAvailabilityLoginDetail;
+
+  /// No description provided for @mentorChatAvailabilityReloginDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录状态已经失效；重新登录并同意后再试一次受控聊天。'**
+  String get mentorChatAvailabilityReloginDetail;
+
+  /// No description provided for @mentorChatAvailabilityConsentDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号同意状态不可用；重新登录并再次同意后再试。'**
+  String get mentorChatAvailabilityConsentDetail;
+
+  /// No description provided for @mentorBannerAccountLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号状态还在读取中，先把可离线使用的本地建议给你。'**
+  String get mentorBannerAccountLoading;
+
+  /// No description provided for @mentorBannerReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'先给你离线也能用的本地建议；网络稳定时你也可以直接切到聊天。'**
+  String get mentorBannerReady;
+
+  /// No description provided for @mentorBannerOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'你现在离线中，聊天不会发请求；先用下面的本地建议继续。'**
+  String get mentorBannerOffline;
+
+  /// No description provided for @mentorBannerLoginRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'先给你本地建议；在线聊天需要登录并同意后再发起。'**
+  String get mentorBannerLoginRequired;
+
+  /// No description provided for @mentorBannerConsentRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'先给你本地建议；同意状态恢复前不会发起在线聊天。'**
+  String get mentorBannerConsentRequired;
+
+  /// No description provided for @mentorBannerOnboardingMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没读到本地档案，先给你一条通用建议，不影响继续开口。'**
+  String get mentorBannerOnboardingMissing;
+
+  /// No description provided for @mentorBannerOnboardingUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地档案暂时不可读，先给你一条通用建议，避免面板空白。'**
+  String get mentorBannerOnboardingUnavailable;
+
+  /// No description provided for @mentorBannerContextRestore.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近上下文没有完整恢复，先给你一条通用建议，稍后再试也可以。'**
+  String get mentorBannerContextRestore;
+
+  /// No description provided for @mentorBannerSuggestionRenderFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地上下文暂时没读出来，先给你一条稳妥的通用建议。'**
+  String get mentorBannerSuggestionRenderFallback;
+
+  /// No description provided for @mentorBannerGenericFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地上下文暂时不完整，先给你一条稳妥的通用建议。'**
+  String get mentorBannerGenericFallback;
+
+  /// No description provided for @mentorBannerMissingPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'先写下你现在卡住的那一句，Mentor 才能给出受控回应。'**
+  String get mentorBannerMissingPrompt;
+
+  /// No description provided for @mentorBannerPromptTooLong.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次求助请控制在 {maxLength} 个字以内，避免把不必要的细节发出去。'**
+  String mentorBannerPromptTooLong(Object maxLength);
+
+  /// No description provided for @mentorBannerChatRequesting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在向小禾老师请求一次受控回应…'**
+  String get mentorBannerChatRequesting;
+
+  /// No description provided for @mentorBannerChatFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次回应已被安全降级成可直接读出的文字建议。'**
+  String get mentorBannerChatFallback;
+
+  /// No description provided for @mentorBannerChatTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'小禾老师这次回应超时了，先别等，继续用本地建议，稍后可重试。'**
+  String get mentorBannerChatTimeout;
+
+  /// No description provided for @mentorBannerChatUnauthorized.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录状态已经失效；重新登录后再试一次受控聊天。'**
+  String get mentorBannerChatUnauthorized;
+
+  /// No description provided for @mentorBannerChatConsentRevoked.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号同意状态不可用；重新登录并再次同意后再试。'**
+  String get mentorBannerChatConsentRevoked;
+
+  /// No description provided for @mentorBannerChatVersionBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前版本过旧，升级后才能继续使用在线聊天。'**
+  String get mentorBannerChatVersionBlocked;
+
+  /// No description provided for @mentorBannerChatRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚刚已经求助过一次了，先用当前建议继续，稍后再试。'**
+  String get mentorBannerChatRateLimited;
+
+  /// No description provided for @mentorBannerChatMalformed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次返回内容不可信，已拦下不展示；你可以稍后重试。'**
+  String get mentorBannerChatMalformed;
+
+  /// No description provided for @mentorBannerChatBlockedFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次问题触发了安全边界，系统已改用更稳妥的回应方式。'**
+  String get mentorBannerChatBlockedFallback;
+
+  /// No description provided for @mentorBannerChatServerError.
+  ///
+  /// In zh, this message translates to:
+  /// **'聊天服务暂时不可用，先保留文字建议，稍后再试。'**
+  String get mentorBannerChatServerError;
+
+  /// No description provided for @mentorBannerGenericError.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次操作暂时不可用，请稍后重试。'**
+  String get mentorBannerGenericError;
+
+  /// No description provided for @mentorAudioUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前设备不支持朗读。'**
+  String get mentorAudioUnavailable;
+
+  /// No description provided for @mentorAudioFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'朗读暂时不可用，请稍后重试。'**
+  String get mentorAudioFailed;
+
+  /// No description provided for @mentorSuggestionSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'来源：{reason}'**
+  String mentorSuggestionSource(Object reason);
+
+  /// No description provided for @mentorSuggestionReasonRecentResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚刚的回应'**
+  String get mentorSuggestionReasonRecentResult;
+
+  /// No description provided for @mentorSuggestionReasonStageReinforcement.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段巩固'**
+  String get mentorSuggestionReasonStageReinforcement;
+
+  /// No description provided for @mentorSuggestionReasonStageGuide.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段引导'**
+  String get mentorSuggestionReasonStageGuide;
+
+  /// No description provided for @mentorSuggestionReasonStageOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'阶段建议'**
+  String get mentorSuggestionReasonStageOnly;
+
+  /// No description provided for @mentorSuggestionReasonStarterPhrase.
+  ///
+  /// In zh, this message translates to:
+  /// **'熟悉短句'**
+  String get mentorSuggestionReasonStarterPhrase;
+
+  /// No description provided for @mentorSuggestionReasonSharedContext.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭共享'**
+  String get mentorSuggestionReasonSharedContext;
+
+  /// No description provided for @mentorSuggestionReasonSafe.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全建议'**
+  String get mentorSuggestionReasonSafe;
+
+  /// No description provided for @mentorSuggestionReasonDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'建议'**
+  String get mentorSuggestionReasonDefault;
 
   /// No description provided for @phraseRecorded.
   ///
@@ -3710,143 +4190,137 @@ abstract class AppLocalizations {
   /// **'English'**
   String get settingsLanguageEn;
 
-  /// Mentor bubble on name input screen
+  /// No description provided for @settingsLanguageBilingual.
   ///
   /// In zh, this message translates to:
-  /// **'小禾想帮你记录这段珍贵的成长，可以告诉我一些关于宝宝的小信息吗？'**
-  String get onboardingV21MentorGreeting;
+  /// **'双语'**
+  String get settingsLanguageBilingual;
 
-  /// Name input label
+  /// No description provided for @presetGenerationProgress.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝昵称（可选）'**
-  String get onboardingV21NameLabel;
+  /// **'正在为宝宝准备个性化练习…'**
+  String get presetGenerationProgress;
 
-  /// Name input hint
+  /// No description provided for @presetGenerationUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'比如：小宝、小明...'**
-  String get onboardingV21NameHint;
+  /// **'个性化练习暂时不可用，请重试。'**
+  String get presetGenerationUnavailable;
 
-  /// Age selection title
+  /// No description provided for @presetGenerationGenericFallback.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝月龄'**
-  String get onboardingV21AgeTitle;
+  /// **'使用通用内容'**
+  String get presetGenerationGenericFallback;
 
-  /// Save button on name screen
+  /// No description provided for @sceneGenerationAuthenticationRequired.
   ///
   /// In zh, this message translates to:
-  /// **'保存'**
-  String get onboardingV21SaveButton;
+  /// **'请先登录后再生成。'**
+  String get sceneGenerationAuthenticationRequired;
 
-  /// Skip button
+  /// No description provided for @sceneGenerationProfileUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'稍后再说'**
-  String get onboardingV21SkipButton;
+  /// **'宝宝档案暂不可用，请先完善宝宝档案后再试。'**
+  String get sceneGenerationProfileUnavailable;
 
-  /// Next button on name screen (deprecated)
+  /// No description provided for @sceneGenerationSharedProfileUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'下一步'**
-  String get onboardingV21NextButton;
+  /// **'共享宝宝档案暂不可用，请让主照护者先完成档案后再试。'**
+  String get sceneGenerationSharedProfileUnavailable;
 
-  /// Scene selection title
+  /// No description provided for @sceneGenerationHouseholdAccessRequired.
   ///
   /// In zh, this message translates to:
-  /// **'今天先说一句'**
-  String get onboardingV21SceneTitle;
+  /// **'请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。'**
+  String get sceneGenerationHouseholdAccessRequired;
 
-  /// Scene selection hint
+  /// No description provided for @sceneGenerationPresetUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'选个正在发生的场景'**
-  String get onboardingV21SceneHint;
+  /// **'预置场景暂不可用，请稍后再试。'**
+  String get sceneGenerationPresetUnavailable;
 
-  /// Skip scene selection button
+  /// No description provided for @sceneGenerationInvalidInput.
   ///
   /// In zh, this message translates to:
-  /// **'直接给一句'**
-  String get onboardingV21DirectPhrase;
+  /// **'请调整场景描述后再试。'**
+  String get sceneGenerationInvalidInput;
 
-  /// Age entry button
+  /// No description provided for @sceneGenerationRequestConflict.
   ///
   /// In zh, this message translates to:
-  /// **'宝宝多大？可稍后补'**
-  String get onboardingV21AgeEntry;
+  /// **'这次场景描述已变更，请重新开始生成。'**
+  String get sceneGenerationRequestConflict;
 
-  /// Skip age selection
+  /// No description provided for @sceneGenerationRequestTerminal.
   ///
   /// In zh, this message translates to:
-  /// **'先跳过'**
-  String get onboardingV21AgeSkip;
+  /// **'这次生成已结束，请使用新的请求重新生成。'**
+  String get sceneGenerationRequestTerminal;
 
-  /// Practice screen subtitle
+  /// No description provided for @sceneGenerationInProgress.
   ///
   /// In zh, this message translates to:
-  /// **'一句就够'**
-  String get onboardingV21PracticeSubtitle;
+  /// **'场景正在生成，请稍后查看。'**
+  String get sceneGenerationInProgress;
 
-  /// Said button on practice screen
+  /// No description provided for @sceneGenerationRateLimited.
   ///
   /// In zh, this message translates to:
-  /// **'说完了'**
-  String get onboardingV21SaidButton;
+  /// **'生成次数过多，请稍后再试。'**
+  String get sceneGenerationRateLimited;
 
-  /// Swap phrase button
+  /// No description provided for @sceneGenerationUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'换一句'**
-  String get onboardingV21SwapButton;
+  /// **'生成服务暂不可用，请稍后再试。'**
+  String get sceneGenerationUnavailable;
 
-  /// End practice button
+  /// No description provided for @sceneGenerationTimeout.
   ///
   /// In zh, this message translates to:
-  /// **'结束'**
-  String get onboardingV21EndButton;
+  /// **'生成超时，请稍后重试。'**
+  String get sceneGenerationTimeout;
 
-  /// Saved confirmation
+  /// No description provided for @sceneGenerationNetwork.
   ///
   /// In zh, this message translates to:
-  /// **'已保存本句'**
-  String get onboardingV21Saved;
+  /// **'网络暂不可用，请检查后重试。'**
+  String get sceneGenerationNetwork;
 
-  /// Skip reaction button
+  /// No description provided for @sceneGenerationMalformedResponse.
   ///
   /// In zh, this message translates to:
-  /// **'跳过，下一句'**
-  String get onboardingV21SkipReaction;
+  /// **'生成响应异常，请稍后再试。'**
+  String get sceneGenerationMalformedResponse;
 
-  /// All phrases used
+  /// No description provided for @sceneGenerationRejected.
   ///
   /// In zh, this message translates to:
-  /// **'句子都试过了'**
-  String get onboardingV21PhrasesExhausted;
+  /// **'这段场景描述暂不适合生成，请调整后再试。'**
+  String get sceneGenerationRejected;
 
-  /// Completion screen title
+  /// No description provided for @sceneGenerationUnexpected.
   ///
   /// In zh, this message translates to:
-  /// **'小禾老师 / 今天已完成'**
-  String get onboardingV21CompleteTitle;
+  /// **'生成失败，请稍后再试。'**
+  String get sceneGenerationUnexpected;
 
-  /// Practice again button
+  /// No description provided for @mentorBubbleCaption.
   ///
   /// In zh, this message translates to:
-  /// **'再来一句'**
-  String get onboardingV21AgainButton;
+  /// **'禾'**
+  String get mentorBubbleCaption;
 
-  /// Done button
+  /// No description provided for @mentorBubbleMessageSemantics.
   ///
   /// In zh, this message translates to:
-  /// **'先到这里'**
-  String get onboardingV21DoneButton;
-
-  /// Next time copy
-  ///
-  /// In zh, this message translates to:
-  /// **'下次打开，小禾会给你新的一句。'**
-  String get onboardingV21NextTime;
+  /// **'小禾老师引导消息：{message}'**
+  String mentorBubbleMessageSemantics(Object message);
 
   /// T4 one-turn practice screen title
   ///
@@ -3866,6 +4340,48 @@ abstract class AppLocalizations {
   /// **'听一下'**
   String get practiceListenOnce;
 
+  /// T4 one-turn replay button
+  ///
+  /// In zh, this message translates to:
+  /// **'重播'**
+  String get practiceReplayAudio;
+
+  /// T4 one-turn play accessibility label
+  ///
+  /// In zh, this message translates to:
+  /// **'播放音频'**
+  String get practicePlayAudioSemantics;
+
+  /// T4 one-turn replay accessibility label
+  ///
+  /// In zh, this message translates to:
+  /// **'重播音频'**
+  String get practiceReplayAudioSemantics;
+
+  /// T4 one-turn pause button
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get practicePauseAudio;
+
+  /// T4 one-turn pause accessibility label
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停音频'**
+  String get practicePauseAudioSemantics;
+
+  /// T4 one-turn resume button
+  ///
+  /// In zh, this message translates to:
+  /// **'继续播放'**
+  String get practiceResumeAudio;
+
+  /// T4 one-turn resume accessibility label
+  ///
+  /// In zh, this message translates to:
+  /// **'继续播放音频'**
+  String get practiceResumeAudioSemantics;
+
   /// T4 one-turn said button
   ///
   /// In zh, this message translates to:
@@ -3877,6 +4393,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已听过一次'**
   String get practiceAudioPlayedOnce;
+
+  /// T4 one-turn audio loading announcement
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备音频…'**
+  String get practiceAudioLoadingInline;
+
+  /// T4 one-turn audio playback announcement
+  ///
+  /// In zh, this message translates to:
+  /// **'正在播放音频…'**
+  String get practiceAudioPlayingInline;
+
+  /// T4 one-turn audio paused announcement
+  ///
+  /// In zh, this message translates to:
+  /// **'音频已暂停'**
+  String get practiceAudioPausedInline;
 
   /// T4 one-turn inline copy when current utterance has no audio asset
   ///
@@ -3931,6 +4465,144 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'花园留痕'**
   String get practiceGardenTraceTitle;
+
+  /// No description provided for @onboardingWelcomeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝正在做什么？'**
+  String get onboardingWelcomeTitle;
+
+  /// No description provided for @onboardingWelcomeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'我们给你一句现在就能说的英语。'**
+  String get onboardingWelcomeBody;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始'**
+  String get onboardingStart;
+
+  /// No description provided for @onboardingAgeSelectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝现在多大？'**
+  String get onboardingAgeSelectionTitle;
+
+  /// No description provided for @onboardingAgeRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'先选一个适合宝宝的年龄范围。'**
+  String get onboardingAgeRequired;
+
+  /// No description provided for @onboardingScenesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'哪些照护时刻最常出现？'**
+  String get onboardingScenesTitle;
+
+  /// No description provided for @onboardingScenesBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'可以多选，之后仍能随时看看其他场景。'**
+  String get onboardingScenesBody;
+
+  /// No description provided for @onboardingScenesRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少选一个常见照护时刻。'**
+  String get onboardingScenesRequired;
+
+  /// No description provided for @onboardingGoalTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'你希望我们怎么帮你？'**
+  String get onboardingGoalTitle;
+
+  /// No description provided for @onboardingGoalFirstWords.
+  ///
+  /// In zh, this message translates to:
+  /// **'我不知道该怎么说'**
+  String get onboardingGoalFirstWords;
+
+  /// No description provided for @onboardingGoalNatural.
+  ///
+  /// In zh, this message translates to:
+  /// **'我会一点，想说得更自然'**
+  String get onboardingGoalNatural;
+
+  /// No description provided for @onboardingGoalHabit.
+  ///
+  /// In zh, this message translates to:
+  /// **'我想把英语放进日常照护'**
+  String get onboardingGoalHabit;
+
+  /// No description provided for @onboardingMomentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在正在发生什么？'**
+  String get onboardingMomentTitle;
+
+  /// No description provided for @onboardingCareTurnTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在就能说'**
+  String get onboardingCareTurnTitle;
+
+  /// No description provided for @onboardingTraceTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才这句话，已经留在你们的花园里。'**
+  String get onboardingTraceTitle;
+
+  /// No description provided for @onboardingTraceDegraded.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才的照护时刻已经记下，花园会稍后整理出来。'**
+  String get onboardingTraceDegraded;
+
+  /// No description provided for @onboardingTraceContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get onboardingTraceContinue;
+
+  /// No description provided for @onboardingAccountTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'把这些照护时刻保存到账号'**
+  String get onboardingAccountTitle;
+
+  /// No description provided for @onboardingAccountBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'换手机后，也能继续看到刚才留下的痕迹。'**
+  String get onboardingAccountBody;
+
+  /// No description provided for @onboardingSaveAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存并继续'**
+  String get onboardingSaveAccount;
+
+  /// No description provided for @onboardingContinueLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时不用'**
+  String get onboardingContinueLocal;
+
+  /// No description provided for @onboardingRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'再试一次'**
+  String get onboardingRetry;
+
+  /// No description provided for @onboardingSafeMomentFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'刚才没有准备好，换一个场景试试。'**
+  String get onboardingSafeMomentFallback;
 }
 
 class _AppLocalizationsDelegate

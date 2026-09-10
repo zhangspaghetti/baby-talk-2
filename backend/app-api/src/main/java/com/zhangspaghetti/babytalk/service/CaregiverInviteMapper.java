@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.service;
 
+import java.time.OffsetDateTime;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -7,6 +8,10 @@ import org.apache.ibatis.annotations.Param;
 public interface CaregiverInviteMapper {
 
     CaregiverInviteRepository.HouseholdMemberRow findActiveMembershipByAccount(@Param("accountId") String accountId);
+
+    CaregiverInviteRepository.GenerationAccessStateRow findGenerationAccessStateByAccount(
+            @Param("accountId") String accountId
+    );
 
     CaregiverInviteRepository.HouseholdMemberRow findMembershipByHouseholdAndAccount(
             @Param("householdId") String householdId,
@@ -17,21 +22,25 @@ public interface CaregiverInviteMapper {
 
     void insertMember(@Param("row") CaregiverInviteRepository.HouseholdMemberRow row);
 
+    int insertMemberIfAbsent(@Param("row") CaregiverInviteRepository.HouseholdMemberRow row);
+
+    int deleteHouseholdIfUnassigned(@Param("householdId") String householdId);
+
     void insertInvite(@Param("row") CaregiverInviteRepository.InviteRow row);
 
-    CaregiverInviteRepository.InviteRow findInviteByToken(@Param("token") String token);
+    CaregiverInviteRepository.InviteRow findInviteByTokenLookupRef(@Param("tokenLookupRef") String tokenLookupRef);
 
     int markInviteAccepted(
-            @Param("token") String token,
+            @Param("tokenLookupRef") String tokenLookupRef,
             @Param("acceptedByAccountId") String acceptedByAccountId,
-            @Param("acceptedAt") java.time.Instant acceptedAt
+            @Param("acceptedAt") OffsetDateTime acceptedAt
     );
 
-    int markInviteExpired(@Param("token") String token, @Param("failureReason") String failureReason);
+    int markInviteExpired(@Param("tokenLookupRef") String tokenLookupRef, @Param("failureReason") String failureReason);
 
     int markInviteRevoked(
-            @Param("token") String token,
-            @Param("revokedAt") java.time.Instant revokedAt,
+            @Param("tokenLookupRef") String tokenLookupRef,
+            @Param("revokedAt") OffsetDateTime revokedAt,
             @Param("failureReason") String failureReason
     );
 

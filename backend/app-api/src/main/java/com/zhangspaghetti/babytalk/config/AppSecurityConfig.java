@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -45,6 +46,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
+import com.zhangspaghetti.babytalk.web.SafeCorrelationId;
 
 @Configuration
 @EnableWebSecurity
@@ -64,7 +66,11 @@ public class AppSecurityConfig {
             PathPatternRequestMatcher.pathPattern("/actuator/health"),
             PathPatternRequestMatcher.pathPattern("/actuator/info"),
             PathPatternRequestMatcher.pathPattern("/error"),
-            PathPatternRequestMatcher.pathPattern("/api/v1/share-links")
+            PathPatternRequestMatcher.pathPattern("/api/v1/share-links"),
+            PathPatternRequestMatcher.pathPattern("/api/v1/onboarding/conversations"),
+            PathPatternRequestMatcher.pathPattern("/api/v1/onboarding/conversations/*/turns"),
+            PathPatternRequestMatcher.pathPattern(
+                    "/api/v1/onboarding/conversations/*/utterances/*/audio")
     );
 
     @Bean("consumerAccessTokenJwtDecoder")
@@ -147,8 +153,13 @@ public class AppSecurityConfig {
                                 "/actuator/info",
                                 "/error",
                                 "/api/v1/share-links",
+                                "/api/v1/onboarding/conversations",
+                                "/api/v1/onboarding/conversations/*/turns",
+                                "/api/v1/onboarding/conversations/*/utterances/*/audio",
                                 "/api/v1/practice/discovery",
                                 "/api/v1/mentor/chat")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/practice/preset-scenes")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
@@ -222,12 +233,15 @@ public class AppSecurityConfig {
         response.setStatus(status.value());
         response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        var correlationId = SafeCorrelationId.create();
+        response.setHeader("X-Correlation-Id", correlationId);
         objectMapper.writeValue(response.getWriter(), Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", status.value(),
                 "code", code,
                 "message", message,
-                "details", Map.of("reason", reason)
+                "details", Map.of("reason", reason),
+                "correlationId", correlationId
         ));
     }
 

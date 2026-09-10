@@ -42,15 +42,9 @@ class PracticeCompletionView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppLayoutConstants.spacingXl),
-          FilledButton(
-            onPressed: onRestart,
-            child: const Text('再来一句'),
-          ),
+          FilledButton(onPressed: onRestart, child: const Text('再来一句')),
           const SizedBox(height: AppLayoutConstants.spacingSm),
-          TextButton(
-            onPressed: onExit,
-            child: const Text('回到场景'),
-          ),
+          TextButton(onPressed: onExit, child: const Text('回到场景')),
         ],
       ),
     );

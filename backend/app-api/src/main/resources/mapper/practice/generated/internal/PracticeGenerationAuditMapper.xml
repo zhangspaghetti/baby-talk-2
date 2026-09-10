@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.practice.generated.internal.PracticeGenerationAuditMapper">
+
+    <insert id="insertAttempt">
+        insert into practice_generated_content_attempts (
+            attempt_id, generated_content_id, attempt_number, attempt_type, status, outcome,
+            violation_codes, started_at, completed_at
+        ) values (
+            #{attemptId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{generatedContentId}, #{attemptNumber}, #{attemptType}, #{status}, #{outcome},
+            ARRAY[<foreach collection="violationCodes" item="code" separator=",">#{code}</foreach>]::text[],
+            #{startedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{completedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        )
+    </insert>
+
+    <update id="completeAttempt">
+        update practice_generated_content_attempts
+        set status = 'completed', outcome = #{outcome},
+            violation_codes = ARRAY(
+                select distinct code
+                from unnest(ARRAY[<foreach collection="violationCodes" item="code" separator="," nullable="true">#{code}</foreach>]::text[]) as code
+                where code is not null
+                order by code
+            ),
+            completed_at = #{completedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        where attempt_id = #{attemptId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler}
+          and status = 'started'
+    </update>
+
+    <insert id="insertOperationRun">
+        insert into practice_ai_operation_runs (
+            operation_run_id, operation_type, subject_type, subject_id, generated_content_id,
+            attempt_number, evidence_bundle_id, capability_name, prompt_version, prompt_content_hash,
+            policy_version, policy_content_hash, status, outcome, started_at, completed_at
+        ) values (
+            #{operationRunId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{operationType}, #{subjectType}, #{subjectId}, #{generatedContentId},
+            #{attemptNumber},
+            #{evidenceBundleId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{capabilityName}, #{promptVersion}, #{promptContentHash},
+            #{policyVersion}, #{policyContentHash}, #{status}, #{outcome},
+            #{startedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{completedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        )
+    </insert>
+
+    <update id="completeOperationRun">
+        update practice_ai_operation_runs
+        set status = 'completed', outcome = #{outcome},
+            completed_at = #{completedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        where operation_run_id = #{operationRunId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler}
+          and status = 'started'
+    </update>
+
+    <insert id="insertProviderCall">
+        insert into practice_ai_provider_calls (
+            provider_call_id, operation_run_id, provider_name, provider_type, model_name,
+            fallback_index, attempt_trace_id, provider_trace_id, routing_policy_version,
+            routing_policy_hash, outcome, latency_ms, started_at, completed_at
+        ) values (
+            #{providerCallId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{operationRunId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{providerName}, #{providerType}, #{modelName},
+            #{fallbackIndex},
+            #{attemptTraceId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{providerTraceId}, #{routingPolicyVersion},
+            #{routingPolicyHash}, #{outcome}, #{latencyMs},
+            #{startedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler},
+            #{completedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        )
+    </insert>
+
+    <update id="completeProviderCall">
+        update practice_ai_provider_calls
+        set outcome = #{outcome}, provider_trace_id = #{providerTraceId}, latency_ms = #{latencyMs},
+            completed_at = #{completedAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        where provider_call_id = #{providerCallId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler}
+          and completed_at is null
+    </update>
+
+    <insert id="insertEvidenceBundle">
+        insert into practice_generated_content_evidence_bundles (
+            evidence_bundle_id, generated_content_id, attempt_number, derived_from_bundle_id,
+            retrieval_outcome, retrieval_trace_id, evidence_policy_version,
+            evidence_policy_content_hash, sanitizer_version, bundle_hash, evidence_count, created_at
+        ) values (
+            #{evidenceBundleId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{generatedContentId}, #{attemptNumber},
+            #{derivedFromBundleId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{retrievalOutcome},
+            #{retrievalTraceId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{evidencePolicyVersion},
+            #{evidencePolicyContentHash}, #{sanitizerVersion}, #{bundleHash}, #{evidenceCount},
+            #{createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        )
+    </insert>
+
+    <insert id="insertEvidenceItems">
+        <choose>
+            <when test="items != null and !items.isEmpty()">
+                insert into practice_generated_content_evidence_items (
+                    evidence_bundle_id, evidence_ordinal, replay_mode, evidence_id, source_type,
+                    source_version, strategy_id, claim_type, sanitizer_version, sanitized_summary_hash,
+                    sanitized_summary_snapshot, confidence, created_at
+                ) values
+                <foreach collection="items" item="item" separator=",">
+                    (#{item.evidenceBundleId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+                     #{item.evidenceOrdinal}, #{item.replayMode},
+                     #{item.evidenceId}, #{item.sourceType}, #{item.sourceVersion}, #{item.strategyId},
+                     #{item.claimType}, #{item.sanitizerVersion}, #{item.sanitizedSummaryHash},
+                     #{item.sanitizedSummarySnapshot}, #{item.confidence},
+                     #{item.createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})
+                </foreach>
+            </when>
+            <otherwise>
+                do $$ begin null; end $$
+            </otherwise>
+        </choose>
+    </insert>
+
+    <insert id="insertJudgeResult">
+        insert into practice_generated_content_judge_results (
+            judge_result_id, provider_call_id, suggested_verdict, effective_verdict,
+            verdict_consistency, dimension_results, violation_codes, repair_directives,
+            evidence_gap_codes, judge_confidence, rubric_version, rubric_content_hash, created_at
+        )
+        select
+            #{judgeResultId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{providerCallId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler},
+            #{suggestedVerdict}, #{effectiveVerdict},
+            #{verdictConsistency}, cast(#{dimensionResultsJson} as jsonb),
+            ARRAY[<foreach collection="violationCodes" item="code" separator=",">#{code}</foreach>]::text[],
+            ARRAY[<foreach collection="repairDirectives" item="code" separator=",">#{code}</foreach>]::text[],
+            ARRAY[<foreach collection="evidenceGapCodes" item="code" separator=",">#{code}</foreach>]::text[],
+            #{judgeConfidence}, #{rubricVersion}, #{rubricContentHash},
+            #{createdAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        from practice_ai_provider_calls calls
+        join practice_ai_operation_runs operations on operations.operation_run_id = calls.operation_run_id
+        where calls.provider_call_id = #{providerCallId,typeHandler=com.zhangspaghetti.babytalk.practice.generated.internal.UuidTypeHandler}
+          and operations.operation_type = 'quality_judge'
+    </insert>
+</mapper>

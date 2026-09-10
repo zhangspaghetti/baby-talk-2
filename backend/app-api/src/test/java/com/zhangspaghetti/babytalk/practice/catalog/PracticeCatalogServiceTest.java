@@ -331,13 +331,13 @@ class PracticeCatalogServiceTest extends AbstractIntegrationTest {
 
         assertThat(activities)
                 .extracting(PracticeActivityRow::activityId)
-                .containsExactly("bath_time", "diaper_change");
+                .containsExactly("bath_time", "diaper_change", "post_cry_soothing");
         assertThat(activities)
                 .extracting(PracticeActivityRow::spaceId)
-                .containsExactly("daily_care", "daily_care");
+                .containsExactly("daily_care", "daily_care", "daily_care");
         assertThat(activities)
                 .extracting(PracticeActivityRow::source)
-                .containsExactly("seed", "seed");
+                .containsExactly("seed", "seed", "seed");
         assertThat(activities.get(0).sceneTagEn()).isEqualTo("Bath time");
         assertThat(new HashSet<>(activities.stream()
                 .map(PracticeActivityRow::activityId)

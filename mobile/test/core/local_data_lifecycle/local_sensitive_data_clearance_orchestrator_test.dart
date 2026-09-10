@@ -3,7 +3,7 @@ import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.
 
 void main() {
   group('RegistryLocalSensitiveDataClearanceOrchestrator', () {
-    test('continues all selected targets when a middle step fails', () async {
+    test('continues Staff+ clearance when a middle step fails', () async {
       final calls = <LocalSensitiveDataTarget>[];
       final orchestrator = RegistryLocalSensitiveDataClearanceOrchestrator(
         steps: <LocalSensitiveDataClearanceStep>[
@@ -24,9 +24,7 @@ void main() {
       final report = await orchestrator.clear(
         LocalSensitiveDataClearanceRequest(
           trigger: LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly,
-          authorization: const ReportOnlyAuthorization(
-            reason: 'R020 contract test',
-          ),
+          authorization: _staffPlusAuthorization(),
           correlationId: 'r020-test',
           requestedAt: DateTime.utc(2026, 5, 19),
           includeTargets: const LocalSensitiveDataTargetSet.explicit(
@@ -72,8 +70,88 @@ void main() {
       );
     });
 
+    test('rejects non-Staff+ authorization for Staff+ triggers', () async {
+      final triggers = <LocalSensitiveDataClearanceTrigger>[
+        LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
+        LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly,
+      ];
+      final authorizations = <LocalSensitiveDataClearanceAuthorization>[
+        const ReportOnlyAuthorization(reason: 'missing destructive approval'),
+        CaregiverConfirmedAuthorization(
+          confirmedAt: DateTime.utc(2026, 5, 19),
+          confirmationText: '清除本机数据',
+        ),
+      ];
+
+      for (final trigger in triggers) {
+        for (final authorization in authorizations) {
+          final calls = <LocalSensitiveDataTarget>[];
+          final orchestrator = RegistryLocalSensitiveDataClearanceOrchestrator(
+            steps: _allSteps(calls),
+            clock: _incrementingClock(),
+          );
+          final report = await orchestrator.clear(
+            LocalSensitiveDataClearanceRequest(
+              trigger: trigger,
+              authorization: authorization,
+              correlationId: 'r020-rejected-${trigger.name}',
+              requestedAt: DateTime.utc(2026, 5, 19),
+            ),
+          );
+
+          expect(
+            calls,
+            isEmpty,
+            reason: '${trigger.name} must reject $authorization',
+          );
+          expect(
+            report.overallStatus,
+            LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance,
+          );
+          expect(
+            report.results,
+            everyElement(
+              predicate<LocalSensitiveDataTargetResult>(
+                (result) =>
+                    result.status ==
+                    LocalSensitiveDataTargetStatus.skippedByGovernanceRejection,
+              ),
+            ),
+          );
+        }
+      }
+    });
+
+    test('executes Staff+ triggers only with Staff+ authorization', () async {
+      for (final trigger in <LocalSensitiveDataClearanceTrigger>[
+        LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
+        LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly,
+      ]) {
+        final calls = <LocalSensitiveDataTarget>[];
+        final orchestrator = RegistryLocalSensitiveDataClearanceOrchestrator(
+          steps: _allSteps(calls),
+          clock: _incrementingClock(),
+        );
+        final report = await orchestrator.clear(
+          LocalSensitiveDataClearanceRequest(
+            trigger: trigger,
+            authorization: _staffPlusAuthorization(),
+            correlationId: 'r020-approved-${trigger.name}',
+            requestedAt: DateTime.utc(2026, 5, 19),
+          ),
+        );
+
+        expect(calls, LocalSensitiveDataTarget.values);
+        expect(
+          report.overallStatus,
+          LocalSensitiveDataClearanceOverallStatus.completed,
+        );
+        expect(report.authorizationEvidence.kind, 'staff_plus_destructive');
+      }
+    });
+
     test(
-      'rejects destructive all-target triggers without Staff+ authorization',
+      'executes caregiver-confirmed device erase without Staff+ approval',
       () async {
         final calls = <LocalSensitiveDataTarget>[];
         final orchestrator = RegistryLocalSensitiveDataClearanceOrchestrator(
@@ -83,30 +161,74 @@ void main() {
 
         final report = await orchestrator.clear(
           LocalSensitiveDataClearanceRequest(
-            trigger:
-                LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
-            authorization: const ReportOnlyAuthorization(
-              reason: 'missing destructive approval',
+            trigger: LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed,
+            authorization: CaregiverConfirmedAuthorization(
+              confirmedAt: DateTime.utc(2026, 5, 19),
+              confirmationText: '清除本机数据',
             ),
-            correlationId: 'r020-rejected',
+            correlationId: 'r020-caregiver-device-erase',
             requestedAt: DateTime.utc(2026, 5, 19),
           ),
         );
 
-        expect(calls, isEmpty);
+        expect(calls, LocalSensitiveDataTarget.values);
         expect(
           report.overallStatus,
-          LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance,
+          LocalSensitiveDataClearanceOverallStatus.completed,
         );
-        expect(report.results, hasLength(6));
-        expect(
-          report.results.map((result) => result.status).toSet(),
-          <LocalSensitiveDataTargetStatus>{
-            LocalSensitiveDataTargetStatus.skippedByGovernanceRejection,
-          },
-        );
+        expect(report.authorizationEvidence.kind, 'caregiver_confirmed');
       },
     );
+
+    test('executes Staff+ authorized device erase', () async {
+      final calls = <LocalSensitiveDataTarget>[];
+      final orchestrator = RegistryLocalSensitiveDataClearanceOrchestrator(
+        steps: _allSteps(calls),
+        clock: _incrementingClock(),
+      );
+
+      final report = await orchestrator.clear(
+        LocalSensitiveDataClearanceRequest(
+          trigger: LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed,
+          authorization: _staffPlusAuthorization(),
+          correlationId: 'r020-staff-device-erase',
+          requestedAt: DateTime.utc(2026, 5, 19),
+        ),
+      );
+
+      expect(calls, LocalSensitiveDataTarget.values);
+      expect(
+        report.overallStatus,
+        LocalSensitiveDataClearanceOverallStatus.completed,
+      );
+      expect(report.authorizationEvidence.kind, 'staff_plus_destructive');
+    });
+
+    test('device erase rejects report-only authorization', () async {
+      final calls = <LocalSensitiveDataTarget>[];
+      final orchestrator = RegistryLocalSensitiveDataClearanceOrchestrator(
+        steps: _allSteps(calls),
+        clock: _incrementingClock(),
+      );
+
+      final report = await orchestrator.clear(
+        LocalSensitiveDataClearanceRequest(
+          trigger: LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed,
+          authorization: const ReportOnlyAuthorization(
+            reason: 'report-only cannot erase device data',
+          ),
+          correlationId: 'r020-device-erase-rejected',
+          requestedAt: DateTime.utc(2026, 5, 19),
+        ),
+      );
+
+      expect(calls, isEmpty);
+      expect(
+        report.overallStatus,
+        LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance,
+      );
+      expect(report.authorizationEvidence.kind, 'report_only');
+    });
 
     test('records skipped targets for session-only clearance policy', () async {
       final calls = <LocalSensitiveDataTarget>[];
@@ -126,6 +248,10 @@ void main() {
 
       expect(calls, <LocalSensitiveDataTarget>[
         LocalSensitiveDataTarget.accountLocalSnapshot,
+        LocalSensitiveDataTarget.authContinuation,
+        LocalSensitiveDataTarget.customSceneDraft,
+        LocalSensitiveDataTarget.generatedCareMoments,
+        LocalSensitiveDataTarget.generatedAudioMemory,
       ]);
       expect(
         report.overallStatus,
@@ -146,7 +272,13 @@ void main() {
             .where(
               (result) =>
                   result.target !=
-                  LocalSensitiveDataTarget.accountLocalSnapshot,
+                      LocalSensitiveDataTarget.accountLocalSnapshot &&
+                  result.target != LocalSensitiveDataTarget.authContinuation &&
+                  result.target != LocalSensitiveDataTarget.customSceneDraft &&
+                  result.target !=
+                      LocalSensitiveDataTarget.generatedCareMoments &&
+                  result.target !=
+                      LocalSensitiveDataTarget.generatedAudioMemory,
             )
             .map((result) => result.status)
             .toSet(),
@@ -164,6 +296,15 @@ List<LocalSensitiveDataClearanceStep> _allSteps(
   return LocalSensitiveDataTarget.values
       .map((target) => _step(target, calls))
       .toList(growable: false);
+}
+
+StaffPlusDestructiveAuthorization _staffPlusAuthorization() {
+  return StaffPlusDestructiveAuthorization(
+    decisionId: 'HDR-R4-003-test',
+    approvedBy: 'automated-test',
+    approvedAt: DateTime.utc(2026, 5, 19),
+    confirmationText: 'Clear local sensitive data in test sandbox',
+  );
 }
 
 LocalSensitiveDataClearanceStep _step(

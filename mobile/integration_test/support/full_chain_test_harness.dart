@@ -13,7 +13,6 @@ import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/domain/models/mentor_fact_event.dart';
 import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
-import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
@@ -32,8 +31,6 @@ class FullChainTestHarness {
     required this.tempDir,
     required this.practiceDbName,
     required this.installationId,
-    required this.childDisplayName,
-    required this.ageBucket,
   });
 
   final AppBootState bootState;
@@ -41,8 +38,6 @@ class FullChainTestHarness {
   final Directory tempDir;
   final String practiceDbName;
   final String installationId;
-  final String childDisplayName;
-  final OnboardingAgeBucket ageBucket;
 
   PracticeRepository? _activeRepository;
 
@@ -51,8 +46,6 @@ class FullChainTestHarness {
   static Future<FullChainTestHarness> create({
     String practiceDbName = 's06_full_chain_release',
     String installationId = 'install_s06_full_chain_test',
-    String childDisplayName = '米米',
-    OnboardingAgeBucket ageBucket = OnboardingAgeBucket.twelveToEighteen,
     String minSupportedVersion = defaultAccountApiVersion,
     Duration simulatedSlowResponse = const Duration(milliseconds: 250),
     int mentorRateLimit = 2,
@@ -78,14 +71,13 @@ class FullChainTestHarness {
       tempDir: tempDir,
       practiceDbName: practiceDbName,
       installationId: installationId,
-      childDisplayName: childDisplayName,
-      ageBucket: ageBucket,
     );
   }
 
   Future<void> pumpApp(
     WidgetTester tester, {
     OnboardingCompletedSnapshotLoader? completedSnapshotLoader,
+    List<riverpod.Override> providerOverrides = const <riverpod.Override>[],
   }) async {
     await disposeMountedApp(tester);
     final practiceRepository = await _openRepository(
@@ -116,6 +108,7 @@ class FullChainTestHarness {
           householdRepositoryProvider.overrideWith(
             (ref) => householdRepository,
           ),
+          ...providerOverrides,
         ],
         child: BabyTalkApp(
           bootState: bootState,
@@ -220,186 +213,92 @@ class FullChainTestHarness {
     try {
       await pumpUntilFound(
         tester,
-        find.byKey(const Key('onboarding-start-button')),
+        find.byKey(const Key('care-entry-grid')),
         timeout: const Duration(seconds: 30),
         step: const Duration(milliseconds: 100),
-        reason: 'onboarding start button',
+        reason: 'V4 care-entry grid',
       );
     } on TestFailure {
       fail(
-        'Timed out waiting for onboarding start button. '
+        'Timed out waiting for V4 care-entry grid. '
         'visibleState=${_visibleBootStateSummary()}; '
         'visibleText=${_visibleTextSummary()}',
       );
     }
-    await scrollTo(tester, find.byKey(const Key('onboarding-start-button')));
-    await tester.tap(find.byKey(const Key('onboarding-start-button')));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('care-entry-primary-action')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('onboarding-name-input')),
-      reason: 'onboarding name input',
+      find.byKey(const Key('care-entry-first-utterance-english')),
+      reason: 'V4 first utterance',
     );
-
-    await scrollTo(tester, find.byKey(const Key('onboarding-name-input')));
-    await tester.enterText(
-      find.byKey(const Key('onboarding-name-input')),
-      childDisplayName,
-    );
-    await tester.pumpAndSettle();
-
-    await scrollTo(tester, find.byKey(const Key('onboarding-name-continue')));
-    await tester.tap(find.byKey(const Key('onboarding-name-continue')));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('care-entry-said-action')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('onboarding-age-grid')),
-      reason: 'onboarding age grid',
+      find.byKey(const Key('care-entry-reaction-prompt')),
+      reason: 'V4 reaction prompt',
     );
-
-    final ageCard = find.byKey(
-      Key('onboarding-age-card-${ageBucket.wireValue}'),
-    );
-    await scrollTo(tester, ageCard);
-    await tester.tap(ageCard);
-    await tester.pumpAndSettle();
-
-    await scrollTo(tester, find.byKey(const Key('onboarding-age-continue')));
-    await tester.tap(find.byKey(const Key('onboarding-age-continue')));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('care-entry-reaction-hesitant')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('onboarding-stage-match-card')),
-      timeout: const Duration(seconds: 12),
-      reason: 'onboarding stage match card',
+      find.byKey(const Key('care-entry-next-support')),
+      timeout: const Duration(seconds: 20),
+      reason: 'V4 next support',
     );
-
-    await scrollTo(tester, find.byKey(const Key('onboarding-submit-button')));
-    await tester.tap(find.byKey(const Key('onboarding-submit-button')));
-    await tester.pumpAndSettle();
+    await scrollTo(
+      tester,
+      find.byKey(const Key('care-entry-finish-today-action')),
+    );
+    await tester.tap(find.byKey(const Key('care-entry-finish-today-action')));
+    await pumpUntilFound(
+      tester,
+      find.byKey(const Key('care-entry-garden-trace')),
+      timeout: const Duration(seconds: 20),
+      reason: 'V4 garden trace',
+    );
+    await tester.tap(find.byKey(const Key('care-entry-open-today-action')));
     await pumpUntilFound(
       tester,
       find.byKey(const Key('shell-ready')),
       timeout: const Duration(seconds: 12),
-      reason: 'shell ready after onboarding',
+      reason: 'shell ready after V4 onboarding',
     );
   }
 
   Future<void> completeStarterPractice(WidgetTester tester) async {
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('home-starter-seed')),
+      find.byKey(const Key('home-today-primary-cta')),
       timeout: const Duration(seconds: 45),
       step: const Duration(milliseconds: 300),
-      reason: 'home starter seed (continuity loaded)',
+      reason: 'Today Care Path entry',
     );
-    await scrollHomeTo(tester, find.byKey(const Key('home-start-practice')));
-    await tester.tap(find.byKey(const Key('home-start-practice')));
-    await tester.pumpAndSettle();
+    await scrollHomeTo(tester, find.byKey(const Key('home-today-primary-cta')));
+    await tester.tap(find.byKey(const Key('home-today-primary-cta')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('phrase-card-bath_time_warm_water')),
-      reason: 'first starter phrase',
+      find.byKey(const Key('care-turn-current-utterance')),
+      reason: 'current Care Turn utterance',
     );
-
-    final firstReaction = find.byKey(
-      const Key('reaction-bath_time_warm_water-cooperating'),
-    );
-    await scrollTo(tester, firstReaction);
-    await tester.tap(firstReaction);
+    await tester.tap(find.byKey(const Key('care-turn-said-button')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('phrase-card-bath_time_splash_splash')),
-      reason: 'second starter phrase',
+      find.byKey(const Key('care-reaction-cooperating')),
+      reason: 'Care Turn reaction prompt',
     );
-
-    final secondReaction = find.byKey(
-      const Key('reaction-bath_time_splash_splash-no_response'),
-    );
+    await tester.tap(find.byKey(const Key('care-reaction-cooperating')));
     await pumpUntilFound(
       tester,
-      secondReaction,
-      reason: 'second reaction button',
+      find.byKey(const Key('care-turn-next-support')),
+      timeout: const Duration(seconds: 60),
+      reason: 'Care Turn next support',
     );
-    await tester.ensureVisible(secondReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(secondReaction);
+    await scrollTo(tester, find.byKey(const Key('care-turn-quiet-exit')));
+    await tester.tap(find.byKey(const Key('care-turn-quiet-exit')));
     await pumpUntilFound(
       tester,
-      find.byKey(const Key('phrase-card-bath_time_all_clean')),
-      reason: 'third starter phrase',
-    );
-
-    final thirdReaction = find.byKey(
-      const Key('reaction-bath_time_all_clean-cooperating'),
-    );
-    await pumpUntilFound(
-      tester,
-      thirdReaction,
-      reason: 'third reaction button',
-    );
-    await tester.ensureVisible(thirdReaction);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(thirdReaction);
-    // Pump 3 seconds: enough for DB write + navigator pop animation on slow device.
-    await tester.pump(const Duration(milliseconds: 3000));
-    await scrollHomeTo(
-      tester,
-      find.byKey(const Key('recent-result-summary')),
-      reason: 'recent result summary',
-    );
-  }
-
-  Future<void> signInAndSync(
-    WidgetTester tester, {
-    String phoneNumber = '13800138000',
-    String verificationCode = '246810',
-  }) async {
-    await tester.tap(find.byKey(const Key('shell-drawer-trigger')));
-    await tester.pumpAndSettle();
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('shell-account-open-entry')),
-      timeout: const Duration(seconds: 20),
-      reason: 'shell account entry',
-    );
-    await tester.ensureVisible(
-      find.byKey(const Key('shell-account-open-entry')),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.byKey(const Key('shell-account-open-entry')));
-    await tester.pumpAndSettle();
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('account-entry-surface')),
-      reason: 'account entry surface',
-    );
-
-    await tester.enterText(
-      find.byKey(const Key('account-phone-field')),
-      phoneNumber,
-    );
-    await tester.pump();
-    await tester.enterText(
-      find.byKey(const Key('account-code-field')),
-      verificationCode,
-    );
-    await tester.pump();
-    // Dismiss soft keyboard before tapping submit
-    FocusManager.instance.primaryFocus?.unfocus();
-    await tester.pump(const Duration(milliseconds: 700));
-    await tester.ensureVisible(find.byKey(const Key('account-submit-button')));
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.tap(
-      find.byKey(const Key('account-submit-button')),
-      warnIfMissed: false,
-    );
-    await tester.pump();
-    await pumpUntilFound(
-      tester,
-      find.byKey(const Key('account-status-signed-in-synced')),
-      timeout: const Duration(seconds: 30),
-      reason: 'signed-in synced status',
+      find.byKey(const Key('home-today-care-node-card')),
+      timeout: const Duration(seconds: 60),
+      reason: 'Today Care Path after Care Turn',
     );
   }
 
@@ -414,12 +313,7 @@ class FullChainTestHarness {
       timeout: const Duration(seconds: 8),
       reason: 'shell mentor fab',
     );
-    final fabWidget = tester.widget<FloatingActionButton>(mentorFab);
-    final onPressed = fabWidget.onPressed;
-    if (onPressed == null) {
-      fail('Shell mentor FAB is disabled.');
-    }
-    onPressed();
+    await tester.tap(mentorFab);
     await tester.pump();
     await pumpUntilFound(
       tester,
@@ -455,7 +349,7 @@ class FullChainTestHarness {
         'Mentor chat submit is disabled: '
         'phase=${notifier.chatAvailability.phase}; '
         'code=${notifier.chatAvailability.code}; '
-        'detail=${notifier.chatAvailability.detail}',
+        'code=${notifier.chatAvailability.code.wireValue}',
       );
     }
     submitChat();
@@ -480,7 +374,7 @@ class FullChainTestHarness {
     await tester.pumpAndSettle();
     await pumpUntilFound(
       tester,
-      find.text('$childDisplayName 的练习'),
+      find.byKey(const Key('home-today-care-node-card')),
       timeout: const Duration(seconds: 12),
       reason: 'home tab active',
     );

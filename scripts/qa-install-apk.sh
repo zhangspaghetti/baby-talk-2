@@ -8,10 +8,12 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 MOBILE_DIR="$REPO_ROOT/mobile"
 APK_PATH="$MOBILE_DIR/build/app/outputs/flutter-apk/app-debug.apk"
 
-GATEWAY_PORT=8091
+GATEWAY_PORT=19091
 SKIP_BUILD=0
 AVD_NAME=""
 DEVICE_SERIAL=""
+QA_CUSTOM_SCENE_ENABLED=true
+CUSTOM_SCENE_ENTRY_EVIDENCE=unverified
 
 print_usage() {
   cat <<'USAGE'
@@ -19,7 +21,7 @@ Usage:
   ./scripts/qa-install-apk.sh [options]
 
 Options:
-  --gateway-port <port>   Gateway port injected into BABY_TALK_API_BASE_URL (default: 8091)
+  --gateway-port <port>   Gateway port injected into BABY_TALK_API_BASE_URL (default: 19091)
   --skip-build            Skip flutter build and install existing APK only
   --avd <name>            Start this Android AVD if no --device is provided
   --device <serial>       Install to a specific adb device serial
@@ -76,7 +78,9 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
 
   echo "==> [apk] building debug APK (gateway=${GATEWAY_PORT})..."
   flutter build apk --debug \
-    --dart-define=BABY_TALK_API_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}"
+    --dart-define=BABY_TALK_API_BASE_URL="http://127.0.0.1:${GATEWAY_PORT}" \
+    --dart-define=BABY_TALK_CUSTOM_SCENE_ENABLED="$QA_CUSTOM_SCENE_ENABLED"
+  CUSTOM_SCENE_ENTRY_EVIDENCE="$QA_CUSTOM_SCENE_ENABLED"
 else
   echo "==> [apk] skip build enabled"
 fi
@@ -129,3 +133,4 @@ echo "install_status=ok"
 echo "apk_path=$APK_PATH"
 echo "target_device=$TARGET_DEVICE"
 echo "gateway_port=$GATEWAY_PORT"
+echo "custom_scene_entry_enabled=$CUSTOM_SCENE_ENTRY_EVIDENCE"

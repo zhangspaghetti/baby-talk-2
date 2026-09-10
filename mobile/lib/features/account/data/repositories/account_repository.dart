@@ -6,14 +6,18 @@ import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
+import 'package:mobile/features/account/domain/repositories/account_challenge_repository_contract.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 
 export 'package:mobile/features/account/data/repositories/account_repository_contract.dart'
     show
         AccountRepositoryContract,
         AccountRuntimeTrigger,
-        AccountRuntimeTriggerWire;
+        AccountRuntimeTriggerWire,
+        currentAccountConsentVersion;
+export 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
 
 typedef AccountConnectivityChecker = Future<bool> Function();
 
@@ -24,7 +28,7 @@ class AccountRepository implements AccountRepositoryContract {
     AccountApiService? apiService,
     AuthenticatedApiClient? authenticatedApiClient,
     AccountConnectivityChecker? connectivityChecker,
-    this.consentVersion = 'pipl-v1',
+    this.consentVersion = currentAccountConsentVersion,
   }) : _localStore = localStore,
        _practiceRepository = practiceRepository,
        _apiService = apiService,
@@ -56,12 +60,67 @@ class AccountRepository implements AccountRepositoryContract {
     required String phoneNumber,
     required String verificationCode,
   }) async {
+    try {
+      final challenge = await _requestSignInChallenge(
+        phoneNumber: phoneNumber,
+        purpose: AccountChallengePurpose.login,
+      );
+      await _completeSignIn(
+        phoneNumber: phoneNumber,
+        verificationCode: verificationCode,
+        challenge: challenge,
+      );
+      return loadSnapshot();
+    } on AccountApiException catch (error) {
+      final snapshot = await _handleApiFailure(
+        currentSnapshot: await _readSnapshotSafely(),
+        error: error,
+        phasePrefix: 'login_failed',
+        preserveSession: true,
+      );
+      await _localStore.write(snapshot);
+      return snapshot;
+    }
+  }
+
+  Future<AccountSignInChallenge> _requestSignInChallenge({
+    required String phoneNumber,
+    required AccountChallengePurpose purpose,
+  }) async {
     final api = _apiService;
     if (api == null) {
-      return savePlaceholderSession(
+      final now = DateTime.now().toUtc();
+      return AccountSignInChallenge(
+        challengeId: 'local-${now.microsecondsSinceEpoch}',
+        maskedPhoneNumber: _maskPhoneNumber(phoneNumber),
+        codeLength: 6,
+        purpose: purpose,
+        expiresAt: now.add(const Duration(minutes: 5)),
+      );
+    }
+
+    final response = await api.createChallenge(phoneNumber: phoneNumber);
+    return AccountSignInChallenge(
+      challengeId: response.challengeId,
+      maskedPhoneNumber: response.maskedPhoneNumber,
+      codeLength: response.codeLength,
+      purpose: purpose,
+      expiresAt: response.expiresAt,
+    );
+  }
+
+  Future<AccountSignInCompletion> _completeSignIn({
+    required String phoneNumber,
+    required String verificationCode,
+    required AccountSignInChallenge challenge,
+  }) async {
+    final api = _apiService;
+    if (api == null) {
+      await savePlaceholderSession(
         phoneNumber: phoneNumber,
         verificationCode: verificationCode,
       );
+      return const AccountSignInCompletion.authenticated();
     }
 
     final installationId =
@@ -70,7 +129,6 @@ class AccountRepository implements AccountRepositoryContract {
     final now = DateTime.now().toUtc();
 
     try {
-      final challenge = await api.createChallenge(phoneNumber: phoneNumber);
       final verified = await api.verifyChallenge(
         challengeId: challenge.challengeId,
         verificationCode: verificationCode,
@@ -94,26 +152,10 @@ class AccountRepository implements AccountRepositoryContract {
       );
       await _localStore.write(snapshot);
 
-      final accepted = await _runAuthenticated(
-        session: snapshot.session!,
-        send: (accessToken) => api.acceptConsent(
-          accessToken: accessToken,
-          consentVersion: consentVersion,
-        ),
-      );
-      snapshot = snapshot.copyWith(
-        session: accepted.session,
-        clearLastVisibleError: true,
-        clearUpgradeUrl: true,
-        lastSyncAt: accepted.value.updatedAt,
-      );
-      await _localStore.write(snapshot);
-
-      return refreshRuntimeState(
-        trigger: AccountRuntimeTrigger.loginSuccess,
-        seedSnapshot: snapshot,
-        forceBootstrap: true,
-      );
+      // Consent is a user action, not an authentication side effect. The
+      // caller must invoke [acceptConsent] after the current policy version
+      // has been shown and explicitly checked.
+      return const AccountSignInCompletion.authenticated();
     } on AuthenticatedApiClientException catch (error) {
       final snapshot = await _handleAuthenticatedFailure(
         currentSnapshot: await _readSnapshotSafely(),
@@ -121,7 +163,9 @@ class AccountRepository implements AccountRepositoryContract {
         phasePrefix: 'login_failed',
       );
       await _localStore.write(snapshot);
-      return snapshot;
+      return const AccountSignInCompletion.rejected(
+        userMessage: '登录后同步失败，请稍后重试。',
+      );
     } on AccountApiException catch (error) {
       final snapshot = await _handleApiFailure(
         currentSnapshot: await _readSnapshotSafely(),
@@ -130,7 +174,9 @@ class AccountRepository implements AccountRepositoryContract {
         preserveSession: true,
       );
       await _localStore.write(snapshot);
-      return snapshot;
+      return AccountSignInCompletion.rejected(
+        userMessage: _signInFailureMessage(error),
+      );
     }
   }
 
@@ -310,11 +356,11 @@ class AccountRepository implements AccountRepositoryContract {
   Future<AccountLocalSnapshot> clearPlaceholderSession({
     bool revertToLocalOnly = false,
   }) async {
-    // 真正退出账号时，先尽力通知后端使 refresh token 失效（best-effort：
-    // 离线或后端失败不应阻塞本地清理）。回到本机档案模式（revertToLocalOnly）
-    // 不属于会话注销，跳过。
+    // 真正退出账号时，先通知后端使 refresh token 失效。只有后端确认注销后
+    // 才覆盖本地 stable session，避免把仍有效的远端会话误报成已退出。
+    // 回到本机档案模式（revertToLocalOnly）不属于会话注销，跳过。
     if (!revertToLocalOnly) {
-      await _bestEffortBackendLogout();
+      await _backendLogout();
     }
     final syncSummary = await _readSyncSummarySafely();
     final snapshot = AccountLocalSnapshot(
@@ -334,20 +380,29 @@ class AccountRepository implements AccountRepositoryContract {
     return snapshot;
   }
 
-  Future<void> _bestEffortBackendLogout() async {
+  Future<void> _backendLogout() async {
     final api = _apiService;
     if (api == null) {
       return;
     }
+    final current = await _readSnapshotSafely();
+    final refreshToken = current.session?.refreshToken;
+    if (refreshToken == null || refreshToken.trim().isEmpty) {
+      return;
+    }
+    AccountLogoutResponse response;
     try {
-      final current = await _readSnapshotSafely();
-      final refreshToken = current.session?.refreshToken;
-      if (refreshToken == null || refreshToken.trim().isEmpty) {
+      response = await api.logout(refreshToken: refreshToken);
+    } on AccountApiException catch (error) {
+      if (error.code == 'refresh_token_revoked') {
         return;
       }
-      await api.logout(refreshToken: refreshToken);
-    } on Object {
-      // best-effort：忽略任何登出失败，本地清理照常进行。
+      rethrow;
+    }
+    if (!response.loggedOut) {
+      throw const AccountApiException.malformed(
+        message: 'logout response did not confirm session revocation',
+      );
     }
   }
 
@@ -853,35 +908,64 @@ class AccountRepository implements AccountRepositoryContract {
 
   String _visibleMessageForError(AccountApiException error) {
     if (error.kind == AccountApiFailureKind.timeout) {
-      return '同步超时，已保留本机待同步记录，可稍后重试。';
+      return _withCorrelationId('同步超时，已保留本机待同步记录，可稍后重试。', error);
     }
     if (error.kind == AccountApiFailureKind.network) {
-      return '当前离线，已保留本机待同步记录，可稍后重试。';
+      return _withCorrelationId('当前离线，已保留本机待同步记录，可稍后重试。', error);
     }
     if (error.isVersionBlocked) {
-      return _visibleUpgradeMessage(
-        minimumSupportedVersion: error.minimumSupportedVersion,
-        upgradeFailureKind: validateAccountUpgradeUrl(
-          error.upgradeUrl,
-        ).failureKind,
+      return _withCorrelationId(
+        _visibleUpgradeMessage(
+          minimumSupportedVersion: error.minimumSupportedVersion,
+          upgradeFailureKind: validateAccountUpgradeUrl(
+            error.upgradeUrl,
+          ).failureKind,
+        ),
+        error,
       );
     }
     if (error.isUnauthorized) {
-      return '登录已过期，请重新登录后再试。';
+      return _withCorrelationId('登录已过期，请重新登录后再试。', error);
     }
     if (error.isConsentRevoked || error.isConsentRequired) {
-      return '同意已撤回；重新登录并再次同意后才能继续同步。';
+      return _withCorrelationId('同意已撤回；重新登录并再次同意后才能继续同步。', error);
     }
     if (error.isAccountDeleted) {
-      return '账号已删除；如需重新同步，请重新注册。';
+      return _withCorrelationId('账号已删除；如需重新同步，请重新注册。', error);
     }
     if (error.kind == AccountApiFailureKind.malformed) {
-      return '服务响应异常，未导入远端恢复数据。';
+      return _withCorrelationId('服务响应异常，未导入远端恢复数据。', error);
     }
     if (error.isServerFailure) {
-      return '服务暂时不可用，已保留本机待同步记录。';
+      return _withCorrelationId('服务暂时不可用，已保留本机待同步记录。', error);
     }
-    return _sanitizeVisibleError(error.message);
+    return _withCorrelationId(_sanitizeVisibleError(error.message), error);
+  }
+
+  String _signInFailureMessage(AccountApiException error) {
+    if (error.isUnauthorized) {
+      return _withCorrelationId('验证码错误或已过期，请重新获取。', error);
+    }
+    if (error.isVersionBlocked) {
+      return _withCorrelationId('应用版本过低，请更新后重试。', error);
+    }
+    if (error.isAccountDeleted) {
+      return _withCorrelationId('该账号已注销。', error);
+    }
+    if (error.kind == AccountApiFailureKind.network ||
+        error.kind == AccountApiFailureKind.timeout) {
+      return _withCorrelationId('网络连接失败，请稍后重试。', error);
+    }
+    return _withCorrelationId('验证失败，请稍后重试。', error);
+  }
+
+  String _withCorrelationId(String message, AccountApiException error) {
+    final correlationId = error.correlationId?.trim();
+    if (correlationId == null ||
+        !RegExp(r'^err_[A-Za-z0-9]{16,64}$').hasMatch(correlationId)) {
+      return message;
+    }
+    return '$message 支持编号：$correlationId。';
   }
 
   String _sanitizeVisibleError(String value) {
@@ -907,6 +991,137 @@ class AccountRepository implements AccountRepositoryContract {
     final prefix = digits.substring(0, 3);
     final suffix = digits.substring(digits.length - 4);
     return '$prefix****$suffix';
+  }
+}
+
+/// Account read status kept as an extension so test doubles that
+/// implement [AccountRepository] do not gain a new mandatory method.
+extension AccountRepositorySnapshotReadStatus on AccountRepository {
+  /// Reads account state without collapsing local-storage failures into the
+  /// valid signed-out state. Household privacy gates use this distinction to
+  /// hide stale UI in memory while preserving durable household data for a
+  /// later successful account read.
+  Future<AccountLocalSnapshotReadResult> loadSnapshotWithStatus() async {
+    try {
+      final snapshot = await _localStore.read();
+      final syncSummary = await _readSyncSummarySafely();
+      return AccountLocalSnapshotReadResult.available(
+        _mergeSyncSummary(snapshot, syncSummary),
+      );
+    } on FormatException {
+      return AccountLocalSnapshotReadResult.unavailable();
+    } on AccountLocalStoreException {
+      return AccountLocalSnapshotReadResult.unavailable();
+    } on Object {
+      return AccountLocalSnapshotReadResult.unavailable();
+    }
+  }
+}
+
+/// Explicit consent operation kept as an extension so test doubles that
+/// implement [AccountRepository] do not gain a new mandatory method.
+/// Production code obtains this method from the concrete repository instance
+/// after the user has checked the current policy version.
+extension AccountRepositoryConsent on AccountRepository {
+  /// Records explicit acceptance of the currently displayed policy version,
+  /// then resumes the authenticated bootstrap/sync path.
+  Future<AccountLocalSnapshot> acceptConsent({String? version}) async {
+    final requestedVersion = (version ?? consentVersion).trim();
+    if (requestedVersion.isEmpty || requestedVersion != consentVersion) {
+      throw ArgumentError.value(version, 'version', '必须接受当前账号同意版本。');
+    }
+
+    final current = await _readSnapshotSafely();
+    final session = current.session;
+    final api = _apiService;
+    if (session == null) {
+      throw StateError('接受账号同意前必须先完成验证码认证。');
+    }
+    if (api == null) {
+      // Placeholder/local repositories have no remote consent endpoint. The
+      // explicit UI action still gates this transition; there is simply no
+      // network call to make.
+      return current;
+    }
+
+    try {
+      final accepted = await _runAuthenticated(
+        session: session,
+        send: (accessToken) => api.acceptConsent(
+          accessToken: accessToken,
+          consentVersion: requestedVersion,
+        ),
+      );
+      var snapshot = current.copyWith(
+        session: accepted.session,
+        consentState: AccountConsentState.acceptedPendingSync,
+        clearLastVisibleError: true,
+        clearUpgradeUrl: true,
+        lastSyncPhase: 'consent_accepted',
+        lastSyncAt: accepted.value.updatedAt,
+      );
+      await _localStore.write(snapshot);
+      snapshot = await refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.loginSuccess,
+        seedSnapshot: snapshot,
+        forceBootstrap: true,
+      );
+      return snapshot;
+    } on AuthenticatedApiClientException catch (error) {
+      final snapshot = await _handleAuthenticatedFailure(
+        currentSnapshot: current,
+        error: error,
+        phasePrefix: 'consent_accept_failed',
+      );
+      await _localStore.write(snapshot);
+      rethrow;
+    } on AccountApiException catch (error) {
+      final snapshot = await _handleApiFailure(
+        currentSnapshot: current,
+        error: error,
+        phasePrefix: 'consent_accept_failed',
+        preserveSession: true,
+      );
+      await _localStore.write(snapshot);
+      rethrow;
+    }
+  }
+}
+
+AccountChallengeRepositoryContract createAccountChallengeRepository(
+  AccountRepository repository,
+) {
+  return _AccountChallengeRepositoryAdapter(repository);
+}
+
+class _AccountChallengeRepositoryAdapter
+    implements AccountChallengeRepositoryContract {
+  const _AccountChallengeRepositoryAdapter(this._repository);
+
+  final AccountRepository _repository;
+
+  @override
+  Future<AccountSignInChallenge> requestSignInChallenge({
+    required String phoneNumber,
+    required AccountChallengePurpose purpose,
+  }) {
+    return _repository._requestSignInChallenge(
+      phoneNumber: phoneNumber,
+      purpose: purpose,
+    );
+  }
+
+  @override
+  Future<AccountSignInCompletion> completeSignIn({
+    required String phoneNumber,
+    required String verificationCode,
+    required AccountSignInChallenge challenge,
+  }) {
+    return _repository._completeSignIn(
+      phoneNumber: phoneNumber,
+      verificationCode: verificationCode,
+      challenge: challenge,
+    );
   }
 }
 

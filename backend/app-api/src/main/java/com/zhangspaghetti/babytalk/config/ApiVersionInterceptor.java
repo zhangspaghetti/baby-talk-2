@@ -7,6 +7,7 @@ import java.util.Map;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import com.zhangspaghetti.babytalk.web.SafeCorrelationId;
 
 @Component
 public class ApiVersionInterceptor implements HandlerInterceptor {
@@ -42,7 +43,7 @@ public class ApiVersionInterceptor implements HandlerInterceptor {
                 writeError(
                         response,
                         426,
-                        "app_version_unsupported",
+                        "app_version_required",
                         "客户端版本过旧，请升级后再试。",
                         Map.of("providedVersion", providedVersion)
                 );
@@ -68,6 +69,8 @@ public class ApiVersionInterceptor implements HandlerInterceptor {
         response.setCharacterEncoding("UTF-8");
         response.setHeader(MIN_VERSION_HEADER, properties.minSupportedVersion());
         response.setHeader(UPGRADE_URL_HEADER, properties.upgradeUrl());
+        var correlationId = SafeCorrelationId.create();
+        response.setHeader("X-Correlation-Id", correlationId);
         objectMapper.writeValue(
                 response.getWriter(),
                 Map.of(
@@ -75,7 +78,8 @@ public class ApiVersionInterceptor implements HandlerInterceptor {
                         "message", message,
                         "minimumSupportedVersion", properties.minSupportedVersion(),
                         "upgradeUrl", properties.upgradeUrl(),
-                        "details", details == null ? Map.of() : details
+                        "details", details == null ? Map.of() : details,
+                        "correlationId", correlationId
                 )
         );
     }

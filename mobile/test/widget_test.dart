@@ -53,9 +53,7 @@ void main() {
             harness.bootState.assetPhraseService!,
           ),
           appDirectoryProvider.overrideWith((ref) => harness.tempDir),
-          practiceRepositoryProvider.overrideWith(
-            (ref) => harness.repository,
-          ),
+          practiceRepositoryProvider.overrideWith((ref) => harness.repository),
           accountRepositoryProvider.overrideWith(
             (ref) => AccountRepository(
               localStore: AccountLocalStore(),
@@ -63,8 +61,9 @@ void main() {
             ),
           ),
           householdRepositoryProvider.overrideWith((ref) {
-            final accountRepo =
-                ref.read(accountRepositoryProvider).requireValue;
+            final accountRepo = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
             return HouseholdRepository(
               localStore: HouseholdLocalStore(
                 directoryResolver: () async => harness.tempDir,
@@ -75,15 +74,10 @@ void main() {
             );
           }),
           onboardingRepositoryProvider.overrideWith((ref) {
-            final practiceRepo =
-                ref.read(practiceRepositoryProvider).requireValue;
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
                 directoryResolver: () async => harness.tempDir,
               ),
-              practiceRepository: practiceRepo,
-              starterSpaceId: harness.bootState.primarySpaceId!,
-              starterActivityId: harness.bootState.primaryActivityId!,
             );
           }),
         ],

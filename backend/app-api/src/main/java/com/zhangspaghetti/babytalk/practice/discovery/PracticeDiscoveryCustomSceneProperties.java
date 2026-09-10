@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.validation.annotation.Validated;
 
 @Validated
@@ -20,7 +21,9 @@ public record PracticeDiscoveryCustomSceneProperties(
         Integer accountBurstLimit,
         Integer accountDailyLimit,
         Duration burstWindow,
-        Duration dailyWindow
+        Duration dailyWindow,
+        Integer maxGenerationAttempts,
+        Duration generationLease
 ) {
 
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(5);
@@ -33,8 +36,11 @@ public record PracticeDiscoveryCustomSceneProperties(
     public static final int DEFAULT_ACCOUNT_DAILY_LIMIT = 20;
     public static final Duration DEFAULT_BURST_WINDOW = Duration.ofMinutes(10);
     public static final Duration DEFAULT_DAILY_WINDOW = Duration.ofDays(1);
+    public static final int DEFAULT_MAX_GENERATION_ATTEMPTS = 2;
+    public static final Duration DEFAULT_GENERATION_LEASE = Duration.ofMinutes(5);
     private static final Set<String> SUPPORTED_PROVIDER_MODES = Set.of("disabled", "fake", "agentic");
 
+    @ConstructorBinding
     public PracticeDiscoveryCustomSceneProperties {
         timeout = timeout == null ? DEFAULT_TIMEOUT : timeout;
         promptVersion = defaultString(promptVersion, DEFAULT_PROMPT_VERSION);
@@ -51,6 +57,14 @@ public record PracticeDiscoveryCustomSceneProperties(
         accountDailyLimit = defaultPositive(accountDailyLimit, DEFAULT_ACCOUNT_DAILY_LIMIT, "account daily limit");
         burstWindow = defaultPositiveDuration(burstWindow, DEFAULT_BURST_WINDOW, "burst window");
         dailyWindow = defaultPositiveDuration(dailyWindow, DEFAULT_DAILY_WINDOW, "daily window");
+        maxGenerationAttempts = maxGenerationAttempts == null
+                ? DEFAULT_MAX_GENERATION_ATTEMPTS
+                : maxGenerationAttempts;
+        if (maxGenerationAttempts < 1 || maxGenerationAttempts > 5) {
+            throw new IllegalArgumentException("custom scene max generation attempts must be between 1 and 5");
+        }
+        generationLease = defaultPositiveDuration(
+                generationLease, DEFAULT_GENERATION_LEASE, "generation lease");
 
         if (timeout.isZero() || timeout.isNegative()) {
             throw new IllegalArgumentException("custom scene timeout must be positive");
@@ -58,6 +72,43 @@ public record PracticeDiscoveryCustomSceneProperties(
         if (timeout.compareTo(MAX_TIMEOUT) > 0) {
             throw new IllegalArgumentException("custom scene timeout must not exceed " + MAX_TIMEOUT);
         }
+    }
+
+    public PracticeDiscoveryCustomSceneProperties(
+            boolean enabled,
+            Duration timeout,
+            String promptVersion,
+            String strategyVersion,
+            String providerMode,
+            Integer installationBurstLimit,
+            Integer installationDailyLimit,
+            Integer accountBurstLimit,
+            Integer accountDailyLimit,
+            Duration burstWindow,
+            Duration dailyWindow,
+            Integer maxGenerationAttempts
+    ) {
+        this(enabled, timeout, promptVersion, strategyVersion, providerMode,
+                installationBurstLimit, installationDailyLimit, accountBurstLimit, accountDailyLimit,
+                burstWindow, dailyWindow, maxGenerationAttempts, null);
+    }
+
+    public PracticeDiscoveryCustomSceneProperties(
+            boolean enabled,
+            Duration timeout,
+            String promptVersion,
+            String strategyVersion,
+            String providerMode,
+            Integer installationBurstLimit,
+            Integer installationDailyLimit,
+            Integer accountBurstLimit,
+            Integer accountDailyLimit,
+            Duration burstWindow,
+            Duration dailyWindow
+    ) {
+        this(enabled, timeout, promptVersion, strategyVersion, providerMode,
+                installationBurstLimit, installationDailyLimit, accountBurstLimit, accountDailyLimit,
+                burstWindow, dailyWindow, null, null);
     }
 
     public static PracticeDiscoveryCustomSceneProperties enabledForTest(String providerMode) {

@@ -3,8 +3,15 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart'
-    show defaultAccountApiBaseUrl, defaultAccountApiVersion;
+    show
+        AccountApiException,
+        AccountApiFailureKind,
+        defaultAccountApiBaseUrl,
+        defaultAccountApiVersion;
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/garden/domain/models/fertilizer_state.dart';
 
 enum GardenFertilizerApiFailureKind { network, timeout, malformed, http }
@@ -36,32 +43,52 @@ class GardenFertilizerApiException implements Exception {
 }
 
 abstract class GardenFertilizerRemoteDataSource {
-  Future<FertilizerState> fetchState();
+  Future<FertilizerState> fetchState({
+    AccountSession? session,
+    PersistRefreshedSession? persistRefreshedSession,
+  });
 
   Future<FertilizerState> claim({
     required String eventKey,
     required String requestId,
+    AccountSession? session,
+    PersistRefreshedSession? persistRefreshedSession,
   });
 
-  Future<FertilizerState> apply({required String requestId});
+  Future<FertilizerState> apply({
+    required String requestId,
+    AccountSession? session,
+    PersistRefreshedSession? persistRefreshedSession,
+  });
 }
 
 class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
   GardenFertilizerApiService({
     Dio? dio,
+    AuthenticatedApiClient? authenticatedApiClient,
     String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
   }) : _dio =
            dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
+       _authenticatedApiClient = authenticatedApiClient,
        _ownsDio = dio == null;
 
   final Dio _dio;
+  final AuthenticatedApiClient? _authenticatedApiClient;
   final bool _ownsDio;
   final String appVersion;
 
   @override
-  Future<FertilizerState> fetchState() async {
-    final json = await _requestJson('GET', '/api/v1/garden/fertilizer/state');
+  Future<FertilizerState> fetchState({
+    AccountSession? session,
+    PersistRefreshedSession? persistRefreshedSession,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/v1/garden/fertilizer',
+      session: session,
+      persistRefreshedSession: persistRefreshedSession,
+    );
     return _readFertilizerState(json);
   }
 
@@ -69,21 +96,31 @@ class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
   Future<FertilizerState> claim({
     required String eventKey,
     required String requestId,
+    AccountSession? session,
+    PersistRefreshedSession? persistRefreshedSession,
   }) async {
-    final json = await _requestJson(
+    final json = await _request(
       'POST',
       '/api/v1/garden/fertilizer/claim',
       body: <String, Object?>{'eventKey': eventKey, 'requestId': requestId},
+      session: session,
+      persistRefreshedSession: persistRefreshedSession,
     );
     return _readFertilizerState(json);
   }
 
   @override
-  Future<FertilizerState> apply({required String requestId}) async {
-    final json = await _requestJson(
+  Future<FertilizerState> apply({
+    required String requestId,
+    AccountSession? session,
+    PersistRefreshedSession? persistRefreshedSession,
+  }) async {
+    final json = await _request(
       'POST',
       '/api/v1/garden/fertilizer/apply',
       body: <String, Object?>{'requestId': requestId},
+      session: session,
+      persistRefreshedSession: persistRefreshedSession,
     );
     return _readFertilizerState(json);
   }
@@ -94,14 +131,66 @@ class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
     }
   }
 
+  Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Map<String, Object?>? body,
+    AccountSession? session,
+    PersistRefreshedSession? persistRefreshedSession,
+  }) async {
+    if (session == null) return _requestJson(method, path, body: body);
+    final client = _authenticatedApiClient;
+    final persist = persistRefreshedSession;
+    if (client == null || persist == null) {
+      throw const GardenFertilizerApiException.malformed(
+        message: '肥料服务缺少认证配置。',
+      );
+    }
+    try {
+      return (await client.execute<Map<String, dynamic>>(
+        session: session,
+        persistRefreshedSession: persist,
+        send: (token) async {
+          try {
+            return await _requestJson(
+              method,
+              path,
+              body: body,
+              accessToken: token,
+            );
+          } on GardenFertilizerApiException catch (error) {
+            if (error.statusCode == 401) {
+              throw AccountApiException(
+                kind: AccountApiFailureKind.http,
+                message: error.message,
+                statusCode: error.statusCode,
+              );
+            }
+            rethrow;
+          }
+        },
+      )).value;
+    } on AuthenticatedApiClientException catch (error) {
+      throw GardenFertilizerApiException(
+        kind: GardenFertilizerApiFailureKind.http,
+        message: error.visibleMessage,
+        statusCode: 401,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> _requestJson(
     String method,
     String path, {
     Map<String, Object?>? body,
+    String? accessToken,
   }) async {
     final headers = <String, String>{
       'Accept': 'application/json',
       'X-App-Version': appVersion,
+      authorizationHeaderName: ?buildBearerAuthorizationHeaderValue(
+        accessToken,
+      ),
     };
 
     Response<dynamic> response;
@@ -143,9 +232,7 @@ class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
     }
     if (data is String) {
       if (data.trim().isEmpty) {
-        throw const GardenFertilizerApiException.malformed(
-          message: '响应体为空。',
-        );
+        throw const GardenFertilizerApiException.malformed(message: '响应体为空。');
       }
       try {
         final decoded = jsonDecode(data);
@@ -163,15 +250,16 @@ class GardenFertilizerApiService implements GardenFertilizerRemoteDataSource {
         );
       }
     }
-    throw const GardenFertilizerApiException.malformed(
-      message: '响应体不是对象。',
-    );
+    throw const GardenFertilizerApiException.malformed(message: '响应体不是对象。');
   }
 
   FertilizerState _readFertilizerState(Map<String, dynamic> json) {
     final stateJson = _readStateMap(json);
     final hasAppliedCount = _hasIntValue(stateJson, 'appliedCount');
-    final hasClaimedEventKeys = _hasStringListValue(stateJson, 'claimedEventKeys');
+    final hasClaimedEventKeys = _hasStringListValue(
+      stateJson,
+      'claimedEventKeys',
+    );
 
     if (!hasAppliedCount && !hasClaimedEventKeys) {
       throw const GardenFertilizerApiException.malformed(

@@ -32,6 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "app.sms.dev-code=246810",
         "app.auth.issuer=babytalk-app-test",
         "app.auth.jwt-secret=0123456789abcdef0123456789abcdef",
+        "app.auth.sensitive-data-pepper=test-auth-sensitive-data-pepper-0123456789abcdef",
         "app.auth.access-token-ttl=PT15M",
         "app.auth.refresh-token-ttl=P7D"
 })

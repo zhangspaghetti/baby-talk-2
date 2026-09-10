@@ -37,7 +37,7 @@ const FertilizerStateEntitySchema = CollectionSchema(
       id: 3,
       name: r'lastClaimedAt',
       type: IsarType.dateTime,
-    )
+    ),
   },
   estimateSize: _fertilizerStateEntityEstimateSize,
   serialize: _fertilizerStateEntitySerialize,
@@ -121,39 +121,45 @@ Id _fertilizerStateEntityGetId(FertilizerStateEntity object) {
 }
 
 List<IsarLinkBase<dynamic>> _fertilizerStateEntityGetLinks(
-    FertilizerStateEntity object) {
+  FertilizerStateEntity object,
+) {
   return [];
 }
 
 void _fertilizerStateEntityAttach(
-    IsarCollection<dynamic> col, Id id, FertilizerStateEntity object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  FertilizerStateEntity object,
+) {
   object.id = id;
 }
 
 extension FertilizerStateEntityQueryWhereSort
     on QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QWhere> {
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterWhere>
-      anyId() {
+  anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
     });
   }
 }
 
-extension FertilizerStateEntityQueryWhere on QueryBuilder<FertilizerStateEntity,
-    FertilizerStateEntity, QWhereClause> {
+extension FertilizerStateEntityQueryWhere
+    on
+        QueryBuilder<
+          FertilizerStateEntity,
+          FertilizerStateEntity,
+          QWhereClause
+        > {
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterWhereClause>
-      idEqualTo(Id id) {
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -176,7 +182,7 @@ extension FertilizerStateEntityQueryWhere on QueryBuilder<FertilizerStateEntity,
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -185,7 +191,7 @@ extension FertilizerStateEntityQueryWhere on QueryBuilder<FertilizerStateEntity,
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -194,129 +200,170 @@ extension FertilizerStateEntityQueryWhere on QueryBuilder<FertilizerStateEntity,
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterWhereClause>
-      idBetween(
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
 
-extension FertilizerStateEntityQueryFilter on QueryBuilder<
-    FertilizerStateEntity, FertilizerStateEntity, QFilterCondition> {
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> appliedCountEqualTo(int value) {
+extension FertilizerStateEntityQueryFilter
+    on
+        QueryBuilder<
+          FertilizerStateEntity,
+          FertilizerStateEntity,
+          QFilterCondition
+        > {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  appliedCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'appliedCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'appliedCount', value: value),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> appliedCountGreaterThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  appliedCountGreaterThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'appliedCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'appliedCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> appliedCountLessThan(
-    int value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  appliedCountLessThan(int value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'appliedCount',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'appliedCount',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> appliedCountBetween(
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  appliedCountBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'appliedCount',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'appliedCount',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'claimedEventKeys',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'claimedEventKeys',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'claimedEventKeys',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysElementLessThan(
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'claimedEventKeys',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'claimedEventKeys',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysElementBetween(
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'claimedEventKeys',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -324,164 +371,180 @@ extension FertilizerStateEntityQueryFilter on QueryBuilder<
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'claimedEventKeys',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'claimedEventKeys',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'claimedEventKeys',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-          QAfterFilterCondition>
-      claimedEventKeysElementContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'claimedEventKeys',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-          QAfterFilterCondition>
-      claimedEventKeysElementMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'claimedEventKeys',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'claimedEventKeys',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'claimedEventKeys',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'claimedEventKeys',
-        length,
-        true,
-        length,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'claimedEventKeys',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysIsEmpty() {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'claimedEventKeys',
-        0,
-        true,
-        0,
-        true,
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'claimedEventKeys',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
       );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysIsNotEmpty() {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'claimedEventKeys',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'claimedEventKeys',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'claimedEventKeys',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'claimedEventKeys', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'claimedEventKeys', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'claimedEventKeys', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'claimedEventKeys', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'claimedEventKeys', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'claimedEventKeys', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysLengthGreaterThan(int length, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
         r'claimedEventKeys',
-        0,
-        false,
+        length,
+        include,
         999999,
         true,
       );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysLengthLessThan(
-    int length, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'claimedEventKeys',
-        0,
-        true,
-        length,
-        include,
-      );
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysLengthGreaterThan(
-    int length, {
-    bool include = false,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(
-        r'claimedEventKeys',
-        length,
-        include,
-        999999,
-        true,
-      );
-    });
-  }
-
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> claimedEventKeysLengthBetween(
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  claimedEventKeysLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -498,256 +561,327 @@ extension FertilizerStateEntityQueryFilter on QueryBuilder<
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> idEqualTo(Id value) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> idBetween(
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastAppliedAtIsNull() {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastAppliedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastAppliedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastAppliedAt'),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastAppliedAtIsNotNull() {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastAppliedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastAppliedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastAppliedAt'),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastAppliedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastAppliedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastAppliedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastAppliedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastAppliedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastAppliedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastAppliedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastAppliedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastAppliedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastAppliedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastAppliedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastAppliedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastAppliedAtBetween(
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastAppliedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastAppliedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastAppliedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastClaimedAtIsNull() {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastClaimedAtIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'lastClaimedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'lastClaimedAt'),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastClaimedAtIsNotNull() {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastClaimedAtIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'lastClaimedAt',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'lastClaimedAt'),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastClaimedAtEqualTo(DateTime? value) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastClaimedAtEqualTo(DateTime? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'lastClaimedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'lastClaimedAt', value: value),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastClaimedAtGreaterThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastClaimedAtGreaterThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'lastClaimedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'lastClaimedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastClaimedAtLessThan(
-    DateTime? value, {
-    bool include = false,
-  }) {
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastClaimedAtLessThan(DateTime? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'lastClaimedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'lastClaimedAt',
+          value: value,
+        ),
+      );
     });
   }
 
-  QueryBuilder<FertilizerStateEntity, FertilizerStateEntity,
-      QAfterFilterCondition> lastClaimedAtBetween(
+  QueryBuilder<
+    FertilizerStateEntity,
+    FertilizerStateEntity,
+    QAfterFilterCondition
+  >
+  lastClaimedAtBetween(
     DateTime? lower,
     DateTime? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'lastClaimedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'lastClaimedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
 
-extension FertilizerStateEntityQueryObject on QueryBuilder<
-    FertilizerStateEntity, FertilizerStateEntity, QFilterCondition> {}
+extension FertilizerStateEntityQueryObject
+    on
+        QueryBuilder<
+          FertilizerStateEntity,
+          FertilizerStateEntity,
+          QFilterCondition
+        > {}
 
-extension FertilizerStateEntityQueryLinks on QueryBuilder<FertilizerStateEntity,
-    FertilizerStateEntity, QFilterCondition> {}
+extension FertilizerStateEntityQueryLinks
+    on
+        QueryBuilder<
+          FertilizerStateEntity,
+          FertilizerStateEntity,
+          QFilterCondition
+        > {}
 
 extension FertilizerStateEntityQuerySortBy
     on QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QSortBy> {
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      sortByAppliedCount() {
+  sortByAppliedCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'appliedCount', Sort.asc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      sortByAppliedCountDesc() {
+  sortByAppliedCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'appliedCount', Sort.desc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      sortByLastAppliedAt() {
+  sortByLastAppliedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastAppliedAt', Sort.asc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      sortByLastAppliedAtDesc() {
+  sortByLastAppliedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastAppliedAt', Sort.desc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      sortByLastClaimedAt() {
+  sortByLastClaimedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastClaimedAt', Sort.asc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      sortByLastClaimedAtDesc() {
+  sortByLastClaimedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastClaimedAt', Sort.desc);
     });
@@ -757,56 +891,56 @@ extension FertilizerStateEntityQuerySortBy
 extension FertilizerStateEntityQuerySortThenBy
     on QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QSortThenBy> {
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      thenByAppliedCount() {
+  thenByAppliedCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'appliedCount', Sort.asc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      thenByAppliedCountDesc() {
+  thenByAppliedCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'appliedCount', Sort.desc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      thenById() {
+  thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      thenByLastAppliedAt() {
+  thenByLastAppliedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastAppliedAt', Sort.asc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      thenByLastAppliedAtDesc() {
+  thenByLastAppliedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastAppliedAt', Sort.desc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      thenByLastClaimedAt() {
+  thenByLastClaimedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastClaimedAt', Sort.asc);
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QAfterSortBy>
-      thenByLastClaimedAtDesc() {
+  thenByLastClaimedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastClaimedAt', Sort.desc);
     });
@@ -816,36 +950,41 @@ extension FertilizerStateEntityQuerySortThenBy
 extension FertilizerStateEntityQueryWhereDistinct
     on QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QDistinct> {
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QDistinct>
-      distinctByAppliedCount() {
+  distinctByAppliedCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'appliedCount');
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QDistinct>
-      distinctByClaimedEventKeys() {
+  distinctByClaimedEventKeys() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'claimedEventKeys');
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QDistinct>
-      distinctByLastAppliedAt() {
+  distinctByLastAppliedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastAppliedAt');
     });
   }
 
   QueryBuilder<FertilizerStateEntity, FertilizerStateEntity, QDistinct>
-      distinctByLastClaimedAt() {
+  distinctByLastClaimedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastClaimedAt');
     });
   }
 }
 
-extension FertilizerStateEntityQueryProperty on QueryBuilder<
-    FertilizerStateEntity, FertilizerStateEntity, QQueryProperty> {
+extension FertilizerStateEntityQueryProperty
+    on
+        QueryBuilder<
+          FertilizerStateEntity,
+          FertilizerStateEntity,
+          QQueryProperty
+        > {
   QueryBuilder<FertilizerStateEntity, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
@@ -853,28 +992,28 @@ extension FertilizerStateEntityQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<FertilizerStateEntity, int, QQueryOperations>
-      appliedCountProperty() {
+  appliedCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'appliedCount');
     });
   }
 
   QueryBuilder<FertilizerStateEntity, List<String>, QQueryOperations>
-      claimedEventKeysProperty() {
+  claimedEventKeysProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'claimedEventKeys');
     });
   }
 
   QueryBuilder<FertilizerStateEntity, DateTime?, QQueryOperations>
-      lastAppliedAtProperty() {
+  lastAppliedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastAppliedAt');
     });
   }
 
   QueryBuilder<FertilizerStateEntity, DateTime?, QQueryOperations>
-      lastClaimedAtProperty() {
+  lastClaimedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastClaimedAt');
     });

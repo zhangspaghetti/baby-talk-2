@@ -4,13 +4,11 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/api_version.dart';
 import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
-const String defaultAccountApiVersion = String.fromEnvironment(
-  'BABY_TALK_API_VERSION',
-  defaultValue: '1.2.0',
-);
+const String defaultAccountApiVersion = defaultAppApiVersion;
 const String defaultAccountApiBaseUrl = String.fromEnvironment(
   'BABY_TALK_API_BASE_URL',
   defaultValue: 'http://127.0.0.1:8080',
@@ -24,6 +22,7 @@ class AccountApiException implements Exception {
     required this.message,
     this.statusCode,
     this.code,
+    this.correlationId,
     this.minimumSupportedVersion,
     this.upgradeUrl,
     this.details = const <String, Object?>{},
@@ -42,6 +41,7 @@ class AccountApiException implements Exception {
   final String message;
   final int? statusCode;
   final String? code;
+  final String? correlationId;
   final String? minimumSupportedVersion;
   final String? upgradeUrl;
   final Map<String, Object?> details;
@@ -161,6 +161,30 @@ class BootstrapResponse {
   final int eventCount;
   final List<InteractionEventPayload> events;
   final DateTime bootstrapAt;
+}
+
+class AccountBabyProfileResponse {
+  const AccountBabyProfileResponse({
+    required this.babyProfileId,
+    required this.babyName,
+    required this.ageRange,
+    required this.parentGoal,
+    required this.onboardingState,
+    required this.onboardingCompletedAt,
+    required this.version,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  final String babyProfileId;
+  final String? babyName;
+  final String ageRange;
+  final String? parentGoal;
+  final String onboardingState;
+  final DateTime? onboardingCompletedAt;
+  final int version;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 }
 
 class AccountLogoutResponse {
@@ -378,6 +402,44 @@ class AccountApiService {
     );
   }
 
+  Future<AccountBabyProfileResponse> getBabyProfile({
+    required String accessToken,
+  }) async {
+    final json = await _requestJson(
+      'GET',
+      '/api/v1/onboarding/profile',
+      accessToken: accessToken,
+    );
+    return _readBabyProfileResponse(json);
+  }
+
+  Future<AccountBabyProfileResponse> putBabyProfile({
+    required String accessToken,
+    required String ageRange,
+    required String onboardingState,
+    String? babyName,
+    String? parentGoal,
+    int? expectedVersion,
+    DateTime? completedAt,
+    String? clientTraceId,
+  }) async {
+    final json = await _requestJson(
+      'PUT',
+      '/api/v1/onboarding/profile',
+      accessToken: accessToken,
+      body: <String, Object?>{
+        'expectedVersion': ?expectedVersion,
+        'babyName': babyName,
+        'ageRange': ageRange,
+        'parentGoal': parentGoal,
+        'onboardingState': onboardingState,
+        'completedAt': completedAt?.toUtc().toIso8601String(),
+        'clientTraceId': clientTraceId,
+      },
+    );
+    return _readBabyProfileResponse(json);
+  }
+
   void close() {
     if (_ownsDio) {
       _dio.close();
@@ -429,6 +491,7 @@ class AccountApiService {
         message: _readOptionalString(decoded, 'message') ?? '请求失败。',
         statusCode: statusCode,
         code: _readOptionalString(decoded, 'code'),
+        correlationId: _readOptionalString(decoded, 'correlationId'),
         minimumSupportedVersion:
             response.headers.value('x-min-supported-version') ??
             _readOptionalString(decoded, 'minimumSupportedVersion'),
@@ -456,6 +519,25 @@ class AccountApiService {
         json,
         'refreshTokenExpiresAt',
       ),
+    );
+  }
+
+  AccountBabyProfileResponse _readBabyProfileResponse(
+    Map<String, dynamic> json,
+  ) {
+    return AccountBabyProfileResponse(
+      babyProfileId: _readRequiredString(json, 'babyProfileId'),
+      babyName: _readOptionalString(json, 'babyName'),
+      ageRange: _readRequiredString(json, 'ageRange'),
+      parentGoal: _readOptionalString(json, 'parentGoal'),
+      onboardingState: _readRequiredString(json, 'onboardingState'),
+      onboardingCompletedAt: _readOptionalDateTime(
+        json,
+        'onboardingCompletedAt',
+      ),
+      version: _readRequiredInt(json, 'version'),
+      createdAt: _readRequiredDateTime(json, 'createdAt'),
+      updatedAt: _readRequiredDateTime(json, 'updatedAt'),
     );
   }
 

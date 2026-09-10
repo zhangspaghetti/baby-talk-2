@@ -1,0 +1,28 @@
+command=dart tool/verify_m2_12_release_matrix.dart --records docs/uat/m2/retests/m2-final-30b8dd48961c
+m2_12_uat_release_matrix_status=fail
+parsed_records=5
+violations=23
+  incomplete_record all_reaction_audio_branches.json[0] | all starter and reaction branch reviews are required
+  incomplete_record all_reaction_audio_branches.json[0] | prerequisite status must be PASS
+  incomplete_record all_reaction_audio_branches.json[0] | step status must be PASS
+  incomplete_record all_reaction_audio_branches.json[0] | step status must be PASS
+  incomplete_record all_reaction_audio_branches.json[0] | step status must be PASS
+  incomplete_record all_reaction_audio_branches.json[0] | step status must be PASS
+  non_passing_verdict all_reaction_audio_branches.json[0] | record verdict must be PASS
+  incomplete_record android_generated_flow.json[0] | step status must be PASS
+  incomplete_record android_generated_flow.json[0] | step status must be PASS
+  non_passing_verdict android_generated_flow.json[0] | record verdict must be PASS
+  incomplete_record force_stop_recovery.json[0] | prerequisite status must be PASS
+  incomplete_record force_stop_recovery.json[0] | step status must be PASS
+  incomplete_record force_stop_recovery.json[0] | step status must be PASS
+  incomplete_record force_stop_recovery.json[0] | step status must be PASS
+  non_passing_verdict force_stop_recovery.json[0] | record verdict must be PASS
+  accessibility_human_evidence talkback_human_accessibility.json[0] | human TalkBack evidence is required
+  accessibility_human_evidence talkback_human_accessibility.json[0] | human TalkBack observations are incomplete
+  incomplete_record talkback_human_accessibility.json[0] | prerequisite status must be PASS
+  incomplete_record talkback_human_accessibility.json[0] | prerequisite status must be PASS
+  incomplete_record talkback_human_accessibility.json[0] | step status must be PASS
+  incomplete_record talkback_human_accessibility.json[0] | step status must be PASS
+  incomplete_record talkback_human_accessibility.json[0] | step status must be PASS
+  non_passing_verdict talkback_human_accessibility.json[0] | record verdict must be PASS
+exit_code=1

@@ -3,8 +3,15 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/auth_headers.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart'
-    show defaultAccountApiBaseUrl, defaultAccountApiVersion;
+    show
+        AccountApiException,
+        AccountApiFailureKind,
+        defaultAccountApiBaseUrl,
+        defaultAccountApiVersion;
+import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
 
 enum GrowthInsightsApiFailureKind { network, timeout, malformed, http }
@@ -17,13 +24,13 @@ class GrowthInsightsApiException implements Exception {
   });
 
   const GrowthInsightsApiException.network({required String message})
-      : this(kind: GrowthInsightsApiFailureKind.network, message: message);
+    : this(kind: GrowthInsightsApiFailureKind.network, message: message);
 
   const GrowthInsightsApiException.timeout({required String message})
-      : this(kind: GrowthInsightsApiFailureKind.timeout, message: message);
+    : this(kind: GrowthInsightsApiFailureKind.timeout, message: message);
 
   const GrowthInsightsApiException.malformed({required String message})
-      : this(kind: GrowthInsightsApiFailureKind.malformed, message: message);
+    : this(kind: GrowthInsightsApiFailureKind.malformed, message: message);
 
   final GrowthInsightsApiFailureKind kind;
   final String message;
@@ -40,20 +47,66 @@ class GrowthInsightsApiService {
     Dio? dio,
     String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
-  })  : _dio =
-            dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
-        _ownsDio = dio == null;
+    AuthenticatedApiClient? authenticatedApiClient,
+    Future<AccountSession?> Function()? sessionLoader,
+    PersistRefreshedSession? persistRefreshedSession,
+  }) : _dio =
+           dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
+       _authenticatedApiClient = authenticatedApiClient,
+       _sessionLoader = sessionLoader,
+       _persistRefreshedSession = persistRefreshedSession,
+       _ownsDio = dio == null;
 
   final Dio _dio;
+  final AuthenticatedApiClient? _authenticatedApiClient;
+  final Future<AccountSession?> Function()? _sessionLoader;
+  final PersistRefreshedSession? _persistRefreshedSession;
   final bool _ownsDio;
   final String appVersion;
 
   /// Fetches growth insights for the given [period] (e.g. `'week'`, `'month'`, `'year'`).
   Future<GrowthInsightsPayload> fetchInsights(String period) async {
-    final json = await _requestJson('GET', '/api/v1/growth/insights', query: {
-      'period': period,
-    });
-    return GrowthInsightsPayload.fromJson(json);
+    final session = await _sessionLoader?.call();
+    final client = _authenticatedApiClient;
+    final persist = _persistRefreshedSession;
+    if (session == null || client == null || persist == null) {
+      throw const GrowthInsightsApiException(
+        kind: GrowthInsightsApiFailureKind.http,
+        message: '请登录后查看成长数据。',
+        statusCode: 401,
+      );
+    }
+    try {
+      final authenticated = await client.execute<Map<String, dynamic>>(
+        session: session,
+        persistRefreshedSession: persist,
+        send: (accessToken) async {
+          try {
+            return await _requestJson(
+              'GET',
+              '/api/v1/growth/insights',
+              query: {'period': period},
+              accessToken: accessToken,
+            );
+          } on GrowthInsightsApiException catch (error) {
+            if (error.statusCode != 401) rethrow;
+            throw AccountApiException(
+              kind: AccountApiFailureKind.http,
+              message: error.message,
+              statusCode: error.statusCode,
+              code: 'invalid_session',
+            );
+          }
+        },
+      );
+      return GrowthInsightsPayload.fromJson(authenticated.value);
+    } on AuthenticatedApiClientException catch (error) {
+      throw GrowthInsightsApiException(
+        kind: GrowthInsightsApiFailureKind.http,
+        message: error.visibleMessage,
+        statusCode: 401,
+      );
+    }
   }
 
   void close() {
@@ -70,10 +123,14 @@ class GrowthInsightsApiService {
     String method,
     String path, {
     Map<String, Object?>? query,
+    String? accessToken,
   }) async {
     final headers = <String, String>{
       'Accept': 'application/json',
       'X-App-Version': appVersion,
+      authorizationHeaderName: ?buildBearerAuthorizationHeaderValue(
+        accessToken,
+      ),
     };
 
     Response<dynamic> response;

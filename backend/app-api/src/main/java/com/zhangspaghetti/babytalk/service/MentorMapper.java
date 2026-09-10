@@ -8,7 +8,11 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface MentorMapper {
 
-    int countRequestsSince(@Param("installationId") String installationId, @Param("since") Instant since);
+    int countRequestsSince(
+            @Param("installationReference") String installationReference,
+            @Param("legacyInstallationId") String legacyInstallationId,
+            @Param("since") Instant since
+    );
 
     void insertTurn(@Param("row") MentorRepository.TurnRow row);
 

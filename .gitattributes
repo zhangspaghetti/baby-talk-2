@@ -1,2 +1,3 @@
 *.sh text eol=lf
 backend/mvnw text eol=lf
+test/fixtures/m2_12_release_matrix/candidate-manifest.json text eol=lf

@@ -65,16 +65,8 @@ void main() {
       reason: '目标态气泡统一为对称 r16（--radius-md）',
     );
     expect(bubble.decoration.border, isNull, reason: '目标态气泡无边框');
-    expect(
-      bubble.decoration.boxShadow,
-      isNotNull,
-      reason: '目标态气泡带 shadow-sm',
-    );
-    expect(
-      bubble.decoration.boxShadow,
-      isNotEmpty,
-      reason: '目标态气泡带 shadow-sm',
-    );
+    expect(bubble.decoration.boxShadow, isNotNull, reason: '目标态气泡带 shadow-sm');
+    expect(bubble.decoration.boxShadow, isNotEmpty, reason: '目标态气泡带 shadow-sm');
     expect(
       bubble.widget.padding,
       const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -84,12 +76,12 @@ void main() {
 
   group('AppMentorBubble 形态契约（收敛目标态）', () {
     testWidgets('头像为 28x28 圆角矩形渐变', (tester) async {
-      await tester.pumpWidget(
-        buildApp(const AppMentorBubble(message: '你好')),
-      );
+      await tester.pumpWidget(buildApp(const AppMentorBubble(message: '你好')));
 
-      final containers =
-          decoratedContainers(tester, find.byType(AppMentorBubble));
+      final containers = decoratedContainers(
+        tester,
+        find.byType(AppMentorBubble),
+      );
       final avatar = containers.firstWhere(
         (c) => c.decoration.gradient != null,
         orElse: () => throw StateError('未找到渐变头像容器'),
@@ -99,16 +91,15 @@ void main() {
     });
 
     testWidgets('气泡为对称 r16、有阴影、无边框', (tester) async {
-      await tester.pumpWidget(
-        buildApp(const AppMentorBubble(message: '你好')),
-      );
+      await tester.pumpWidget(buildApp(const AppMentorBubble(message: '你好')));
 
-      final containers =
-          decoratedContainers(tester, find.byType(AppMentorBubble));
+      final containers = decoratedContainers(
+        tester,
+        find.byType(AppMentorBubble),
+      );
       final bubble = containers.firstWhere(
         (c) =>
-            c.decoration.gradient == null &&
-            c.decoration.borderRadius != null,
+            c.decoration.gradient == null && c.decoration.borderRadius != null,
         orElse: () => throw StateError('未找到气泡容器'),
       );
 
@@ -122,8 +113,10 @@ void main() {
         buildApp(const HomeBMentorBubble(message: '建议内容')),
       );
 
-      final containers =
-          decoratedContainers(tester, find.byType(HomeBMentorBubble));
+      final containers = decoratedContainers(
+        tester,
+        find.byType(HomeBMentorBubble),
+      );
       final avatar = containers.firstWhere(
         (c) => c.decoration.gradient != null,
         orElse: () => throw StateError('未找到渐变头像容器'),
@@ -141,9 +134,10 @@ void main() {
         find.byKey(const Key('home-b-mentor-bubble')),
       );
 
-      expectSharedBubble(
-        (widget: outer, decoration: outer.decoration as BoxDecoration),
-      );
+      expectSharedBubble((
+        widget: outer,
+        decoration: outer.decoration as BoxDecoration,
+      ));
     });
   });
 }

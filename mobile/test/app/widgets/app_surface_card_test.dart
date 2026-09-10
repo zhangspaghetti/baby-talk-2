@@ -7,14 +7,14 @@ import 'package:mobile/app/widgets/app_surface_card.dart';
 void main() {
   BoxDecoration decorationOf(WidgetTester tester, Key key) {
     final container = tester.widget<Container>(
-      find.descendant(of: find.byKey(key), matching: find.byType(Container)).first,
+      find
+          .descendant(of: find.byKey(key), matching: find.byType(Container))
+          .first,
     );
     return container.decoration as BoxDecoration;
   }
 
-  testWidgets('方案 B AppSurfaceCard 默认收敛至规范目标态（r16/无边框/sm）', (
-    tester,
-  ) async {
+  testWidgets('方案 B AppSurfaceCard 默认收敛至规范目标态（r16/无边框/sm）', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(),
@@ -101,9 +101,7 @@ void main() {
     expect(decoration.border, isNull);
   });
 
-  testWidgets('裸参数向后兼容：borderColor 绘制边框、boxShadow 覆盖变体', (
-    tester,
-  ) async {
+  testWidgets('裸参数向后兼容：borderColor 绘制边框、boxShadow 覆盖变体', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(),

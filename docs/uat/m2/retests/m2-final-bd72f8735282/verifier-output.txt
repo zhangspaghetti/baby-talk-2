@@ -1,0 +1,5 @@
+m2_13_closure_candidate_status=pass
+violations=0
+M2-13 final candidate is frozen for UAT.
+exit_code=0
+elapsed_seconds=1447.7

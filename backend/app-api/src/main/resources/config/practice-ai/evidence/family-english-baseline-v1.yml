@@ -1,0 +1,24 @@
+version: family-english-baseline-v1
+schema-version: baseline-evidence-schema-v1
+evidence:
+  - evidence-id: family-english-parent-speakability-v1
+    source-version: family-english-baseline-v1
+    evidence-kind: REFERENCE
+    claim-type: parent_speakability
+    strategy-id: family-english-strategy-v1
+    summary: Use short, familiar phrases that a parent can say naturally during ordinary care moments.
+    confidence: 0.90
+  - evidence-id: family-english-age-guidance-v1
+    source-version: family-english-baseline-v1
+    evidence-kind: REFERENCE
+    claim-type: age_guidance
+    strategy-id: family-english-strategy-v1
+    summary: Keep language concrete, playful, and appropriate for a young child without performance pressure.
+    confidence: 0.90
+  - evidence-id: family-english-low-pressure-delivery-v1
+    source-version: family-english-baseline-v1
+    evidence-kind: REFERENCE
+    claim-type: low_pressure_delivery
+    strategy-id: family-english-strategy-v1
+    summary: Invite imitation and allow silence or repetition without correction demands.
+    confidence: 0.90

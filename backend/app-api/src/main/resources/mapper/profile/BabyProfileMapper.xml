@@ -50,6 +50,39 @@
         where account_id = #{accountId}
     </select>
 
+    <select id="findSharedByHouseholdMemberAccountId" resultMap="profileRowMap">
+        select bp.profile_id,
+               bp.account_id,
+               bp.baby_name,
+               bp.age_range,
+               bp.parent_goal,
+               bp.starter_scene_id,
+               bp.starter_moment_id,
+               bp.starter_activity_id,
+               bp.starter_utterance_id,
+               bp.starter_phrase_id,
+               bp.starter_source,
+               bp.onboarding_state,
+               bp.onboarding_completed_at,
+               bp.version,
+               bp.created_at,
+               bp.updated_at
+        from baby_profiles bp
+        join households h
+          on h.owner_account_id = bp.account_id
+         and h.status = 'active'
+        join household_members requester
+          on requester.household_id = h.household_id
+         and requester.account_id = #{accountId}
+         and requester.role = 'caregiver'
+         and requester.status = 'active'
+        join household_members owner_member
+          on owner_member.household_id = h.household_id
+         and owner_member.account_id = h.owner_account_id
+         and owner_member.role = 'primary_caregiver'
+         and owner_member.status = 'active'
+    </select>
+
     <update id="updateIfVersionMatches">
         update baby_profiles
         set baby_name = #{patch.babyName},

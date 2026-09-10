@@ -58,16 +58,51 @@ checks remain not configured as stated above.
 - nektos/act 0.2.89
 - the toolchains required by `ci/full-ci.sh`
 
-`.actrc` pins the `ubuntu-latest` substitute by multi-architecture index digest
-and selects `linux/amd64`. It also uses host networking for the scoped Docker
-relay, enables the local artifact server at `.act/artifacts`, parses workflows
-strictly, removes job containers after each run, and uses `Develop` as the
-default branch. Testcontainers resolves Docker-published ports through
+`.actrc` maps `ubuntu-latest` to a prebuilt local act runner image and selects
+`linux/amd64`. Its Dockerfile pins the upstream runner by digest and records the
+recipe checksum, so a changed base or dependency list rebuilds the image. It
+also uses host networking for the scoped Docker relay, enables the local
+artifact server at `.act/artifacts`, parses workflows strictly, removes job
+containers after each run, uses `Develop` as the default branch, and sets
+`--pull=false`: the wrapper verifies or builds the local image before act starts
+instead of resolving the private local tag from a registry.
+`--action-offline-mode` likewise reuses the existing host action cache at
+`%USERPROFILE%/.cache/act` for reviewed setup actions; a missing action is still
+fetched on first use, but an existing cached action is not refreshed inside a
+validation run.
+Testcontainers resolves Docker-published ports through
 `TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal`, while Ryuk remains enabled.
+`ci/full-ci.sh` preserves only that exact local-act value after sanitizing its
+environment; every other host override is discarded.
 `PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=180000` tolerates slow local browser
 downloads without skipping Playwright installation. Do not add production
 secrets, tokens, database passwords, JWT keys, Kubernetes secrets, or real user
 data to act invocations or event files.
+
+Before the first act run, provision the reviewed Linux Flutter `3.41.6` SDK on
+the host with `bash ci/provision-act-flutter-sdk.sh`. `ci/run-act-pr.sh` then
+read-only mounts that host cache and the job copies it into its own temporary
+filesystem before running Flutter; the workflow never downloads a Flutter SDK
+in its job container. Set `ACT_FLUTTER_LINUX_SDK` only when the cache is
+intentionally stored elsewhere. A Windows Flutter SDK cannot be mounted as a
+substitute because the act job needs Linux binaries.
+
+The wrapper also idempotently runs `bash ci/provision-act-caches.sh` and
+`bash ci/provision-act-runner-image.sh`. They create a dedicated host cache
+under `%LOCALAPPDATA%/BabyTalk/act/cache-v1` (or
+`$XDG_CACHE_HOME/babytalk/act/cache-v1`) and build the prebuilt local act runner
+image. Maven, Pub, Playwright, pnpm, and Corepack use subdirectories of that
+cache; Maven is mounted at `/root/.m2`, and the other Linux caches are mounted
+at `/opt/babytalk/act-cache`. These are writable caches, not versioned inputs.
+The Job sets pnpm's `store-dir` with `pnpm config set --location=global` after
+Corepack is enabled; pnpm does not honor a generic npm store environment
+variable for this setting. That global configuration exists only in the
+disposable Job container, while its store remains on the mounted host cache.
+Windows host package caches must not be copied into the Linux act job: Windows
+Flutter, Windows Playwright browsers, and Windows `node_modules` contain
+platform-specific executables. The first Linux act run may fill an empty
+dedicated cache; later runs reuse it. The runner image installs Playwright's
+Ubuntu 24.04 Chromium libraries once at image-build time, not during each job.
 
 The CI workflow pins Helm `v4.1.4`, matching the audited local toolchain. Do not
 replace this with the setup action's floating latest resolution.
@@ -83,23 +118,28 @@ simulated through act.
 | Layer | CI download | Source |
 | --- | --- | --- |
 | pnpm/npm and first Corepack pnpm resolution | `pnpm install --frozen-lockfile`, `corepack enable` | `.npmrc`, `NPM_CONFIG_REGISTRY`, and `COREPACK_NPM_REGISTRY` use `https://mirrors.cloud.tencent.com/npm/`. `pnpm-lock.yaml` keeps package integrity and no registry-specific tarball URL. |
-| Playwright | `playwright install chromium` | `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright`. Chromium and Chromium headless shell are separate required artifacts; full CI installs once, while isolated act jobs may each need their own cache. |
+| Playwright | `playwright install chromium` | `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright`. Chromium and Chromium headless shell are separate required artifacts; the dedicated Linux act cache persists them across jobs. |
 | Maven | Maven Wrapper and dependency/plugin resolution | Wrapper distribution remains on Aliyun. `ci/maven.sh` and `backend/.mvn/settings.xml` mirror only Maven Central through `https://maven.aliyun.com/repository/central`; they do not redirect arbitrary repositories. |
 | Flutter/Dart Pub | `flutter pub get` and Flutter SDK assets | `PUB_HOSTED_URL=https://pub.flutter-io.cn` and `FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`. Pub locks retain archive hashes. |
 | Android Gradle | Android build workflows | Gradle Wrapper already uses Tencent's Gradle mirror; Android repositories keep Aliyun first, then official fallbacks for artifacts unavailable from a mirror. |
 | Helm smoke | `bash ci/k8s-smoke.sh` | No chart download: Redis chart is vendored and smoke does not run `helm dependency update`. |
+
+For local `act` only, `ci/act-runner/Dockerfile` rewrites the disposable build
+layer to `https://mirrors.aliyun.com/ubuntu/` and installs Playwright's pinned
+Ubuntu 24.04 Chromium system libraries. `ci/provision-act-runner-image.sh`
+labels the resulting image with the pinned base digest and recipe checksum, then
+the Job verifies its required shared libraries before E2E. It never changes host
+apt sources and never runs apt inside the CI Job.
 
 Docker images, the act runner image, GitHub Actions source, and setup-action SDK downloads are not redirected to public mirrors.
 They stay on their pinned upstream/digest source or Docker Desktop configuration;
 replace them only with a trusted, digest-preserving internal mirror. Do not use a
 generic proxy URL in repository configuration, and do not commit proxy credentials.
 
-The tracked event fixture describes draft PR #13 from
-`gsd/v0.1-milestone` into `Develop`. Its stable base SHA is the fetched
-`origin/Develop` value at fixture creation. The tracked event fixture omits `pull_request.head.sha`
-because committing that SHA inside its own fixture would
-make it stale. SHA-bound runtime evidence records the exact checked-out HEAD SHA,
-`origin/Develop` SHA, and merge-base SHA before each candidate run.
+The tracked event fixture is a draft PR #13 template for `Develop`. It omits
+both `pull_request.base.sha` and `pull_request.head.sha`; the wrapper resolves
+fresh `origin/Develop`, checked-out HEAD, and merge-base SHAs before every run.
+SHA-bound runtime evidence records all three values.
 
 ## Sanitize inherited credentials
 
@@ -229,56 +269,42 @@ Expected `OSType=linux`. On Windows, act's startup diagnostic must name the
 local `npipe:////./pipe/docker_engine` host. Stop if it resolves to a TCP or
 remote daemon.
 
-## List and run the PR workflow
+## Run the pre-merge PR simulation
 
-List jobs without executing them:
-
-```powershell
-act -l pull_request `
-  -W .github/workflows/ci.yml `
-  -e .act/pull_request.json
-```
-
-Expected job IDs are `release-closure-gate` and `mobile-analyze`. Listing proves
-only that act parsed and selected these jobs; it is not execution evidence.
-
-Execute both jobs:
+`.act/pull_request.json` is a credential-free template, not a reusable event:
+it deliberately contains no fixed base or head SHA. Run the wrapper instead of
+calling `act` with that template directly:
 
 ```powershell
-act pull_request `
-  -W .github/workflows/ci.yml `
-  -e .act/pull_request.json
+bash ci/run-act-pr.sh
 ```
 
-Determine every `pull_request` workflow whose path filters match the candidate
-diff. List and run each applicable workflow with the same event fixture, then
-record it separately. For mobile changes:
+The wrapper rejects a dirty worktree before fetching `origin/Develop`, resolves
+the checked-out HEAD and actual merge-base, writes a private temporary event,
+lists `local-pr-full-ci`, then executes it with act's bind mount. The job
+requires the bound `.git` directory and verifies its `HEAD` equals the event's
+recorded full SHA before it calls `bash ci/full-ci.sh`, the authoritative
+complete local repository CI entrypoint. The wrapper captures stdout and
+stderr, and fails if the selected job is skipped or does not report success; a
+listed job alone is not evidence.
 
-```powershell
-act -l pull_request `
-  -W .github/workflows/mobile-pr-validation.yml `
-  -e .act/pull_request.json
+On Windows, the bind job applies `core.autocrlf=true` only to its Git commands,
+matching the checked-out file representation without changing `.git/config`.
+The repository ignores local `.gstack/` state explicitly, so both host and
+container enforce the same clean-worktree contract. The local-only workflow
+installs the same JDK 21, Node 22, Helm 4.1.4, and stable Flutter runtimes that
+the applicable repository workflows require before calling the shared script.
+The wrapper mounts only the dedicated cache directories, never a developer's
+personal Maven, Pub, pnpm, Corepack, or credential directories.
 
-act pull_request `
-  -W .github/workflows/mobile-pr-validation.yml `
-  -e .act/pull_request.json
-```
+`.github/workflows/ci.yml` and `admin-web.yml` are `Develop -> Release_QA`
+post-merge workflows. They are not PR #13 pre-merge simulation and must not be
+used as its act evidence. The dedicated
+`.act/workflows/local-act-pr.yml` is local-only (not discoverable by GitHub
+Actions), models `pull_request -> Develop`, and reuses the same full-CI script.
 
-For admin-web changes, including root pnpm metadata such as
-`pnpm-workspace.yaml`:
-
-```powershell
-act -l pull_request `
-  -W .github/workflows/admin-web.yml `
-  -e .act/pull_request.json
-
-act pull_request `
-  -W .github/workflows/admin-web.yml `
-  -e .act/pull_request.json
-```
-
-The pinned pnpm 11 runtime requires Node 22. All pull-request workflows that
-invoke pnpm select Node 22 explicitly.
+The pinned pnpm 11 runtime requires Node 22. All workflows that invoke pnpm
+select Node 22 explicitly.
 
 `.github/workflows/mobile-build.yml` is a push workflow. Its
 `macos-latest` cannot run in Windows/Linux act containers and is not part of PR #13's
@@ -299,9 +325,7 @@ the event fixture. The host act process reaches it through
 ```powershell
 $env:HTTP_PROXY = 'http://127.0.0.1:7890'
 $env:HTTPS_PROXY = 'http://127.0.0.1:7890'
-act pull_request `
-  -W .github/workflows/ci.yml `
-  -e .act/pull_request.json `
+bash ci/run-act-pr.sh `
   --env HTTP_PROXY=http://host.docker.internal:7890 `
   --env HTTPS_PROXY=http://host.docker.internal:7890 `
   --env NO_PROXY=localhost,127.0.0.1,::1,host.docker.internal

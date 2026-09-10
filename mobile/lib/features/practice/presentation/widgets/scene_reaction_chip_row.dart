@@ -66,6 +66,7 @@ class SceneReactionChipRow extends StatelessWidget {
     required this.enabled,
     required this.onSelected,
     this.selectedType,
+    this.reactionKeyBuilder,
   });
 
   final String phraseId;
@@ -75,6 +76,7 @@ class SceneReactionChipRow extends StatelessWidget {
 
   /// When non-null, this chip shows a checkmark and is semantically selected.
   final BabyReactionType? selectedType;
+  final Key Function(BabyReactionType type)? reactionKeyBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +89,9 @@ class SceneReactionChipRow extends StatelessWidget {
       children: [
         for (final option in options)
           _ReactionChip(
-            key: Key('reaction-$phraseId-${option.type.wireValue}'),
+            key:
+                reactionKeyBuilder?.call(option.type) ??
+                Key('reaction-$phraseId-${option.type.wireValue}'),
             option: option,
             enabled: enabled,
             isSelected: selectedType == option.type,
@@ -134,6 +138,7 @@ class _ReactionChip extends StatelessWidget {
       excludeSemantics: true,
       selected: isSelected,
       label: option.label,
+      hint: option.description,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

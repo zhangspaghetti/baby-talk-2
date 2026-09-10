@@ -12,7 +12,8 @@ part of '../../../../../features/practice/domain/models/garden_growth_snapshot.d
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
+  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
+);
 
 /// @nodoc
 mixin _$GardenFlowerSnapshot {
@@ -36,28 +37,32 @@ mixin _$GardenFlowerSnapshot {
 
 /// @nodoc
 abstract class $GardenFlowerSnapshotCopyWith<$Res> {
-  factory $GardenFlowerSnapshotCopyWith(GardenFlowerSnapshot value,
-          $Res Function(GardenFlowerSnapshot) then) =
-      _$GardenFlowerSnapshotCopyWithImpl<$Res, GardenFlowerSnapshot>;
+  factory $GardenFlowerSnapshotCopyWith(
+    GardenFlowerSnapshot value,
+    $Res Function(GardenFlowerSnapshot) then,
+  ) = _$GardenFlowerSnapshotCopyWithImpl<$Res, GardenFlowerSnapshot>;
   @useResult
-  $Res call(
-      {String spaceId,
-      String activityId,
-      String title,
-      String sceneTag,
-      String summary,
-      GardenFlowerStage stage,
-      int totalEvents,
-      int completedPhraseCount,
-      int totalPhraseCount,
-      List<String> completedPhraseIds,
-      String careNote,
-      DateTime? lastPracticedAt});
+  $Res call({
+    String spaceId,
+    String activityId,
+    String title,
+    String sceneTag,
+    String summary,
+    GardenFlowerStage stage,
+    int totalEvents,
+    int completedPhraseCount,
+    int totalPhraseCount,
+    List<String> completedPhraseIds,
+    String careNote,
+    DateTime? lastPracticedAt,
+  });
 }
 
 /// @nodoc
-class _$GardenFlowerSnapshotCopyWithImpl<$Res,
-        $Val extends GardenFlowerSnapshot>
+class _$GardenFlowerSnapshotCopyWithImpl<
+  $Res,
+  $Val extends GardenFlowerSnapshot
+>
     implements $GardenFlowerSnapshotCopyWith<$Res> {
   _$GardenFlowerSnapshotCopyWithImpl(this._value, this._then);
 
@@ -82,89 +87,95 @@ class _$GardenFlowerSnapshotCopyWithImpl<$Res,
     Object? careNote = null,
     Object? lastPracticedAt = freezed,
   }) {
-    return _then(_value.copyWith(
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      sceneTag: null == sceneTag
-          ? _value.sceneTag
-          : sceneTag // ignore: cast_nullable_to_non_nullable
-              as String,
-      summary: null == summary
-          ? _value.summary
-          : summary // ignore: cast_nullable_to_non_nullable
-              as String,
-      stage: null == stage
-          ? _value.stage
-          : stage // ignore: cast_nullable_to_non_nullable
-              as GardenFlowerStage,
-      totalEvents: null == totalEvents
-          ? _value.totalEvents
-          : totalEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      completedPhraseCount: null == completedPhraseCount
-          ? _value.completedPhraseCount
-          : completedPhraseCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      totalPhraseCount: null == totalPhraseCount
-          ? _value.totalPhraseCount
-          : totalPhraseCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      completedPhraseIds: null == completedPhraseIds
-          ? _value.completedPhraseIds
-          : completedPhraseIds // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      careNote: null == careNote
-          ? _value.careNote
-          : careNote // ignore: cast_nullable_to_non_nullable
-              as String,
-      lastPracticedAt: freezed == lastPracticedAt
-          ? _value.lastPracticedAt
-          : lastPracticedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            spaceId: null == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityId: null == activityId
+                ? _value.activityId
+                : activityId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            title: null == title
+                ? _value.title
+                : title // ignore: cast_nullable_to_non_nullable
+                      as String,
+            sceneTag: null == sceneTag
+                ? _value.sceneTag
+                : sceneTag // ignore: cast_nullable_to_non_nullable
+                      as String,
+            summary: null == summary
+                ? _value.summary
+                : summary // ignore: cast_nullable_to_non_nullable
+                      as String,
+            stage: null == stage
+                ? _value.stage
+                : stage // ignore: cast_nullable_to_non_nullable
+                      as GardenFlowerStage,
+            totalEvents: null == totalEvents
+                ? _value.totalEvents
+                : totalEvents // ignore: cast_nullable_to_non_nullable
+                      as int,
+            completedPhraseCount: null == completedPhraseCount
+                ? _value.completedPhraseCount
+                : completedPhraseCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            totalPhraseCount: null == totalPhraseCount
+                ? _value.totalPhraseCount
+                : totalPhraseCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            completedPhraseIds: null == completedPhraseIds
+                ? _value.completedPhraseIds
+                : completedPhraseIds // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            careNote: null == careNote
+                ? _value.careNote
+                : careNote // ignore: cast_nullable_to_non_nullable
+                      as String,
+            lastPracticedAt: freezed == lastPracticedAt
+                ? _value.lastPracticedAt
+                : lastPracticedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$GardenFlowerSnapshotImplCopyWith<$Res>
     implements $GardenFlowerSnapshotCopyWith<$Res> {
-  factory _$$GardenFlowerSnapshotImplCopyWith(_$GardenFlowerSnapshotImpl value,
-          $Res Function(_$GardenFlowerSnapshotImpl) then) =
-      __$$GardenFlowerSnapshotImplCopyWithImpl<$Res>;
+  factory _$$GardenFlowerSnapshotImplCopyWith(
+    _$GardenFlowerSnapshotImpl value,
+    $Res Function(_$GardenFlowerSnapshotImpl) then,
+  ) = __$$GardenFlowerSnapshotImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String spaceId,
-      String activityId,
-      String title,
-      String sceneTag,
-      String summary,
-      GardenFlowerStage stage,
-      int totalEvents,
-      int completedPhraseCount,
-      int totalPhraseCount,
-      List<String> completedPhraseIds,
-      String careNote,
-      DateTime? lastPracticedAt});
+  $Res call({
+    String spaceId,
+    String activityId,
+    String title,
+    String sceneTag,
+    String summary,
+    GardenFlowerStage stage,
+    int totalEvents,
+    int completedPhraseCount,
+    int totalPhraseCount,
+    List<String> completedPhraseIds,
+    String careNote,
+    DateTime? lastPracticedAt,
+  });
 }
 
 /// @nodoc
 class __$$GardenFlowerSnapshotImplCopyWithImpl<$Res>
     extends _$GardenFlowerSnapshotCopyWithImpl<$Res, _$GardenFlowerSnapshotImpl>
     implements _$$GardenFlowerSnapshotImplCopyWith<$Res> {
-  __$$GardenFlowerSnapshotImplCopyWithImpl(_$GardenFlowerSnapshotImpl _value,
-      $Res Function(_$GardenFlowerSnapshotImpl) _then)
-      : super(_value, _then);
+  __$$GardenFlowerSnapshotImplCopyWithImpl(
+    _$GardenFlowerSnapshotImpl _value,
+    $Res Function(_$GardenFlowerSnapshotImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -182,77 +193,79 @@ class __$$GardenFlowerSnapshotImplCopyWithImpl<$Res>
     Object? careNote = null,
     Object? lastPracticedAt = freezed,
   }) {
-    return _then(_$GardenFlowerSnapshotImpl(
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      sceneTag: null == sceneTag
-          ? _value.sceneTag
-          : sceneTag // ignore: cast_nullable_to_non_nullable
-              as String,
-      summary: null == summary
-          ? _value.summary
-          : summary // ignore: cast_nullable_to_non_nullable
-              as String,
-      stage: null == stage
-          ? _value.stage
-          : stage // ignore: cast_nullable_to_non_nullable
-              as GardenFlowerStage,
-      totalEvents: null == totalEvents
-          ? _value.totalEvents
-          : totalEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      completedPhraseCount: null == completedPhraseCount
-          ? _value.completedPhraseCount
-          : completedPhraseCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      totalPhraseCount: null == totalPhraseCount
-          ? _value.totalPhraseCount
-          : totalPhraseCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      completedPhraseIds: null == completedPhraseIds
-          ? _value._completedPhraseIds
-          : completedPhraseIds // ignore: cast_nullable_to_non_nullable
-              as List<String>,
-      careNote: null == careNote
-          ? _value.careNote
-          : careNote // ignore: cast_nullable_to_non_nullable
-              as String,
-      lastPracticedAt: freezed == lastPracticedAt
-          ? _value.lastPracticedAt
-          : lastPracticedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ));
+    return _then(
+      _$GardenFlowerSnapshotImpl(
+        spaceId: null == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityId: null == activityId
+            ? _value.activityId
+            : activityId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _value.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sceneTag: null == sceneTag
+            ? _value.sceneTag
+            : sceneTag // ignore: cast_nullable_to_non_nullable
+                  as String,
+        summary: null == summary
+            ? _value.summary
+            : summary // ignore: cast_nullable_to_non_nullable
+                  as String,
+        stage: null == stage
+            ? _value.stage
+            : stage // ignore: cast_nullable_to_non_nullable
+                  as GardenFlowerStage,
+        totalEvents: null == totalEvents
+            ? _value.totalEvents
+            : totalEvents // ignore: cast_nullable_to_non_nullable
+                  as int,
+        completedPhraseCount: null == completedPhraseCount
+            ? _value.completedPhraseCount
+            : completedPhraseCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        totalPhraseCount: null == totalPhraseCount
+            ? _value.totalPhraseCount
+            : totalPhraseCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        completedPhraseIds: null == completedPhraseIds
+            ? _value._completedPhraseIds
+            : completedPhraseIds // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+        careNote: null == careNote
+            ? _value.careNote
+            : careNote // ignore: cast_nullable_to_non_nullable
+                  as String,
+        lastPracticedAt: freezed == lastPracticedAt
+            ? _value.lastPracticedAt
+            : lastPracticedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$GardenFlowerSnapshotImpl extends _GardenFlowerSnapshot {
-  const _$GardenFlowerSnapshotImpl(
-      {required this.spaceId,
-      required this.activityId,
-      required this.title,
-      required this.sceneTag,
-      required this.summary,
-      required this.stage,
-      required this.totalEvents,
-      required this.completedPhraseCount,
-      required this.totalPhraseCount,
-      required final List<String> completedPhraseIds,
-      required this.careNote,
-      this.lastPracticedAt})
-      : _completedPhraseIds = completedPhraseIds,
-        super._();
+  const _$GardenFlowerSnapshotImpl({
+    required this.spaceId,
+    required this.activityId,
+    required this.title,
+    required this.sceneTag,
+    required this.summary,
+    required this.stage,
+    required this.totalEvents,
+    required this.completedPhraseCount,
+    required this.totalPhraseCount,
+    required final List<String> completedPhraseIds,
+    required this.careNote,
+    this.lastPracticedAt,
+  }) : _completedPhraseIds = completedPhraseIds,
+       super._();
 
   @override
   final String spaceId;
@@ -310,8 +323,10 @@ class _$GardenFlowerSnapshotImpl extends _GardenFlowerSnapshot {
                 other.completedPhraseCount == completedPhraseCount) &&
             (identical(other.totalPhraseCount, totalPhraseCount) ||
                 other.totalPhraseCount == totalPhraseCount) &&
-            const DeepCollectionEquality()
-                .equals(other._completedPhraseIds, _completedPhraseIds) &&
+            const DeepCollectionEquality().equals(
+              other._completedPhraseIds,
+              _completedPhraseIds,
+            ) &&
             (identical(other.careNote, careNote) ||
                 other.careNote == careNote) &&
             (identical(other.lastPracticedAt, lastPracticedAt) ||
@@ -320,43 +335,47 @@ class _$GardenFlowerSnapshotImpl extends _GardenFlowerSnapshot {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      spaceId,
-      activityId,
-      title,
-      sceneTag,
-      summary,
-      stage,
-      totalEvents,
-      completedPhraseCount,
-      totalPhraseCount,
-      const DeepCollectionEquality().hash(_completedPhraseIds),
-      careNote,
-      lastPracticedAt);
+    runtimeType,
+    spaceId,
+    activityId,
+    title,
+    sceneTag,
+    summary,
+    stage,
+    totalEvents,
+    completedPhraseCount,
+    totalPhraseCount,
+    const DeepCollectionEquality().hash(_completedPhraseIds),
+    careNote,
+    lastPracticedAt,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$GardenFlowerSnapshotImplCopyWith<_$GardenFlowerSnapshotImpl>
-      get copyWith =>
-          __$$GardenFlowerSnapshotImplCopyWithImpl<_$GardenFlowerSnapshotImpl>(
-              this, _$identity);
+  get copyWith =>
+      __$$GardenFlowerSnapshotImplCopyWithImpl<_$GardenFlowerSnapshotImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class _GardenFlowerSnapshot extends GardenFlowerSnapshot {
-  const factory _GardenFlowerSnapshot(
-      {required final String spaceId,
-      required final String activityId,
-      required final String title,
-      required final String sceneTag,
-      required final String summary,
-      required final GardenFlowerStage stage,
-      required final int totalEvents,
-      required final int completedPhraseCount,
-      required final int totalPhraseCount,
-      required final List<String> completedPhraseIds,
-      required final String careNote,
-      final DateTime? lastPracticedAt}) = _$GardenFlowerSnapshotImpl;
+  const factory _GardenFlowerSnapshot({
+    required final String spaceId,
+    required final String activityId,
+    required final String title,
+    required final String sceneTag,
+    required final String summary,
+    required final GardenFlowerStage stage,
+    required final int totalEvents,
+    required final int completedPhraseCount,
+    required final int totalPhraseCount,
+    required final List<String> completedPhraseIds,
+    required final String careNote,
+    final DateTime? lastPracticedAt,
+  }) = _$GardenFlowerSnapshotImpl;
   const _GardenFlowerSnapshot._() : super._();
 
   @override
@@ -386,7 +405,7 @@ abstract class _GardenFlowerSnapshot extends GardenFlowerSnapshot {
   @override
   @JsonKey(ignore: true)
   _$$GardenFlowerSnapshotImplCopyWith<_$GardenFlowerSnapshotImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -412,21 +431,23 @@ mixin _$GardenPatchSnapshot {
 /// @nodoc
 abstract class $GardenPatchSnapshotCopyWith<$Res> {
   factory $GardenPatchSnapshotCopyWith(
-          GardenPatchSnapshot value, $Res Function(GardenPatchSnapshot) then) =
-      _$GardenPatchSnapshotCopyWithImpl<$Res, GardenPatchSnapshot>;
+    GardenPatchSnapshot value,
+    $Res Function(GardenPatchSnapshot) then,
+  ) = _$GardenPatchSnapshotCopyWithImpl<$Res, GardenPatchSnapshot>;
   @useResult
-  $Res call(
-      {String spaceId,
-      String title,
-      String description,
-      GardenPatchStage stage,
-      int totalKnownEvents,
-      int startedActivityCount,
-      int completedActivityCount,
-      int totalActivityCount,
-      List<GardenFlowerSnapshot> activities,
-      String careNote,
-      DateTime? lastPracticedAt});
+  $Res call({
+    String spaceId,
+    String title,
+    String description,
+    GardenPatchStage stage,
+    int totalKnownEvents,
+    int startedActivityCount,
+    int completedActivityCount,
+    int totalActivityCount,
+    List<GardenFlowerSnapshot> activities,
+    String careNote,
+    DateTime? lastPracticedAt,
+  });
 }
 
 /// @nodoc
@@ -454,84 +475,90 @@ class _$GardenPatchSnapshotCopyWithImpl<$Res, $Val extends GardenPatchSnapshot>
     Object? careNote = null,
     Object? lastPracticedAt = freezed,
   }) {
-    return _then(_value.copyWith(
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      description: null == description
-          ? _value.description
-          : description // ignore: cast_nullable_to_non_nullable
-              as String,
-      stage: null == stage
-          ? _value.stage
-          : stage // ignore: cast_nullable_to_non_nullable
-              as GardenPatchStage,
-      totalKnownEvents: null == totalKnownEvents
-          ? _value.totalKnownEvents
-          : totalKnownEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      startedActivityCount: null == startedActivityCount
-          ? _value.startedActivityCount
-          : startedActivityCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      completedActivityCount: null == completedActivityCount
-          ? _value.completedActivityCount
-          : completedActivityCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      totalActivityCount: null == totalActivityCount
-          ? _value.totalActivityCount
-          : totalActivityCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      activities: null == activities
-          ? _value.activities
-          : activities // ignore: cast_nullable_to_non_nullable
-              as List<GardenFlowerSnapshot>,
-      careNote: null == careNote
-          ? _value.careNote
-          : careNote // ignore: cast_nullable_to_non_nullable
-              as String,
-      lastPracticedAt: freezed == lastPracticedAt
-          ? _value.lastPracticedAt
-          : lastPracticedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            spaceId: null == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            title: null == title
+                ? _value.title
+                : title // ignore: cast_nullable_to_non_nullable
+                      as String,
+            description: null == description
+                ? _value.description
+                : description // ignore: cast_nullable_to_non_nullable
+                      as String,
+            stage: null == stage
+                ? _value.stage
+                : stage // ignore: cast_nullable_to_non_nullable
+                      as GardenPatchStage,
+            totalKnownEvents: null == totalKnownEvents
+                ? _value.totalKnownEvents
+                : totalKnownEvents // ignore: cast_nullable_to_non_nullable
+                      as int,
+            startedActivityCount: null == startedActivityCount
+                ? _value.startedActivityCount
+                : startedActivityCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            completedActivityCount: null == completedActivityCount
+                ? _value.completedActivityCount
+                : completedActivityCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            totalActivityCount: null == totalActivityCount
+                ? _value.totalActivityCount
+                : totalActivityCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            activities: null == activities
+                ? _value.activities
+                : activities // ignore: cast_nullable_to_non_nullable
+                      as List<GardenFlowerSnapshot>,
+            careNote: null == careNote
+                ? _value.careNote
+                : careNote // ignore: cast_nullable_to_non_nullable
+                      as String,
+            lastPracticedAt: freezed == lastPracticedAt
+                ? _value.lastPracticedAt
+                : lastPracticedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$GardenPatchSnapshotImplCopyWith<$Res>
     implements $GardenPatchSnapshotCopyWith<$Res> {
-  factory _$$GardenPatchSnapshotImplCopyWith(_$GardenPatchSnapshotImpl value,
-          $Res Function(_$GardenPatchSnapshotImpl) then) =
-      __$$GardenPatchSnapshotImplCopyWithImpl<$Res>;
+  factory _$$GardenPatchSnapshotImplCopyWith(
+    _$GardenPatchSnapshotImpl value,
+    $Res Function(_$GardenPatchSnapshotImpl) then,
+  ) = __$$GardenPatchSnapshotImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String spaceId,
-      String title,
-      String description,
-      GardenPatchStage stage,
-      int totalKnownEvents,
-      int startedActivityCount,
-      int completedActivityCount,
-      int totalActivityCount,
-      List<GardenFlowerSnapshot> activities,
-      String careNote,
-      DateTime? lastPracticedAt});
+  $Res call({
+    String spaceId,
+    String title,
+    String description,
+    GardenPatchStage stage,
+    int totalKnownEvents,
+    int startedActivityCount,
+    int completedActivityCount,
+    int totalActivityCount,
+    List<GardenFlowerSnapshot> activities,
+    String careNote,
+    DateTime? lastPracticedAt,
+  });
 }
 
 /// @nodoc
 class __$$GardenPatchSnapshotImplCopyWithImpl<$Res>
     extends _$GardenPatchSnapshotCopyWithImpl<$Res, _$GardenPatchSnapshotImpl>
     implements _$$GardenPatchSnapshotImplCopyWith<$Res> {
-  __$$GardenPatchSnapshotImplCopyWithImpl(_$GardenPatchSnapshotImpl _value,
-      $Res Function(_$GardenPatchSnapshotImpl) _then)
-      : super(_value, _then);
+  __$$GardenPatchSnapshotImplCopyWithImpl(
+    _$GardenPatchSnapshotImpl _value,
+    $Res Function(_$GardenPatchSnapshotImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -548,72 +575,74 @@ class __$$GardenPatchSnapshotImplCopyWithImpl<$Res>
     Object? careNote = null,
     Object? lastPracticedAt = freezed,
   }) {
-    return _then(_$GardenPatchSnapshotImpl(
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      description: null == description
-          ? _value.description
-          : description // ignore: cast_nullable_to_non_nullable
-              as String,
-      stage: null == stage
-          ? _value.stage
-          : stage // ignore: cast_nullable_to_non_nullable
-              as GardenPatchStage,
-      totalKnownEvents: null == totalKnownEvents
-          ? _value.totalKnownEvents
-          : totalKnownEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      startedActivityCount: null == startedActivityCount
-          ? _value.startedActivityCount
-          : startedActivityCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      completedActivityCount: null == completedActivityCount
-          ? _value.completedActivityCount
-          : completedActivityCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      totalActivityCount: null == totalActivityCount
-          ? _value.totalActivityCount
-          : totalActivityCount // ignore: cast_nullable_to_non_nullable
-              as int,
-      activities: null == activities
-          ? _value._activities
-          : activities // ignore: cast_nullable_to_non_nullable
-              as List<GardenFlowerSnapshot>,
-      careNote: null == careNote
-          ? _value.careNote
-          : careNote // ignore: cast_nullable_to_non_nullable
-              as String,
-      lastPracticedAt: freezed == lastPracticedAt
-          ? _value.lastPracticedAt
-          : lastPracticedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-    ));
+    return _then(
+      _$GardenPatchSnapshotImpl(
+        spaceId: null == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _value.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        description: null == description
+            ? _value.description
+            : description // ignore: cast_nullable_to_non_nullable
+                  as String,
+        stage: null == stage
+            ? _value.stage
+            : stage // ignore: cast_nullable_to_non_nullable
+                  as GardenPatchStage,
+        totalKnownEvents: null == totalKnownEvents
+            ? _value.totalKnownEvents
+            : totalKnownEvents // ignore: cast_nullable_to_non_nullable
+                  as int,
+        startedActivityCount: null == startedActivityCount
+            ? _value.startedActivityCount
+            : startedActivityCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        completedActivityCount: null == completedActivityCount
+            ? _value.completedActivityCount
+            : completedActivityCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        totalActivityCount: null == totalActivityCount
+            ? _value.totalActivityCount
+            : totalActivityCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        activities: null == activities
+            ? _value._activities
+            : activities // ignore: cast_nullable_to_non_nullable
+                  as List<GardenFlowerSnapshot>,
+        careNote: null == careNote
+            ? _value.careNote
+            : careNote // ignore: cast_nullable_to_non_nullable
+                  as String,
+        lastPracticedAt: freezed == lastPracticedAt
+            ? _value.lastPracticedAt
+            : lastPracticedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$GardenPatchSnapshotImpl extends _GardenPatchSnapshot {
-  const _$GardenPatchSnapshotImpl(
-      {required this.spaceId,
-      required this.title,
-      required this.description,
-      required this.stage,
-      required this.totalKnownEvents,
-      required this.startedActivityCount,
-      required this.completedActivityCount,
-      required this.totalActivityCount,
-      required final List<GardenFlowerSnapshot> activities,
-      required this.careNote,
-      this.lastPracticedAt})
-      : _activities = activities,
-        super._();
+  const _$GardenPatchSnapshotImpl({
+    required this.spaceId,
+    required this.title,
+    required this.description,
+    required this.stage,
+    required this.totalKnownEvents,
+    required this.startedActivityCount,
+    required this.completedActivityCount,
+    required this.totalActivityCount,
+    required final List<GardenFlowerSnapshot> activities,
+    required this.careNote,
+    this.lastPracticedAt,
+  }) : _activities = activities,
+       super._();
 
   @override
   final String spaceId;
@@ -667,8 +696,10 @@ class _$GardenPatchSnapshotImpl extends _GardenPatchSnapshot {
                 other.completedActivityCount == completedActivityCount) &&
             (identical(other.totalActivityCount, totalActivityCount) ||
                 other.totalActivityCount == totalActivityCount) &&
-            const DeepCollectionEquality()
-                .equals(other._activities, _activities) &&
+            const DeepCollectionEquality().equals(
+              other._activities,
+              _activities,
+            ) &&
             (identical(other.careNote, careNote) ||
                 other.careNote == careNote) &&
             (identical(other.lastPracticedAt, lastPracticedAt) ||
@@ -677,40 +708,44 @@ class _$GardenPatchSnapshotImpl extends _GardenPatchSnapshot {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      spaceId,
-      title,
-      description,
-      stage,
-      totalKnownEvents,
-      startedActivityCount,
-      completedActivityCount,
-      totalActivityCount,
-      const DeepCollectionEquality().hash(_activities),
-      careNote,
-      lastPracticedAt);
+    runtimeType,
+    spaceId,
+    title,
+    description,
+    stage,
+    totalKnownEvents,
+    startedActivityCount,
+    completedActivityCount,
+    totalActivityCount,
+    const DeepCollectionEquality().hash(_activities),
+    careNote,
+    lastPracticedAt,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$GardenPatchSnapshotImplCopyWith<_$GardenPatchSnapshotImpl> get copyWith =>
       __$$GardenPatchSnapshotImplCopyWithImpl<_$GardenPatchSnapshotImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _GardenPatchSnapshot extends GardenPatchSnapshot {
-  const factory _GardenPatchSnapshot(
-      {required final String spaceId,
-      required final String title,
-      required final String description,
-      required final GardenPatchStage stage,
-      required final int totalKnownEvents,
-      required final int startedActivityCount,
-      required final int completedActivityCount,
-      required final int totalActivityCount,
-      required final List<GardenFlowerSnapshot> activities,
-      required final String careNote,
-      final DateTime? lastPracticedAt}) = _$GardenPatchSnapshotImpl;
+  const factory _GardenPatchSnapshot({
+    required final String spaceId,
+    required final String title,
+    required final String description,
+    required final GardenPatchStage stage,
+    required final int totalKnownEvents,
+    required final int startedActivityCount,
+    required final int completedActivityCount,
+    required final int totalActivityCount,
+    required final List<GardenFlowerSnapshot> activities,
+    required final String careNote,
+    final DateTime? lastPracticedAt,
+  }) = _$GardenPatchSnapshotImpl;
   const _GardenPatchSnapshot._() : super._();
 
   @override
@@ -759,17 +794,19 @@ mixin _$GrowthDiaryEntry {
 /// @nodoc
 abstract class $GrowthDiaryEntryCopyWith<$Res> {
   factory $GrowthDiaryEntryCopyWith(
-          GrowthDiaryEntry value, $Res Function(GrowthDiaryEntry) then) =
-      _$GrowthDiaryEntryCopyWithImpl<$Res, GrowthDiaryEntry>;
+    GrowthDiaryEntry value,
+    $Res Function(GrowthDiaryEntry) then,
+  ) = _$GrowthDiaryEntryCopyWithImpl<$Res, GrowthDiaryEntry>;
   @useResult
-  $Res call(
-      {String entryId,
-      GrowthDiaryEntryKind kind,
-      DateTime occurredAt,
-      String title,
-      String body,
-      String spaceId,
-      String activityId});
+  $Res call({
+    String entryId,
+    GrowthDiaryEntryKind kind,
+    DateTime occurredAt,
+    String title,
+    String body,
+    String spaceId,
+    String activityId,
+  });
 }
 
 /// @nodoc
@@ -793,64 +830,70 @@ class _$GrowthDiaryEntryCopyWithImpl<$Res, $Val extends GrowthDiaryEntry>
     Object? spaceId = null,
     Object? activityId = null,
   }) {
-    return _then(_value.copyWith(
-      entryId: null == entryId
-          ? _value.entryId
-          : entryId // ignore: cast_nullable_to_non_nullable
-              as String,
-      kind: null == kind
-          ? _value.kind
-          : kind // ignore: cast_nullable_to_non_nullable
-              as GrowthDiaryEntryKind,
-      occurredAt: null == occurredAt
-          ? _value.occurredAt
-          : occurredAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      body: null == body
-          ? _value.body
-          : body // ignore: cast_nullable_to_non_nullable
-              as String,
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            entryId: null == entryId
+                ? _value.entryId
+                : entryId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            kind: null == kind
+                ? _value.kind
+                : kind // ignore: cast_nullable_to_non_nullable
+                      as GrowthDiaryEntryKind,
+            occurredAt: null == occurredAt
+                ? _value.occurredAt
+                : occurredAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            title: null == title
+                ? _value.title
+                : title // ignore: cast_nullable_to_non_nullable
+                      as String,
+            body: null == body
+                ? _value.body
+                : body // ignore: cast_nullable_to_non_nullable
+                      as String,
+            spaceId: null == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityId: null == activityId
+                ? _value.activityId
+                : activityId // ignore: cast_nullable_to_non_nullable
+                      as String,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$GrowthDiaryEntryImplCopyWith<$Res>
     implements $GrowthDiaryEntryCopyWith<$Res> {
-  factory _$$GrowthDiaryEntryImplCopyWith(_$GrowthDiaryEntryImpl value,
-          $Res Function(_$GrowthDiaryEntryImpl) then) =
-      __$$GrowthDiaryEntryImplCopyWithImpl<$Res>;
+  factory _$$GrowthDiaryEntryImplCopyWith(
+    _$GrowthDiaryEntryImpl value,
+    $Res Function(_$GrowthDiaryEntryImpl) then,
+  ) = __$$GrowthDiaryEntryImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String entryId,
-      GrowthDiaryEntryKind kind,
-      DateTime occurredAt,
-      String title,
-      String body,
-      String spaceId,
-      String activityId});
+  $Res call({
+    String entryId,
+    GrowthDiaryEntryKind kind,
+    DateTime occurredAt,
+    String title,
+    String body,
+    String spaceId,
+    String activityId,
+  });
 }
 
 /// @nodoc
 class __$$GrowthDiaryEntryImplCopyWithImpl<$Res>
     extends _$GrowthDiaryEntryCopyWithImpl<$Res, _$GrowthDiaryEntryImpl>
     implements _$$GrowthDiaryEntryImplCopyWith<$Res> {
-  __$$GrowthDiaryEntryImplCopyWithImpl(_$GrowthDiaryEntryImpl _value,
-      $Res Function(_$GrowthDiaryEntryImpl) _then)
-      : super(_value, _then);
+  __$$GrowthDiaryEntryImplCopyWithImpl(
+    _$GrowthDiaryEntryImpl _value,
+    $Res Function(_$GrowthDiaryEntryImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -863,50 +906,53 @@ class __$$GrowthDiaryEntryImplCopyWithImpl<$Res>
     Object? spaceId = null,
     Object? activityId = null,
   }) {
-    return _then(_$GrowthDiaryEntryImpl(
-      entryId: null == entryId
-          ? _value.entryId
-          : entryId // ignore: cast_nullable_to_non_nullable
-              as String,
-      kind: null == kind
-          ? _value.kind
-          : kind // ignore: cast_nullable_to_non_nullable
-              as GrowthDiaryEntryKind,
-      occurredAt: null == occurredAt
-          ? _value.occurredAt
-          : occurredAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      body: null == body
-          ? _value.body
-          : body // ignore: cast_nullable_to_non_nullable
-              as String,
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      _$GrowthDiaryEntryImpl(
+        entryId: null == entryId
+            ? _value.entryId
+            : entryId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        kind: null == kind
+            ? _value.kind
+            : kind // ignore: cast_nullable_to_non_nullable
+                  as GrowthDiaryEntryKind,
+        occurredAt: null == occurredAt
+            ? _value.occurredAt
+            : occurredAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        title: null == title
+            ? _value.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        body: null == body
+            ? _value.body
+            : body // ignore: cast_nullable_to_non_nullable
+                  as String,
+        spaceId: null == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityId: null == activityId
+            ? _value.activityId
+            : activityId // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$GrowthDiaryEntryImpl implements _GrowthDiaryEntry {
-  const _$GrowthDiaryEntryImpl(
-      {required this.entryId,
-      required this.kind,
-      required this.occurredAt,
-      required this.title,
-      required this.body,
-      required this.spaceId,
-      required this.activityId});
+  const _$GrowthDiaryEntryImpl({
+    required this.entryId,
+    required this.kind,
+    required this.occurredAt,
+    required this.title,
+    required this.body,
+    required this.spaceId,
+    required this.activityId,
+  });
 
   @override
   final String entryId;
@@ -946,25 +992,36 @@ class _$GrowthDiaryEntryImpl implements _GrowthDiaryEntry {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType, entryId, kind, occurredAt, title, body, spaceId, activityId);
+    runtimeType,
+    entryId,
+    kind,
+    occurredAt,
+    title,
+    body,
+    spaceId,
+    activityId,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$GrowthDiaryEntryImplCopyWith<_$GrowthDiaryEntryImpl> get copyWith =>
       __$$GrowthDiaryEntryImplCopyWithImpl<_$GrowthDiaryEntryImpl>(
-          this, _$identity);
+        this,
+        _$identity,
+      );
 }
 
 abstract class _GrowthDiaryEntry implements GrowthDiaryEntry {
-  const factory _GrowthDiaryEntry(
-      {required final String entryId,
-      required final GrowthDiaryEntryKind kind,
-      required final DateTime occurredAt,
-      required final String title,
-      required final String body,
-      required final String spaceId,
-      required final String activityId}) = _$GrowthDiaryEntryImpl;
+  const factory _GrowthDiaryEntry({
+    required final String entryId,
+    required final GrowthDiaryEntryKind kind,
+    required final DateTime occurredAt,
+    required final String title,
+    required final String body,
+    required final String spaceId,
+    required final String activityId,
+  }) = _$GrowthDiaryEntryImpl;
 
   @override
   String get entryId;
@@ -1002,22 +1059,26 @@ mixin _$GrowthMilestoneSnapshot {
 
 /// @nodoc
 abstract class $GrowthMilestoneSnapshotCopyWith<$Res> {
-  factory $GrowthMilestoneSnapshotCopyWith(GrowthMilestoneSnapshot value,
-          $Res Function(GrowthMilestoneSnapshot) then) =
-      _$GrowthMilestoneSnapshotCopyWithImpl<$Res, GrowthMilestoneSnapshot>;
+  factory $GrowthMilestoneSnapshotCopyWith(
+    GrowthMilestoneSnapshot value,
+    $Res Function(GrowthMilestoneSnapshot) then,
+  ) = _$GrowthMilestoneSnapshotCopyWithImpl<$Res, GrowthMilestoneSnapshot>;
   @useResult
-  $Res call(
-      {String id,
-      String title,
-      String body,
-      int sortOrder,
-      DateTime? achievedAt,
-      String? remainingHint});
+  $Res call({
+    String id,
+    String title,
+    String body,
+    int sortOrder,
+    DateTime? achievedAt,
+    String? remainingHint,
+  });
 }
 
 /// @nodoc
-class _$GrowthMilestoneSnapshotCopyWithImpl<$Res,
-        $Val extends GrowthMilestoneSnapshot>
+class _$GrowthMilestoneSnapshotCopyWithImpl<
+  $Res,
+  $Val extends GrowthMilestoneSnapshot
+>
     implements $GrowthMilestoneSnapshotCopyWith<$Res> {
   _$GrowthMilestoneSnapshotCopyWithImpl(this._value, this._then);
 
@@ -1036,32 +1097,35 @@ class _$GrowthMilestoneSnapshotCopyWithImpl<$Res,
     Object? achievedAt = freezed,
     Object? remainingHint = freezed,
   }) {
-    return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      body: null == body
-          ? _value.body
-          : body // ignore: cast_nullable_to_non_nullable
-              as String,
-      sortOrder: null == sortOrder
-          ? _value.sortOrder
-          : sortOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      achievedAt: freezed == achievedAt
-          ? _value.achievedAt
-          : achievedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      remainingHint: freezed == remainingHint
-          ? _value.remainingHint
-          : remainingHint // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            id: null == id
+                ? _value.id
+                : id // ignore: cast_nullable_to_non_nullable
+                      as String,
+            title: null == title
+                ? _value.title
+                : title // ignore: cast_nullable_to_non_nullable
+                      as String,
+            body: null == body
+                ? _value.body
+                : body // ignore: cast_nullable_to_non_nullable
+                      as String,
+            sortOrder: null == sortOrder
+                ? _value.sortOrder
+                : sortOrder // ignore: cast_nullable_to_non_nullable
+                      as int,
+            achievedAt: freezed == achievedAt
+                ? _value.achievedAt
+                : achievedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            remainingHint: freezed == remainingHint
+                ? _value.remainingHint
+                : remainingHint // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 }
 
@@ -1069,29 +1133,33 @@ class _$GrowthMilestoneSnapshotCopyWithImpl<$Res,
 abstract class _$$GrowthMilestoneSnapshotImplCopyWith<$Res>
     implements $GrowthMilestoneSnapshotCopyWith<$Res> {
   factory _$$GrowthMilestoneSnapshotImplCopyWith(
-          _$GrowthMilestoneSnapshotImpl value,
-          $Res Function(_$GrowthMilestoneSnapshotImpl) then) =
-      __$$GrowthMilestoneSnapshotImplCopyWithImpl<$Res>;
+    _$GrowthMilestoneSnapshotImpl value,
+    $Res Function(_$GrowthMilestoneSnapshotImpl) then,
+  ) = __$$GrowthMilestoneSnapshotImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String id,
-      String title,
-      String body,
-      int sortOrder,
-      DateTime? achievedAt,
-      String? remainingHint});
+  $Res call({
+    String id,
+    String title,
+    String body,
+    int sortOrder,
+    DateTime? achievedAt,
+    String? remainingHint,
+  });
 }
 
 /// @nodoc
 class __$$GrowthMilestoneSnapshotImplCopyWithImpl<$Res>
-    extends _$GrowthMilestoneSnapshotCopyWithImpl<$Res,
-        _$GrowthMilestoneSnapshotImpl>
+    extends
+        _$GrowthMilestoneSnapshotCopyWithImpl<
+          $Res,
+          _$GrowthMilestoneSnapshotImpl
+        >
     implements _$$GrowthMilestoneSnapshotImplCopyWith<$Res> {
   __$$GrowthMilestoneSnapshotImplCopyWithImpl(
-      _$GrowthMilestoneSnapshotImpl _value,
-      $Res Function(_$GrowthMilestoneSnapshotImpl) _then)
-      : super(_value, _then);
+    _$GrowthMilestoneSnapshotImpl _value,
+    $Res Function(_$GrowthMilestoneSnapshotImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -1103,46 +1171,48 @@ class __$$GrowthMilestoneSnapshotImplCopyWithImpl<$Res>
     Object? achievedAt = freezed,
     Object? remainingHint = freezed,
   }) {
-    return _then(_$GrowthMilestoneSnapshotImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as String,
-      title: null == title
-          ? _value.title
-          : title // ignore: cast_nullable_to_non_nullable
-              as String,
-      body: null == body
-          ? _value.body
-          : body // ignore: cast_nullable_to_non_nullable
-              as String,
-      sortOrder: null == sortOrder
-          ? _value.sortOrder
-          : sortOrder // ignore: cast_nullable_to_non_nullable
-              as int,
-      achievedAt: freezed == achievedAt
-          ? _value.achievedAt
-          : achievedAt // ignore: cast_nullable_to_non_nullable
-              as DateTime?,
-      remainingHint: freezed == remainingHint
-          ? _value.remainingHint
-          : remainingHint // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$GrowthMilestoneSnapshotImpl(
+        id: null == id
+            ? _value.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as String,
+        title: null == title
+            ? _value.title
+            : title // ignore: cast_nullable_to_non_nullable
+                  as String,
+        body: null == body
+            ? _value.body
+            : body // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sortOrder: null == sortOrder
+            ? _value.sortOrder
+            : sortOrder // ignore: cast_nullable_to_non_nullable
+                  as int,
+        achievedAt: freezed == achievedAt
+            ? _value.achievedAt
+            : achievedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        remainingHint: freezed == remainingHint
+            ? _value.remainingHint
+            : remainingHint // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$GrowthMilestoneSnapshotImpl extends _GrowthMilestoneSnapshot {
-  const _$GrowthMilestoneSnapshotImpl(
-      {required this.id,
-      required this.title,
-      required this.body,
-      required this.sortOrder,
-      this.achievedAt,
-      this.remainingHint})
-      : super._();
+  const _$GrowthMilestoneSnapshotImpl({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.sortOrder,
+    this.achievedAt,
+    this.remainingHint,
+  }) : super._();
 
   @override
   final String id;
@@ -1180,24 +1250,34 @@ class _$GrowthMilestoneSnapshotImpl extends _GrowthMilestoneSnapshot {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType, id, title, body, sortOrder, achievedAt, remainingHint);
+    runtimeType,
+    id,
+    title,
+    body,
+    sortOrder,
+    achievedAt,
+    remainingHint,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$GrowthMilestoneSnapshotImplCopyWith<_$GrowthMilestoneSnapshotImpl>
-      get copyWith => __$$GrowthMilestoneSnapshotImplCopyWithImpl<
-          _$GrowthMilestoneSnapshotImpl>(this, _$identity);
+  get copyWith =>
+      __$$GrowthMilestoneSnapshotImplCopyWithImpl<
+        _$GrowthMilestoneSnapshotImpl
+      >(this, _$identity);
 }
 
 abstract class _GrowthMilestoneSnapshot extends GrowthMilestoneSnapshot {
-  const factory _GrowthMilestoneSnapshot(
-      {required final String id,
-      required final String title,
-      required final String body,
-      required final int sortOrder,
-      final DateTime? achievedAt,
-      final String? remainingHint}) = _$GrowthMilestoneSnapshotImpl;
+  const factory _GrowthMilestoneSnapshot({
+    required final String id,
+    required final String title,
+    required final String body,
+    required final int sortOrder,
+    final DateTime? achievedAt,
+    final String? remainingHint,
+  }) = _$GrowthMilestoneSnapshotImpl;
   const _GrowthMilestoneSnapshot._() : super._();
 
   @override
@@ -1215,7 +1295,7 @@ abstract class _GrowthMilestoneSnapshot extends GrowthMilestoneSnapshot {
   @override
   @JsonKey(ignore: true)
   _$$GrowthMilestoneSnapshotImplCopyWith<_$GrowthMilestoneSnapshotImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -1245,31 +1325,35 @@ mixin _$LatestPracticeImpact {
 
 /// @nodoc
 abstract class $LatestPracticeImpactCopyWith<$Res> {
-  factory $LatestPracticeImpactCopyWith(LatestPracticeImpact value,
-          $Res Function(LatestPracticeImpact) then) =
-      _$LatestPracticeImpactCopyWithImpl<$Res, LatestPracticeImpact>;
+  factory $LatestPracticeImpactCopyWith(
+    LatestPracticeImpact value,
+    $Res Function(LatestPracticeImpact) then,
+  ) = _$LatestPracticeImpactCopyWithImpl<$Res, LatestPracticeImpact>;
   @useResult
-  $Res call(
-      {String eventKey,
-      DateTime occurredAt,
-      String spaceId,
-      String spaceTitle,
-      String activityId,
-      String activityTitle,
-      String phraseId,
-      String phraseTitle,
-      BabyReactionType reactionType,
-      GardenPatchStage previousPatchStage,
-      GardenPatchStage currentPatchStage,
-      GardenFlowerStage previousFlowerStage,
-      GardenFlowerStage currentFlowerStage,
-      String headline,
-      String detail});
+  $Res call({
+    String eventKey,
+    DateTime occurredAt,
+    String spaceId,
+    String spaceTitle,
+    String activityId,
+    String activityTitle,
+    String phraseId,
+    String phraseTitle,
+    BabyReactionType reactionType,
+    GardenPatchStage previousPatchStage,
+    GardenPatchStage currentPatchStage,
+    GardenFlowerStage previousFlowerStage,
+    GardenFlowerStage currentFlowerStage,
+    String headline,
+    String detail,
+  });
 }
 
 /// @nodoc
-class _$LatestPracticeImpactCopyWithImpl<$Res,
-        $Val extends LatestPracticeImpact>
+class _$LatestPracticeImpactCopyWithImpl<
+  $Res,
+  $Val extends LatestPracticeImpact
+>
     implements $LatestPracticeImpactCopyWith<$Res> {
   _$LatestPracticeImpactCopyWithImpl(this._value, this._then);
 
@@ -1297,104 +1381,110 @@ class _$LatestPracticeImpactCopyWithImpl<$Res,
     Object? headline = null,
     Object? detail = null,
   }) {
-    return _then(_value.copyWith(
-      eventKey: null == eventKey
-          ? _value.eventKey
-          : eventKey // ignore: cast_nullable_to_non_nullable
-              as String,
-      occurredAt: null == occurredAt
-          ? _value.occurredAt
-          : occurredAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      spaceTitle: null == spaceTitle
-          ? _value.spaceTitle
-          : spaceTitle // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityTitle: null == activityTitle
-          ? _value.activityTitle
-          : activityTitle // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseId: null == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseTitle: null == phraseTitle
-          ? _value.phraseTitle
-          : phraseTitle // ignore: cast_nullable_to_non_nullable
-              as String,
-      reactionType: null == reactionType
-          ? _value.reactionType
-          : reactionType // ignore: cast_nullable_to_non_nullable
-              as BabyReactionType,
-      previousPatchStage: null == previousPatchStage
-          ? _value.previousPatchStage
-          : previousPatchStage // ignore: cast_nullable_to_non_nullable
-              as GardenPatchStage,
-      currentPatchStage: null == currentPatchStage
-          ? _value.currentPatchStage
-          : currentPatchStage // ignore: cast_nullable_to_non_nullable
-              as GardenPatchStage,
-      previousFlowerStage: null == previousFlowerStage
-          ? _value.previousFlowerStage
-          : previousFlowerStage // ignore: cast_nullable_to_non_nullable
-              as GardenFlowerStage,
-      currentFlowerStage: null == currentFlowerStage
-          ? _value.currentFlowerStage
-          : currentFlowerStage // ignore: cast_nullable_to_non_nullable
-              as GardenFlowerStage,
-      headline: null == headline
-          ? _value.headline
-          : headline // ignore: cast_nullable_to_non_nullable
-              as String,
-      detail: null == detail
-          ? _value.detail
-          : detail // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            eventKey: null == eventKey
+                ? _value.eventKey
+                : eventKey // ignore: cast_nullable_to_non_nullable
+                      as String,
+            occurredAt: null == occurredAt
+                ? _value.occurredAt
+                : occurredAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime,
+            spaceId: null == spaceId
+                ? _value.spaceId
+                : spaceId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            spaceTitle: null == spaceTitle
+                ? _value.spaceTitle
+                : spaceTitle // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityId: null == activityId
+                ? _value.activityId
+                : activityId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            activityTitle: null == activityTitle
+                ? _value.activityTitle
+                : activityTitle // ignore: cast_nullable_to_non_nullable
+                      as String,
+            phraseId: null == phraseId
+                ? _value.phraseId
+                : phraseId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            phraseTitle: null == phraseTitle
+                ? _value.phraseTitle
+                : phraseTitle // ignore: cast_nullable_to_non_nullable
+                      as String,
+            reactionType: null == reactionType
+                ? _value.reactionType
+                : reactionType // ignore: cast_nullable_to_non_nullable
+                      as BabyReactionType,
+            previousPatchStage: null == previousPatchStage
+                ? _value.previousPatchStage
+                : previousPatchStage // ignore: cast_nullable_to_non_nullable
+                      as GardenPatchStage,
+            currentPatchStage: null == currentPatchStage
+                ? _value.currentPatchStage
+                : currentPatchStage // ignore: cast_nullable_to_non_nullable
+                      as GardenPatchStage,
+            previousFlowerStage: null == previousFlowerStage
+                ? _value.previousFlowerStage
+                : previousFlowerStage // ignore: cast_nullable_to_non_nullable
+                      as GardenFlowerStage,
+            currentFlowerStage: null == currentFlowerStage
+                ? _value.currentFlowerStage
+                : currentFlowerStage // ignore: cast_nullable_to_non_nullable
+                      as GardenFlowerStage,
+            headline: null == headline
+                ? _value.headline
+                : headline // ignore: cast_nullable_to_non_nullable
+                      as String,
+            detail: null == detail
+                ? _value.detail
+                : detail // ignore: cast_nullable_to_non_nullable
+                      as String,
+          )
+          as $Val,
+    );
   }
 }
 
 /// @nodoc
 abstract class _$$LatestPracticeImpactImplCopyWith<$Res>
     implements $LatestPracticeImpactCopyWith<$Res> {
-  factory _$$LatestPracticeImpactImplCopyWith(_$LatestPracticeImpactImpl value,
-          $Res Function(_$LatestPracticeImpactImpl) then) =
-      __$$LatestPracticeImpactImplCopyWithImpl<$Res>;
+  factory _$$LatestPracticeImpactImplCopyWith(
+    _$LatestPracticeImpactImpl value,
+    $Res Function(_$LatestPracticeImpactImpl) then,
+  ) = __$$LatestPracticeImpactImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String eventKey,
-      DateTime occurredAt,
-      String spaceId,
-      String spaceTitle,
-      String activityId,
-      String activityTitle,
-      String phraseId,
-      String phraseTitle,
-      BabyReactionType reactionType,
-      GardenPatchStage previousPatchStage,
-      GardenPatchStage currentPatchStage,
-      GardenFlowerStage previousFlowerStage,
-      GardenFlowerStage currentFlowerStage,
-      String headline,
-      String detail});
+  $Res call({
+    String eventKey,
+    DateTime occurredAt,
+    String spaceId,
+    String spaceTitle,
+    String activityId,
+    String activityTitle,
+    String phraseId,
+    String phraseTitle,
+    BabyReactionType reactionType,
+    GardenPatchStage previousPatchStage,
+    GardenPatchStage currentPatchStage,
+    GardenFlowerStage previousFlowerStage,
+    GardenFlowerStage currentFlowerStage,
+    String headline,
+    String detail,
+  });
 }
 
 /// @nodoc
 class __$$LatestPracticeImpactImplCopyWithImpl<$Res>
     extends _$LatestPracticeImpactCopyWithImpl<$Res, _$LatestPracticeImpactImpl>
     implements _$$LatestPracticeImpactImplCopyWith<$Res> {
-  __$$LatestPracticeImpactImplCopyWithImpl(_$LatestPracticeImpactImpl _value,
-      $Res Function(_$LatestPracticeImpactImpl) _then)
-      : super(_value, _then);
+  __$$LatestPracticeImpactImplCopyWithImpl(
+    _$LatestPracticeImpactImpl _value,
+    $Res Function(_$LatestPracticeImpactImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -1415,91 +1505,93 @@ class __$$LatestPracticeImpactImplCopyWithImpl<$Res>
     Object? headline = null,
     Object? detail = null,
   }) {
-    return _then(_$LatestPracticeImpactImpl(
-      eventKey: null == eventKey
-          ? _value.eventKey
-          : eventKey // ignore: cast_nullable_to_non_nullable
-              as String,
-      occurredAt: null == occurredAt
-          ? _value.occurredAt
-          : occurredAt // ignore: cast_nullable_to_non_nullable
-              as DateTime,
-      spaceId: null == spaceId
-          ? _value.spaceId
-          : spaceId // ignore: cast_nullable_to_non_nullable
-              as String,
-      spaceTitle: null == spaceTitle
-          ? _value.spaceTitle
-          : spaceTitle // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityId: null == activityId
-          ? _value.activityId
-          : activityId // ignore: cast_nullable_to_non_nullable
-              as String,
-      activityTitle: null == activityTitle
-          ? _value.activityTitle
-          : activityTitle // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseId: null == phraseId
-          ? _value.phraseId
-          : phraseId // ignore: cast_nullable_to_non_nullable
-              as String,
-      phraseTitle: null == phraseTitle
-          ? _value.phraseTitle
-          : phraseTitle // ignore: cast_nullable_to_non_nullable
-              as String,
-      reactionType: null == reactionType
-          ? _value.reactionType
-          : reactionType // ignore: cast_nullable_to_non_nullable
-              as BabyReactionType,
-      previousPatchStage: null == previousPatchStage
-          ? _value.previousPatchStage
-          : previousPatchStage // ignore: cast_nullable_to_non_nullable
-              as GardenPatchStage,
-      currentPatchStage: null == currentPatchStage
-          ? _value.currentPatchStage
-          : currentPatchStage // ignore: cast_nullable_to_non_nullable
-              as GardenPatchStage,
-      previousFlowerStage: null == previousFlowerStage
-          ? _value.previousFlowerStage
-          : previousFlowerStage // ignore: cast_nullable_to_non_nullable
-              as GardenFlowerStage,
-      currentFlowerStage: null == currentFlowerStage
-          ? _value.currentFlowerStage
-          : currentFlowerStage // ignore: cast_nullable_to_non_nullable
-              as GardenFlowerStage,
-      headline: null == headline
-          ? _value.headline
-          : headline // ignore: cast_nullable_to_non_nullable
-              as String,
-      detail: null == detail
-          ? _value.detail
-          : detail // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
+    return _then(
+      _$LatestPracticeImpactImpl(
+        eventKey: null == eventKey
+            ? _value.eventKey
+            : eventKey // ignore: cast_nullable_to_non_nullable
+                  as String,
+        occurredAt: null == occurredAt
+            ? _value.occurredAt
+            : occurredAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime,
+        spaceId: null == spaceId
+            ? _value.spaceId
+            : spaceId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        spaceTitle: null == spaceTitle
+            ? _value.spaceTitle
+            : spaceTitle // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityId: null == activityId
+            ? _value.activityId
+            : activityId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        activityTitle: null == activityTitle
+            ? _value.activityTitle
+            : activityTitle // ignore: cast_nullable_to_non_nullable
+                  as String,
+        phraseId: null == phraseId
+            ? _value.phraseId
+            : phraseId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        phraseTitle: null == phraseTitle
+            ? _value.phraseTitle
+            : phraseTitle // ignore: cast_nullable_to_non_nullable
+                  as String,
+        reactionType: null == reactionType
+            ? _value.reactionType
+            : reactionType // ignore: cast_nullable_to_non_nullable
+                  as BabyReactionType,
+        previousPatchStage: null == previousPatchStage
+            ? _value.previousPatchStage
+            : previousPatchStage // ignore: cast_nullable_to_non_nullable
+                  as GardenPatchStage,
+        currentPatchStage: null == currentPatchStage
+            ? _value.currentPatchStage
+            : currentPatchStage // ignore: cast_nullable_to_non_nullable
+                  as GardenPatchStage,
+        previousFlowerStage: null == previousFlowerStage
+            ? _value.previousFlowerStage
+            : previousFlowerStage // ignore: cast_nullable_to_non_nullable
+                  as GardenFlowerStage,
+        currentFlowerStage: null == currentFlowerStage
+            ? _value.currentFlowerStage
+            : currentFlowerStage // ignore: cast_nullable_to_non_nullable
+                  as GardenFlowerStage,
+        headline: null == headline
+            ? _value.headline
+            : headline // ignore: cast_nullable_to_non_nullable
+                  as String,
+        detail: null == detail
+            ? _value.detail
+            : detail // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$LatestPracticeImpactImpl extends _LatestPracticeImpact {
-  const _$LatestPracticeImpactImpl(
-      {required this.eventKey,
-      required this.occurredAt,
-      required this.spaceId,
-      required this.spaceTitle,
-      required this.activityId,
-      required this.activityTitle,
-      required this.phraseId,
-      required this.phraseTitle,
-      required this.reactionType,
-      required this.previousPatchStage,
-      required this.currentPatchStage,
-      required this.previousFlowerStage,
-      required this.currentFlowerStage,
-      required this.headline,
-      required this.detail})
-      : super._();
+  const _$LatestPracticeImpactImpl({
+    required this.eventKey,
+    required this.occurredAt,
+    required this.spaceId,
+    required this.spaceTitle,
+    required this.activityId,
+    required this.activityTitle,
+    required this.phraseId,
+    required this.phraseTitle,
+    required this.reactionType,
+    required this.previousPatchStage,
+    required this.currentPatchStage,
+    required this.previousFlowerStage,
+    required this.currentFlowerStage,
+    required this.headline,
+    required this.detail,
+  }) : super._();
 
   @override
   final String eventKey;
@@ -1574,49 +1666,53 @@ class _$LatestPracticeImpactImpl extends _LatestPracticeImpact {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      eventKey,
-      occurredAt,
-      spaceId,
-      spaceTitle,
-      activityId,
-      activityTitle,
-      phraseId,
-      phraseTitle,
-      reactionType,
-      previousPatchStage,
-      currentPatchStage,
-      previousFlowerStage,
-      currentFlowerStage,
-      headline,
-      detail);
+    runtimeType,
+    eventKey,
+    occurredAt,
+    spaceId,
+    spaceTitle,
+    activityId,
+    activityTitle,
+    phraseId,
+    phraseTitle,
+    reactionType,
+    previousPatchStage,
+    currentPatchStage,
+    previousFlowerStage,
+    currentFlowerStage,
+    headline,
+    detail,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$LatestPracticeImpactImplCopyWith<_$LatestPracticeImpactImpl>
-      get copyWith =>
-          __$$LatestPracticeImpactImplCopyWithImpl<_$LatestPracticeImpactImpl>(
-              this, _$identity);
+  get copyWith =>
+      __$$LatestPracticeImpactImplCopyWithImpl<_$LatestPracticeImpactImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class _LatestPracticeImpact extends LatestPracticeImpact {
-  const factory _LatestPracticeImpact(
-      {required final String eventKey,
-      required final DateTime occurredAt,
-      required final String spaceId,
-      required final String spaceTitle,
-      required final String activityId,
-      required final String activityTitle,
-      required final String phraseId,
-      required final String phraseTitle,
-      required final BabyReactionType reactionType,
-      required final GardenPatchStage previousPatchStage,
-      required final GardenPatchStage currentPatchStage,
-      required final GardenFlowerStage previousFlowerStage,
-      required final GardenFlowerStage currentFlowerStage,
-      required final String headline,
-      required final String detail}) = _$LatestPracticeImpactImpl;
+  const factory _LatestPracticeImpact({
+    required final String eventKey,
+    required final DateTime occurredAt,
+    required final String spaceId,
+    required final String spaceTitle,
+    required final String activityId,
+    required final String activityTitle,
+    required final String phraseId,
+    required final String phraseTitle,
+    required final BabyReactionType reactionType,
+    required final GardenPatchStage previousPatchStage,
+    required final GardenPatchStage currentPatchStage,
+    required final GardenFlowerStage previousFlowerStage,
+    required final GardenFlowerStage currentFlowerStage,
+    required final String headline,
+    required final String detail,
+  }) = _$LatestPracticeImpactImpl;
   const _LatestPracticeImpact._() : super._();
 
   @override
@@ -1652,7 +1748,7 @@ abstract class _LatestPracticeImpact extends LatestPracticeImpact {
   @override
   @JsonKey(ignore: true)
   _$$LatestPracticeImpactImplCopyWith<_$LatestPracticeImpactImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -1679,31 +1775,35 @@ mixin _$GardenGrowthSnapshot {
 
 /// @nodoc
 abstract class $GardenGrowthSnapshotCopyWith<$Res> {
-  factory $GardenGrowthSnapshotCopyWith(GardenGrowthSnapshot value,
-          $Res Function(GardenGrowthSnapshot) then) =
-      _$GardenGrowthSnapshotCopyWithImpl<$Res, GardenGrowthSnapshot>;
+  factory $GardenGrowthSnapshotCopyWith(
+    GardenGrowthSnapshot value,
+    $Res Function(GardenGrowthSnapshot) then,
+  ) = _$GardenGrowthSnapshotCopyWithImpl<$Res, GardenGrowthSnapshot>;
   @useResult
-  $Res call(
-      {String? installationId,
-      List<GardenPatchSnapshot> spaces,
-      List<GrowthDiaryEntry> diaryEntries,
-      List<GrowthMilestoneSnapshot> milestones,
-      LatestPracticeImpact? latestImpact,
-      int totalStoredEvents,
-      int validEvents,
-      int knownEvents,
-      int skippedMalformedEvents,
-      int skippedUnknownContentEvents,
-      int currentStreakDays,
-      String? lastIssueMessage,
-      String? projectionWarning});
+  $Res call({
+    String? installationId,
+    List<GardenPatchSnapshot> spaces,
+    List<GrowthDiaryEntry> diaryEntries,
+    List<GrowthMilestoneSnapshot> milestones,
+    LatestPracticeImpact? latestImpact,
+    int totalStoredEvents,
+    int validEvents,
+    int knownEvents,
+    int skippedMalformedEvents,
+    int skippedUnknownContentEvents,
+    int currentStreakDays,
+    String? lastIssueMessage,
+    String? projectionWarning,
+  });
 
   $LatestPracticeImpactCopyWith<$Res>? get latestImpact;
 }
 
 /// @nodoc
-class _$GardenGrowthSnapshotCopyWithImpl<$Res,
-        $Val extends GardenGrowthSnapshot>
+class _$GardenGrowthSnapshotCopyWithImpl<
+  $Res,
+  $Val extends GardenGrowthSnapshot
+>
     implements $GardenGrowthSnapshotCopyWith<$Res> {
   _$GardenGrowthSnapshotCopyWithImpl(this._value, this._then);
 
@@ -1729,60 +1829,63 @@ class _$GardenGrowthSnapshotCopyWithImpl<$Res,
     Object? lastIssueMessage = freezed,
     Object? projectionWarning = freezed,
   }) {
-    return _then(_value.copyWith(
-      installationId: freezed == installationId
-          ? _value.installationId
-          : installationId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      spaces: null == spaces
-          ? _value.spaces
-          : spaces // ignore: cast_nullable_to_non_nullable
-              as List<GardenPatchSnapshot>,
-      diaryEntries: null == diaryEntries
-          ? _value.diaryEntries
-          : diaryEntries // ignore: cast_nullable_to_non_nullable
-              as List<GrowthDiaryEntry>,
-      milestones: null == milestones
-          ? _value.milestones
-          : milestones // ignore: cast_nullable_to_non_nullable
-              as List<GrowthMilestoneSnapshot>,
-      latestImpact: freezed == latestImpact
-          ? _value.latestImpact
-          : latestImpact // ignore: cast_nullable_to_non_nullable
-              as LatestPracticeImpact?,
-      totalStoredEvents: null == totalStoredEvents
-          ? _value.totalStoredEvents
-          : totalStoredEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      validEvents: null == validEvents
-          ? _value.validEvents
-          : validEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      knownEvents: null == knownEvents
-          ? _value.knownEvents
-          : knownEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      skippedMalformedEvents: null == skippedMalformedEvents
-          ? _value.skippedMalformedEvents
-          : skippedMalformedEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      skippedUnknownContentEvents: null == skippedUnknownContentEvents
-          ? _value.skippedUnknownContentEvents
-          : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      currentStreakDays: null == currentStreakDays
-          ? _value.currentStreakDays
-          : currentStreakDays // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastIssueMessage: freezed == lastIssueMessage
-          ? _value.lastIssueMessage
-          : lastIssueMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-      projectionWarning: freezed == projectionWarning
-          ? _value.projectionWarning
-          : projectionWarning // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
+    return _then(
+      _value.copyWith(
+            installationId: freezed == installationId
+                ? _value.installationId
+                : installationId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            spaces: null == spaces
+                ? _value.spaces
+                : spaces // ignore: cast_nullable_to_non_nullable
+                      as List<GardenPatchSnapshot>,
+            diaryEntries: null == diaryEntries
+                ? _value.diaryEntries
+                : diaryEntries // ignore: cast_nullable_to_non_nullable
+                      as List<GrowthDiaryEntry>,
+            milestones: null == milestones
+                ? _value.milestones
+                : milestones // ignore: cast_nullable_to_non_nullable
+                      as List<GrowthMilestoneSnapshot>,
+            latestImpact: freezed == latestImpact
+                ? _value.latestImpact
+                : latestImpact // ignore: cast_nullable_to_non_nullable
+                      as LatestPracticeImpact?,
+            totalStoredEvents: null == totalStoredEvents
+                ? _value.totalStoredEvents
+                : totalStoredEvents // ignore: cast_nullable_to_non_nullable
+                      as int,
+            validEvents: null == validEvents
+                ? _value.validEvents
+                : validEvents // ignore: cast_nullable_to_non_nullable
+                      as int,
+            knownEvents: null == knownEvents
+                ? _value.knownEvents
+                : knownEvents // ignore: cast_nullable_to_non_nullable
+                      as int,
+            skippedMalformedEvents: null == skippedMalformedEvents
+                ? _value.skippedMalformedEvents
+                : skippedMalformedEvents // ignore: cast_nullable_to_non_nullable
+                      as int,
+            skippedUnknownContentEvents: null == skippedUnknownContentEvents
+                ? _value.skippedUnknownContentEvents
+                : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
+                      as int,
+            currentStreakDays: null == currentStreakDays
+                ? _value.currentStreakDays
+                : currentStreakDays // ignore: cast_nullable_to_non_nullable
+                      as int,
+            lastIssueMessage: freezed == lastIssueMessage
+                ? _value.lastIssueMessage
+                : lastIssueMessage // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            projectionWarning: freezed == projectionWarning
+                ? _value.projectionWarning
+                : projectionWarning // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
   }
 
   @override
@@ -1801,25 +1904,27 @@ class _$GardenGrowthSnapshotCopyWithImpl<$Res,
 /// @nodoc
 abstract class _$$GardenGrowthSnapshotImplCopyWith<$Res>
     implements $GardenGrowthSnapshotCopyWith<$Res> {
-  factory _$$GardenGrowthSnapshotImplCopyWith(_$GardenGrowthSnapshotImpl value,
-          $Res Function(_$GardenGrowthSnapshotImpl) then) =
-      __$$GardenGrowthSnapshotImplCopyWithImpl<$Res>;
+  factory _$$GardenGrowthSnapshotImplCopyWith(
+    _$GardenGrowthSnapshotImpl value,
+    $Res Function(_$GardenGrowthSnapshotImpl) then,
+  ) = __$$GardenGrowthSnapshotImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {String? installationId,
-      List<GardenPatchSnapshot> spaces,
-      List<GrowthDiaryEntry> diaryEntries,
-      List<GrowthMilestoneSnapshot> milestones,
-      LatestPracticeImpact? latestImpact,
-      int totalStoredEvents,
-      int validEvents,
-      int knownEvents,
-      int skippedMalformedEvents,
-      int skippedUnknownContentEvents,
-      int currentStreakDays,
-      String? lastIssueMessage,
-      String? projectionWarning});
+  $Res call({
+    String? installationId,
+    List<GardenPatchSnapshot> spaces,
+    List<GrowthDiaryEntry> diaryEntries,
+    List<GrowthMilestoneSnapshot> milestones,
+    LatestPracticeImpact? latestImpact,
+    int totalStoredEvents,
+    int validEvents,
+    int knownEvents,
+    int skippedMalformedEvents,
+    int skippedUnknownContentEvents,
+    int currentStreakDays,
+    String? lastIssueMessage,
+    String? projectionWarning,
+  });
 
   @override
   $LatestPracticeImpactCopyWith<$Res>? get latestImpact;
@@ -1829,9 +1934,10 @@ abstract class _$$GardenGrowthSnapshotImplCopyWith<$Res>
 class __$$GardenGrowthSnapshotImplCopyWithImpl<$Res>
     extends _$GardenGrowthSnapshotCopyWithImpl<$Res, _$GardenGrowthSnapshotImpl>
     implements _$$GardenGrowthSnapshotImplCopyWith<$Res> {
-  __$$GardenGrowthSnapshotImplCopyWithImpl(_$GardenGrowthSnapshotImpl _value,
-      $Res Function(_$GardenGrowthSnapshotImpl) _then)
-      : super(_value, _then);
+  __$$GardenGrowthSnapshotImplCopyWithImpl(
+    _$GardenGrowthSnapshotImpl _value,
+    $Res Function(_$GardenGrowthSnapshotImpl) _then,
+  ) : super(_value, _then);
 
   @pragma('vm:prefer-inline')
   @override
@@ -1850,84 +1956,86 @@ class __$$GardenGrowthSnapshotImplCopyWithImpl<$Res>
     Object? lastIssueMessage = freezed,
     Object? projectionWarning = freezed,
   }) {
-    return _then(_$GardenGrowthSnapshotImpl(
-      installationId: freezed == installationId
-          ? _value.installationId
-          : installationId // ignore: cast_nullable_to_non_nullable
-              as String?,
-      spaces: null == spaces
-          ? _value._spaces
-          : spaces // ignore: cast_nullable_to_non_nullable
-              as List<GardenPatchSnapshot>,
-      diaryEntries: null == diaryEntries
-          ? _value._diaryEntries
-          : diaryEntries // ignore: cast_nullable_to_non_nullable
-              as List<GrowthDiaryEntry>,
-      milestones: null == milestones
-          ? _value._milestones
-          : milestones // ignore: cast_nullable_to_non_nullable
-              as List<GrowthMilestoneSnapshot>,
-      latestImpact: freezed == latestImpact
-          ? _value.latestImpact
-          : latestImpact // ignore: cast_nullable_to_non_nullable
-              as LatestPracticeImpact?,
-      totalStoredEvents: null == totalStoredEvents
-          ? _value.totalStoredEvents
-          : totalStoredEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      validEvents: null == validEvents
-          ? _value.validEvents
-          : validEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      knownEvents: null == knownEvents
-          ? _value.knownEvents
-          : knownEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      skippedMalformedEvents: null == skippedMalformedEvents
-          ? _value.skippedMalformedEvents
-          : skippedMalformedEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      skippedUnknownContentEvents: null == skippedUnknownContentEvents
-          ? _value.skippedUnknownContentEvents
-          : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
-              as int,
-      currentStreakDays: null == currentStreakDays
-          ? _value.currentStreakDays
-          : currentStreakDays // ignore: cast_nullable_to_non_nullable
-              as int,
-      lastIssueMessage: freezed == lastIssueMessage
-          ? _value.lastIssueMessage
-          : lastIssueMessage // ignore: cast_nullable_to_non_nullable
-              as String?,
-      projectionWarning: freezed == projectionWarning
-          ? _value.projectionWarning
-          : projectionWarning // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
+    return _then(
+      _$GardenGrowthSnapshotImpl(
+        installationId: freezed == installationId
+            ? _value.installationId
+            : installationId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        spaces: null == spaces
+            ? _value._spaces
+            : spaces // ignore: cast_nullable_to_non_nullable
+                  as List<GardenPatchSnapshot>,
+        diaryEntries: null == diaryEntries
+            ? _value._diaryEntries
+            : diaryEntries // ignore: cast_nullable_to_non_nullable
+                  as List<GrowthDiaryEntry>,
+        milestones: null == milestones
+            ? _value._milestones
+            : milestones // ignore: cast_nullable_to_non_nullable
+                  as List<GrowthMilestoneSnapshot>,
+        latestImpact: freezed == latestImpact
+            ? _value.latestImpact
+            : latestImpact // ignore: cast_nullable_to_non_nullable
+                  as LatestPracticeImpact?,
+        totalStoredEvents: null == totalStoredEvents
+            ? _value.totalStoredEvents
+            : totalStoredEvents // ignore: cast_nullable_to_non_nullable
+                  as int,
+        validEvents: null == validEvents
+            ? _value.validEvents
+            : validEvents // ignore: cast_nullable_to_non_nullable
+                  as int,
+        knownEvents: null == knownEvents
+            ? _value.knownEvents
+            : knownEvents // ignore: cast_nullable_to_non_nullable
+                  as int,
+        skippedMalformedEvents: null == skippedMalformedEvents
+            ? _value.skippedMalformedEvents
+            : skippedMalformedEvents // ignore: cast_nullable_to_non_nullable
+                  as int,
+        skippedUnknownContentEvents: null == skippedUnknownContentEvents
+            ? _value.skippedUnknownContentEvents
+            : skippedUnknownContentEvents // ignore: cast_nullable_to_non_nullable
+                  as int,
+        currentStreakDays: null == currentStreakDays
+            ? _value.currentStreakDays
+            : currentStreakDays // ignore: cast_nullable_to_non_nullable
+                  as int,
+        lastIssueMessage: freezed == lastIssueMessage
+            ? _value.lastIssueMessage
+            : lastIssueMessage // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        projectionWarning: freezed == projectionWarning
+            ? _value.projectionWarning
+            : projectionWarning // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
   }
 }
 
 /// @nodoc
 
 class _$GardenGrowthSnapshotImpl extends _GardenGrowthSnapshot {
-  const _$GardenGrowthSnapshotImpl(
-      {required this.installationId,
-      required final List<GardenPatchSnapshot> spaces,
-      required final List<GrowthDiaryEntry> diaryEntries,
-      required final List<GrowthMilestoneSnapshot> milestones,
-      required this.latestImpact,
-      required this.totalStoredEvents,
-      required this.validEvents,
-      required this.knownEvents,
-      required this.skippedMalformedEvents,
-      required this.skippedUnknownContentEvents,
-      this.currentStreakDays = 0,
-      this.lastIssueMessage,
-      this.projectionWarning})
-      : _spaces = spaces,
-        _diaryEntries = diaryEntries,
-        _milestones = milestones,
-        super._();
+  const _$GardenGrowthSnapshotImpl({
+    required this.installationId,
+    required final List<GardenPatchSnapshot> spaces,
+    required final List<GrowthDiaryEntry> diaryEntries,
+    required final List<GrowthMilestoneSnapshot> milestones,
+    required this.latestImpact,
+    required this.totalStoredEvents,
+    required this.validEvents,
+    required this.knownEvents,
+    required this.skippedMalformedEvents,
+    required this.skippedUnknownContentEvents,
+    this.currentStreakDays = 0,
+    this.lastIssueMessage,
+    this.projectionWarning,
+  }) : _spaces = spaces,
+       _diaryEntries = diaryEntries,
+       _milestones = milestones,
+       super._();
 
   @override
   final String? installationId;
@@ -1988,10 +2096,14 @@ class _$GardenGrowthSnapshotImpl extends _GardenGrowthSnapshot {
             (identical(other.installationId, installationId) ||
                 other.installationId == installationId) &&
             const DeepCollectionEquality().equals(other._spaces, _spaces) &&
-            const DeepCollectionEquality()
-                .equals(other._diaryEntries, _diaryEntries) &&
-            const DeepCollectionEquality()
-                .equals(other._milestones, _milestones) &&
+            const DeepCollectionEquality().equals(
+              other._diaryEntries,
+              _diaryEntries,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._milestones,
+              _milestones,
+            ) &&
             (identical(other.latestImpact, latestImpact) ||
                 other.latestImpact == latestImpact) &&
             (identical(other.totalStoredEvents, totalStoredEvents) ||
@@ -2002,8 +2114,10 @@ class _$GardenGrowthSnapshotImpl extends _GardenGrowthSnapshot {
                 other.knownEvents == knownEvents) &&
             (identical(other.skippedMalformedEvents, skippedMalformedEvents) ||
                 other.skippedMalformedEvents == skippedMalformedEvents) &&
-            (identical(other.skippedUnknownContentEvents,
-                    skippedUnknownContentEvents) ||
+            (identical(
+                  other.skippedUnknownContentEvents,
+                  skippedUnknownContentEvents,
+                ) ||
                 other.skippedUnknownContentEvents ==
                     skippedUnknownContentEvents) &&
             (identical(other.currentStreakDays, currentStreakDays) ||
@@ -2016,45 +2130,49 @@ class _$GardenGrowthSnapshotImpl extends _GardenGrowthSnapshot {
 
   @override
   int get hashCode => Object.hash(
-      runtimeType,
-      installationId,
-      const DeepCollectionEquality().hash(_spaces),
-      const DeepCollectionEquality().hash(_diaryEntries),
-      const DeepCollectionEquality().hash(_milestones),
-      latestImpact,
-      totalStoredEvents,
-      validEvents,
-      knownEvents,
-      skippedMalformedEvents,
-      skippedUnknownContentEvents,
-      currentStreakDays,
-      lastIssueMessage,
-      projectionWarning);
+    runtimeType,
+    installationId,
+    const DeepCollectionEquality().hash(_spaces),
+    const DeepCollectionEquality().hash(_diaryEntries),
+    const DeepCollectionEquality().hash(_milestones),
+    latestImpact,
+    totalStoredEvents,
+    validEvents,
+    knownEvents,
+    skippedMalformedEvents,
+    skippedUnknownContentEvents,
+    currentStreakDays,
+    lastIssueMessage,
+    projectionWarning,
+  );
 
   @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$GardenGrowthSnapshotImplCopyWith<_$GardenGrowthSnapshotImpl>
-      get copyWith =>
-          __$$GardenGrowthSnapshotImplCopyWithImpl<_$GardenGrowthSnapshotImpl>(
-              this, _$identity);
+  get copyWith =>
+      __$$GardenGrowthSnapshotImplCopyWithImpl<_$GardenGrowthSnapshotImpl>(
+        this,
+        _$identity,
+      );
 }
 
 abstract class _GardenGrowthSnapshot extends GardenGrowthSnapshot {
-  const factory _GardenGrowthSnapshot(
-      {required final String? installationId,
-      required final List<GardenPatchSnapshot> spaces,
-      required final List<GrowthDiaryEntry> diaryEntries,
-      required final List<GrowthMilestoneSnapshot> milestones,
-      required final LatestPracticeImpact? latestImpact,
-      required final int totalStoredEvents,
-      required final int validEvents,
-      required final int knownEvents,
-      required final int skippedMalformedEvents,
-      required final int skippedUnknownContentEvents,
-      final int currentStreakDays,
-      final String? lastIssueMessage,
-      final String? projectionWarning}) = _$GardenGrowthSnapshotImpl;
+  const factory _GardenGrowthSnapshot({
+    required final String? installationId,
+    required final List<GardenPatchSnapshot> spaces,
+    required final List<GrowthDiaryEntry> diaryEntries,
+    required final List<GrowthMilestoneSnapshot> milestones,
+    required final LatestPracticeImpact? latestImpact,
+    required final int totalStoredEvents,
+    required final int validEvents,
+    required final int knownEvents,
+    required final int skippedMalformedEvents,
+    required final int skippedUnknownContentEvents,
+    final int currentStreakDays,
+    final String? lastIssueMessage,
+    final String? projectionWarning,
+  }) = _$GardenGrowthSnapshotImpl;
   const _GardenGrowthSnapshot._() : super._();
 
   @override
@@ -2086,5 +2204,5 @@ abstract class _GardenGrowthSnapshot extends GardenGrowthSnapshot {
   @override
   @JsonKey(ignore: true)
   _$$GardenGrowthSnapshotImplCopyWith<_$GardenGrowthSnapshotImpl>
-      get copyWith => throw _privateConstructorUsedError;
+  get copyWith => throw _privateConstructorUsedError;
 }

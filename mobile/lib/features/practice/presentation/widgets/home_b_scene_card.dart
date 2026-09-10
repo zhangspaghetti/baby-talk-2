@@ -182,8 +182,8 @@ class _HomeBSceneCardState extends State<HomeBSceneCard> {
                 label: _playbackFailed
                     ? '播放失败，点击重试'
                     : _playbackState == _PlaybackState.playing
-                        ? '正在播放'
-                        : '听一遍',
+                    ? '正在播放'
+                    : '听一遍',
                 child: GestureDetector(
                   onTap: _playAudio,
                   child: Container(
@@ -202,8 +202,8 @@ class _HomeBSceneCardState extends State<HomeBSceneCard> {
                           _playbackState == _PlaybackState.playing
                               ? Icons.graphic_eq
                               : _playbackFailed
-                                  ? Icons.error_outline
-                                  : Icons.play_circle_fill,
+                              ? Icons.error_outline
+                              : Icons.play_circle_fill,
                           size: 18,
                           color: _playbackFailed
                               ? colors.warning
@@ -214,10 +214,10 @@ class _HomeBSceneCardState extends State<HomeBSceneCard> {
                           _playbackFailed
                               ? '重试'
                               : _playbackState == _PlaybackState.playing
-                                  ? '播放中'
-                                  : _playbackState == _PlaybackState.played
-                                      ? '再听'
-                                      : '听一遍',
+                              ? '播放中'
+                              : _playbackState == _PlaybackState.played
+                              ? '再听'
+                              : '听一遍',
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: _playbackFailed
                                 ? colors.warning

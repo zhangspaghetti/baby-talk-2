@@ -1,0 +1,24 @@
+version: custom-scene-generation-v3
+schema-version: generation-profile-schema-v1
+generator-prompt:
+  version: custom-scene-generator-v3
+  resource-path: config/practice-ai/prompts/custom-scene-generator-v3.txt
+judge-prompt:
+  version: custom-scene-quality-judge-v2
+  resource-path: config/practice-ai/prompts/custom-scene-quality-judge-v2.txt
+repair-prompt:
+  version: custom-scene-repair-v3
+  resource-path: config/practice-ai/prompts/custom-scene-repair-v3.txt
+rubric:
+  version: custom-scene-quality-v1
+  resource-path: config/practice-ai/rubrics/custom-scene-quality-v1.yml
+evidence-policy:
+  version: custom-scene-evidence-v1
+  resource-path: config/practice-ai/policies/custom-scene-evidence-v1.yml
+baseline-evidence:
+  version: family-english-baseline-v1
+  resource-path: config/practice-ai/evidence/family-english-baseline-v1.yml
+strategy-version: family-english-strategy-v1
+content-safety-policy-version: policy-v2
+generated-output-schema-version: custom-scene-generated-output-v1
+minimum-complete-bundle-output-tokens: 8192

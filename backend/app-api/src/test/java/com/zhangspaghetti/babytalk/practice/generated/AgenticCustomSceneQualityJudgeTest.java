@@ -1,0 +1,591 @@
+package com.zhangspaghetti.babytalk.practice.generated;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
+import com.zhangspaghetti.babytalk.practice.agentic.OperationResult;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.FinishReason;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller.ProviderResponseMetadata;
+import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
+import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
+import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
+import com.zhangspaghetti.babytalk.practice.agentic.config.QualityRubric;
+import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedRef;
+import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
+import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
+import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
+import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeResultAuditPort;
+import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
+import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdictCalculator;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.ai.chat.client.ChatClient;
+import tools.jackson.databind.ObjectMapper;
+
+class AgenticCustomSceneQualityJudgeTest {
+
+    private static final UUID OPERATION_RUN_ID = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    private static final UUID PROVIDER_CALL_ID = UUID.fromString("30000000-0000-0000-0000-000000000002");
+    private static final UUID EVIDENCE_BUNDLE_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
+
+    @Test
+    void requestContainsOnlyApprovedBusinessFieldsAndAuditIds() {
+        assertThat(Arrays.stream(JudgeRequest.class.getRecordComponents())
+                .map(component -> component.getName())
+                .toList())
+                .containsExactly(
+                        "generatedContentId",
+                        "attemptNumber",
+                        "evidenceBundleId",
+                        "displayText",
+                        "ageRange",
+                        "parentGoal",
+                        "candidate",
+                        "careMoment",
+                        "strategyIds",
+                        "communicationPrimitiveIds",
+                        "ageGuidanceTags",
+                        "safetyConstraintTags",
+                        "orderedSanitizedEvidenceSummaries",
+                        "rubricVersion",
+                        "rubricContentHash",
+                        "context")
+                .doesNotContain(
+                        "securityText",
+                        "rawEvidenceChunks",
+                        "accountId",
+                        "profileId",
+                        "deviceId",
+                        "providerPrompt",
+                        "providerResponse",
+                        "logs",
+                        "reasoning");
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void modelMismatchKeepsDefaultRequestAndPersistsReceiptBoundResult() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
+        var profile = profileWithQualityJudgeInferencePolicy();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()))).thenReturn(passWire());
+        when(runner.execute(operationCaptor.capture())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            var invoked = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    invoked.value(), OPERATION_RUN_ID, PROVIDER_CALL_ID, "primary", "gpt-test", null);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        var result = judge.judge(request());
+
+        assertThat(result.suggestedVerdict()).isEqualTo(JudgeVerdict.PASS);
+        assertThat(result.dimensionResults().values()).containsOnly(DimensionResult.PASS);
+        var operation = operationCaptor.getValue();
+        assertThat(operation.capability()).isEqualTo(PracticeAiCapability.CUSTOM_SCENE_QUALITY_JUDGE);
+        assertThat(operation.subjectType()).isEqualTo("generated_content");
+        assertThat(operation.subjectId()).isEqualTo("pgc_judge_test");
+        assertThat(operation.generatedContentId()).isEqualTo("pgc_judge_test");
+        assertThat(operation.attemptNumber()).isEqualTo(2);
+        assertThat(operation.evidenceBundleId()).isEqualTo(EVIDENCE_BUNDLE_ID);
+        assertThat(operation.promptVersion()).isEqualTo("judge-v1");
+        assertThat(operation.promptHash()).isEqualTo("c".repeat(64));
+        assertThat(operation.policyVersion()).isEqualTo("rubric-v1");
+        assertThat(operation.policyHash()).isEqualTo("9".repeat(64));
+
+        var promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(caller).call(
+                eq(provider), eq("JUDGE SYSTEM PROMPT"), promptCaptor.capture(),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()));
+        var prompt = promptCaptor.getValue();
+        assertThat(prompt)
+                .contains(
+                        "给宝宝穿鞋",
+                        "m7_11",
+                        "calmer_care",
+                        "Shoes on.",
+                        "family-english-strategy-v1",
+                        "joint_attention",
+                        "先轻声说。",
+                        "再停下来观察。",
+                        "rubric-v1",
+                        "9".repeat(64),
+                        "小满",
+                        "recentPracticeCount",
+                        "7",
+                        "hesitant",
+                        "daily_care/bath_time=7",
+                        "agentic_search")
+                .doesNotContain(
+                        "pgc_judge_test",
+                        "securityText",
+                        "rawEvidenceChunks",
+                        "accountId",
+                        "profileId",
+                        "actorRole",
+                        "primary_caregiver",
+                        "caregiver",
+                        "deviceId",
+                        "providerPrompt",
+                        "providerResponse",
+                        "providerTraceId",
+                        "modelName",
+                        "reasoning");
+        assertThat(prompt.indexOf("先轻声说。"))
+                .isLessThan(prompt.indexOf("再停下来观察。"));
+        @SuppressWarnings("unchecked")
+        var payload = (java.util.Map<String, Object>) new ObjectMapper().readValue(prompt, java.util.Map.class);
+        assertThat(payload.keySet()).containsExactly(
+                "displayText",
+                "ageRange",
+                "parentGoal",
+                "context",
+                "candidate",
+                "reactionSupports",
+                "strategyIds",
+                "communicationPrimitiveIds",
+                "ageGuidanceTags",
+                "safetyConstraintTags",
+                "orderedSanitizedEvidenceSummaries",
+                "rubricVersion",
+                "rubricContentHash");
+        assertThat((java.util.Map<String, Object>) payload.get("candidate"))
+                .containsKey("generationSource");
+        var reactionSupports = (java.util.List<java.util.Map<String, Object>>) payload.get("reactionSupports");
+        assertThat(reactionSupports).hasSize(5);
+        assertThat(reactionSupports.get(0).get("reactionType")).isEqualTo("cooperating");
+
+        var auditCaptor = ArgumentCaptor.forClass(JudgeResultAuditPort.JudgeAuditRecord.class);
+        verify(auditPort).persist(auditCaptor.capture());
+        assertThat(auditCaptor.getValue().providerCallId()).isEqualTo(PROVIDER_CALL_ID);
+        assertThat(auditCaptor.getValue().suggested()).isEqualTo(result);
+        assertThat(auditCaptor.getValue().effective().effectiveVerdict()).isEqualTo(JudgeVerdict.PASS);
+        assertThat(auditCaptor.getValue().rubric()).isEqualTo(rubric());
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void structuredOutputInvalidNormalCompletionRetriesOnceWithinTheSameOperation() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        var operationCaptor = ArgumentCaptor.forClass(OperationRequest.class);
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        var failure = stoppedStructuredOutputInvalid();
+        when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens())))
+                .thenThrow(failure)
+                .thenReturn(passWire());
+        when(runner.execute(operationCaptor.capture())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            var invoked = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    invoked.value(), OPERATION_RUN_ID, PROVIDER_CALL_ID, "primary", "gpt-test", null);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThat(judge.judge(request()).suggestedVerdict()).isEqualTo(JudgeVerdict.PASS);
+        verify(runner, times(1)).execute(any());
+        var promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(caller, times(2)).call(
+                eq(provider), eq("JUDGE SYSTEM PROMPT"), promptCaptor.capture(),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()));
+        assertThat(promptCaptor.getAllValues()).hasSize(2).containsOnly(promptCaptor.getValue());
+        assertThat(operationCaptor.getValue()).satisfies(operation -> {
+            assertThat(operation.subjectId()).isEqualTo("pgc_judge_test");
+            assertThat(operation.generatedContentId()).isEqualTo("pgc_judge_test");
+            assertThat(operation.attemptNumber()).isEqualTo(2);
+            assertThat(operation.evidenceBundleId()).isEqualTo(EVIDENCE_BUNDLE_ID);
+        });
+        verify(auditPort, times(1)).persist(any());
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void secondStructuredOutputInvalidFailsClosedWithoutAudit() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        var failure = stoppedStructuredOutputInvalid();
+        when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()))).thenThrow(failure);
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            return operation.invocation().invoke(provider);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThatThrownBy(() -> judge.judge(request()))
+                .isSameAs(failure)
+                .hasMessage("structured_output_invalid");
+        verify(caller, times(2)).call(
+                eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()));
+        verifyNoInteractions(auditPort);
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void nonStructuredProviderFailureIsNotRetried() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        var failure = new IllegalStateException("synthetic provider timeout");
+        when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()))).thenThrow(failure);
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            return operation.invocation().invoke(provider);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThatThrownBy(() -> judge.judge(request())).isSameAs(failure);
+        verify(caller, times(1)).call(
+                eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()));
+        verifyNoInteractions(auditPort);
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void truncatedStructuredOutputIsNotRetried() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        var failure = mock(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class);
+        when(failure.providerResponseMetadata()).thenReturn(
+                new ProviderResponseMetadata(FinishReason.LENGTH, 100, 600, 700));
+        when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()))).thenThrow(failure);
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            return operation.invocation().invoke(provider);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThatThrownBy(() -> judge.judge(request())).isSameAs(failure);
+        verify(caller, times(1)).call(
+                eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()));
+        verifyNoInteractions(auditPort);
+    }
+
+    @Test
+    void rubricDriftFailsBeforeRunnerCallerOrAudit() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.qualityRubric()).thenReturn(new QualityRubric(
+                "rubric-v2", "9".repeat(64), rubric().dimensions(),
+                rubric().rejectOnFail(), rubric().repairOnFail(), true));
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThatThrownBy(() -> judge.judge(request()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("judge request rubric must match current registry rubric");
+        verifyNoInteractions(runner, caller, auditPort);
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void auditFailurePropagatesAfterExactlyOneSuccessfulProviderCall() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "openai-compatible", "gpt-test", mock(ChatClient.class));
+        when(registry.currentGenerationProfile()).thenReturn(profile());
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        when(caller.call(eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()))).thenReturn(passWire());
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            var invoked = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    invoked.value(), OPERATION_RUN_ID, PROVIDER_CALL_ID, "primary", "gpt-test", null);
+        });
+        var failure = new IllegalStateException("judge audit unavailable");
+        org.mockito.Mockito.doThrow(failure).when(auditPort).persist(any());
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThatThrownBy(() -> judge.judge(request())).isSameAs(failure);
+        verify(caller, times(1)).call(
+                eq(provider), eq("JUDGE SYSTEM PROMPT"), any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile().minimumQualityJudgeOutputTokens()));
+        verify(auditPort, times(1)).persist(any());
+    }
+
+    @Test
+    void missingDimensionCannotEnterProviderCallbackAsAValidWireResult() {
+        var incomplete = allPass();
+        incomplete.remove(JudgeDimension.LOW_PRESSURE_SUPPORT);
+
+        assertThatThrownBy(() -> new AgenticCustomSceneQualityJudge.JudgeWireResponse(
+                JudgeVerdict.PASS, incomplete, List.of(), List.of(), List.of(), 0.8d))
+                .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
+                .hasMessage("structured_output_invalid");
+    }
+
+    @Test
+    void unknownViolationCodeFailsClosedAtWireBoundary() {
+        var failed = allPass();
+        failed.put(JudgeDimension.SCENE_ALIGNMENT, DimensionResult.FAIL);
+
+        assertThatThrownBy(() -> new AgenticCustomSceneQualityJudge.JudgeWireResponse(
+                JudgeVerdict.REPAIR,
+                failed,
+                List.of("MODEL_FREE_TEXT"),
+                List.of(),
+                List.of(),
+                0.8d))
+                .isInstanceOf(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class)
+                .hasMessage("structured_output_invalid");
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void matchingQualityJudgeInferencePolicyUsesBoundedReasoningControl() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "openai-compatible", "glm-5.2", mock(ChatClient.class));
+        var profile = profileWithQualityJudgeInferencePolicy();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        when(caller.call(
+                eq(provider),
+                eq("JUDGE SYSTEM PROMPT"),
+                any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()),
+                eq(PracticeAiReasoningEffort.NONE))).thenReturn(passWire());
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            var invoked = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    invoked.value(), OPERATION_RUN_ID, PROVIDER_CALL_ID, "primary", "glm-5.2", null);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThat(judge.judge(request()).suggestedVerdict()).isEqualTo(JudgeVerdict.PASS);
+
+        verify(caller).call(
+                eq(provider),
+                eq("JUDGE SYSTEM PROMPT"),
+                any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()),
+                eq(PracticeAiReasoningEffort.NONE));
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void providerTypeMismatchKeepsDefaultInferenceRequest() {
+        var runner = mock(PracticeAiOperationRunner.class);
+        var caller = mock(PracticeAiStructuredOutputCaller.class);
+        var registry = mock(VersionedResourceRegistry.class);
+        var auditPort = mock(JudgeResultAuditPort.class);
+        var provider = new ResolvedProvider("primary", "other-compatible", "glm-5.2", mock(ChatClient.class));
+        var profile = profileWithQualityJudgeInferencePolicy();
+        when(registry.currentGenerationProfile()).thenReturn(profile);
+        when(registry.qualityRubric()).thenReturn(rubric());
+        when(registry.promptText(VersionedResourceRegistry.PromptKind.JUDGE)).thenReturn("JUDGE SYSTEM PROMPT");
+        when(caller.call(
+                eq(provider),
+                eq("JUDGE SYSTEM PROMPT"),
+                any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()))).thenReturn(passWire());
+        when(runner.execute(any())).thenAnswer(invocation -> {
+            var operation = (OperationRequest) invocation.getArgument(0);
+            var invoked = operation.invocation().invoke(provider);
+            return new OperationResult<>(
+                    invoked.value(), OPERATION_RUN_ID, PROVIDER_CALL_ID, "primary", "glm-5.2", null);
+        });
+        var judge = new AgenticCustomSceneQualityJudge(
+                runner, caller, registry, new JudgeVerdictCalculator(), auditPort);
+
+        assertThat(judge.judge(request()).suggestedVerdict()).isEqualTo(JudgeVerdict.PASS);
+
+        verify(caller).call(
+                eq(provider),
+                eq("JUDGE SYSTEM PROMPT"),
+                any(String.class),
+                eq(AgenticCustomSceneQualityJudge.JudgeWireResponse.class),
+                eq(profile.minimumQualityJudgeOutputTokens()));
+    }
+
+    private JudgeRequest request() {
+        var candidate = new GeneratedPracticeContentCandidate(
+                "日常照护", "穿鞋出门", "Shoes on", "拿起鞋子。", "慢慢说。",
+                "Shoes on.", "穿鞋出门。", "shoes on", "starter", "agentic_search");
+        return new JudgeRequest(
+                "pgc_judge_test",
+                2,
+                EVIDENCE_BUNDLE_ID,
+                "给宝宝穿鞋",
+                "m7_11",
+                "calmer_care",
+                candidate,
+                GeneratedCareMomentBundle.fakeFixture(candidate),
+                List.of("family-english-strategy-v1"),
+                List.of("joint_attention"),
+                List.of("m7_11_short_phrase"),
+                List.of("low_pressure"),
+                List.of("先轻声说。", "再停下来观察。"),
+                "rubric-v1",
+                "9".repeat(64),
+                new GenerationRequestContext(
+                        "小满", "m7_11", "calmer_care", "zh-CN", 7,
+                        "hesitant", "daily_care/bath_time=7"));
+    }
+
+    private AgenticCustomSceneQualityJudge.JudgeWireResponse passWire() {
+        return new AgenticCustomSceneQualityJudge.JudgeWireResponse(
+                JudgeVerdict.PASS, allPass(), List.of(), List.of(), List.of(), 0.91d);
+    }
+
+    private EnumMap<JudgeDimension, DimensionResult> allPass() {
+        var dimensions = new EnumMap<JudgeDimension, DimensionResult>(JudgeDimension.class);
+        for (var dimension : JudgeDimension.values()) {
+            dimensions.put(dimension, DimensionResult.PASS);
+        }
+        return dimensions;
+    }
+
+    private QualityRubric rubric() {
+        return new QualityRubric(
+                "rubric-v1",
+                "9".repeat(64),
+                Arrays.stream(JudgeDimension.values()).map(JudgeDimension::rubricKey).toList(),
+                Set.of("age_suitability"),
+                Set.of(
+                        "scene_alignment",
+                        "parent_speakability",
+                        "non_course_framing",
+                        "tpr_quality",
+                        "delivery_guidance_quality",
+                        "bilingual_consistency",
+                        "low_pressure_support"),
+                true);
+    }
+
+    private GenerationProfile profile() {
+        return new GenerationProfile(
+                "profile-v1",
+                "f".repeat(64),
+                new VersionedRef("generator-v1", "a".repeat(64), "generator-v1.txt"),
+                new VersionedRef("judge-v1", "c".repeat(64), "judge-v1.txt"),
+                new VersionedRef("repair-v1", "d".repeat(64), "repair-v1.txt"),
+                new VersionedRef("rubric-v1", "9".repeat(64), "rubric-v1.yml"),
+                new VersionedRef("evidence-v1", "e".repeat(64), "evidence-v1.yml"),
+                new VersionedRef("baseline-v1", "b".repeat(64), "baseline-v1.yml"),
+                "strategy-v1",
+                "safety-v1",
+                "schema-v1",
+                GenerationProfile.SAFE_MINIMUM_COMPLETE_BUNDLE_OUTPUT_TOKENS,
+                GenerationProfile.SAFE_MINIMUM_QUALITY_JUDGE_OUTPUT_TOKENS);
+    }
+
+    private PracticeAiStructuredOutputCaller.StructuredOutputInvalidException stoppedStructuredOutputInvalid() {
+        var failure = mock(PracticeAiStructuredOutputCaller.StructuredOutputInvalidException.class);
+        when(failure.providerResponseMetadata()).thenReturn(
+                new ProviderResponseMetadata(FinishReason.STOP, 100, 134, 234));
+        when(failure.getMessage()).thenReturn("structured_output_invalid");
+        return failure;
+    }
+
+    private GenerationProfile profileWithQualityJudgeInferencePolicy() {
+        var base = profile();
+        return new GenerationProfile(
+                base.version(),
+                base.contentHash(),
+                base.generatorPrompt(),
+                base.judgePrompt(),
+                base.repairPrompt(),
+                base.rubric(),
+                base.evidencePolicy(),
+                base.baselineEvidence(),
+                base.strategyVersion(),
+                base.contentSafetyPolicyVersion(),
+                base.generatedOutputSchemaVersion(),
+                base.minimumCompleteBundleOutputTokens(),
+                base.minimumQualityJudgeOutputTokens(),
+                null,
+                null,
+                new GenerationProfile.InferencePolicy(
+                        "openai-compatible",
+                        List.of("glm-5.2"),
+                        PracticeAiReasoningEffort.NONE));
+    }
+}

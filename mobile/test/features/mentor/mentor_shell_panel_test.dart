@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
 import 'package:mobile/app/theme/app_theme.dart';
+import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
@@ -118,6 +120,28 @@ void main() {
     expect(find.byKey(const Key('mentor-panel-banner')), findsOneWidget);
     expect(find.textContaining('离线'), findsWidgets);
 
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-suggestion-tab'))),
+    )!;
+    expect(find.text(l.mentorBannerOffline), findsOneWidget);
+    expect(find.text('offline'), findsNothing);
+    expect(
+      find.text(
+        l.mentorSuggestionSource(l.mentorSuggestionReasonStarterPhrase),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(l.mentorCurrentTabLabel(l.mentorSuggestionTab)),
+      findsOneWidget,
+    );
+    expect(find.text(l.mentorStatusLabel(l.mentorStatusReady)), findsOneWidget);
+    expect(find.text(l.mentorChatStatusLabel('当前离线')), findsOneWidget);
+    expect(find.text('状态：ready'), findsNothing);
+    expect(find.text('当前：suggestions'), findsNothing);
+    expect(find.text('聊天：offline'), findsNothing);
+    expect(find.text('Warm water.'), findsOneWidget);
+
     await tester.tap(find.byKey(const Key('mentor-tab-chat-button')));
     await _pumpUntilFound(tester, find.byKey(const Key('mentor-chat-tab')));
     await tester.scrollUntilVisible(
@@ -191,6 +215,11 @@ void main() {
     );
     expect(find.byKey(const Key('mentor-shared-context-chip')), findsOneWidget);
     expect(find.text('已采用家庭共享建议'), findsOneWidget);
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-suggestion-tab'))),
+    )!;
+    expect(find.text(l.mentorStatusLabel('已采用家庭共享建议')), findsOneWidget);
+    expect(find.textContaining('shared_context_adopted_newer'), findsNothing);
     expect(find.textContaining('喂饭时间'), findsWidgets);
   });
 
@@ -291,7 +320,11 @@ void main() {
       find.byKey(const Key('mentor-suggestion-card-safe_small_step')),
       findsOneWidget,
     );
-    expect(find.textContaining('还没读到本地档案'), findsOneWidget);
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-suggestion-tab'))),
+    )!;
+    expect(find.text(l.mentorBannerOnboardingMissing), findsOneWidget);
+    expect(find.text('onboarding_missing'), findsNothing);
     expect(find.textContaining('onboarding 档案'), findsNothing);
   });
 
@@ -368,6 +401,12 @@ void main() {
     expect(find.byKey(const Key('mentor-chat-response-card')), findsOneWidget);
     expect(find.byKey(const Key('mentor-chat-response-text')), findsOneWidget);
     expect(find.textContaining('I\'m here with you.'), findsOneWidget);
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-chat-response-card'))),
+    )!;
+    expect(find.text(l.mentorChatResponseGenerated), findsOneWidget);
+    expect(find.text(l.mentorChatAccountConnected), findsOneWidget);
+    expect(find.text(l.mentorChatRateRemaining(2, 3)), findsOneWidget);
     expect(
       harness.mentorRepository.appendedFacts.map((fact) => fact.eventType),
       containsAll([
@@ -375,6 +414,110 @@ void main() {
         MentorFactType.chatResponseDelivered,
       ]),
     );
+  });
+
+  testWidgets('chat error banner localizes code and does not expose phase', (
+    tester,
+  ) async {
+    await _setTallSurface(tester);
+    final harness = (await tester.runAsync<_Harness>(
+      () => _Harness.create(
+        accountSeedSnapshot: AccountLocalSnapshot(
+          consentState: AccountConsentState.acceptedPendingSync,
+          session: _jwtSession(),
+          lastSyncPhase: 'batch_ack_applied',
+        ),
+        mentorSuggestionResult: const LocalMentorSuggestionService().derive(
+          const LocalMentorSuggestionContext(
+            contextFallbackUsed: true,
+            fallbackReasonCode: 'onboarding_missing',
+          ),
+        ),
+        chatError: const MentorApiException(
+          kind: MentorApiFailureKind.http,
+          message: 'provider timeout',
+          statusCode: 504,
+          code: 'provider_timeout',
+          details: <String, Object?>{
+            'phase': 'provider_timeout',
+            'retryable': true,
+          },
+        ),
+      ),
+    ))!;
+    addTearDown(() => _disposeHarness(tester, harness));
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountNotifier.initialize(),
+        harness.practiceSessionNotifier.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(harness.buildStandaloneHome());
+    await _pumpUntilFound(tester, find.byKey(const Key('home-mentor-fab')));
+    await tester.tap(find.byKey(const Key('home-mentor-fab')));
+    await tester.pump();
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-panel-sheet')));
+    await tester.tap(find.byKey(const Key('mentor-tab-chat-button')));
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-chat-tab')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('mentor-chat-input')),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    harness.mentorNotifier.updateChatDraft('宝宝一直哭，我现在该怎么说？');
+    await harness.mentorNotifier.submitChat();
+    await tester.pump();
+
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-chat-tab'))),
+    )!;
+    expect(find.byKey(const Key('mentor-chat-response-card')), findsNothing);
+    expect(find.text(l.mentorBannerChatTimeout), findsWidgets);
+    expect(find.text('provider_timeout'), findsNothing);
+  });
+
+  testWidgets('audio error banner localizes code and does not expose code', (
+    tester,
+  ) async {
+    await _setTallSurface(tester);
+    final harness = (await tester.runAsync<_Harness>(
+      () => _Harness.create(
+        accountSeedSnapshot: AccountLocalSnapshot.signedOut,
+        mentorSuggestionResult: const LocalMentorSuggestionService().derive(
+          const LocalMentorSuggestionContext(
+            contextFallbackUsed: true,
+            fallbackReasonCode: 'onboarding_missing',
+          ),
+        ),
+        audioController: _UnavailableMentorAudioController(),
+      ),
+    ))!;
+    addTearDown(() => _disposeHarness(tester, harness));
+
+    await tester.runAsync(() async {
+      await Future.wait([
+        harness.accountNotifier.initialize(),
+        harness.practiceSessionNotifier.initialize(),
+      ]);
+    });
+
+    await tester.pumpWidget(harness.buildStandaloneHome());
+    await _pumpUntilFound(tester, find.byKey(const Key('home-mentor-fab')));
+    await tester.tap(find.byKey(const Key('home-mentor-fab')));
+    await tester.pump();
+    await _pumpUntilFound(tester, find.byKey(const Key('mentor-panel-sheet')));
+    await harness.mentorNotifier.replaySuggestion(
+      harness.mentorNotifier.suggestions.first,
+    );
+    await tester.pump();
+
+    final l = AppLocalizations.of(
+      tester.element(find.byKey(const Key('mentor-suggestion-tab'))),
+    )!;
+    expect(find.text(l.mentorAudioUnavailable), findsOneWidget);
+    expect(find.text('tts_unavailable'), findsNothing);
   });
 }
 
@@ -466,6 +609,7 @@ class _Harness {
     required LocalMentorSuggestionResult mentorSuggestionResult,
     MentorChatResponse? chatResponse,
     MentorApiException? chatError,
+    MentorAudioController? audioController,
   }) async {
     final tempDir = await Directory.systemTemp.createTemp('mentor_shell_test_');
     final practiceLocalDataSource = await PracticeLocalDataSource.open(
@@ -491,7 +635,7 @@ class _Harness {
         response: chatResponse,
         error: chatError,
       ),
-      audioController: _SilentMentorAudioController(),
+      audioController: audioController ?? _SilentMentorAudioController(),
     );
     final practiceSessionNotifier = PracticeSessionNotifier(
       repository: practiceRepository,
@@ -531,6 +675,13 @@ class _Harness {
     final riverpodOverrides = <Override>[
       assetPhraseServiceProvider.overrideWithValue(assetPhraseService),
       practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
+      carePathNotifierProvider.overrideWith(
+        (ref) => CarePathNotifier(
+          repository: CarePathRepository(
+            practiceRepository: practiceRepository,
+          ),
+        ),
+      ),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
       mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
@@ -568,7 +719,7 @@ class _Harness {
         home: AppShellScreen(
           onboardingSnapshot: OnboardingSnapshot(
             childDisplayName: '米米',
-            ageBucket: OnboardingAgeBucket.twelveToEighteen,
+            ageBucket: OnboardingAgeBucket.oneToTwo,
             approxMonths: 15,
             currentStage: 'gesture_plus_words',
             starterSpaceId: 'daily_care',
@@ -586,6 +737,13 @@ class _Harness {
     final riverpodOverrides = <Override>[
       assetPhraseServiceProvider.overrideWithValue(assetPhraseService),
       practiceRepositoryProvider.overrideWith((ref) => practiceRepository),
+      carePathNotifierProvider.overrideWith(
+        (ref) => CarePathNotifier(
+          repository: CarePathRepository(
+            practiceRepository: practiceRepository,
+          ),
+        ),
+      ),
       accountNotifierProvider.overrideWith((ref) => accountNotifier),
       mentorRepositoryProvider.overrideWith((ref) async => mentorRepository),
       mentorNotifierProvider.overrideWith((ref) => mentorNotifier),
@@ -876,6 +1034,25 @@ class _SilentMentorAudioController implements MentorAudioController {
 
   @override
   Future<void> speakText(String text) async {}
+
+  @override
+  Future<void> stop() async {}
+}
+
+class _UnavailableMentorAudioController implements MentorAudioController {
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<bool> ensureAvailable() async => false;
+
+  @override
+  Future<void> speakText(String text) async {
+    throw const MentorAudioException(
+      kind: MentorAudioFailureKind.unavailable,
+      code: 'unavailable',
+    );
+  }
 
   @override
   Future<void> stop() async {}

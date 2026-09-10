@@ -45,10 +45,7 @@ class PracticeBottomActionBar extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           border: Border(
-            top: BorderSide(
-              color: context.appColors.outlineSoft,
-              width: 1,
-            ),
+            top: BorderSide(color: context.appColors.outlineSoft, width: 1),
           ),
         ),
         padding: const EdgeInsets.fromLTRB(
@@ -86,10 +83,7 @@ class PracticeBottomActionBar extends StatelessWidget {
       children: [
         SizedBox(
           height: AppLayoutConstants.minTouchTarget,
-          child: FilledButton(
-            onPressed: onSave,
-            child: const Text('说完了'),
-          ),
+          child: FilledButton(onPressed: onSave, child: const Text('说完了')),
         ),
         const SizedBox(height: AppLayoutConstants.spacingXs),
         Row(
@@ -128,9 +122,7 @@ class PracticeBottomActionBar extends StatelessWidget {
       height: AppLayoutConstants.minTouchTarget,
       child: TextButton(
         style: TextButton.styleFrom(
-          minimumSize: const Size.fromHeight(
-            AppLayoutConstants.minTouchTarget,
-          ),
+          minimumSize: const Size.fromHeight(AppLayoutConstants.minTouchTarget),
         ),
         onPressed: onSkipReaction,
         child: const Text('跳过，下一句'),
@@ -182,9 +174,9 @@ class PracticeBottomActionBar extends StatelessWidget {
       children: [
         Text(
           '换一句没准备好，点我重试',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: context.appColors.error,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: context.appColors.error),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppLayoutConstants.spacingXs),

@@ -38,6 +38,22 @@ void main() {
       expect(session.hasJwtTokens, isFalse);
     });
 
+    test('AccountSession toString never exposes JWT credentials', () {
+      final session = AccountSession(
+        accountId: 'account-1',
+        sessionId: 'session-1',
+        maskedPhoneNumber: '138****8000',
+        createdAt: DateTime.utc(2026, 1, 1),
+        accessToken: 'access-secret',
+        refreshToken: 'refresh-secret',
+      );
+
+      final representation = session.toString();
+
+      expect(representation, isNot(contains('access-secret')));
+      expect(representation, isNot(contains('refresh-secret')));
+    });
+
     test('ShareLinkDraft copyWith keeps public payload behavior', () {
       const draft = ShareLinkDraft(
         source: ShareLinkSource.latestImpact,
@@ -279,12 +295,16 @@ void main() {
       final birthDate = DateTime.utc(2025, 8, 19);
       final snapshot = OnboardingSnapshot(
         childDisplayName: '小雨',
-        ageBucket: OnboardingAgeBucket.sixToTwelve,
+        ageBucket: OnboardingAgeBucket.sevenToTwelve,
         approxMonths: 9,
         currentStage: 'sound_turn_taking',
         starterSpaceId: 'home',
         starterActivityId: 'song_time',
         starterPhraseId: 'clap_hands',
+        schemaVersion: 2,
+        selectedSceneIds: const ['song_time'],
+        supportGoal: OnboardingSupportGoal.dailyHabit,
+        firstTraceEventKey: 'install_canary:evt_onboarding_first',
         consentState: OnboardingConsentState.localOnly,
         birthDate: birthDate,
         completedAt: completedAt,
@@ -298,8 +318,9 @@ void main() {
       expect(updated.isCompleted, isTrue);
       expect(snapshot.starterPhraseId, 'clap_hands');
       expect(updated.starterPhraseId, 'hello_wave');
-      expect(updated.ageBucket.wireValue, '6-12');
-      expect(json['ageBucket'], '6-12');
+      expect(updated.ageBucket.wireValue, '7-12');
+      expect(json['ageBucket'], '7-12');
+      expect(updated.supportGoal, OnboardingSupportGoal.dailyHabit);
       expect(json['consentState'], 'local_only');
       expect(decoded, updated);
     });

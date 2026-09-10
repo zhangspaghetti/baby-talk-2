@@ -18,7 +18,7 @@ public class DevSmsVerificationProvider implements SmsVerificationProvider {
     @Override
     public SmsChallenge issueChallenge(String normalizedPhoneNumber, Instant now) {
         if (properties.simulateTimeout()) {
-            log.warn("[DEV-SMS] 模拟超时: phone={}", normalizedPhoneNumber);
+            log.warn("[DEV-SMS] 模拟超时: phone={}", maskPhone(normalizedPhoneNumber));
             throw new RetryableChallengeException("开发 stub 正在模拟上游超时，请稍后重试。");
         }
         var devCode = properties.devCode();
@@ -26,7 +26,8 @@ public class DevSmsVerificationProvider implements SmsVerificationProvider {
             log.error("[DEV-SMS] devCode 缺失或格式非法");
             throw new ProviderMisconfiguredException("BABY_TALK_SMS_DEV_CODE 缺失或格式非法，dev stub 无法生成验证码。");
         }
-        log.info("[DEV-SMS] 发送验证码: phone={}, code={}, ttl={}", normalizedPhoneNumber, devCode, properties.challengeTtl());
+        log.info("[DEV-SMS] 发送验证码: phone={}, codeLen={}, ttl={}",
+                maskPhone(normalizedPhoneNumber), devCode.length(), properties.challengeTtl());
         return new SmsChallenge(
                 devCode,
                 maskPhone(normalizedPhoneNumber),

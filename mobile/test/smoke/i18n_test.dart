@@ -73,9 +73,9 @@ void main() {
         ),
       );
 
-      // onboarding 标题
-      expect(l10n.onboardingTitle, isNotEmpty);
-      expect(l10n.onboardingTitle, contains('宝宝'));
+      // onboarding 欢迎标题
+      expect(l10n.onboardingWelcomeTitle, isNotEmpty);
+      expect(l10n.onboardingWelcomeTitle, contains('宝宝'));
 
       // 首页节奏
       expect(l10n.homeCadence, isNotEmpty);

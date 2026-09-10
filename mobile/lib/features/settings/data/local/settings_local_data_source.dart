@@ -58,9 +58,7 @@ class SettingsLocalDataSource {
   /// written yet.
   Future<String?> readSnapshotJson() async {
     final collection = _isar.collection<SettingsEntity>();
-    final entity = await _isar.txn(
-      () async => collection.get(_singletonId),
-    );
+    final entity = await _isar.txn(() async => collection.get(_singletonId));
     return entity?.snapshotJson;
   }
 
@@ -68,9 +66,7 @@ class SettingsLocalDataSource {
   /// written yet.
   Future<int?> readVersion() async {
     final collection = _isar.collection<SettingsEntity>();
-    final entity = await _isar.txn(
-      () async => collection.get(_singletonId),
-    );
+    final entity = await _isar.txn(() async => collection.get(_singletonId));
     return entity?.version;
   }
 
@@ -95,6 +91,11 @@ class SettingsLocalDataSource {
       await collection.delete(_singletonId);
     });
   }
+
+  /// Clears settings owned only by this installation during an approved
+  /// device-local erase. This intentionally does not touch account consent or
+  /// any server-side account state.
+  Future<void> clearForLifecycle() => deleteSnapshotIfExists();
 
   /// Closes the Isar instance. Call on app shutdown or in tests.
   Future<void> close({bool deleteFromDisk = false}) async {

@@ -114,8 +114,9 @@ class HomeGardenMiniEntry extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       '$pendingFertilizerCount 包肥料待领取',
-                      style: Theme.of(context).textTheme.labelMedium
-                          ?.copyWith(color: colors.success),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelMedium?.copyWith(color: colors.success),
                     ),
                   ],
                 ),

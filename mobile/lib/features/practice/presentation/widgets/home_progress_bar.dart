@@ -7,11 +7,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 /// Displays a warm orange fill with a small sprout icon at the progress point,
 /// set against a cream sunken background.
 class HomeProgressBar extends StatelessWidget {
-  const HomeProgressBar({
-    super.key,
-    required this.progress,
-    this.label,
-  });
+  const HomeProgressBar({super.key, required this.progress, this.label});
 
   /// Progress value from 0.0 to 1.0.
   final double progress;
@@ -39,9 +35,9 @@ class HomeProgressBar extends StatelessWidget {
             label!,
             key: const Key('home-progress-bar-label'),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
+              color: colors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: AppLayoutConstants.spacingXs),
         ],
@@ -50,8 +46,10 @@ class HomeProgressBar extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final trackWidth = constraints.maxWidth;
-              final thumbOffset =
-                  (trackWidth * clampedProgress).clamp(0.0, trackWidth);
+              final thumbOffset = (trackWidth * clampedProgress).clamp(
+                0.0,
+                trackWidth,
+              );
 
               return Stack(
                 clipBehavior: Clip.none,
@@ -66,8 +64,9 @@ class HomeProgressBar extends StatelessWidget {
                       key: const Key('home-progress-bar-track'),
                       decoration: BoxDecoration(
                         color: colors.bgSunken,
-                        borderRadius:
-                            BorderRadius.circular(AppLayoutConstants.smallRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppLayoutConstants.smallRadius,
+                        ),
                       ),
                     ),
                   ),
@@ -84,8 +83,9 @@ class HomeProgressBar extends StatelessWidget {
                           colors: [colors.accent, colors.accentDark],
                           stops: const [0.0, 1.0],
                         ),
-                        borderRadius:
-                            BorderRadius.circular(AppLayoutConstants.smallRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppLayoutConstants.smallRadius,
+                        ),
                       ),
                     ),
                   ),

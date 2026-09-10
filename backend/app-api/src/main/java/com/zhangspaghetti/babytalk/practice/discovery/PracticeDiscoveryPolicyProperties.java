@@ -25,10 +25,14 @@ public record PracticeDiscoveryPolicyProperties(
         List<String> generatedCareKeywords,
         List<String> validatorBlockedFraming,
         List<String> validatorMedicalLegal,
+        List<String> validatorDangerousMedicalCommandPatterns,
+        List<String> validatorDangerousMedicalNegationPatterns,
         List<String> validatorAdultViolentSexual,
         List<String> validatorUnsupportedClaims,
         List<String> validatorUnsuitable03,
         List<String> validatorPromptEcho,
+        List<String> validatorTprActionMarkers,
+        List<String> validatorDeliveryGuidanceMarkers,
         Map<String, SceneIntentPolicy> sceneIntents
 ) {
 
@@ -52,10 +56,18 @@ public record PracticeDiscoveryPolicyProperties(
         generatedCareKeywords = normalizedRequiredList(generatedCareKeywords, "generatedCareKeywords");
         validatorBlockedFraming = normalizedRequiredList(validatorBlockedFraming, "validatorBlockedFraming");
         validatorMedicalLegal = normalizedRequiredList(validatorMedicalLegal, "validatorMedicalLegal");
+        validatorDangerousMedicalCommandPatterns = normalizedRequiredPatterns(
+                validatorDangerousMedicalCommandPatterns, "validatorDangerousMedicalCommandPatterns");
+        validatorDangerousMedicalNegationPatterns = normalizedRequiredPatterns(
+                validatorDangerousMedicalNegationPatterns, "validatorDangerousMedicalNegationPatterns");
         validatorAdultViolentSexual = normalizedRequiredList(validatorAdultViolentSexual, "validatorAdultViolentSexual");
         validatorUnsupportedClaims = normalizedRequiredList(validatorUnsupportedClaims, "validatorUnsupportedClaims");
         validatorUnsuitable03 = normalizedRequiredList(validatorUnsuitable03, "validatorUnsuitable03");
         validatorPromptEcho = normalizedRequiredList(validatorPromptEcho, "validatorPromptEcho");
+        validatorTprActionMarkers = normalizedRequiredList(
+                validatorTprActionMarkers, "validatorTprActionMarkers");
+        validatorDeliveryGuidanceMarkers = normalizedRequiredList(
+                validatorDeliveryGuidanceMarkers, "validatorDeliveryGuidanceMarkers");
         sceneIntents = normalizedSceneIntents(sceneIntents);
     }
 
@@ -71,16 +83,22 @@ public record PracticeDiscoveryPolicyProperties(
             List<String> generatedCareKeywords,
             List<String> validatorBlockedFraming,
             List<String> validatorMedicalLegal,
+            List<String> validatorDangerousMedicalCommandPatterns,
+            List<String> validatorDangerousMedicalNegationPatterns,
             List<String> validatorAdultViolentSexual,
             List<String> validatorUnsupportedClaims,
             List<String> validatorUnsuitable03,
             List<String> validatorPromptEcho,
+            List<String> validatorTprActionMarkers,
+            List<String> validatorDeliveryGuidanceMarkers,
             Map<String, SceneIntentPolicy> sceneIntents
     ) {
         this(policyVersion, babyNamePattern, phonePattern, emailPattern, piiMarkers, piiMarkers,
                 promptInjectionMarkers, unsupportedIntents, careContextMarkers, generatedCareKeywords,
-                validatorBlockedFraming, validatorMedicalLegal, validatorAdultViolentSexual,
-                validatorUnsupportedClaims, validatorUnsuitable03, validatorPromptEcho, sceneIntents);
+                validatorBlockedFraming, validatorMedicalLegal, validatorDangerousMedicalCommandPatterns,
+                validatorDangerousMedicalNegationPatterns, validatorAdultViolentSexual,
+                validatorUnsupportedClaims, validatorUnsuitable03, validatorPromptEcho,
+                validatorTprActionMarkers, validatorDeliveryGuidanceMarkers, sceneIntents);
     }
 
     public Pattern compiledBabyNamePattern() {
@@ -97,10 +115,16 @@ public record PracticeDiscoveryPolicyProperties(
 
     private static void compilePattern(String value, String field) {
         try {
-            Pattern.compile(value, Pattern.CASE_INSENSITIVE);
+            Pattern.compile(value, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
         } catch (RuntimeException exception) {
             throw new IllegalArgumentException("invalid practice discovery policy " + field, exception);
         }
+    }
+
+    private static List<String> normalizedRequiredPatterns(List<String> values, String field) {
+        var normalized = normalizedRequiredList(values, field);
+        normalized.forEach(value -> compilePattern(value, field));
+        return normalized;
     }
 
     private static String requiredText(String value, String field) {

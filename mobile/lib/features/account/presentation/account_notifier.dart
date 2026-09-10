@@ -1,11 +1,15 @@
 import 'dart:async';
 
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository_contract.dart';
 import 'package:mobile/features/account/data/services/account_external_link_opener.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_sign_in_challenge.dart';
+import 'package:mobile/features/account/domain/repositories/account_challenge_repository_contract.dart';
 
 const _localOnlyPhoneHint = '先离线练习也没关系，登录后会补同步最近记录。';
 const _signedOutPhoneHint = '请输入手机号与验证码，完成登录并同意同步。';
@@ -17,30 +21,44 @@ typedef AccountLocalSensitiveDataClearanceRunner =
       required DateTime requestedAt,
     });
 
+typedef AccountSessionEndedHandler = Future<void> Function();
+typedef AccountConsentAcceptanceHandler =
+    Future<AccountLocalSnapshot> Function({required String consentVersion});
+
 class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   AccountNotifier({
     required AccountRepositoryContract repository,
     AccountExternalLinkOpener? linkOpener,
+    AccountChallengeRepositoryContract? challengeRepository,
+    AccountConsentAcceptanceHandler? acceptConsent,
     AccountLocalSensitiveDataClearanceRunner? localDataClearanceRunner,
+    AccountSessionEndedHandler? onAccountSessionEnded,
     LocalSensitiveDataClock? clearanceClock,
   }) : _repository = repository,
        _linkOpener = linkOpener ?? const UrlLauncherAccountExternalLinkOpener(),
+       _challengeRepository = challengeRepository,
+       _acceptConsent = acceptConsent,
        _localDataClearanceRunner = localDataClearanceRunner,
+       _onAccountSessionEnded = onAccountSessionEnded,
        _clearanceClock = clearanceClock ?? DateTime.now;
 
   final AccountRepositoryContract _repository;
   final AccountExternalLinkOpener _linkOpener;
+  final AccountChallengeRepositoryContract? _challengeRepository;
+  final AccountConsentAcceptanceHandler? _acceptConsent;
   final AccountLocalSensitiveDataClearanceRunner? _localDataClearanceRunner;
+  final AccountSessionEndedHandler? _onAccountSessionEnded;
   final LocalSensitiveDataClock _clearanceClock;
 
   bool _isLoading = false;
   bool _hasLoaded = false;
-  bool _isBusy = false;
+  bool _isGlobalOperationBusy = false;
   bool _observerAttached = false;
   bool _disposed = false;
   int _runtimeChangeToken = 0;
   Future<void>? _initializeFuture;
   Future<void>? _runtimeRefreshFuture;
+  Future<bool>? _logoutFuture;
   AccountLocalSnapshot _snapshot = AccountLocalSnapshot.localOnly;
   String? _loadErrorMessage;
   String? _submissionMessage;
@@ -48,10 +66,17 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   String _verificationCode = '';
   String? _phoneError;
   String? _verificationCodeError;
+  AccountSignInChallenge? _signInChallenge;
+  String? _challengePhoneNumber;
+  int _challengeOperationEpoch = 0;
+  int? _activeChallengeOperationEpoch;
 
   bool get isLoading => _isLoading;
   bool get hasLoaded => _hasLoaded;
-  bool get isBusy => _isBusy;
+  bool get _isChallengeOperationBusy =>
+      _activeChallengeOperationEpoch != null &&
+      _activeChallengeOperationEpoch == _challengeOperationEpoch;
+  bool get isBusy => _isGlobalOperationBusy || _isChallengeOperationBusy;
   int get runtimeChangeToken => _runtimeChangeToken;
   AccountLocalSnapshot get snapshot => _snapshot;
   String? get loadErrorMessage => _loadErrorMessage;
@@ -60,11 +85,32 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   String get verificationCode => _verificationCode;
   String? get phoneError => _phoneError;
   String? get verificationCodeError => _verificationCodeError;
+  AccountSignInChallenge? get signInChallenge => _signInChallenge;
+  bool get hasSignInChallenge => _signInChallenge != null;
 
   bool get isSignedIn =>
       _snapshot.session != null &&
       _snapshot.consentState != AccountConsentState.signedOut &&
       _snapshot.consentState != AccountConsentState.deleted;
+
+  /// Persisted identity usable by account-scoped projections and recovery.
+  /// Busy/loading snapshots are deliberately not considered ready.
+  String? get stableAccountContext {
+    if (!hasLoaded || isLoading || isBusy || !isSignedIn) {
+      return null;
+    }
+    return scopedAccountContext;
+  }
+
+  /// Current in-memory scope identity, including busy transitions. Callers use
+  /// this only to invalidate stale account-scoped work; never persist or log it.
+  String? get scopedAccountContext {
+    if (isSignedOut || isRevoked || isDeleted) {
+      return null;
+    }
+    final value = _snapshot.session?.accountId.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
 
   bool get hasPendingSync => _snapshot.pendingSyncCount > 0;
   bool get hasSyncFailure =>
@@ -91,7 +137,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   bool get showUpgradeAction => isVersionBlocked;
 
   bool get canOpenUpgradePage {
-    if (!showUpgradeAction || _isBusy) {
+    if (!showUpgradeAction || isBusy) {
       return false;
     }
     return validateAccountUpgradeUrl(_snapshot.upgradeUrl).isValid;
@@ -204,11 +250,11 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _snapshot = nextSnapshot;
       _hasLoaded = true;
       _bumpRuntimeToken();
-    } catch (error) {
+    } on Object {
       if (_disposed) {
         return;
       }
-      _loadErrorMessage = '账号状态读取失败：$error';
+      _loadErrorMessage = '账号状态读取失败，请重试。';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -216,9 +262,28 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void updatePhoneNumber(String value) {
+    final previousNormalized = _normalizePhone(_phoneNumber);
     _phoneNumber = value;
+    final normalized = _normalizePhone(value);
+    var shouldNotify = false;
+    if (normalized != previousNormalized &&
+        (_signInChallenge != null ||
+            _challengePhoneNumber != null ||
+            _isChallengeOperationBusy)) {
+      _challengeOperationEpoch += 1;
+      _activeChallengeOperationEpoch = null;
+      _signInChallenge = null;
+      _challengePhoneNumber = null;
+      _verificationCode = '';
+      _verificationCodeError = null;
+      _submissionMessage = null;
+      shouldNotify = true;
+    }
     if (_phoneError != null) {
       _phoneError = null;
+      shouldNotify = true;
+    }
+    if (shouldNotify) {
       notifyListeners();
     }
   }
@@ -231,7 +296,191 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<bool> submitSignIn() async {
+  Future<bool> requestSignInChallenge({
+    required AccountChallengePurpose purpose,
+    bool forceRefresh = false,
+  }) async {
+    final normalizedPhone = _normalizePhone(_phoneNumber);
+    if (!_isValidPhone(normalizedPhone)) {
+      _phoneError = '请输入 11 位手机号。';
+      _submissionMessage = '手机号格式不正确，未发送验证码。';
+      notifyListeners();
+      return false;
+    }
+    if (isBusy) {
+      return false;
+    }
+    final existing = _signInChallenge;
+    if (!forceRefresh &&
+        existing != null &&
+        _challengePhoneNumber == normalizedPhone &&
+        existing.purpose == purpose &&
+        existing.expiresAt.isAfter(DateTime.now().toUtc())) {
+      return true;
+    }
+
+    final operationEpoch = ++_challengeOperationEpoch;
+    _activeChallengeOperationEpoch = operationEpoch;
+    _phoneError = null;
+    _submissionMessage = '正在发送验证码…';
+    notifyListeners();
+    try {
+      final challengeRepository = _challengeRepository;
+      if (challengeRepository == null) {
+        throw UnsupportedError('当前账号仓库不支持验证码发送。');
+      }
+      final challenge = await challengeRepository.requestSignInChallenge(
+        phoneNumber: normalizedPhone,
+        purpose: purpose,
+      );
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      _signInChallenge = challenge;
+      _challengePhoneNumber = normalizedPhone;
+      _phoneNumber = normalizedPhone;
+      _submissionMessage = '验证码已发送至 ${_signInChallenge!.maskedPhoneNumber}';
+      return true;
+    } catch (_) {
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      _signInChallenge = null;
+      _challengePhoneNumber = null;
+      _submissionMessage = '发送验证码失败，请稍后重试。';
+      return false;
+    } finally {
+      if (!_disposed &&
+          operationEpoch == _challengeOperationEpoch &&
+          _activeChallengeOperationEpoch == operationEpoch) {
+        _activeChallengeOperationEpoch = null;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> submitChallengeSignIn({
+    required AccountChallengePurpose purpose,
+    bool acceptedConsent = false,
+    String consentVersion = currentAccountConsentVersion,
+  }) async {
+    final normalizedPhone = _normalizePhone(_phoneNumber);
+    final normalizedCode = _verificationCode.trim();
+    final challenge = _signInChallenge;
+    var hasError = false;
+    if (!_isValidPhone(normalizedPhone)) {
+      _phoneError = '请输入 11 位手机号。';
+      hasError = true;
+    } else {
+      _phoneError = null;
+    }
+    if (challenge == null ||
+        _challengePhoneNumber != normalizedPhone ||
+        challenge.purpose != purpose) {
+      _verificationCodeError = '请先发送验证码。';
+      hasError = true;
+    } else if (challenge.isExpired) {
+      _verificationCodeError = '验证码已过期，请重新发送。';
+      _submissionMessage = '验证码已过期，请重新发送。';
+      hasError = true;
+    } else if (!_isValidCode(normalizedCode)) {
+      _verificationCodeError = '请输入 6 位验证码。';
+      hasError = true;
+    } else {
+      _verificationCodeError = null;
+    }
+    if (hasError) {
+      if (_verificationCodeError != '验证码已过期，请重新发送。') {
+        _submissionMessage = '手机号或验证码格式不正确，未发起真实登录。';
+      }
+      notifyListeners();
+      return false;
+    }
+    if (!acceptedConsent) {
+      _submissionMessage = '请先阅读并同意服务条款和隐私协议（版本 $consentVersion）。';
+      notifyListeners();
+      return false;
+    }
+    if (isBusy) {
+      return false;
+    }
+
+    final operationEpoch = ++_challengeOperationEpoch;
+    _activeChallengeOperationEpoch = operationEpoch;
+    _submissionMessage = '正在登录并同步最近结果…';
+    notifyListeners();
+    try {
+      final challengeRepository = _challengeRepository;
+      if (challengeRepository == null) {
+        throw UnsupportedError('当前账号仓库不支持验证码登录。');
+      }
+      final completion = await challengeRepository.completeSignIn(
+        phoneNumber: normalizedPhone,
+        verificationCode: normalizedCode,
+        challenge: challenge!,
+      );
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      if (!completion.isAuthenticated) {
+        _submissionMessage = completion.userMessage ?? '验证失败，请稍后重试。';
+        return false;
+      }
+      var nextSnapshot = await _repository.loadSnapshot();
+      final acceptConsent = _acceptConsent;
+      if (acceptConsent != null) {
+        nextSnapshot = await acceptConsent(consentVersion: consentVersion);
+      }
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      _snapshot = nextSnapshot;
+      _phoneError = null;
+      _verificationCodeError = null;
+      _verificationCode = '';
+      _signInChallenge = null;
+      _challengePhoneNumber = null;
+      _bumpRuntimeToken();
+      _submissionMessage = _buildActionMessage('登录已完成');
+      return _snapshot.session != null;
+    } catch (_) {
+      if (_disposed || operationEpoch != _challengeOperationEpoch) {
+        return false;
+      }
+      _submissionMessage = '验证失败，请稍后重试。';
+      return false;
+    } finally {
+      if (!_disposed &&
+          operationEpoch == _challengeOperationEpoch &&
+          _activeChallengeOperationEpoch == operationEpoch) {
+        _activeChallengeOperationEpoch = null;
+        notifyListeners();
+      }
+    }
+  }
+
+  void clearSignInChallenge() {
+    final shouldNotify =
+        _signInChallenge != null ||
+        _challengePhoneNumber != null ||
+        _isChallengeOperationBusy ||
+        _verificationCode.isNotEmpty;
+    _challengeOperationEpoch += 1;
+    _activeChallengeOperationEpoch = null;
+    _signInChallenge = null;
+    _challengePhoneNumber = null;
+    _verificationCode = '';
+    _verificationCodeError = null;
+    _submissionMessage = null;
+    if (shouldNotify) {
+      notifyListeners();
+    }
+  }
+
+  Future<bool> submitSignIn({
+    bool acceptedConsent = false,
+    String consentVersion = currentAccountConsentVersion,
+  }) async {
     final normalizedPhone = _normalizePhone(_phoneNumber);
     final normalizedCode = _verificationCode.trim();
     var hasError = false;
@@ -255,13 +504,18 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return false;
     }
-
-    if (_isBusy) {
+    if (!acceptedConsent) {
+      _submissionMessage = '请先阅读并同意服务条款和隐私协议（版本 $consentVersion）。';
+      notifyListeners();
       return false;
     }
 
-    _isBusy = true;
-    _submissionMessage = '正在登录、同意并同步最近结果…';
+    if (isBusy) {
+      return false;
+    }
+
+    _isGlobalOperationBusy = true;
+    _submissionMessage = '正在登录并同步最近结果…';
     notifyListeners();
 
     try {
@@ -269,6 +523,10 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
         phoneNumber: normalizedPhone,
         verificationCode: normalizedCode,
       );
+      final acceptConsent = _acceptConsent;
+      if (acceptConsent != null) {
+        _snapshot = await acceptConsent(consentVersion: consentVersion);
+      }
       _phoneError = null;
       _verificationCodeError = null;
       _phoneNumber = normalizedPhone;
@@ -276,11 +534,11 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       _bumpRuntimeToken();
       _submissionMessage = _buildActionMessage('登录已完成');
       return _snapshot.session != null;
-    } catch (error) {
-      _submissionMessage = '登录失败：$error';
+    } on Object {
+      _submissionMessage = '登录失败，请稍后重试。';
       return false;
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
@@ -292,7 +550,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     if (_disposed) {
       return Future.value();
     }
-    if (_isBusy) {
+    if (isBusy) {
       return _runtimeRefreshFuture ?? Future.value();
     }
 
@@ -312,7 +570,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     required AccountRuntimeTrigger trigger,
     required bool announceIdleNoop,
   }) async {
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     if (announceIdleNoop) {
       _submissionMessage = _messageForTrigger(trigger);
       notifyListeners();
@@ -325,18 +583,22 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       if (_disposed) {
         return;
       }
+      final changed =
+          _snapshotFingerprint(_snapshot) != _snapshotFingerprint(nextSnapshot);
       _snapshot = nextSnapshot;
-      _bumpRuntimeToken();
+      if (changed) {
+        _bumpRuntimeToken();
+      }
       if (announceIdleNoop || _snapshot.lastVisibleError != null) {
         _submissionMessage = _buildActionMessage('已刷新账号与同步状态');
       }
-    } catch (error) {
+    } on Object {
       if (_disposed) {
         return;
       }
-      _submissionMessage = '刷新同步状态失败：$error';
+      _submissionMessage = '刷新同步状态失败，请稍后重试。';
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
@@ -345,7 +607,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     if (!showUpgradeAction) {
       return false;
     }
-    if (_isBusy) {
+    if (isBusy) {
       return false;
     }
 
@@ -358,7 +620,7 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
 
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     _submissionMessage = '正在打开升级页面…';
     notifyListeners();
 
@@ -369,83 +631,226 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     } on AccountExternalLinkException catch (error) {
       _submissionMessage = error.message;
       return false;
-    } catch (error) {
-      _submissionMessage = '打开升级页面失败：$error';
+    } on Object {
+      _submissionMessage = '打开升级页面失败，请稍后重试。';
       return false;
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
 
   Future<void> clearSession({bool revertToLocalOnly = false}) async {
-    if (_isBusy) {
+    if (!revertToLocalOnly) {
+      await logout();
       return;
     }
-    _isBusy = true;
+    if (isBusy) {
+      return;
+    }
+    _isGlobalOperationBusy = true;
     _submissionMessage = revertToLocalOnly ? '正在回到本机档案…' : '正在退出账号…';
     notifyListeners();
 
     try {
+      LocalSensitiveDataClearanceReport? clearanceReport;
+      var clearanceFailed = false;
+      try {
+        clearanceReport = await _clearLocalSensitiveDataForLogout();
+      } catch (_) {
+        clearanceFailed = true;
+      }
       _snapshot = await _repository.clearPlaceholderSession(
         revertToLocalOnly: revertToLocalOnly,
       );
+      if (revertToLocalOnly) {
+        await _cancelReminderAfterAccountExit();
+      }
       _bumpRuntimeToken();
-      _submissionMessage = revertToLocalOnly
+      _submissionMessage =
+          clearanceFailed || clearanceReport?.hasFailures == true
+          ? '已退出账号，但部分本机敏感数据清理失败。'
+          : revertToLocalOnly
           ? '已回到本机档案模式。'
           : '已退出账号；本机练习记录仍保留。';
-    } catch (error) {
-      _submissionMessage = '清理账号状态失败：$error';
+    } on Object {
+      _submissionMessage = '清理账号状态失败，请重试。';
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
 
+  Future<bool> logout() {
+    final running = _logoutFuture;
+    if (running != null) {
+      return running;
+    }
+    if (_disposed) {
+      return Future<bool>.value(false);
+    }
+    if (!isSignedIn) {
+      return Future<bool>.value(true);
+    }
+    if (isBusy) {
+      return Future<bool>.value(false);
+    }
+
+    late final Future<bool> tracked;
+    tracked = _logoutInternal().whenComplete(() {
+      if (identical(_logoutFuture, tracked)) {
+        _logoutFuture = null;
+      }
+    });
+    _logoutFuture = tracked;
+    return tracked;
+  }
+
+  Future<bool> _logoutInternal() async {
+    _isGlobalOperationBusy = true;
+    _submissionMessage = '正在退出登录…';
+    notifyListeners();
+
+    try {
+      final signedOutSnapshot = await _repository.clearPlaceholderSession();
+      if (_disposed) {
+        return false;
+      }
+      _snapshot = signedOutSnapshot;
+      _bumpRuntimeToken();
+      _clearTransientAuthenticationInput();
+      await _cancelReminderAfterAccountExit();
+
+      LocalSensitiveDataClearanceReport? clearanceReport;
+      var clearanceFailed = false;
+      try {
+        clearanceReport = await _clearLocalSensitiveDataForLogout();
+      } on Object {
+        clearanceFailed = true;
+      }
+      final clearanceCompleted =
+          !clearanceFailed &&
+          (clearanceReport == null ||
+              clearanceReport.overallStatus ==
+                  LocalSensitiveDataClearanceOverallStatus.completed);
+      _submissionMessage = clearanceCompleted
+          ? '已退出登录。'
+          : '已退出登录，但部分本机敏感数据清理失败，请联系支持。';
+      return clearanceCompleted;
+    } on Object {
+      _submissionMessage = '退出登录失败，请重试。';
+      return false;
+    } finally {
+      _isGlobalOperationBusy = false;
+      notifyListeners();
+    }
+  }
+
+  void _clearTransientAuthenticationInput() {
+    _challengeOperationEpoch += 1;
+    _activeChallengeOperationEpoch = null;
+    _phoneNumber = '';
+    _verificationCode = '';
+    _phoneError = null;
+    _verificationCodeError = null;
+    _signInChallenge = null;
+    _challengePhoneNumber = null;
+  }
+
   Future<void> revokeConsent() async {
-    if (_isBusy) {
+    if (isBusy) {
       return;
     }
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     _submissionMessage = '正在撤回同意…';
     notifyListeners();
 
     try {
       _snapshot = await _repository.revokeConsent();
+      await _cancelReminderAfterAccountExit();
+      final clearanceReport =
+          await _clearLocalSensitiveDataForConsentWithdrawal();
       _bumpRuntimeToken();
-      _submissionMessage = '已撤回同意；后续需重新登录并再次同意。';
-    } catch (error) {
-      _submissionMessage = '撤回同意失败：$error';
+      _submissionMessage = clearanceReport?.hasFailures == true
+          ? '已撤回同意，但部分本机敏感数据清理失败。'
+          : '已撤回同意；后续需重新登录并再次同意。';
+    } on Object {
+      _submissionMessage = '撤回同意失败，请重试。';
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
 
   Future<void> deleteAccount() async {
-    if (_isBusy) {
+    if (isBusy) {
       return;
     }
-    _isBusy = true;
+    _isGlobalOperationBusy = true;
     _submissionMessage = '正在删除账号…';
     notifyListeners();
 
     try {
       _snapshot = await _repository.deleteAccount();
+      await _cancelReminderAfterAccountExit();
       LocalSensitiveDataClearanceReport? clearanceReport;
       try {
         clearanceReport = await _clearLocalSensitiveDataForAccountDeletion();
-      } catch (error) {
+      } on Object {
         _bumpRuntimeToken();
-        _submissionMessage = '账号已删除，但本机敏感数据清理失败：$error';
+        _submissionMessage = '账号已删除，但本机敏感数据清理失败，请联系支持。';
         return;
       }
       _bumpRuntimeToken();
       _submissionMessage = _messageForAccountDeletion(clearanceReport);
-    } catch (error) {
-      _submissionMessage = '删除账号失败：$error';
+    } on Object {
+      _submissionMessage = '删除账号失败，请重试。';
     } finally {
-      _isBusy = false;
+      _isGlobalOperationBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _cancelReminderAfterAccountExit() async {
+    try {
+      await _onAccountSessionEnded?.call();
+    } on Object {
+      // Account exit succeeds even when native reminder cleanup is unavailable.
+    }
+  }
+
+  Future<void> clearRetainedLocalData() async {
+    if (isBusy) {
+      return;
+    }
+    _isGlobalOperationBusy = true;
+    _submissionMessage = '正在清除本机保留数据…';
+    notifyListeners();
+    try {
+      await _cancelReminderAfterAccountExit();
+      final runner = _localDataClearanceRunner;
+      if (runner == null) {
+        throw StateError('本机数据清理服务不可用。');
+      }
+      final requestedAt = _clearanceClock().toUtc();
+      final report = await runner(
+        trigger: LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed,
+        correlationId:
+            'account-device-erase-${requestedAt.microsecondsSinceEpoch}',
+        requestedAt: requestedAt,
+      );
+      if (report.overallStatus !=
+          LocalSensitiveDataClearanceOverallStatus.completed) {
+        _submissionMessage = '本机数据清理未完成；账号不会被删除。请重试。';
+        return;
+      }
+      _snapshot = await _repository.loadSnapshot();
+      _bumpRuntimeToken();
+      _submissionMessage = '本机保留数据已清除；账号不会被删除。';
+    } on Object {
+      _submissionMessage = '本机数据清理失败，请重试。';
+    } finally {
+      _isGlobalOperationBusy = false;
       notifyListeners();
     }
   }
@@ -482,6 +887,35 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
     return runner(
       trigger: LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed,
       correlationId: 'account-delete-${requestedAt.microsecondsSinceEpoch}',
+      requestedAt: requestedAt,
+    );
+  }
+
+  Future<LocalSensitiveDataClearanceReport?>
+  _clearLocalSensitiveDataForLogout() {
+    final runner = _localDataClearanceRunner;
+    if (runner == null) {
+      return Future<LocalSensitiveDataClearanceReport?>.value();
+    }
+    final requestedAt = _clearanceClock().toUtc();
+    return runner(
+      trigger: LocalSensitiveDataClearanceTrigger.logoutSessionOnly,
+      correlationId: 'account-logout-${requestedAt.microsecondsSinceEpoch}',
+      requestedAt: requestedAt,
+    );
+  }
+
+  Future<LocalSensitiveDataClearanceReport?>
+  _clearLocalSensitiveDataForConsentWithdrawal() {
+    final runner = _localDataClearanceRunner;
+    if (runner == null) {
+      return Future<LocalSensitiveDataClearanceReport?>.value();
+    }
+    final requestedAt = _clearanceClock().toUtc();
+    return runner(
+      trigger: LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed,
+      correlationId:
+          'account-consent-withdrawal-${requestedAt.microsecondsSinceEpoch}',
       requestedAt: requestedAt,
     );
   }
@@ -532,6 +966,10 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
   void _bumpRuntimeToken() {
     _runtimeChangeToken += 1;
+  }
+
+  String _snapshotFingerprint(AccountLocalSnapshot snapshot) {
+    return jsonEncode(snapshot.toJsonMap());
   }
 
   @override

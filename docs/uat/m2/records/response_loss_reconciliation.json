@@ -1,0 +1,99 @@
+{
+  "schema_version": "m2_android_uat_v2",
+  "record_id": "uat_response_loss_reconciliation_20260813",
+  "case_id": "response_loss_reconciliation",
+  "input_mode": "custom_scene",
+  "scenario_label": "sleep",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-08-13T08:53:24+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate_manifest": {
+    "candidate_id": "m2-final-3c89e997b02b",
+    "sha256": "9cf69630364e88528acad51b05843ce42e9a4f84c674c6d058f77ccd10803350",
+    "bytes": 2686
+  },
+  "candidate": {
+    "mobile_source_sha": "3c89e997b02be6ced27618f52798f2565fcab70e",
+    "mobile_apk_sha256": "8c112b313bce3b96f8d381431b0ed22be54715c0a1371a03cf122cf6342c1b2b",
+    "backend_source_sha": "dd71582a1093256421d3ec369cd3bf4b6a2b03da",
+    "backend_artifact_identity": "image_sha256:c7d7554496dc34f3f7bd75315684076541d34baf1b3cc566fb5e1135270ce347",
+    "environment_identity": "sanitized-qa-kind-rev12",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:bb43a640f04c8e5504a8fbc8c6980455029f3e8fc1dedff10bcd04f94c4f4319",
+    "configuration_fingerprint": "sha256:d35afa0c260c2703d29336daea38315b26f8fed54835188139ae7ade188f84fb"
+  },
+  "device": {
+    "device_class": "android_physical_device",
+    "android_version": "10",
+    "talkback_version": "NOT_APPLICABLE"
+  },
+  "authenticity": {
+    "execution": "HUMAN_ANDROID",
+    "provider_path": "FORMAL_PRODUCTION",
+    "llm_provider": "REAL",
+    "tts_provider": "REAL"
+  },
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "candidate_hash_matched", "status": "PASS"},
+    {"id": "approved_custom_scene_scenario", "status": "PASS"},
+    {"id": "formal_provider_runtime", "status": "PASS"}
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "action": "submit_custom_scene_once",
+      "expected": "single_request_started",
+      "actual": "single_request_started",
+      "status": "PASS"
+    },
+    {
+      "index": 2,
+      "action": "force_stop_client_after_50ms",
+      "expected": "client_force_stopped_after_request_start",
+      "actual": "client_force_stopped_after_request_start",
+      "status": "PASS"
+    },
+    {
+      "index": 3,
+      "action": "wait_for_backend_terminal",
+      "expected": "active_v7_six_utterances",
+      "actual": "active_v7_six_utterances",
+      "status": "PASS"
+    },
+    {
+      "index": 4,
+      "action": "restart_client",
+      "expected": "unknown_outcome_recovered",
+      "actual": "unknown_outcome_recovered",
+      "status": "PASS"
+    },
+    {
+      "index": 5,
+      "action": "reconcile_same_request_once",
+      "expected": "count_tuple_19_21_29_29_60_unchanged",
+      "actual": "count_tuple_19_21_29_29_60_unchanged",
+      "status": "PASS"
+    },
+    {
+      "index": 6,
+      "action": "human_review_reconciled_starter",
+      "expected": "page_normal_controls_usable",
+      "actual": "page_normal_controls_usable",
+      "status": "PASS"
+    }
+  ],
+  "status": "FINAL",
+  "verdict": "PASS",
+  "evidence_location": "reviewed://m2_40/uat_response_loss_reconciliation_20260813",
+  "defects": [],
+  "retest_outcome": "NOT_REQUIRED",
+  "privacy": {
+    "raw_content_stored": false,
+    "raw_evidence_stored": false,
+    "sensitive_identifiers_stored": false,
+    "sanitized": true
+  },
+  "branch_reviews": []
+}

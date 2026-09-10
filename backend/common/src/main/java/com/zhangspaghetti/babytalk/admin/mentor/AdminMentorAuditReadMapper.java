@@ -13,7 +13,8 @@ public interface AdminMentorAuditReadMapper {
     void applyStatementTimeout();
 
     List<AdminMentorAuditReadRepository.QueueIncidentRow> listFlaggedIncidents(
-            @Param("installationId") String installationId,
+            @Param("installationReference") String installationReference,
+            @Param("legacyInstallationId") String legacyInstallationId,
             @Param("flagCode") String flagCode,
             @Param("limit") int limit
     );
@@ -25,7 +26,8 @@ public interface AdminMentorAuditReadMapper {
     AdminMentorAuditReadRepository.DeliveredTurnRow findDeliveredTurn(@Param("correlationId") String correlationId);
 
     int countCurrentWindowRequests(
-            @Param("installationId") String installationId,
+            @Param("installationReference") String installationReference,
+            @Param("legacyInstallationId") String legacyInstallationId,
             @Param("windowStart") Instant windowStart
     );
 

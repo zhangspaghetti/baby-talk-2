@@ -48,9 +48,17 @@ class InMemoryDemoBackend {
   int _sessionCount = 0;
   int bootstrapCount = 0;
   int mentorRequestCount = 0;
+  int onboardingConversationRequestCount = 0;
+  int onboardingTurnRequestCount = 0;
+  int onboardingAudioRequestCount = 0;
   Object? lastUnhandledError;
   Map<String, Object?>? lastMentorRequestSummary;
   String? lastMentorFailureBranch;
+  bool? lastOnboardingTurnReactionProvided;
+  String? lastOnboardingTurnReaction;
+
+  Completer<void>? _onboardingConversationGate;
+  bool _failNextOnboardingAudio = false;
 
   final Map<String, String> _challengePhoneById = <String, String>{};
   final Map<String, String> _accountIdByPhone = <String, String>{};
@@ -94,8 +102,27 @@ class InMemoryDemoBackend {
   }
 
   Future<void> dispose() async {
+    releaseOnboardingConversation();
     await _subscription.cancel();
     await _server.close(force: true);
+  }
+
+  void holdNextOnboardingConversation() {
+    final active = _onboardingConversationGate;
+    if (active != null && !active.isCompleted) {
+      throw StateError('onboarding conversation is already held');
+    }
+    _onboardingConversationGate = Completer<void>();
+  }
+
+  void releaseOnboardingConversation() {
+    final active = _onboardingConversationGate;
+    _onboardingConversationGate = null;
+    if (active != null && !active.isCompleted) active.complete();
+  }
+
+  void failNextOnboardingAudio() {
+    _failNextOnboardingAudio = true;
   }
 
   Future<void> _handle(HttpRequest request) async {
@@ -150,6 +177,40 @@ class InMemoryDemoBackend {
         return;
       }
 
+      if (request.method == 'POST' &&
+          path == '/api/v1/onboarding/conversations') {
+        await _handleOnboardingConversation(request);
+        return;
+      }
+
+      final segments = request.uri.pathSegments;
+      if (request.method == 'POST' &&
+          segments.length == 6 &&
+          segments[0] == 'api' &&
+          segments[1] == 'v1' &&
+          segments[2] == 'onboarding' &&
+          segments[3] == 'conversations' &&
+          segments[5] == 'turns') {
+        await _handleOnboardingTurn(request, segments[4]);
+        return;
+      }
+
+      if (request.method == 'GET' &&
+          segments.length == 8 &&
+          segments[0] == 'api' &&
+          segments[1] == 'v1' &&
+          segments[2] == 'onboarding' &&
+          segments[3] == 'conversations' &&
+          segments[5] == 'utterances' &&
+          segments[7] == 'audio') {
+        await _handleOnboardingAudio(
+          request,
+          conversationId: segments[4],
+          utteranceId: segments[6],
+        );
+        return;
+      }
+
       await _writeJson(request.response, HttpStatus.notFound, {
         'code': 'not_found',
         'message': 'unsupported route',
@@ -161,6 +222,142 @@ class InMemoryDemoBackend {
         'message': '$error',
       });
     }
+  }
+
+  Future<void> _handleOnboardingConversation(HttpRequest request) async {
+    final body = await _readJsonBody(request);
+    if (body['installationId'] is! String ||
+        body['localEventId'] is! String ||
+        body['careEntryId'] is! String) {
+      await _writeJson(request.response, HttpStatus.badRequest, {
+        'code': 'invalid_onboarding_conversation',
+        'message': 'required identity missing',
+      });
+      return;
+    }
+    onboardingConversationRequestCount += 1;
+    final gate = _onboardingConversationGate;
+    if (gate != null) await gate.future;
+    await _writeJson(
+      request.response,
+      HttpStatus.ok,
+      _onboardingConversationResponse(
+        conversationId: 'onbc_demo_1',
+        utteranceId: 'utterance_demo_1',
+        english: 'Remote bedtime support.',
+        chinese: '远程睡前陪伴。',
+        pronunciation: 'ri-mout bed-taim se-port',
+        audioCapability: 'capability-demo-first',
+      ),
+    );
+  }
+
+  Future<void> _handleOnboardingTurn(
+    HttpRequest request,
+    String conversationId,
+  ) async {
+    final body = await _readJsonBody(request);
+    final reactionProvided = body['reactionProvided'];
+    final reaction = body['reaction'];
+    if (reactionProvided is! bool ||
+        (reaction != null && reaction is! String) ||
+        body['previousUtteranceId'] is! String ||
+        body['localEventId'] is! String) {
+      await _writeJson(request.response, HttpStatus.badRequest, {
+        'code': 'invalid_onboarding_turn',
+        'message': 'invalid turn contract',
+      });
+      return;
+    }
+    onboardingTurnRequestCount += 1;
+    lastOnboardingTurnReactionProvided = reactionProvided;
+    lastOnboardingTurnReaction = reaction as String?;
+    await _writeJson(
+      request.response,
+      HttpStatus.ok,
+      _onboardingConversationResponse(
+        conversationId: conversationId,
+        utteranceId: 'utterance_demo_2',
+        english: 'Remote next support.',
+        chinese: '远程下一句陪伴。',
+        pronunciation: 'ri-mout nekst se-port',
+        audioCapability: 'capability-demo-next',
+      ),
+    );
+  }
+
+  Future<void> _handleOnboardingAudio(
+    HttpRequest request, {
+    required String conversationId,
+    required String utteranceId,
+  }) async {
+    onboardingAudioRequestCount += 1;
+    if (_failNextOnboardingAudio) {
+      _failNextOnboardingAudio = false;
+      await _writeJson(request.response, HttpStatus.serviceUnavailable, {
+        'code': 'onboarding_audio_unavailable',
+        'message': 'simulated audio failure',
+      });
+      return;
+    }
+    final expectedCapability = utteranceId == 'utterance_demo_1'
+        ? 'capability-demo-first'
+        : utteranceId == 'utterance_demo_2'
+        ? 'capability-demo-next'
+        : null;
+    final capability = request.headers.value('X-Onboarding-Audio-Capability');
+    if (conversationId != 'onbc_demo_1' ||
+        expectedCapability == null ||
+        capability != expectedCapability) {
+      await _writeJson(request.response, HttpStatus.notFound, {
+        'code': 'onboarding_audio_not_found',
+        'message': 'audio not found',
+      });
+      return;
+    }
+    const bytes = <int>[1, 2, 3, 4];
+    request.response.statusCode = HttpStatus.ok;
+    request.response.headers.contentType = ContentType('audio', 'mpeg');
+    request.response.headers.set(
+      HttpHeaders.cacheControlHeader,
+      'private, no-store',
+    );
+    request.response.headers.set(
+      HttpHeaders.varyHeader,
+      'X-Onboarding-Audio-Capability',
+    );
+    request.response.headers.set(
+      'X-Generated-Audio-Voice-Version',
+      'demo-onboarding-v1',
+    );
+    request.response.contentLength = bytes.length;
+    request.response.add(bytes);
+    await request.response.close();
+  }
+
+  Map<String, Object?> _onboardingConversationResponse({
+    required String conversationId,
+    required String utteranceId,
+    required String english,
+    required String chinese,
+    required String pronunciation,
+    required String audioCapability,
+  }) {
+    return <String, Object?>{
+      'conversationId': conversationId,
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 10))
+          .toIso8601String(),
+      'utterance': <String, Object?>{
+        'utteranceId': utteranceId,
+        'englishText': english,
+        'chineseText': chinese,
+        'pronunciationHint': pronunciation,
+        'audioRef': audioCapability,
+        'source': 'remote_generated',
+      },
+    };
   }
 
   Future<void> _handleCreateChallenge(HttpRequest request) async {

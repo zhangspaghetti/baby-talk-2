@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.palace;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -14,8 +15,25 @@ public record HybridCandidate(
         String ageRangeRaw,
         Double ageBoostApplied,
         String rankingReason,
-        String sourceBook
+        String sourceBook,
+        @JsonIgnore
+        boolean currentProjectionMember
 ) {
+
+    public HybridCandidate(
+            String chunkId,
+            String content,
+            Double vectorScore,
+            Double keywordScore,
+            Double mergedScore,
+            String ageRangeRaw,
+            Double ageBoostApplied,
+            String rankingReason,
+            String sourceBook
+    ) {
+        this(chunkId, content, vectorScore, keywordScore, mergedScore, ageRangeRaw,
+                ageBoostApplied, rankingReason, sourceBook, false);
+    }
 
     public HybridCandidate {
         chunkId = chunkId == null ? "" : chunkId;

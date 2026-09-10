@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -57,7 +58,7 @@ class SettingsScreen extends ConsumerWidget {
                             },
                             activeThumbColor: colors.accent,
                           ),
-                          onTap: () => context.push('/me/settings/reminder'),
+                          onTap: () => context.push(AppRouteNames.meReminder),
                         ),
                       ],
                     ),
@@ -73,7 +74,7 @@ class SettingsScreen extends ConsumerWidget {
                               ? '${snapshot.childName}${snapshot.childAgeMonths != null ? '  ·  ${l.settingsMonthSuffix(snapshot.childAgeMonths!)}' : ''}'
                               : l.settingsTapToSetBabyInfo,
                           onTap: () =>
-                              context.push('/me/settings/baby-profile'),
+                              context.push(AppRouteNames.meBabyProfile),
                         ),
                       ],
                     ),
@@ -88,7 +89,7 @@ class SettingsScreen extends ConsumerWidget {
                           subtitle: snapshot.caregiverRole.isNotEmpty
                               ? '${snapshot.caregiverRole}  ·  ${_languageLabel(l, snapshot.preferredLanguage)}'
                               : l.settingsTapToSet,
-                          onTap: () => context.push('/me/settings/caregiver'),
+                          onTap: () => context.push(AppRouteNames.meCaregiver),
                         ),
                       ],
                     ),
@@ -102,7 +103,7 @@ class SettingsScreen extends ConsumerWidget {
                           title: l.settingsPlaybackPrefs,
                           subtitle:
                               '${snapshot.autoPlayEnabled ? l.settingsAutoPlayOn : l.settingsAutoPlayOff}  ·  ${l.settingsSpeed} ${snapshot.audioSpeed}x',
-                          onTap: () => context.push('/me/settings/playback'),
+                          onTap: () => context.push(AppRouteNames.mePlayback),
                         ),
                       ],
                     ),
@@ -114,7 +115,7 @@ class SettingsScreen extends ConsumerWidget {
                         _SettingsTile(
                           icon: Icons.help_outline,
                           title: l.settingsHelpSection,
-                          onTap: () => context.push('/me/settings/help'),
+                          onTap: () => context.push(AppRouteNames.meHelp),
                         ),
                       ],
                     ),
@@ -129,7 +130,7 @@ class SettingsScreen extends ConsumerWidget {
                           subtitle: snapshot.appVersion.isNotEmpty
                               ? l.settingsVersion(snapshot.appVersion)
                               : null,
-                          onTap: () => context.push('/me/settings/about'),
+                          onTap: () => context.push(AppRouteNames.meAbout),
                         ),
                       ],
                     ),
@@ -148,6 +149,8 @@ class SettingsScreen extends ConsumerWidget {
         return l.settingsLanguageZh;
       case 'en':
         return l.settingsLanguageEn;
+      case 'bilingual':
+        return l.settingsLanguageBilingual;
       default:
         return code;
     }

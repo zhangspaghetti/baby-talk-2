@@ -57,6 +57,182 @@ class AppLocalizationsZh extends AppLocalizations {
   String get practiceEntryUnavailable => '照护入口暂时不可用。';
 
   @override
+  String get customSceneTitle => '描述一下此刻';
+
+  @override
+  String get customSceneTodayEntryPrompt => '不是正在发生的事？';
+
+  @override
+  String get customSceneSceneEntryPrompt => '没找到正在发生的场景？';
+
+  @override
+  String get customSceneDescribeMoment => '描述一下此刻';
+
+  @override
+  String get customSceneHeading => '说说现在正在发生什么';
+
+  @override
+  String get customSceneDescription => '写下你想回应的此刻，我们会帮你准备一句自然的表达。';
+
+  @override
+  String get customSceneFieldLabel => '此刻发生了什么？';
+
+  @override
+  String get customSceneFieldHint => '例如：洗澡时宝宝不想碰水。';
+
+  @override
+  String get customScenePrivacyNote => '请不要填写姓名、电话、地址或其他私密信息。';
+
+  @override
+  String get customScenePrivacySemantics => '隐私说明：请不要填写姓名、电话、地址或其他私密信息。';
+
+  @override
+  String get customSceneEmptyInput => '请先描述一下此刻。';
+
+  @override
+  String get customSceneSubmit => '帮我准备一句';
+
+  @override
+  String get customScenePreparing => '正在准备…';
+
+  @override
+  String get customSceneContinueAfterLogin => '登录后继续';
+
+  @override
+  String get customSceneConfirmResult => '继续确认结果';
+
+  @override
+  String get customSceneOpenPrepared => '打开已准备内容';
+
+  @override
+  String get customSceneCancelRetainedDraft => '取消并重新开始';
+
+  @override
+  String get customSceneAbandonPrepared => '放弃这条内容';
+
+  @override
+  String get customSceneViewExisting => '查看已有场景';
+
+  @override
+  String get customSceneUnavailable => '这个入口正在准备中。';
+
+  @override
+  String get customSceneAbandonTitle => '放弃已准备内容？';
+
+  @override
+  String get customSceneAbandonBody => '放弃后需要重新描述，才会准备新内容。';
+
+  @override
+  String get customSceneCancelTitle => '取消这次描述？';
+
+  @override
+  String get customSceneCancelBody => '取消后需要重新描述，才会准备新内容。';
+
+  @override
+  String get customSceneKeep => '继续保留';
+
+  @override
+  String get customSceneConfirmAbandon => '确认放弃';
+
+  @override
+  String get customSceneConfirmCancel => '确认取消';
+
+  @override
+  String get customSceneViewHouseholdStatus => '查看家庭状态';
+
+  @override
+  String get customSceneCompleteProfile => '完善宝宝档案';
+
+  @override
+  String get customSceneAuthenticationRequired => '请先登录后再生成。';
+
+  @override
+  String get customSceneProfileUnavailable =>
+      '当前账号还没有可用于生成的宝宝档案；主照护者请先完成档案，次照护者请先加入共享照护家庭并接受邀请。';
+
+  @override
+  String get customSceneHouseholdAccessRequired => '请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。';
+
+  @override
+  String get customSceneSharedProfileUnavailable => '共享宝宝档案尚未准备好，请让主照护者先完成档案';
+
+  @override
+  String get customScenePresetSceneUnavailable => '预置场景暂不可用，请稍后再试。';
+
+  @override
+  String get customSceneInvalidDraft => '请调整描述后再试。';
+
+  @override
+  String get customSceneRequestConflict => '这次描述已变更，请重新开始生成。';
+
+  @override
+  String get customSceneRequestTerminal => '这次生成已结束，请重新生成。';
+
+  @override
+  String get customSceneGenerationInProgress => '正在生成，请稍候。';
+
+  @override
+  String get customSceneRateLimited => '尝试次数较多，请稍后再试。';
+
+  @override
+  String get customSceneUnavailableError => '现在暂时无法生成，请稍后再试。';
+
+  @override
+  String get customSceneTimeout => '等待超时，请稍后再试。';
+
+  @override
+  String get customSceneNetwork => '网络暂不可用，请检查后重试。';
+
+  @override
+  String get customSceneMalformedResponse => '服务响应异常，请稍后再试。';
+
+  @override
+  String get customSceneRejected => '这段描述暂时无法生成，请换个说法。';
+
+  @override
+  String get customSceneUnexpected => '暂时无法生成，请稍后再试。';
+
+  @override
+  String get customSceneSubmissionAnotherDraftPending =>
+      '当前已有另一段描述待处理，请先完成或取消。';
+
+  @override
+  String get customSceneSubmissionRestoreUnavailable => '暂时无法恢复这次描述，请重新填写。';
+
+  @override
+  String get customSceneSubmissionAccountChanged => '账号已切换，请重新填写描述。';
+
+  @override
+  String get customSceneSubmissionUnknownOutcome => '结果尚未确认，请重试以继续。';
+
+  @override
+  String get customSceneSubmissionPreviousRequestUnknown =>
+      '上次请求的结果尚未确认，请重试以继续。';
+
+  @override
+  String get customSceneSubmissionRetryUnavailable => '暂时无法继续，请重新填写描述。';
+
+  @override
+  String get customSceneSubmissionHandoffRouteFailed => '暂时无法打开照护内容，请再试一次。';
+
+  @override
+  String get customSceneSubmissionSaveUnavailable => '暂时无法保存描述，请稍后再试。';
+
+  @override
+  String get customSceneSubmissionPreparedContentSaveFailed =>
+      '内容已准备好，但暂时无法保存。请重试以继续。';
+
+  @override
+  String get customSceneSubmissionDraftExpired => '这次描述已过期，请重新填写。';
+
+  @override
+  String get customSceneSubmissionDraftRecoveryUnavailable =>
+      '暂时无法恢复这次描述，请稍后再试。';
+
+  @override
+  String get customSceneSubmissionDraftInconsistent => '暂时无法恢复这次描述，请重新填写。';
+
+  @override
   String get bootErrorUnknown => '未知启动错误';
 
   @override
@@ -255,146 +431,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String homeRecentResultDetail(Object totalEvents, Object time) {
     return '$totalEvents 条本地记录 · 最近一次 $time';
-  }
-
-  @override
-  String get onboardingTitle => '先拿一句今天能和宝宝说的英文';
-
-  @override
-  String get onboardingSubtitle => '只要昵称和大概月龄，小禾老师会先在本机准备第一句。';
-
-  @override
-  String get onboardingLocalOnly => '同意前仅保存在这台设备，不需要精确生日。';
-
-  @override
-  String get onboardingMentorGreeting => '你好，我会先帮你把英语放进今天就能开口的照护节奏里。';
-
-  @override
-  String get onboardingAskName => '我先怎么称呼宝宝？先用一个你最顺口的小昵称就好。';
-
-  @override
-  String get onboardingAskAge => '现在大概几个月？我会用月龄档给你匹配阶段，不会要求精确生日。';
-
-  @override
-  String onboardingStagePreview(Object childName) {
-    return '$childName 现在更适合从这一类短句开始，先用一句真实照护里的英文试试看。';
-  }
-
-  @override
-  String get onboardingWelcomeInfo => '先准备两条信息：宝宝昵称 + 月龄档。';
-
-  @override
-  String get onboardingWelcomeDetail => '完成后会看到第一句英文、什么时候说，以及怎么接住宝宝反应。';
-
-  @override
-  String get onboardingStartButton => '先开始';
-
-  @override
-  String get onboardingNameLabel => '宝宝昵称';
-
-  @override
-  String get onboardingNameHint => '例如：米米、果果';
-
-  @override
-  String get onboardingNameHelp => '先用一个顺口的小名就够了，之后还可以再改。';
-
-  @override
-  String get onboardingBack => '上一步';
-
-  @override
-  String get onboardingContinue => '继续';
-
-  @override
-  String get onboardingAgeTitle => '月龄快选';
-
-  @override
-  String get onboardingAgeHelp => '不需要精确到哪一天，先选最接近的一档就可以。';
-
-  @override
-  String onboardingAgeMonths(Object months) {
-    return '$months月左右';
-  }
-
-  @override
-  String get onboardingContentLoading => '正在准备第一句…';
-
-  @override
-  String get onboardingContentRetry => '重新准备';
-
-  @override
-  String get onboardingAgeContinue => '准备第一句';
-
-  @override
-  String get onboardingPreviewConfirm => '先播放一下，再说一次；我会把这次开始保存在本机。';
-
-  @override
-  String get onboardingPreviewRetryHint => '说完可以点“我说了”，不用等宝宝立刻回应。';
-
-  @override
-  String get onboardingPreviewSeedLabel => '第一句可以先这样说';
-
-  @override
-  String get onboardingMiniSceneActionHint => '洗澡、换衣或抱起宝宝时，都可以先轻轻说这一句。';
-
-  @override
-  String get onboardingMiniScenePlay => '播放一下';
-
-  @override
-  String get onboardingMiniScenePlaying => '播放中';
-
-  @override
-  String get onboardingMiniSceneSaid => '我说了';
-
-  @override
-  String get onboardingMiniSceneRecording => '记录中';
-
-  @override
-  String get onboardingMiniSceneRecorded => '已在本机种下第一颗种子，首页会接着这句继续。';
-
-  @override
-  String get onboardingSayFirstBeforeHome => '先说一次';
-
-  @override
-  String get onboardingPreviewBack => '返回调整';
-
-  @override
-  String get onboardingSaving => '正在保存到本地';
-
-  @override
-  String get onboardingEnterHome => '进入首页继续';
-
-  @override
-  String get onboardingStageMatch => '现在适合这样开始';
-
-  @override
-  String get onboardingMentorCaption => '禾';
-
-  @override
-  String get onboardingFirstSeed => '第一颗种子';
-
-  @override
-  String onboardingMentorMessageSemantics(Object message) {
-    return '小禾老师引导消息：$message';
-  }
-
-  @override
-  String onboardingMiniSeedCardSemantics(Object phrase) {
-    return '第一颗种子：$phrase';
-  }
-
-  @override
-  String onboardingStageMatchSemantics(Object stageTitle, Object summary) {
-    return '现在适合这样开始：$stageTitle。$summary';
-  }
-
-  @override
-  String onboardingFirstPhraseActionErrorSemantics(Object message) {
-    return '第一句记录失败：$message';
-  }
-
-  @override
-  String onboardingSaveErrorSemantics(Object message) {
-    return '保存失败：$message';
   }
 
   @override
@@ -690,6 +726,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get householdCaregiver => '次照护者';
+
+  @override
+  String get meHouseholdCaregiverDetail => '使用家庭共享宝宝档案';
+
+  @override
+  String get meHouseholdIdentityLoading => '家庭身份同步中';
+
+  @override
+  String get meHouseholdIdentityNoMembership => '尚未加入共享家庭';
+
+  @override
+  String get meHouseholdIdentityUnavailable => '家庭身份暂时不可用';
+
+  @override
+  String get meHouseholdIdentityReadError => '家庭状态读取失败，请稍后重试。';
+
+  @override
+  String get meHouseholdIdentityStale => '家庭状态正在更新，暂不显示上一份身份。';
 
   @override
   String get householdMember => '家庭成员';
@@ -1201,6 +1255,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mentorReadResponse => '朗读回应';
 
   @override
+  String get mentorChatResponseUpdated => '最近回应已更新';
+
+  @override
+  String get mentorChatResponseGenerated => '回应已生成';
+
+  @override
+  String get mentorChatResponseStatusUpdated => '回应状态已更新';
+
+  @override
+  String get mentorChatAccountConnected => '账号已连接';
+
+  @override
+  String mentorChatRateRemaining(Object remaining, Object limit) {
+    return '今日剩余 $remaining/$limit';
+  }
+
+  @override
   String get mentorSuggestionIntro => '先给你几条现在就能说出口的建议。离线时也可以直接用，不需要等聊天连通。';
 
   @override
@@ -1217,6 +1288,182 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get mentorSuggestionRead => '朗读';
+
+  @override
+  String mentorStatusLabel(Object status) {
+    return '状态：$status';
+  }
+
+  @override
+  String mentorCurrentTabLabel(Object tab) {
+    return '当前：$tab';
+  }
+
+  @override
+  String mentorChatStatusLabel(Object status) {
+    return '聊天：$status';
+  }
+
+  @override
+  String get mentorStatusPreparing => '准备中';
+
+  @override
+  String get mentorStatusOrganizing => '正在整理';
+
+  @override
+  String get mentorStatusReady => '建议已准备';
+
+  @override
+  String get mentorStatusLocalFallback => '使用本地建议';
+
+  @override
+  String get mentorStatusSafeFallback => '已保留安全建议';
+
+  @override
+  String get mentorChatAvailabilityLoadingTitle => '正在读取聊天状态';
+
+  @override
+  String get mentorChatAvailabilityReadyTitle => '可以发起一次受控聊天';
+
+  @override
+  String get mentorChatAvailabilityOfflineTitle => '当前离线';
+
+  @override
+  String get mentorChatAvailabilityLoginTitle => '需要登录';
+
+  @override
+  String get mentorChatAvailabilityReloginTitle => '需要重新登录';
+
+  @override
+  String get mentorChatAvailabilityConsentTitle => '需要重新同意';
+
+  @override
+  String get mentorChatAvailabilityLoadingDetail => '账号状态还在加载中，先看本地建议。';
+
+  @override
+  String get mentorChatAvailabilityReadyDetail =>
+      '你可以直接描述当下卡住的场景，Mentor 会返回一条安全文本回应。';
+
+  @override
+  String get mentorChatAvailabilityOfflineDetail => '离线时不会发聊天请求，先用本地建议继续。';
+
+  @override
+  String get mentorChatAvailabilityLoginDetail =>
+      '登录并同意后才能使用在线 Mentor 聊天；本地建议仍可继续。';
+
+  @override
+  String get mentorChatAvailabilityReloginDetail =>
+      '登录状态已经失效；重新登录并同意后再试一次受控聊天。';
+
+  @override
+  String get mentorChatAvailabilityConsentDetail => '当前账号同意状态不可用；重新登录并再次同意后再试。';
+
+  @override
+  String get mentorBannerAccountLoading => '账号状态还在读取中，先把可离线使用的本地建议给你。';
+
+  @override
+  String get mentorBannerReady => '先给你离线也能用的本地建议；网络稳定时你也可以直接切到聊天。';
+
+  @override
+  String get mentorBannerOffline => '你现在离线中，聊天不会发请求；先用下面的本地建议继续。';
+
+  @override
+  String get mentorBannerLoginRequired => '先给你本地建议；在线聊天需要登录并同意后再发起。';
+
+  @override
+  String get mentorBannerConsentRequired => '先给你本地建议；同意状态恢复前不会发起在线聊天。';
+
+  @override
+  String get mentorBannerOnboardingMissing => '还没读到本地档案，先给你一条通用建议，不影响继续开口。';
+
+  @override
+  String get mentorBannerOnboardingUnavailable => '本地档案暂时不可读，先给你一条通用建议，避免面板空白。';
+
+  @override
+  String get mentorBannerContextRestore => '最近上下文没有完整恢复，先给你一条通用建议，稍后再试也可以。';
+
+  @override
+  String get mentorBannerSuggestionRenderFallback =>
+      '本地上下文暂时没读出来，先给你一条稳妥的通用建议。';
+
+  @override
+  String get mentorBannerGenericFallback => '本地上下文暂时不完整，先给你一条稳妥的通用建议。';
+
+  @override
+  String get mentorBannerMissingPrompt => '先写下你现在卡住的那一句，Mentor 才能给出受控回应。';
+
+  @override
+  String mentorBannerPromptTooLong(Object maxLength) {
+    return '这次求助请控制在 $maxLength 个字以内，避免把不必要的细节发出去。';
+  }
+
+  @override
+  String get mentorBannerChatRequesting => '正在向小禾老师请求一次受控回应…';
+
+  @override
+  String get mentorBannerChatFallback => '这次回应已被安全降级成可直接读出的文字建议。';
+
+  @override
+  String get mentorBannerChatTimeout => '小禾老师这次回应超时了，先别等，继续用本地建议，稍后可重试。';
+
+  @override
+  String get mentorBannerChatUnauthorized => '登录状态已经失效；重新登录后再试一次受控聊天。';
+
+  @override
+  String get mentorBannerChatConsentRevoked => '当前账号同意状态不可用；重新登录并再次同意后再试。';
+
+  @override
+  String get mentorBannerChatVersionBlocked => '当前版本过旧，升级后才能继续使用在线聊天。';
+
+  @override
+  String get mentorBannerChatRateLimited => '刚刚已经求助过一次了，先用当前建议继续，稍后再试。';
+
+  @override
+  String get mentorBannerChatMalformed => '这次返回内容不可信，已拦下不展示；你可以稍后重试。';
+
+  @override
+  String get mentorBannerChatBlockedFallback => '这次问题触发了安全边界，系统已改用更稳妥的回应方式。';
+
+  @override
+  String get mentorBannerChatServerError => '聊天服务暂时不可用，先保留文字建议，稍后再试。';
+
+  @override
+  String get mentorBannerGenericError => '这次操作暂时不可用，请稍后重试。';
+
+  @override
+  String get mentorAudioUnavailable => '当前设备不支持朗读。';
+
+  @override
+  String get mentorAudioFailed => '朗读暂时不可用，请稍后重试。';
+
+  @override
+  String mentorSuggestionSource(Object reason) {
+    return '来源：$reason';
+  }
+
+  @override
+  String get mentorSuggestionReasonRecentResult => '刚刚的回应';
+
+  @override
+  String get mentorSuggestionReasonStageReinforcement => '阶段巩固';
+
+  @override
+  String get mentorSuggestionReasonStageGuide => '阶段引导';
+
+  @override
+  String get mentorSuggestionReasonStageOnly => '阶段建议';
+
+  @override
+  String get mentorSuggestionReasonStarterPhrase => '熟悉短句';
+
+  @override
+  String get mentorSuggestionReasonSharedContext => '家庭共享';
+
+  @override
+  String get mentorSuggestionReasonSafe => '安全建议';
+
+  @override
+  String get mentorSuggestionReasonDefault => '建议';
 
   @override
   String get phraseRecorded => '已记录';
@@ -1990,73 +2237,74 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsLanguageEn => 'English';
 
   @override
-  String get onboardingV21MentorGreeting => '小禾想帮你记录这段珍贵的成长，可以告诉我一些关于宝宝的小信息吗？';
+  String get settingsLanguageBilingual => '双语';
 
   @override
-  String get onboardingV21NameLabel => '宝宝昵称（可选）';
+  String get presetGenerationProgress => '正在为宝宝准备个性化练习…';
 
   @override
-  String get onboardingV21NameHint => '比如：小宝、小明...';
+  String get presetGenerationUnavailable => '个性化练习暂时不可用，请重试。';
 
   @override
-  String get onboardingV21AgeTitle => '宝宝月龄';
+  String get presetGenerationGenericFallback => '使用通用内容';
 
   @override
-  String get onboardingV21SaveButton => '保存';
+  String get sceneGenerationAuthenticationRequired => '请先登录后再生成。';
 
   @override
-  String get onboardingV21SkipButton => '稍后再说';
+  String get sceneGenerationProfileUnavailable => '宝宝档案暂不可用，请先完善宝宝档案后再试。';
 
   @override
-  String get onboardingV21NextButton => '下一步';
+  String get sceneGenerationSharedProfileUnavailable =>
+      '共享宝宝档案暂不可用，请让主照护者先完成档案后再试。';
 
   @override
-  String get onboardingV21SceneTitle => '今天先说一句';
+  String get sceneGenerationHouseholdAccessRequired =>
+      '请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。';
 
   @override
-  String get onboardingV21SceneHint => '选个正在发生的场景';
+  String get sceneGenerationPresetUnavailable => '预置场景暂不可用，请稍后再试。';
 
   @override
-  String get onboardingV21DirectPhrase => '直接给一句';
+  String get sceneGenerationInvalidInput => '请调整场景描述后再试。';
 
   @override
-  String get onboardingV21AgeEntry => '宝宝多大？可稍后补';
+  String get sceneGenerationRequestConflict => '这次场景描述已变更，请重新开始生成。';
 
   @override
-  String get onboardingV21AgeSkip => '先跳过';
+  String get sceneGenerationRequestTerminal => '这次生成已结束，请使用新的请求重新生成。';
 
   @override
-  String get onboardingV21PracticeSubtitle => '一句就够';
+  String get sceneGenerationInProgress => '场景正在生成，请稍后查看。';
 
   @override
-  String get onboardingV21SaidButton => '说完了';
+  String get sceneGenerationRateLimited => '生成次数过多，请稍后再试。';
 
   @override
-  String get onboardingV21SwapButton => '换一句';
+  String get sceneGenerationUnavailable => '生成服务暂不可用，请稍后再试。';
 
   @override
-  String get onboardingV21EndButton => '结束';
+  String get sceneGenerationTimeout => '生成超时，请稍后重试。';
 
   @override
-  String get onboardingV21Saved => '已保存本句';
+  String get sceneGenerationNetwork => '网络暂不可用，请检查后重试。';
 
   @override
-  String get onboardingV21SkipReaction => '跳过，下一句';
+  String get sceneGenerationMalformedResponse => '生成响应异常，请稍后再试。';
 
   @override
-  String get onboardingV21PhrasesExhausted => '句子都试过了';
+  String get sceneGenerationRejected => '这段场景描述暂不适合生成，请调整后再试。';
 
   @override
-  String get onboardingV21CompleteTitle => '小禾老师 / 今天已完成';
+  String get sceneGenerationUnexpected => '生成失败，请稍后再试。';
 
   @override
-  String get onboardingV21AgainButton => '再来一句';
+  String get mentorBubbleCaption => '禾';
 
   @override
-  String get onboardingV21DoneButton => '先到这里';
-
-  @override
-  String get onboardingV21NextTime => '下次打开，小禾会给你新的一句。';
+  String mentorBubbleMessageSemantics(Object message) {
+    return '小禾老师引导消息：$message';
+  }
 
   @override
   String get practiceOneTurnTitle => '今日一句';
@@ -2068,10 +2316,40 @@ class AppLocalizationsZh extends AppLocalizations {
   String get practiceListenOnce => '听一下';
 
   @override
+  String get practiceReplayAudio => '重播';
+
+  @override
+  String get practicePlayAudioSemantics => '播放音频';
+
+  @override
+  String get practiceReplayAudioSemantics => '重播音频';
+
+  @override
+  String get practicePauseAudio => '暂停';
+
+  @override
+  String get practicePauseAudioSemantics => '暂停音频';
+
+  @override
+  String get practiceResumeAudio => '继续播放';
+
+  @override
+  String get practiceResumeAudioSemantics => '继续播放音频';
+
+  @override
   String get practiceSaid => '我说了';
 
   @override
   String get practiceAudioPlayedOnce => '已听过一次';
+
+  @override
+  String get practiceAudioLoadingInline => '正在准备音频…';
+
+  @override
+  String get practiceAudioPlayingInline => '正在播放音频…';
+
+  @override
+  String get practiceAudioPausedInline => '音频已暂停';
 
   @override
   String get practiceAudioMissingInline => '这句暂时没有音频，可以直接说。';
@@ -2099,4 +2377,73 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get practiceGardenTraceTitle => '花园留痕';
+
+  @override
+  String get onboardingWelcomeTitle => '宝宝正在做什么？';
+
+  @override
+  String get onboardingWelcomeBody => '我们给你一句现在就能说的英语。';
+
+  @override
+  String get onboardingStart => '开始';
+
+  @override
+  String get onboardingAgeSelectionTitle => '宝宝现在多大？';
+
+  @override
+  String get onboardingAgeRequired => '先选一个适合宝宝的年龄范围。';
+
+  @override
+  String get onboardingScenesTitle => '哪些照护时刻最常出现？';
+
+  @override
+  String get onboardingScenesBody => '可以多选，之后仍能随时看看其他场景。';
+
+  @override
+  String get onboardingScenesRequired => '至少选一个常见照护时刻。';
+
+  @override
+  String get onboardingGoalTitle => '你希望我们怎么帮你？';
+
+  @override
+  String get onboardingGoalFirstWords => '我不知道该怎么说';
+
+  @override
+  String get onboardingGoalNatural => '我会一点，想说得更自然';
+
+  @override
+  String get onboardingGoalHabit => '我想把英语放进日常照护';
+
+  @override
+  String get onboardingMomentTitle => '现在正在发生什么？';
+
+  @override
+  String get onboardingCareTurnTitle => '现在就能说';
+
+  @override
+  String get onboardingTraceTitle => '刚才这句话，已经留在你们的花园里。';
+
+  @override
+  String get onboardingTraceDegraded => '刚才的照护时刻已经记下，花园会稍后整理出来。';
+
+  @override
+  String get onboardingTraceContinue => '继续';
+
+  @override
+  String get onboardingAccountTitle => '把这些照护时刻保存到账号';
+
+  @override
+  String get onboardingAccountBody => '换手机后，也能继续看到刚才留下的痕迹。';
+
+  @override
+  String get onboardingSaveAccount => '保存并继续';
+
+  @override
+  String get onboardingContinueLocal => '暂时不用';
+
+  @override
+  String get onboardingRetry => '再试一次';
+
+  @override
+  String get onboardingSafeMomentFallback => '刚才没有准备好，换一个场景试试。';
 }

@@ -60,6 +60,8 @@ class PracticeLocalDataSource {
       phraseId: entity.phraseId,
       reactionType: entity.reactionType,
       clientTimestamp: entity.clientTimestamp,
+      generatedContentId: entity.generatedContentId,
+      utteranceId: entity.utteranceId,
       syncState: entity.syncState,
       lastSyncPhase: entity.lastSyncPhase,
       lastSyncError: entity.lastSyncError,
@@ -78,6 +80,19 @@ class PracticeLocalDataSource {
         InteractionEventEntity.fromPayload(payload),
       );
     });
+  }
+
+  Future<InteractionEventPayload?> getInteractionEventByLocalEventId(
+    String localEventId,
+  ) async {
+    final normalized = localEventId.trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    final entity = await _isar
+        .collection<InteractionEventEntity>()
+        .getByLocalEventId(normalized);
+    return entity == null ? null : payloadFromEntity(entity);
   }
 
   Future<int> countInteractionEvents({
@@ -286,7 +301,28 @@ class PracticeLocalDataSource {
           );
         }
 
-        final existing = await collection.getByEventKey(payload.eventKey);
+        final existingByEventKey = await collection.getByEventKey(
+          payload.eventKey,
+        );
+        if (existingByEventKey != null &&
+            existingByEventKey.localEventId != payload.localEventId) {
+          throw FormatException(
+            'bootstrap 导入收到冲突 eventKey: ${payload.eventKey}',
+          );
+        }
+
+        final existingByLocalEventId = await collection.getByLocalEventId(
+          payload.localEventId,
+        );
+        if (existingByLocalEventId != null &&
+            existingByEventKey != null &&
+            existingByLocalEventId.id != existingByEventKey.id) {
+          throw FormatException(
+            'bootstrap 导入收到冲突 localEventId: ${payload.localEventId}',
+          );
+        }
+
+        final existing = existingByLocalEventId ?? existingByEventKey;
         if (existing == null) {
           await collection.putByEventKey(
             InteractionEventEntity.fromPayload(payload),
@@ -295,15 +331,27 @@ class PracticeLocalDataSource {
         }
 
         final existingPayload = payloadFromEntity(existing);
-        final sameFacts = _mapsEqual(
-          existingPayload.toFactMap(),
-          payload.toFactMap(),
-        );
-        if (!sameFacts) {
+        if (!_sameBootstrapFacts(existingPayload, payload)) {
           throw FormatException(
-            'bootstrap 导入收到冲突 eventKey: ${payload.eventKey}',
+            'bootstrap 导入收到冲突 localEventId: ${payload.localEventId}',
           );
         }
+
+        // Server bootstrap uses an opaque installation/event reference. Keep
+        // the local raw identity so a later ACK can still clear its pending
+        // row; only server-owned synchronization metadata is projected.
+        if (existing.generatedContentId == null &&
+            payload.generatedContentId != null) {
+          existing.generatedContentId = payload.generatedContentId;
+        }
+        if (existing.utteranceId == null && payload.utteranceId != null) {
+          existing.utteranceId = payload.utteranceId;
+        }
+        existing.syncState = payload.syncState.wireValue;
+        existing.lastSyncPhase = payload.lastSyncPhase;
+        existing.lastSyncError = payload.lastSyncError;
+        existing.lastSyncAt = payload.lastSyncAt;
+        await collection.putByEventKey(existing);
       }
     });
   }
@@ -356,18 +404,24 @@ class PracticeLocalDataSource {
     return a.eventKey.compareTo(b.eventKey);
   }
 
-  bool _mapsEqual(Map<String, Object?> left, Map<String, Object?> right) {
-    if (left.length != right.length) {
+  bool _sameBootstrapFacts(
+    InteractionEventPayload existing,
+    InteractionEventPayload incoming,
+  ) {
+    if (existing.localEventId != incoming.localEventId ||
+        existing.spaceId != incoming.spaceId ||
+        existing.activityId != incoming.activityId ||
+        existing.phraseId != incoming.phraseId ||
+        existing.reactionType != incoming.reactionType ||
+        existing.clientTimestamp.toUtc() != incoming.clientTimestamp.toUtc()) {
       return false;
     }
-    for (final entry in left.entries) {
-      if (!right.containsKey(entry.key)) {
-        return false;
-      }
-      if (right[entry.key] != entry.value) {
-        return false;
-      }
-    }
-    return true;
+
+    // Older bootstrap responses do not carry generated-content lineage. A
+    // supplied value must agree; an omitted value is unknown, not a conflict.
+    return (incoming.generatedContentId == null ||
+            existing.generatedContentId == incoming.generatedContentId) &&
+        (incoming.utteranceId == null ||
+            existing.utteranceId == incoming.utteranceId);
   }
 }

@@ -35,10 +35,18 @@ class FullCiScriptContractTest(unittest.TestCase):
 
     def test_required_gates_stay_in_fixed_order(self) -> None:
         ordered_markers = [
+            "practice-ai-version-lock-base",
             "python3 test/tool/verify_spring_ai_2_backend_platform_test.py",
             "python3 tool/verify_spring_ai_2_backend_platform.py",
             "dependency:tree",
             "--dependency-tree",
+            "verify_practice_ai_version_lock.py --verify --base-lock",
+            "verify_practice_generation_privacy_test.py",
+            "verify_practice_generation_privacy.py",
+            "python3 -m unittest test/ci/test_client_version_contract.py",
+            "stage 'root-dart-dependencies' 'flutter pub get'",
+            "dart test test/tool/verify_practice_ai_helm_test.dart",
+            "dart run tool/verify_practice_ai_helm.dart",
             "bash ci/backend-test.sh",
             "GrowthServiceMapperIntegrationTest",
             "checkstyle:check",
@@ -48,11 +56,11 @@ class FullCiScriptContractTest(unittest.TestCase):
             "pnpm --filter admin-web lint",
             "pnpm --filter admin-web format",
             "pnpm --filter admin-web test:coverage",
+            "pnpm --filter admin-web build",
+            "stage 'admin-web-browser-system-deps'",
             "pnpm --filter admin-web install:browsers",
             "pnpm --filter admin-web test:e2e:p0 --reporter=list",
-            "pnpm --filter admin-web build",
             "bash ci/mobile-analyze.sh",
-            "cd mobile && flutter test",
             "bash ci/mobile-r4-release-gates.sh",
             "stage 'release-fixtures'",
             "verify_m006_s14_release_closure_test.dart",
@@ -108,6 +116,8 @@ class FullCiScriptContractTest(unittest.TestCase):
             self.assertIn(variable, self.text)
         self.assertIn('unset "$env_name"', self.text)
         self.assertIn("initialize_ci_environment", self.text)
+        self.assertIn("capture_safe_testcontainers_host_override", self.text)
+        self.assertIn("host.docker.internal", self.text)
         self.assertNotIn("CI_ENV=(", self.text)
 
     def test_owned_kubeconfig_and_ryuk_defaults_are_exported_and_cleaned(self) -> None:
@@ -137,6 +147,11 @@ class FullCiScriptContractTest(unittest.TestCase):
     def test_required_gates_never_use_or_true(self) -> None:
         required_markers = (
             "verify_spring_ai_2_backend_platform",
+            "verify_practice_ai_version_lock.py",
+            "verify_practice_generation_privacy",
+            "client-version-contract",
+            "test_client_version_contract.py",
+            "verify_practice_ai_helm",
             "dependency:tree",
             "backend-test.sh",
             "GrowthServiceMapperIntegrationTest",
@@ -149,7 +164,6 @@ class FullCiScriptContractTest(unittest.TestCase):
             "admin-web test:e2e:p0",
             "admin-web build",
             "mobile-analyze.sh",
-            "cd mobile && flutter test",
             "mobile-r4-release-gates.sh",
             "flutter test",
             "verify_m007_s02_release_boundaries",
@@ -161,14 +175,56 @@ class FullCiScriptContractTest(unittest.TestCase):
             if any(marker in line for marker in required_markers):
                 self.assertNotIn("|| true", line)
 
+    def test_local_act_browser_system_dependencies_are_preinstalled(self) -> None:
+        self.assertIn("verify_local_act_playwright_system_deps", self.text)
+        self.assertIn('"${LOCAL_ACT_RUNNER_IMAGE:-}" == \'true\'', self.text)
+        self.assertIn("preinstalled local act runner image", self.text)
+        self.assertNotIn("configure_local_act_apt_mirror", self.text)
+        self.assertNotIn("playwright install-deps chromium", self.text)
+
+    def test_custom_scene_verifiers_use_the_fresh_develop_lock_and_are_not_skippable(self) -> None:
+        self.assertIn("git cat-file -e", self.text)
+        self.assertIn("${ORIGIN_DEVELOP_SHA}:backend/app-api/src/main/resources/config/practice-ai/version-lock.yml", self.text)
+        self.assertIn("base_version_lock=", self.text)
+        self.assertIn("verify_practice_ai_version_lock.py --verify --base-lock \"$base_version_lock\"", self.text)
+        self.assertIn("python3 test/tool/verify_practice_generation_privacy_test.py", self.text)
+        self.assertIn("python3 tool/verify_practice_generation_privacy.py", self.text)
+        root_dart_dependencies = self.text.index("stage 'root-dart-dependencies' 'flutter pub get'")
+        self.assertLess(root_dart_dependencies, self.text.index("dart test test/tool/verify_practice_ai_helm_test.dart"))
+        self.assertIn("dart test test/tool/verify_practice_ai_helm_test.dart", self.text)
+        self.assertIn("dart run tool/verify_practice_ai_helm.dart", self.text)
+        self.assertNotIn("stage 'mobile-test'", self.text)
+        self.assertNotIn("cd mobile && flutter test", self.text)
+
+    def test_client_version_stage_delegates_to_behavioral_overlay_lint_contract(self) -> None:
+        client_contract = (REPO_ROOT / "test" / "ci" / "test_client_version_contract.py").read_text(
+            encoding="utf-8"
+        )
+        for marker in (
+            '"helm", "lint"',
+            '"helm", "template"',
+            "values-kind.yaml",
+            "values-kind-qa.yaml",
+            "values-production.yaml",
+        ):
+            self.assertIn(marker, client_contract)
+
     def test_stable_stage_markers_cover_every_gate_in_order(self) -> None:
         gate_ids = (
             "fetch-target",
+            "practice-ai-version-lock-base",
             "docker-preflight",
             "spring-ai-fixture",
             "spring-ai-live",
             "spring-ai-dependency-tree",
             "spring-ai-resolved",
+            "practice-ai-version-lock",
+            "practice-generation-privacy-fixture",
+            "practice-generation-privacy",
+            "client-version-contract",
+            "root-dart-dependencies",
+            "practice-ai-helm-fixture",
+            "practice-ai-helm",
             "backend-reactor",
             "growth-mapper-postgres",
             "backend-checkstyle",
@@ -179,11 +235,11 @@ class FullCiScriptContractTest(unittest.TestCase):
             "admin-web-lint",
             "admin-web-format",
             "admin-web-unit",
+            "admin-web-build",
+            "admin-web-browser-system-deps",
             "admin-web-browsers",
             "admin-web-e2e",
-            "admin-web-build",
             "mobile-analyze",
-            "mobile-test",
             "mobile-r4",
             "release-fixtures",
             "m007-s02",

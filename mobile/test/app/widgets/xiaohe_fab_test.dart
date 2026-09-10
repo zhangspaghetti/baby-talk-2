@@ -22,9 +22,7 @@ void main() {
       buildTestApp(const XiaoheFab(launcher: 'shell_fab', surface: 'home')),
     );
 
-    final l = AppLocalizations.of(
-      tester.element(find.byType(XiaoheFab)),
-    )!;
+    final l = AppLocalizations.of(tester.element(find.byType(XiaoheFab)))!;
 
     final fab = tester.widget<FloatingActionButton>(
       find.byType(FloatingActionButton),
@@ -37,7 +35,11 @@ void main() {
   testWidgets('XiaoheFab small 形态使用紧凑 FAB', (tester) async {
     await tester.pumpWidget(
       buildTestApp(
-        const XiaoheFab(launcher: 'home_fab', surface: 'standalone_home', small: true),
+        const XiaoheFab(
+          launcher: 'home_fab',
+          surface: 'standalone_home',
+          small: true,
+        ),
       ),
     );
 

@@ -4,14 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
-import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryRequest;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.MomentResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.SceneResponse;
@@ -34,7 +31,6 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -55,9 +51,6 @@ class PracticeDiscoveryServiceTest {
     @Mock
     private BabyProfileMapper babyProfileMapper;
 
-    @Mock
-    private PracticeGeneratedContentService generatedContentService;
-
     private PracticeDiscoveryService service;
 
     @BeforeEach
@@ -65,8 +58,7 @@ class PracticeDiscoveryServiceTest {
         service = new PracticeDiscoveryService(
                 catalogMapper,
                 authConsentSyncService,
-                babyProfileMapper,
-                generatedContentService
+                babyProfileMapper
         );
     }
 
@@ -424,125 +416,6 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
-    void customSceneModeHydratesGeneratedRow() {
-        when(generatedContentService.generateCustomScene(any()))
-                .thenReturn(generatedRow("pgc_service_generated"));
-
-        var response = service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                "install_1",
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), null);
-
-        assertThat(response.source()).isEqualTo("generated");
-        assertThat(response.generatedContentId()).isEqualTo("pgc_service_generated");
-        assertThat(response.starter().source()).isEqualTo("generated");
-        assertThat(response.starter().sceneId()).startsWith("gen_scene_");
-        assertThat(response.starter().activityId()).startsWith("gen_activity_");
-        assertThat(response.starter().phraseId()).startsWith("gen_phrase_");
-        assertThat(response.scenes().get(0).reasonCode()).isEqualTo("custom_scene_match");
-        verify(catalogMapper, never()).findSpaces(any(), eq(50));
-    }
-
-    @Test
-    void acceptedAuthenticatedCustomSceneUsesAccountOwnerWithoutBabyProfileIdOrInstallationId() {
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_accepted", "生成自定义练习场景"))
-                .thenReturn(new AuthConsentSyncService.ConsumerSessionView(
-                        "acct_custom_scene_owner",
-                        "sess_accepted",
-                        "install_1",
-                        "accepted"
-                ));
-        when(generatedContentService.generateCustomScene(any()))
-                .thenReturn(generatedRow("pgc_service_generated_account"));
-        var captor = ArgumentCaptor.forClass(PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
-
-        var response = service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                null,
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), "sess_accepted");
-
-        assertThat(response.profileMode()).isEqualTo("authenticated_request");
-        verify(generatedContentService).generateCustomScene(captor.capture());
-        assertThat(captor.getValue().accountId()).isEqualTo("acct_custom_scene_owner");
-        assertThat(captor.getValue().profileId()).isNull();
-        assertThat(captor.getValue().installationId()).isNull();
-    }
-
-    @Test
-    void disabledCustomSceneFailsBeforeJwtConsentOrProfileLookup() {
-        var failure = new ContractException(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "generation_unavailable",
-                "自定义场景生成当前不可用。"
-        );
-        doThrow(failure).when(generatedContentService).requireCustomSceneGenerationAvailable();
-
-        assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                "install_1",
-                "babyprof_1",
-                null,
-                null,
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), "sess_disabled"))
-                .isSameAs(failure);
-
-        verify(generatedContentService).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
-        verifyNoInteractions(authConsentSyncService, babyProfileMapper);
-    }
-
-    @Test
-    void authenticatedCustomScenePropagatesConsentRequiredInsteadOfUsingInstallationScope() {
-        var failure = new ContractException(
-                HttpStatus.CONFLICT,
-                "consent_required",
-                "当前账号尚未完成同意。"
-        );
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_required", "生成自定义练习场景"))
-                .thenThrow(failure);
-
-        assertThatThrownBy(() -> service.discover(customSceneRequest("_bad"), "sess_required"))
-                .isSameAs(failure);
-        verify(generatedContentService, never()).generateCustomScene(any());
-    }
-
-    @Test
-    void authenticatedCustomScenePropagatesConsentRevokedInsteadOfUsingInstallationScope() {
-        var failure = new ContractException(
-                HttpStatus.FORBIDDEN,
-                "consent_revoked",
-                "同意已撤回。"
-        );
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_revoked", "生成自定义练习场景"))
-                .thenThrow(failure);
-
-        assertThatThrownBy(() -> service.discover(customSceneRequest(), "sess_revoked"))
-                .isSameAs(failure);
-        verify(generatedContentService, never()).generateCustomScene(any());
-    }
-
-    @Test
     void invalidOrMissingSurfaceRejected() {
         assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
                 null,
@@ -625,6 +498,29 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
+    void customSceneDiscoveryModeIsRemovedWithoutCatalogOrProfileLookup() {
+        assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
+                "onboarding",
+                "custom_scene",
+                "install_1",
+                null,
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                6,
+                null,
+                "洗澡后哄睡"
+        ), null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(contract.code()).isEqualTo("invalid_discovery_mode");
+                });
+        verifyNoInteractions(catalogMapper, authConsentSyncService, babyProfileMapper);
+    }
+
+    @Test
     void serviceConstructorDoesNotDependOnAiOrMentorTypes() {
         assertThat(List.of(PracticeDiscoveryService.class.getDeclaredConstructors()).stream()
                 .map(Constructor::getParameterTypes)
@@ -668,67 +564,6 @@ class PracticeDiscoveryServiceTest {
                 limit,
                 "trace_1",
                 null
-        );
-    }
-
-    private PracticeDiscoveryRequest customSceneRequest() {
-        return customSceneRequest(null);
-    }
-
-    private PracticeDiscoveryRequest customSceneRequest(String installationId) {
-        return new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                installationId,
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        );
-    }
-
-    private PracticeGeneratedContentEntity generatedRow(String generatedContentId) {
-        return new PracticeGeneratedContentEntity(
-                generatedContentId,
-                "installation",
-                "owner_service_generated",
-                null,
-                "install_1",
-                null,
-                "onboarding",
-                "custom_scene",
-                "fp_service_generated",
-                "洗澡后哄睡",
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                "gen_scene_abc1234567890",
-                "gen_activity_abc1234567890",
-                "gen_phrase_abc1234567890",
-                "日常照护",
-                "洗澡安抚",
-                "Bath care",
-                "看着宝宝，慢慢说一遍。",
-                "Warm water.",
-                "水暖暖的。",
-                "warm water",
-                "starter",
-                "agentic_search",
-                "active",
-                "fake_provider_trace",
-                null,
-                "fake-custom-scene",
-                PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
-                PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
-                1,
-                null,
-                NOW_DB,
-                null,
-                NOW_DB,
-                NOW_DB
         );
     }
 

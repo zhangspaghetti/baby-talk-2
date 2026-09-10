@@ -1,0 +1,528 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../tool/verify_m2_13_closure_candidate.dart' as verifier;
+
+void main() {
+  test('complete PASS manifest freezes every required closure gate', () {
+    final report = verifier.scanM213ClosureCandidate(
+      manifestPath: _fixturePath(),
+    );
+
+    expect(
+      report.passes,
+      isTrue,
+      reason: verifier.renderM213ClosureCandidateReport(report),
+    );
+    expect(report.manifest!.gateIds, unorderedEquals(verifier.closureGateIds));
+  });
+
+  for (final status in ['FAIL', 'BLOCKED', 'NOT RUN']) {
+    test('$status cannot be reinterpreted as PASS', () async {
+      final path = await _mutatedFixture((manifest) {
+        manifest['closure_matrix'][0]['status'] = status;
+      });
+      addTearDown(() => path.parent.delete(recursive: true));
+
+      final report = verifier.scanM213ClosureCandidate(manifestPath: path.path);
+
+      expect(report.passes, isFalse);
+      expect(
+        verifier.renderM213ClosureCandidateReport(report),
+        contains('non_passing_gate'),
+      );
+    });
+  }
+
+  test('manifest rejects tuple or final-UAT input mutation', () async {
+    final path = await _mutatedFixture((manifest) {
+      manifest['candidate']['environment_identity'] = 'prod-secrets-here';
+      manifest['final_uat_input']['only_allowed_input'] = false;
+    });
+    addTearDown(() => path.parent.delete(recursive: true));
+
+    final report = verifier.scanM213ClosureCandidate(manifestPath: path.path);
+
+    expect(report.passes, isFalse);
+    final output = verifier.renderM213ClosureCandidateReport(report);
+    expect(output, contains('environment_identity must be sanitized'));
+    expect(
+      output,
+      contains('final UAT accepts only this candidate manifest schema'),
+    );
+  });
+
+  test('manifest requires enabled custom-scene release evidence', () async {
+    final path = await _mutatedFixture((manifest) {
+      manifest['candidate']['mobile_custom_scene_entry_enabled'] = 'false';
+    });
+    addTearDown(() => path.parent.delete(recursive: true));
+
+    final report = verifier.scanM213ClosureCandidate(manifestPath: path.path);
+
+    expect(report.passes, isFalse);
+    expect(
+      verifier.renderM213ClosureCandidateReport(report),
+      contains('mobile_custom_scene_entry_enabled must be true'),
+    );
+  });
+
+  test(
+    'manifest binds release evidence to the enabled custom-scene define',
+    () async {
+      final path = await _mutatedFixture((manifest) {
+        manifest['candidate']['mobile_release_dart_defines_fingerprint'] =
+            'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+      });
+      addTearDown(() => path.parent.delete(recursive: true));
+
+      final report = verifier.scanM213ClosureCandidate(manifestPath: path.path);
+
+      expect(report.passes, isFalse);
+      expect(
+        verifier.renderM213ClosureCandidateReport(report),
+        contains(
+          'mobile_release_dart_defines_fingerprint must identify '
+          'BABY_TALK_CUSTOM_SCENE_ENABLED=true',
+        ),
+      );
+    },
+  );
+
+  test(
+    'current candidate accepts frozen mobile with deployed backend',
+    () async {
+      final violations = await verifier.verifyM213CurrentCandidate(
+        _candidateManifest(
+          mobileSha: 'ad2c9ceeefff1b8eca8358d6c423268cbff2d55c',
+          backendSha: '98dd07528c768e4b88e0d259a5915e33a5e89715',
+        ),
+        _repoRootPath(),
+      );
+
+      expect(violations, isEmpty);
+    },
+  );
+
+  test('current candidate rejects unknown backend commit', () async {
+    final violations = await verifier.verifyM213CurrentCandidate(
+      _candidateManifest(
+        mobileSha: 'ad2c9ceeefff1b8eca8358d6c423268cbff2d55c',
+        backendSha: 'ffffffffffffffffffffffffffffffffffffffff',
+      ),
+      _repoRootPath(),
+    );
+
+    expect(violations, hasLength(1));
+    expect(violations.single.code, 'candidate_identity_mismatch');
+    expect(violations.single.detail, contains('backend'));
+    expect(violations.single.detail, contains('repository commit'));
+  });
+
+  test(
+    'current candidate rejects backend commit outside mobile history',
+    () async {
+      final repository = await _createSplitGitRepository();
+      addTearDown(() => repository.root.delete(recursive: true));
+
+      final violations = await verifier.verifyM213CurrentCandidate(
+        _candidateManifest(
+          mobileSha: repository.mobileSha,
+          backendSha: repository.unrelatedSha,
+        ),
+        repository.root.path,
+      );
+
+      expect(violations, hasLength(1));
+      expect(violations.single.code, 'candidate_identity_mismatch');
+      expect(violations.single.detail, contains('backend'));
+      expect(violations.single.detail, contains('ancestor of mobile'));
+    },
+  );
+
+  test(
+    'current candidate binds mobile commit to checked-out history',
+    () async {
+      final repository = await _createSplitGitRepository();
+      addTearDown(() => repository.root.delete(recursive: true));
+
+      final violations = await verifier.verifyM213CurrentCandidate(
+        _candidateManifest(
+          mobileSha: repository.unrelatedSha,
+          backendSha: repository.unrelatedSha,
+        ),
+        repository.root.path,
+      );
+
+      expect(violations, hasLength(1));
+      expect(violations.single.code, 'candidate_identity_mismatch');
+      expect(violations.single.detail, contains('mobile'));
+      expect(violations.single.detail, contains('checked-out HEAD'));
+    },
+  );
+
+  test('entrypoint gate matrix invokes every fixed upstream gate', () async {
+    final invoked = <String>[];
+    final result = await verifier.runM213ClosureGates(
+      projectRoot: _repoRootPath(),
+      commandExecutor: (gate, command, root) async {
+        invoked.add(gate.id);
+        return const verifier.ClosureCommandResult(0, '', '');
+      },
+    );
+
+    expect(result.passes, isTrue);
+    expect(invoked.toSet(), unorderedEquals(verifier.closureGateIds));
+  });
+
+  test(
+    'failed command reports stable output fingerprints without raw output',
+    () async {
+      final invoked = <String>[];
+      final result = await verifier.runM213ClosureGates(
+        projectRoot: _repoRootPath(),
+        commandExecutor: (gate, command, root) async {
+          invoked.add(gate.id);
+          if (gate.id == 'complete_bundle') {
+            return const verifier.ClosureCommandResult(
+              23,
+              'closure-stdout-fixture',
+              'closure-stderr-fixture',
+            );
+          }
+          return const verifier.ClosureCommandResult(0, '', '');
+        },
+      );
+
+      expect(result.passes, isFalse);
+      expect(result.failedGate, 'complete_bundle');
+      expect(
+        result.detail,
+        'command_identity=complete_bundle:1 '
+        'exit_code=23 '
+        'stdout_bytes=22 '
+        'stdout_sha256=3c33ab1258b6a844e6c3a113fb8e25245c39a19ca8005cb44bf0823e84ded227 '
+        'stderr_bytes=22 '
+        'stderr_sha256=0532325e737bfa8e9d3b20cb0292de36439de5ba672623f4b2cfb7fd13b38aa6',
+      );
+      expect(result.detail, isNot(contains('closure-stdout-fixture')));
+      expect(result.detail, isNot(contains('closure-stderr-fixture')));
+      expect(invoked, ['clean_worktree', 'complete_bundle']);
+    },
+  );
+
+  test('dirty clean-worktree command cannot pass', () async {
+    final invoked = <String>[];
+    final result = await verifier.runM213ClosureGates(
+      projectRoot: _repoRootPath(),
+      commandExecutor: (gate, command, root) async {
+        invoked.add(gate.id);
+        if (gate.id == 'clean_worktree') {
+          return const verifier.ClosureCommandResult(0, ' M changed.dart', '');
+        }
+        return const verifier.ClosureCommandResult(0, '', '');
+      },
+    );
+
+    expect(result.passes, isFalse);
+    expect(result.failedGate, 'clean_worktree');
+    expect(invoked, ['clean_worktree']);
+  });
+
+  test('Windows bash gates use the repository wrapper', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_windows_wrapper_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final wrapper = File('${root.path}${Platform.pathSeparator}bash.cmd');
+    await wrapper.writeAsString('@echo off\r\n');
+    const command = verifier.ClosureCommand('bash', [
+      'mvnw',
+      'test',
+    ], 'backend');
+
+    final execution = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+    );
+
+    expect(execution.executable, wrapper.path);
+    expect(execution.runInShell, isTrue);
+    expect(command.arguments, ['mvnw', 'test']);
+    expect(command.workingDirectory, 'backend');
+  });
+
+  test('bash gates retain bare executable without a Windows wrapper', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_bash_fallback_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    const command = verifier.ClosureCommand('bash', ['ci/full-ci.sh'], '.');
+    const nonBashCommand = verifier.ClosureCommand('git', [
+      'status',
+      '--porcelain',
+    ], '.');
+
+    final missingWrapper = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+    );
+    await File(
+      '${root.path}${Platform.pathSeparator}bash.cmd',
+    ).writeAsString('@echo off\r\n');
+    final nonWindows = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: false,
+    );
+    final nonBash = verifier.resolveM213ClosureCommandExecution(
+      command: nonBashCommand,
+      projectRoot: root.path,
+      isWindows: true,
+    );
+
+    expect(missingWrapper.executable, 'bash');
+    expect(missingWrapper.runInShell, isFalse);
+    expect(nonWindows.executable, 'bash');
+    expect(nonWindows.runInShell, isFalse);
+    expect(nonBash.executable, 'git');
+    expect(nonBash.runInShell, isFalse);
+  });
+
+  test(
+    'Windows flutter gates use the first real flutter.bat on PATH',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'm2_13_closure_flutter_path_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      final missing = Directory('${root.path}${Platform.pathSeparator}missing');
+      final first = Directory('${root.path}${Platform.pathSeparator}first');
+      final second = Directory('${root.path}${Platform.pathSeparator}second');
+      await first.create();
+      await second.create();
+      final firstFlutter = File(
+        '${first.path}${Platform.pathSeparator}flutter.bat',
+      );
+      final secondFlutter = File(
+        '${second.path}${Platform.pathSeparator}flutter.bat',
+      );
+      await firstFlutter.writeAsString('@echo off\r\n');
+      await secondFlutter.writeAsString('@echo off\r\n');
+      const command = verifier.ClosureCommand('flutter', [
+        'test',
+        'test/tool/fixture_test.dart',
+      ], '.');
+
+      final execution = verifier.resolveM213ClosureCommandExecution(
+        command: command,
+        projectRoot: root.path,
+        isWindows: true,
+        windowsPath: '"${missing.path}";"${first.path}";${second.path}',
+      );
+
+      expect(execution.executable, firstFlutter.absolute.path);
+      expect(execution.runInShell, isTrue);
+      expect(command.arguments, ['test', 'test/tool/fixture_test.dart']);
+      expect(command.workingDirectory, '.');
+    },
+  );
+
+  test(
+    'Windows flutter gates retain bare executable without PATH bat',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'm2_13_closure_flutter_fallback_',
+      );
+      addTearDown(() => root.delete(recursive: true));
+      const command = verifier.ClosureCommand('flutter', ['test'], 'mobile');
+
+      final execution = verifier.resolveM213ClosureCommandExecution(
+        command: command,
+        projectRoot: root.path,
+        isWindows: true,
+        windowsPath: root.path,
+      );
+
+      expect(execution.executable, 'flutter');
+      expect(execution.runInShell, isFalse);
+    },
+  );
+
+  test('Windows dart gates use the first real dart.bat on PATH', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_dart_path_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final missing = Directory('${root.path}${Platform.pathSeparator}missing');
+    final first = Directory('${root.path}${Platform.pathSeparator}first');
+    final second = Directory('${root.path}${Platform.pathSeparator}second');
+    await first.create();
+    await second.create();
+    final firstDart = File('${first.path}${Platform.pathSeparator}dart.bat');
+    final secondDart = File('${second.path}${Platform.pathSeparator}dart.bat');
+    await firstDart.writeAsString('@echo off\r\n');
+    await secondDart.writeAsString('@echo off\r\n');
+    const command = verifier.ClosureCommand('dart', [
+      'tool/verify_m2_generated_reaction_contract.dart',
+    ], '.');
+
+    final execution = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+      windowsPath: '"${missing.path}";"${first.path}";${second.path}',
+    );
+
+    expect(execution.executable, firstDart.absolute.path);
+    expect(execution.runInShell, isTrue);
+    expect(command.arguments, [
+      'tool/verify_m2_generated_reaction_contract.dart',
+    ]);
+    expect(command.workingDirectory, '.');
+  });
+
+  test('Windows dart gates retain bare executable without PATH bat', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'm2_13_closure_dart_fallback_',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    const command = verifier.ClosureCommand('dart', ['tool/check.dart'], '.');
+
+    final execution = verifier.resolveM213ClosureCommandExecution(
+      command: command,
+      projectRoot: root.path,
+      isWindows: true,
+      windowsPath: root.path,
+    );
+
+    expect(execution.executable, 'dart');
+    expect(execution.runInShell, isFalse);
+    expect(command.workingDirectory, '.');
+  });
+
+  test('spawn failures become anonymous closure gate diagnostics', () async {
+    final normalized = verifier.normalizeM213ProcessException(
+      ProcessException(
+        'flutter',
+        const ['test', 'private-fixture.dart'],
+        'spawn-message-fixture',
+        2,
+      ),
+    );
+    final result = await verifier.runM213ClosureGates(
+      projectRoot: _repoRootPath(),
+      commandExecutor: (gate, command, root) async {
+        if (gate.id == 'legacy_quarantine') return normalized;
+        return const verifier.ClosureCommandResult(0, '', '');
+      },
+    );
+
+    expect(normalized.exitCode, 127);
+    expect(normalized.stdout, isEmpty);
+    expect(normalized.stderr, 'spawn-message-fixture');
+    expect(result.failedGate, 'legacy_quarantine');
+    expect(
+      result.detail,
+      matches(
+        RegExp(
+          r'^command_identity=legacy_quarantine:1 exit_code=127 '
+          r'stdout_bytes=0 stdout_sha256=[a-f0-9]{64} '
+          r'stderr_bytes=21 stderr_sha256=[a-f0-9]{64}$',
+        ),
+      ),
+    );
+    expect(result.detail, isNot(contains('spawn-message-fixture')));
+    expect(result.detail, isNot(contains('private-fixture.dart')));
+  });
+}
+
+String _fixturePath() =>
+    '${_repoRootPath()}${Platform.pathSeparator}test${Platform.pathSeparator}tool${Platform.pathSeparator}fixtures${Platform.pathSeparator}m2_13_closure_candidate${Platform.pathSeparator}complete_pass.json';
+
+Future<File> _mutatedFixture(void Function(Map<String, dynamic>) mutate) async {
+  final root = await Directory.systemTemp.createTemp(
+    'm2_13_closure_candidate_',
+  );
+  final manifest =
+      jsonDecode(await File(_fixturePath()).readAsString())
+          as Map<String, dynamic>;
+  mutate(manifest);
+  final file = File('${root.path}${Platform.pathSeparator}manifest.json');
+  await file.writeAsString(
+    const JsonEncoder.withIndent('  ').convert(manifest),
+  );
+  return file;
+}
+
+verifier.M213ClosureCandidateManifest _candidateManifest({
+  required String mobileSha,
+  required String backendSha,
+}) => verifier.M213ClosureCandidateManifest(
+  candidateId: 'm2-final-synthetic-fixture',
+  candidate: {'mobile_source_sha': mobileSha, 'backend_source_sha': backendSha},
+  gateIds: const {},
+);
+
+final class _SplitGitRepository {
+  const _SplitGitRepository({
+    required this.root,
+    required this.mobileSha,
+    required this.unrelatedSha,
+  });
+
+  final Directory root;
+  final String mobileSha;
+  final String unrelatedSha;
+}
+
+Future<_SplitGitRepository> _createSplitGitRepository() async {
+  final root = await Directory.systemTemp.createTemp('m2_13_split_identity_');
+  await _git(root, ['init']);
+  await _git(root, ['config', 'user.name', 'M2-13 verifier test']);
+  await _git(root, ['config', 'user.email', 'm2-13@example.invalid']);
+  final branch = await _git(root, ['branch', '--show-current']);
+  await _git(root, ['commit', '--allow-empty', '-m', 'backend']);
+  await _git(root, ['commit', '--allow-empty', '-m', 'mobile']);
+  final mobileSha = await _git(root, ['rev-parse', 'HEAD']);
+  await _git(root, ['commit', '--allow-empty', '-m', 'evidence']);
+  await _git(root, ['switch', '--orphan', 'unrelated']);
+  await _git(root, ['commit', '--allow-empty', '-m', 'unrelated']);
+  final unrelatedSha = await _git(root, ['rev-parse', 'HEAD']);
+  await _git(root, ['switch', branch]);
+  return _SplitGitRepository(
+    root: root,
+    mobileSha: mobileSha,
+    unrelatedSha: unrelatedSha,
+  );
+}
+
+Future<String> _git(Directory root, List<String> arguments) async {
+  final result = await Process.run(
+    'git',
+    arguments,
+    workingDirectory: root.path,
+    runInShell: false,
+  );
+  if (result.exitCode != 0) {
+    throw StateError(
+      'git ${arguments.join(' ')} failed (${result.exitCode}): '
+      '${result.stderr}',
+    );
+  }
+  return '${result.stdout}'.trim();
+}
+
+String _repoRootPath() {
+  final current = Directory.current;
+  if (Directory(
+    '${current.path}${Platform.pathSeparator}mobile${Platform.pathSeparator}lib',
+  ).existsSync()) {
+    return current.path;
+  }
+  return current.parent.path;
+}

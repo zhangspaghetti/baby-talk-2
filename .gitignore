@@ -3,8 +3,10 @@
 workflows/
 !.github/workflows/
 !.github/workflows/admin-web.yml
+!.act/workflows/
 .sisyphus/
 .codex/
+.gstack
 
 # ── GSD baseline (auto-generated) ──
 .bg-shell/
@@ -25,6 +27,7 @@ Thumbs.db
 .env.*
 !.env.example
 node_modules/
+/.pnpm-store/
 /.dart_tool/
 /.flutter-plugins
 /.flutter-plugins-dependencies

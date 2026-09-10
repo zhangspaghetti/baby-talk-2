@@ -14,6 +14,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
+import com.zhangspaghetti.babytalk.service.SensitiveAuthDataProtector;
 import com.zhangspaghetti.babytalk.service.CaregiverInviteService;
 import com.zhangspaghetti.babytalk.service.DistributionService;
 import java.sql.Timestamp;
@@ -56,6 +57,9 @@ class CaregiverInviteLandingWebTest extends AbstractIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private SensitiveAuthDataProtector sensitiveAuthDataProtector;
 
     @BeforeEach
     void resetTables() {
@@ -129,7 +133,7 @@ class CaregiverInviteLandingWebTest extends AbstractIntegrationTest {
         jdbcTemplate.update(
                 "update caregiver_invites set expires_at = ? where token = ?",
                 Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)),
-                expiredInvite.token()
+                inviteLookupRef(expiredInvite.token())
         );
 
         var usedInvite = createInvite(primary.accessToken(), "caregiver", "household_settings");
@@ -399,6 +403,10 @@ class CaregiverInviteLandingWebTest extends AbstractIntegrationTest {
 
     private String bearer(String accessToken) {
         return "Bearer " + accessToken;
+    }
+
+    private String inviteLookupRef(String rawToken) {
+        return sensitiveAuthDataProtector.inviteTokenLookupRef(rawToken);
     }
 
     private record TokenView(String accountId, String sessionId, String accessToken) {

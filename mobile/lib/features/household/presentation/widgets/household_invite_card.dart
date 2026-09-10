@@ -5,6 +5,7 @@ import 'package:mobile/features/household/data/local/household_local_store.dart'
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart'
     show HouseholdActionKind;
+import 'package:mobile/features/household/presentation/household_invite_link_actions.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 /// Accepts either a [HouseholdNotifier] or [HouseholdNotifier].
@@ -18,12 +19,14 @@ class HouseholdInviteCard extends StatelessWidget {
     this.notifier,
     this.inviteSource = 'household_surface',
     this.compact = false,
+    this.inviteLinkActions = const PlatformHouseholdInviteLinkActions(),
   });
 
   final String surfaceKeyPrefix;
   final dynamic notifier;
   final String inviteSource;
   final bool compact;
+  final HouseholdInviteLinkActions inviteLinkActions;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +131,26 @@ class HouseholdInviteCard extends StatelessWidget {
                     key: Key('$surfaceKeyPrefix-household-invite-meta'),
                     style: theme.textTheme.bodySmall,
                   ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        key: Key('$surfaceKeyPrefix-household-invite-copy'),
+                        onPressed: () => _copyInvite(context, invite.inviteUrl),
+                        icon: const Icon(Icons.copy_rounded),
+                        label: const Text('复制链接'),
+                      ),
+                      OutlinedButton.icon(
+                        key: Key('$surfaceKeyPrefix-household-invite-share'),
+                        onPressed: () =>
+                            _shareInvite(context, invite.inviteUrl),
+                        icon: const Icon(Icons.ios_share_rounded),
+                        label: const Text('系统分享'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -219,6 +242,35 @@ class HouseholdInviteCard extends StatelessWidget {
     );
     if (confirmed == true) {
       await notifier.revokeInvite(token: token, source: inviteSource);
+    }
+  }
+
+  Future<void> _copyInvite(BuildContext context, String inviteUrl) async {
+    try {
+      await inviteLinkActions.copy(inviteUrl);
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('邀请链接已复制。')));
+      }
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂时无法复制邀请链接，请稍后重试。')));
+      }
+    }
+  }
+
+  Future<void> _shareInvite(BuildContext context, String inviteUrl) async {
+    try {
+      await inviteLinkActions.share(inviteUrl);
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂时无法打开系统分享，请稍后重试。')));
+      }
     }
   }
 

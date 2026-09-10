@@ -1,3 +1,6 @@
+{{- include "babytalk-app.validateGeneratedAudio" . -}}
+{{- include "babytalk-app.validateCandidateIdentity" . -}}
+{{- $generatedAudio := .Values.generatedAudio -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,6 +17,14 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/practice-ai-runtime: {{ include (print $.Template.BasePath "/practice-ai-configmap.yaml") . | sha256sum }}
+        {{ if eq .Values.practiceAi.providerMode "agentic" }}
+        {{ if .Values.practiceAi.secret.existingSecret }}
+        rollout/practice-ai-secret: {{ required "practiceAi.secret.rolloutVersion is required when existingSecret is set" .Values.practiceAi.secret.rolloutVersion | quote }}
+        {{ else }}
+        checksum/practice-ai-secret: {{ include (print $.Template.BasePath "/practice-ai-secret.yaml") . | sha256sum }}
+        {{ end }}
+        {{ end }}
       labels:
         {{- include "babytalk-app.componentLabels" (dict "root" . "component" "app-api") | nindent 8 }}
     spec:
@@ -37,6 +48,53 @@ spec:
           env:
             - name: SERVER_PORT
               value: {{ .Values.appApi.service.port | quote }}
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: /config/practice-ai-runtime.yml
+            - name: BABY_TALK_GENERATED_AUDIO_ENABLED
+              value: {{ $generatedAudio.enabled | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_PROVIDER_MODE
+              value: {{ $generatedAudio.providerMode | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_TIMEOUT
+              value: {{ $generatedAudio.timeout | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_MAX_BYTES
+              value: {{ $generatedAudio.downloadMaxBytes | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_RESPONSE_MAX_BYTES
+              value: {{ $generatedAudio.responseMaxBytes | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_VOICE_VERSION
+              value: {{ $generatedAudio.voiceVersion | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_FORMAT
+              value: {{ $generatedAudio.format | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_BASE_URL
+              value: {{ $generatedAudio.endpoint | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_API_KEY_ENVIRONMENT_VARIABLE
+              value: {{ $generatedAudio.apiKeyEnvironmentVariable | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_MODEL
+              value: {{ $generatedAudio.model | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_VOICE
+              value: {{ $generatedAudio.voice | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_PROVIDER_PROFILE
+              value: {{ $generatedAudio.providerProfile | quote }}
+            - name: BABY_TALK_GENERATED_AUDIO_ALLOWED_DOWNLOAD_HOSTS
+              value: {{ join "," $generatedAudio.allowedDownloadHosts | quote }}
+            {{- if .Values.practiceAi.springProfilesActive }}
+            - name: SPRING_PROFILES_ACTIVE
+              value: {{ .Values.practiceAi.springProfilesActive | quote }}
+            {{- end }}
+            {{- if eq .Values.practiceAi.providerMode "agentic" }}
+            {{- $practiceAiSecretName := default (include "babytalk-app.practiceAiSecretName" .) .Values.practiceAi.secret.existingSecret }}
+            - name: BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "babytalk-app.practiceDiscoveryOwnerKeySecretName" . }}
+                  key: BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET
+            {{- range $providerName, $provider := .Values.practiceAi.providers }}
+            - name: {{ required (printf "provider %s apiKeyEnvironmentVariable is required" $providerName) $provider.apiKeyEnvironmentVariable }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $practiceAiSecretName }}
+                  key: {{ $provider.apiKeyEnvironmentVariable }}
+            {{- end }}
+            {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "babytalk-app.configMapName" . }}
@@ -54,6 +112,15 @@ spec:
             {{- toYaml .Values.appApi.startupProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.appApi.resources | nindent 12 }}
+          volumeMounts:
+            - name: practice-ai-runtime
+              mountPath: /config/practice-ai-runtime.yml
+              subPath: practice-ai-runtime.yml
+              readOnly: true
+      volumes:
+        - name: practice-ai-runtime
+          configMap:
+            name: {{ include "babytalk-app.practiceAiRuntimeConfigMapName" . }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -218,6 +285,9 @@ spec:
       {{- include "babytalk-app.componentSelectorLabels" (dict "root" . "component" "gateway") | nindent 6 }}
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
         {{- include "babytalk-app.componentLabels" (dict "root" . "component" "gateway") | nindent 8 }}
     spec:
@@ -256,6 +326,8 @@ spec:
             {{- toYaml .Values.gateway.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.gateway.readinessProbe | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.gateway.startupProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.gateway.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
@@ -307,6 +379,8 @@ spec:
           image: "{{ required "dbMigration.image.repository is required" .Values.dbMigration.image.repository }}:{{ required "dbMigration.image.tag is required" .Values.dbMigration.image.tag }}"
           imagePullPolicy: {{ .Values.dbMigration.image.pullPolicy }}
           envFrom:
+            - configMapRef:
+                name: {{ include "babytalk-app.configMapName" . }}
             - secretRef:
                 name: {{ include "babytalk-app.secretName" . }}
           {{- with .Values.dbMigration.containerSecurityContext }}

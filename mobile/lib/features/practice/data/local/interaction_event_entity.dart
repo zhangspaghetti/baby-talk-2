@@ -16,6 +16,8 @@ class InteractionEventEntity {
     phraseId = payload.phraseId;
     reactionType = payload.reactionType.wireValue;
     clientTimestamp = payload.clientTimestamp;
+    generatedContentId = payload.generatedContentId;
+    utteranceId = payload.utteranceId;
     syncState = payload.syncState.wireValue;
     lastSyncPhase = payload.lastSyncPhase;
     lastSyncError = payload.lastSyncError;
@@ -43,6 +45,10 @@ class InteractionEventEntity {
 
   late String reactionType;
 
+  String? generatedContentId;
+
+  String? utteranceId;
+
   @Index()
   late DateTime clientTimestamp;
 
@@ -66,6 +72,8 @@ class InteractionEventEntity {
       'phraseId': phraseId,
       'reactionType': reactionType,
       'clientTimestamp': clientTimestamp.toIso8601String(),
+      'generatedContentId': generatedContentId,
+      'utteranceId': utteranceId,
     };
   }
 

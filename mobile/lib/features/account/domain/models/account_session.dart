@@ -2,7 +2,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part '../../../../generated/features/account/domain/models/account_session.freezed.dart';
 
-@freezed
+@Freezed(toStringOverride: false)
 class AccountSession with _$AccountSession {
   AccountSession._();
 

@@ -5,27 +5,26 @@ class AppRouteNames {
   static const home = shell;
   static const onboarding = '/onboarding';
   static const practice = '/practice';
+  static const customScene = '/custom-scene';
   static const account = '/account';
   static const meSettings = '/me/settings';
+  static const meReminder = '$meSettings/reminder';
+  static const meBabyProfile = '$meSettings/baby-profile';
+  static const meCaregiver = '$meSettings/caregiver';
+  static const mePlayback = '$meSettings/playback';
+  static const meHelp = '$meSettings/help';
+  static const meAbout = '$meSettings/about';
   static const meGrowth = '/me/growth';
-
-  static const onboardingName = '/onboarding/name';
-  static const onboardingScene = '/onboarding/scene';
-  static const onboardingPractice = '/onboarding/practice';
-  static const onboardingComplete = '/onboarding/complete';
-  static const onboardingGardenWelcome = '/onboarding/garden-welcome';
 
   static const canonicalPaths = <String>{
     shell,
     onboarding,
     practice,
+    customScene,
     account,
     meSettings,
     meGrowth,
-    onboardingName,
-    onboardingScene,
-    onboardingPractice,
-    onboardingComplete,
-    onboardingGardenWelcome,
   };
 }
+
+enum AppShellDestination { today, discover, garden }

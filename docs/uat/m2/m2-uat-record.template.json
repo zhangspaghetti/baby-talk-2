@@ -1,0 +1,100 @@
+{
+  "schema_version": "m2_android_uat_template_v2",
+  "required_case_ids": [
+    "android_generated_flow",
+    "response_loss_reconciliation",
+    "force_stop_recovery",
+    "all_reaction_audio_branches",
+    "talkback_human_accessibility"
+  ],
+  "approved_scenario_labels": [
+    "shoes",
+    "bath",
+    "water",
+    "teeth",
+    "tidying",
+    "sleep"
+  ],
+  "record_template": {
+    "schema_version": "m2_android_uat_v2",
+    "record_id": "uat_replace_with_case_id",
+    "case_id": "replace_with_required_case_id",
+    "input_mode": "custom_scene",
+    "scenario_label": "sleep",
+    "executor": "role:qa_operator",
+    "executed_at": "2026-07-28T12:00:00+08:00",
+    "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-replace-with-frozen-candidate-id",
+      "sha256": "replace_with_manifest_64_lowercase_hex",
+      "bytes": 1
+    },
+    "candidate": {
+      "mobile_source_sha": "replace_with_40_or_64_lowercase_hex",
+      "mobile_apk_sha256": "replace_with_64_lowercase_hex",
+      "backend_source_sha": "replace_with_40_or_64_lowercase_hex",
+      "backend_artifact_identity": "image_sha256:replace_with_64_lowercase_hex",
+      "environment_identity": "sanitized-release-environment",
+      "provider_mode": "REAL",
+      "provider_profile": "sanitized-real-provider-profile",
+      "provider_model_identity": "model_sha256:replace_with_64_lowercase_hex",
+      "configuration_fingerprint": "sha256:replace_with_64_lowercase_hex"
+    },
+    "device": {
+      "device_class": "sanitized-android-device-class",
+      "android_version": "replace_with_android_version",
+      "talkback_version": "NOT_APPLICABLE"
+    },
+    "authenticity": {
+      "execution": "HUMAN_ANDROID",
+      "provider_path": "FORMAL_PRODUCTION",
+      "llm_provider": "REAL",
+      "tts_provider": "REAL"
+    },
+    "prerequisites": [
+      {"id": "candidate_installed", "status": "NOT_RUN"},
+      {"id": "approved_custom_scene_scenario", "status": "NOT_RUN"}
+    ],
+    "steps": [
+      {
+        "index": 1,
+        "action": "submit_custom_scene",
+        "expected": "complete_bundle_registered",
+        "actual": "replace_with_observed_controlled_label",
+        "status": "NOT_RUN"
+      }
+    ],
+    "status": "DRAFT",
+    "verdict": "NOT_RUN",
+    "evidence_location": "reviewed://m2_28/replace_with_sanitized_evidence_reference",
+    "defects": [],
+    "retest_outcome": "NOT_REQUIRED",
+    "privacy": {
+      "raw_content_stored": false,
+      "raw_evidence_stored": false,
+      "sensitive_identifiers_stored": false,
+      "sanitized": true
+    },
+    "branch_reviews": [],
+    "accessibility": {
+      "method": "HUMAN_HEARD_TOUCH_EXPLORATION",
+      "observations": [
+        "spoken_order",
+        "touch_exploration",
+        "labels",
+        "cta_error_retry_announcements",
+        "return_focus"
+      ]
+    }
+  },
+  "privacy_prohibitions": [
+    "raw_prompt",
+    "provider_payload",
+    "utterance_body",
+    "credential",
+    "token",
+    "account_or_device_identifier",
+    "raw_error",
+    "private_evidence"
+  ]
+}

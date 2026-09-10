@@ -1,5 +1,7 @@
 package com.zhangspaghetti.babytalk.admin.config;
 
+import com.zhangspaghetti.babytalk.account.AccountDataPurgeMapper;
+import com.zhangspaghetti.babytalk.account.AccountDataPurgeService;
 import com.zhangspaghetti.babytalk.admin.distribution.AdminDistributionStatsReadMapper;
 import com.zhangspaghetti.babytalk.admin.distribution.AdminDistributionStatsReadRepository;
 import com.zhangspaghetti.babytalk.admin.knowledge.AdminKnowledgeIngestionMapper;
@@ -20,7 +22,9 @@ import com.zhangspaghetti.babytalk.config.MinioProperties;
 import com.zhangspaghetti.babytalk.ingestion.IngestionMapper;
 import com.zhangspaghetti.babytalk.ingestion.IngestionRepository;
 import com.zhangspaghetti.babytalk.ingestion.IngestionService;
+import com.zhangspaghetti.babytalk.security.SensitiveAuthDataProtector;
 import io.minio.MinioClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +34,18 @@ import org.springframework.context.annotation.Import;
 @EnableConfigurationProperties(MinioProperties.class)
 @Import({AsyncConfiguration.class, EmbeddingConfiguration.class, IngestionService.class})
 public class AdminDataAccessConfiguration {
+
+    @Bean
+    SensitiveAuthDataProtector sensitiveAuthDataProtector(
+            @Value("${app.auth.sensitive-data-pepper}") String sensitiveDataPepper
+    ) {
+        return new SensitiveAuthDataProtector(sensitiveDataPepper);
+    }
+
+    @Bean
+    AccountDataPurgeService accountDataPurgeService(AccountDataPurgeMapper accountDataPurgeMapper) {
+        return new AccountDataPurgeService(accountDataPurgeMapper);
+    }
 
     @Bean
     AdminPermissionCatalog adminPermissionCatalog() {

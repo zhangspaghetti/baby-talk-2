@@ -1,13 +1,14 @@
 package com.zhangspaghetti.babytalk.service;
 
+import com.zhangspaghetti.babytalk.account.AccountDataPurgeService;
 import com.zhangspaghetti.babytalk.config.ApiContractProperties;
 import com.zhangspaghetti.babytalk.config.ConsumerAuthProperties;
-import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
-import com.zhangspaghetti.babytalk.profile.BabyProfileMapper;
 import com.zhangspaghetti.babytalk.security.JwtTokenService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,38 +26,39 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthConsentSyncService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthConsentSyncService.class);
+    private static final String REDACTED_INSTALLATION_REFERENCE = "redacted";
 
     private static final Set<String> ALLOWED_REACTION_TYPES =
             Set.of("cooperating", "hesitant", "resisting", "no_response", "other");
 
     private final AuthConsentSyncRepository repository;
-    private final BabyProfileMapper babyProfileMapper;
-    private final PracticeGeneratedContentService practiceGeneratedContentService;
+    private final AccountDataPurgeService accountDataPurgeService;
     private final SmsVerificationProvider smsVerificationProvider;
     private final HouseholdSharedContextProjector householdSharedContextProjector;
     private final ApiContractProperties contractProperties;
     private final ConsumerAuthProperties consumerAuthProperties;
     private final JwtTokenService jwtTokenService;
+    private final SensitiveAuthDataProtector sensitiveAuthDataProtector;
     private final Clock clock = Clock.systemUTC();
 
     public AuthConsentSyncService(
             AuthConsentSyncRepository repository,
-            BabyProfileMapper babyProfileMapper,
-            PracticeGeneratedContentService practiceGeneratedContentService,
+            AccountDataPurgeService accountDataPurgeService,
             SmsVerificationProvider smsVerificationProvider,
             HouseholdSharedContextProjector householdSharedContextProjector,
             ApiContractProperties contractProperties,
             ConsumerAuthProperties consumerAuthProperties,
-            JwtTokenService jwtTokenService
+            JwtTokenService jwtTokenService,
+            SensitiveAuthDataProtector sensitiveAuthDataProtector
     ) {
         this.repository = repository;
-        this.babyProfileMapper = babyProfileMapper;
-        this.practiceGeneratedContentService = practiceGeneratedContentService;
+        this.accountDataPurgeService = accountDataPurgeService;
         this.smsVerificationProvider = smsVerificationProvider;
         this.householdSharedContextProjector = householdSharedContextProjector;
         this.contractProperties = contractProperties;
         this.consumerAuthProperties = consumerAuthProperties;
         this.jwtTokenService = jwtTokenService;
+        this.sensitiveAuthDataProtector = sensitiveAuthDataProtector;
     }
 
     @Transactional
@@ -81,13 +83,15 @@ public class AuthConsentSyncService {
         repository.insertChallenge(
                 new AuthConsentSyncRepository.ChallengeRow(
                         challengeId,
-                        normalizedPhone,
-                        issued.verificationCode(),
+                        sensitiveAuthDataProtector.phoneLookupRef(normalizedPhone),
+                        issued.maskedPhoneNumber(),
+                        sensitiveAuthDataProtector.createVerificationVerifier(issued.verificationCode()),
                         "pending",
                         now,
                         issued.expiresAt(),
                         null,
-                        null
+                        null,
+                        0
                 )
         );
         log.info("[AUTH] 验证码已创建: challengeId={}, phone={}, codeLen={}", challengeId, issued.maskedPhoneNumber(), issued.codeLength());
@@ -105,7 +109,7 @@ public class AuthConsentSyncService {
         var normalizedInstallationId = normalizeInstallationId(installationId);
 
         log.info("[AUTH] 验证请求: challengeId={}, codeLen={}", challengeId, verificationCode.length());
-        var challenge = repository.findChallenge(challengeId)
+        var challenge = repository.lockChallenge(challengeId)
                 .orElseThrow(() -> new ContractException(HttpStatus.BAD_REQUEST, "challenge_not_found", "challenge 不存在。"));
         var now = Instant.now(clock);
         if (challenge.expiresAt().isBefore(now)) {
@@ -113,8 +117,15 @@ public class AuthConsentSyncService {
             repository.markChallengeExpired(challengeId, "expired_before_verify");
             throw new ContractException(HttpStatus.BAD_REQUEST, "challenge_expired", "验证码已过期，请重新获取。", Map.of("retryable", true));
         }
-        if (!challenge.verificationCode().equals(verificationCode)) {
-            log.warn("[AUTH] 验证码不匹配: challengeId={}, expected={}, got={}", challengeId, challenge.verificationCode(), verificationCode);
+        if (!"pending".equals(challenge.status())) {
+            if ("expired".equals(challenge.status())) {
+                throw new ContractException(HttpStatus.BAD_REQUEST, "challenge_expired", "验证码已过期，请重新获取。", Map.of("retryable", true));
+            }
+            throw new ContractException(HttpStatus.CONFLICT, "challenge_already_verified", "challenge 已被其他请求验证。");
+        }
+        if (!sensitiveAuthDataProtector.matchesVerificationVerifier(challenge.verificationVerifier(), verificationCode)) {
+            repository.recordChallengeVerificationFailure(challengeId);
+            log.warn("[AUTH] 验证码不匹配: challengeId={}, attempts={}", challengeId, challenge.verificationAttempts() + 1);
             throw new ContractException(HttpStatus.BAD_REQUEST, "verification_code_invalid", "验证码错误。", Map.of("retryable", true));
         }
 
@@ -123,11 +134,12 @@ public class AuthConsentSyncService {
         if (affectedRows == 0) {
             throw new ContractException(HttpStatus.CONFLICT, "challenge_already_verified", "challenge 已被其他请求验证。");
         }
-        var account = repository.findActiveAccountByPhone(challenge.phoneNumber())
+        var account = repository.findActiveAccountByPhoneLookupRef(challenge.phoneLookupRef())
                 .orElseGet(() -> repository.insertAccount(
                         new AuthConsentSyncRepository.AccountRow(
                                 "acct_" + UUID.randomUUID(),
-                                challenge.phoneNumber(),
+                                challenge.phoneLookupRef(),
+                                challenge.phoneMask(),
                                 "active",
                                 "signed_out",
                                 now,
@@ -139,11 +151,10 @@ public class AuthConsentSyncService {
         var session = new AuthConsentSyncRepository.SessionContextRow(
                 sessionId,
                 account.accountId(),
-                normalizedInstallationId,
+                sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId),
                 "active",
                 now,
                 null,
-                account.phoneNumber(),
                 account.status(),
                 account.latestConsentStatus(),
                 account.createdAt(),
@@ -210,6 +221,7 @@ public class AuthConsentSyncService {
             throw refreshTokenException(status);
         }
 
+        repository.redactConsentAuditInstallationReferences(refreshToken.accountId());
         repository.revokeRefreshToken(refreshToken.refreshTokenId(), loggedOutAt);
         repository.revokeSession(refreshToken.sessionId(), loggedOutAt);
         log.info("consumer-auth logout success. accountId={}", refreshToken.accountId());
@@ -220,12 +232,13 @@ public class AuthConsentSyncService {
     public ConsentResponse acceptConsent(String sessionId, String consentVersion) {
         var session = requireExistingActiveSession(sessionId);
         var now = Instant.now(clock);
+        var auditedVersion = auditConsentVersion(consentVersion);
         if ("accepted".equals(session.latestConsentStatus())) {
-            repository.insertConsentAudit(audit(session, "accept", "duplicate", sanitizeReason(consentVersion), now));
+            repository.insertConsentAudit(audit(session, "accept", "duplicate", auditedVersion, now));
             return new ConsentResponse(false, "duplicate", "accepted", session.accountId(), session.sessionId(), now);
         }
         repository.updateAccountConsent(session.accountId(), "accepted");
-        repository.insertConsentAudit(audit(session, "accept", "applied", sanitizeReason(consentVersion), now));
+        repository.insertConsentAudit(audit(session, "accept", "applied", auditedVersion, now));
         return new ConsentResponse(true, "applied", "accepted", session.accountId(), session.sessionId(), now);
     }
 
@@ -236,13 +249,14 @@ public class AuthConsentSyncService {
             throw new ContractException(HttpStatus.GONE, "account_deleted", "账号已删除。请重新注册。");
         }
         var now = Instant.now(clock);
+        repository.redactConsentAuditInstallationReferences(session.accountId());
         if ("revoked".equals(session.latestConsentStatus())) {
-            repository.insertConsentAudit(audit(session, "revoke", "duplicate", sanitizeReason(reason), now));
+            repository.insertConsentAudit(audit(session, "revoke", "duplicate", "server_sync_revoked", now));
             return new ConsentResponse(false, "duplicate", "revoked", session.accountId(), session.sessionId(), now);
         }
         repository.updateAccountConsent(session.accountId(), "revoked");
         repository.updateSessionsStatus(session.accountId(), "revoked", now);
-        repository.insertConsentAudit(audit(session, "revoke", "applied", sanitizeReason(reason), now));
+        repository.insertConsentAudit(audit(session, "revoke", "applied", "server_sync_revoked", now));
         return new ConsentResponse(true, "applied", "revoked", session.accountId(), session.sessionId(), now);
     }
 
@@ -251,24 +265,31 @@ public class AuthConsentSyncService {
         var session = requireExistingSessionAnyStatus(sessionId);
         var now = Instant.now(clock);
         if ("deleted".equals(session.accountStatus())) {
-            repository.insertConsentAudit(audit(session, "delete", "duplicate", sanitizeReason(reason), now));
+            repository.insertConsentAudit(audit(session, "delete", "duplicate", "account_owned_server_data_deleted", now));
             return new DeleteResponse(false, "duplicate", session.accountId(), session.sessionId(), 0, now);
         }
 
-        var deletedEvents = repository.deleteInteractionEvents(session.accountId());
-        practiceGeneratedContentService.deleteAccountOwned(session.accountId());
-        babyProfileMapper.deleteByAccountId(session.accountId());
-        repository.updateSessionsStatus(session.accountId(), "deleted", now);
-        repository.tombstoneAccount(session.accountId(), "deleted:" + session.accountId(), now);
-        repository.insertConsentAudit(audit(session, "delete", "applied", sanitizeReason(reason), now));
-        return new DeleteResponse(true, "applied", session.accountId(), session.sessionId(), deletedEvents, now);
+        var purge = accountDataPurgeService.purge(session.accountId(), OffsetDateTime.ofInstant(now, ZoneOffset.UTC));
+        if (!purge.applied()) {
+            repository.insertConsentAudit(audit(session, "delete", "duplicate", "account_owned_server_data_deleted", now));
+            return new DeleteResponse(false, "duplicate", session.accountId(), session.sessionId(), 0, now);
+        }
+        repository.insertConsentAudit(audit(session, "delete", "applied", "account_owned_server_data_deleted", now));
+        return new DeleteResponse(
+                true,
+                "applied",
+                session.accountId(),
+                session.sessionId(),
+                purge.deletedInteractionEventCount(),
+                now
+        );
     }
 
     @Transactional
     public SyncBatchResponse ingestEvents(String sessionId, String installationId, List<SyncEventRequest> events) {
         var session = requireSessionForSync(sessionId);
         var normalizedInstallationId = normalizeInstallationId(installationId);
-        if (!normalizedInstallationId.equals(session.installationId())) {
+        if (!matchesInstallationReference(session.installationId(), normalizedInstallationId)) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "installation_mismatch", "请求 installationId 与当前 session 不一致。");
         }
         if (events == null || events.isEmpty()) {
@@ -289,12 +310,12 @@ public class AuthConsentSyncService {
         var now = Instant.now(clock);
 
         for (var event : events) {
-            var validated = validateSyncEvent(normalizedInstallationId, event, seenEventKeys);
+            var validated = validateSyncEvent(session.accountId(), normalizedInstallationId, event, seenEventKeys);
             try {
                 if (repository.insertInteractionEvent(session.accountId(), session.sessionId(), validated, now)) {
-                    acceptedEventKeys.add(validated.eventKey());
+                    acceptedEventKeys.add(validated.wireEventKey());
                 } else {
-                    duplicateEventKeys.add(validated.eventKey());
+                    duplicateEventKeys.add(validated.wireEventKey());
                 }
             } catch (DataAccessException exception) {
                 throw new ContractException(
@@ -302,7 +323,7 @@ public class AuthConsentSyncService {
                         "sync_batch_rejected",
                         "同步 batch 被拒绝，整批已回滚。",
                         Map.of(
-                                "failedEventKey", validated.eventKey(),
+                                "failedEventKey", validated.wireEventKey(),
                                 "reason", simplifyDataAccessMessage(exception)
                         )
                 );
@@ -322,7 +343,7 @@ public class AuthConsentSyncService {
         return new SyncBatchResponse(
                 session.accountId(),
                 session.sessionId(),
-                normalizedInstallationId,
+                safeInstallationReference(session.installationId()),
                 events.size(),
                 acceptedEventKeys.size(),
                 duplicateEventKeys.size(),
@@ -336,15 +357,15 @@ public class AuthConsentSyncService {
     public BootstrapResponse bootstrap(String sessionId, String installationId) {
         var session = requireSessionForSync(sessionId);
         var normalizedInstallationId = normalizeInstallationId(installationId);
-        if (!normalizedInstallationId.equals(session.installationId())) {
+        if (!matchesInstallationReference(session.installationId(), normalizedInstallationId)) {
             throw new ContractException(HttpStatus.BAD_REQUEST, "installation_mismatch", "请求 installationId 与当前 session 不一致。");
         }
-        var events = repository.listInteractionEvents(session.accountId(), normalizedInstallationId, contractProperties.bootstrapMaxEvents())
+        var events = repository.listInteractionEventsForAccount(session.accountId(), contractProperties.bootstrapMaxEvents())
                 .stream()
                 .map(row -> new BootstrapEvent(
-                        row.eventKey(),
+                        wireBootstrapEventKey(row),
                         row.localEventId(),
-                        row.installationId(),
+                        safeInstallationReference(row.installationRef()),
                         row.spaceId(),
                         row.activityId(),
                         row.phraseId(),
@@ -356,7 +377,7 @@ public class AuthConsentSyncService {
         return new BootstrapResponse(
                 session.accountId(),
                 session.sessionId(),
-                normalizedInstallationId,
+                safeInstallationReference(session.installationId()),
                 session.latestConsentStatus(),
                 events.size(),
                 events,
@@ -405,7 +426,11 @@ public class AuthConsentSyncService {
 
     @Transactional(readOnly = true)
     public int countInteractionEvents(String accountId, String installationId) {
-        return repository.countInteractionEvents(accountId, installationId);
+        var normalizedInstallationId = normalizeInstallationId(installationId);
+        return repository.countInteractionEvents(
+                accountId,
+                sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -442,7 +467,7 @@ public class AuthConsentSyncService {
                 .map(row -> new AuditEntry(
                         row.accountId(),
                         row.sessionId(),
-                        row.installationId(),
+                        safeInstallationReference(row.installationId()),
                         row.action(),
                         row.result(),
                         row.reason(),
@@ -507,6 +532,7 @@ public class AuthConsentSyncService {
     }
 
     private AuthConsentSyncRepository.SyncEventRecord validateSyncEvent(
+            String accountId,
             String requestInstallationId,
             SyncEventRequest event,
             Set<String> seenEventKeys
@@ -533,8 +559,9 @@ public class AuthConsentSyncService {
         }
         return new AuthConsentSyncRepository.SyncEventRecord(
                 eventKey,
+                sensitiveAuthDataProtector.interactionEventKeyLookupRef(accountId, eventKey),
                 localEventId,
-                installationId,
+                sensitiveAuthDataProtector.installationLookupRef(installationId),
                 requireTrimmed(event.spaceId(), "spaceId"),
                 requireTrimmed(event.activityId(), "activityId"),
                 requireTrimmed(event.phraseId(), "phraseId"),
@@ -553,7 +580,7 @@ public class AuthConsentSyncService {
         return new AuthConsentSyncRepository.AuditRow(
                 session.accountId(),
                 session.sessionId(),
-                session.installationId(),
+                safeInstallationReference(session.installationId()),
                 action,
                 result,
                 reason,
@@ -694,7 +721,7 @@ public class AuthConsentSyncService {
         return new SessionResponse(
                 account.accountId(),
                 session.sessionId(),
-                maskPhone(account.phoneNumber()),
+                account.phoneMask(),
                 session.createdAt(),
                 session.latestConsentStatus(),
                 accessToken.tokenValue(),
@@ -722,6 +749,29 @@ public class AuthConsentSyncService {
             throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_installation_id", "installationId 过长。");
         }
         return normalized;
+    }
+
+    private boolean matchesInstallationReference(String storedReference, String normalizedInstallationId) {
+        if (storedReference == null || storedReference.isBlank() || REDACTED_INSTALLATION_REFERENCE.equals(storedReference)) {
+            return false;
+        }
+        if (isProtectedInstallationReference(storedReference)) {
+            return sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId).equals(storedReference);
+        }
+        // Read-only compatibility for sessions written before installation IDs were protected.
+        return normalizedInstallationId.equals(storedReference);
+    }
+
+    private String safeInstallationReference(String storedReference) {
+        return sensitiveAuthDataProtector.safeInstallationReference(storedReference);
+    }
+
+    private boolean isProtectedInstallationReference(String value) {
+        return sensitiveAuthDataProtector.isInstallationReference(value);
+    }
+
+    private String wireBootstrapEventKey(AuthConsentSyncRepository.StoredInteractionEvent row) {
+        return safeInstallationReference(row.installationRef()) + ":" + row.localEventId();
     }
 
     private String normalizeSessionId(String sessionId) {
@@ -770,16 +820,19 @@ public class AuthConsentSyncService {
         return "crt_" + UUID.randomUUID();
     }
 
-    private String maskPhone(String phoneNumber) {
-        return phoneNumber.substring(0, 3) + "****" + phoneNumber.substring(phoneNumber.length() - 4);
-    }
-
-    private String sanitizeReason(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
+    private String auditConsentVersion(String value) {
+        if (value == null || !value.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,79}")) {
+            throw new ContractException(HttpStatus.BAD_REQUEST, "invalid_consent_version", "协议版本格式不合法。");
         }
-        var trimmed = value.trim();
-        return trimmed.length() > 240 ? trimmed.substring(0, 240) : trimmed;
+        if (!contractProperties.consentVersion().equals(value)) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "unsupported_consent_version",
+                    "协议版本不是当前发布版本。",
+                    Map.of("currentConsentVersion", contractProperties.consentVersion())
+            );
+        }
+        return "consent_version:" + value;
     }
 
     public enum AccessValidationResult {

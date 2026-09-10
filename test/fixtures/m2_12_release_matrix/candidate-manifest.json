@@ -1,0 +1,43 @@
+{
+  "schema_version": "M2_FINAL_CANDIDATE_V2",
+  "candidate_id": "m2-final-synthetic-fixture",
+  "frozen_at": "2026-07-28T04:00:00Z",
+  "candidate": {
+    "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "backend_source_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "backend_artifact_identity": "image_sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "environment_identity": "sanitized-qa-candidate-01",
+    "provider_mode": "real",
+    "provider_profile": "release-provider-profile-v1",
+    "provider_model_identity": "model_sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "configuration_fingerprint": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "mobile_release_dart_defines_fingerprint": "sha256:2d12a9228dd28dfdb659e00cfc9336605acabc772bd2d30eea40a5aefee8b364",
+    "mobile_custom_scene_entry_enabled": "true"
+  },
+  "closure_matrix": [
+    {"gate_id":"complete_bundle","status":"PASS","evidence_ref":"reviewed://closure/complete_bundle"},
+    {"gate_id":"activation_safety_repair","status":"PASS","evidence_ref":"reviewed://closure/activation_safety_repair"},
+    {"gate_id":"legacy_quarantine","status":"PASS","evidence_ref":"reviewed://closure/legacy_quarantine"},
+    {"gate_id":"recovery_coordinator","status":"PASS","evidence_ref":"reviewed://closure/recovery_coordinator"},
+    {"gate_id":"handoff_confirmation","status":"PASS","evidence_ref":"reviewed://closure/handoff_confirmation"},
+    {"gate_id":"backend_real_tts","status":"PASS","evidence_ref":"reviewed://closure/backend_real_tts"},
+    {"gate_id":"mobile_formal_audio","status":"PASS","evidence_ref":"reviewed://closure/mobile_formal_audio"},
+    {"gate_id":"garden_today_continuity","status":"PASS","evidence_ref":"reviewed://closure/garden_today_continuity"},
+    {"gate_id":"privacy","status":"PASS","evidence_ref":"reviewed://closure/privacy"},
+    {"gate_id":"static_source","status":"PASS","evidence_ref":"reviewed://closure/static_source"},
+    {"gate_id":"release_evidence_schema","status":"PASS","evidence_ref":"reviewed://closure/release_evidence_schema"},
+    {"gate_id":"clean_worktree","status":"PASS","evidence_ref":"reviewed://closure/clean_worktree"},
+    {"gate_id":"full_ci","status":"PASS","evidence_ref":"reviewed://closure/full_ci"}
+  ],
+  "final_uat_input": {
+    "only_allowed_input": true,
+    "schema_version": "M2_FINAL_CANDIDATE_V2"
+  },
+  "privacy": {
+    "raw_content_stored": false,
+    "raw_evidence_stored": false,
+    "sensitive_identifiers_stored": false,
+    "sanitized": true
+  }
+}

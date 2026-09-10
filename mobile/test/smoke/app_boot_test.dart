@@ -8,29 +8,72 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     hide ChangeNotifierProvider, Provider;
+import 'package:go_router/go_router.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/app/app.dart';
+import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
+import 'package:mobile/app/router/custom_scene_care_turn_handoff.dart';
+import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
+import 'package:mobile/features/account/domain/models/account_session.dart';
+import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
+import 'package:mobile/features/garden/data/repositories/garden_fertilizer_repository.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_flower_stage.dart';
+import 'package:mobile/features/garden/domain/models/fertilizer_state.dart';
+import 'package:mobile/features/garden/presentation/garden_fertilizer_notifier.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/mentor/data/local/mentor_local_data_source.dart';
 import 'package:mobile/features/mentor/data/repositories/mentor_repository.dart';
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/data/repositories/onboarding_repository.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/onboarding/presentation/screens/onboarding_scene_screen.dart';
+import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
+import 'package:mobile/features/care_entry/data/file_onboarding_conversation_repository.dart';
+import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
+import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
+import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
+import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
+import 'package:mobile/features/practice/presentation/practice_route_args.dart';
+import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
+import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
+import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
+import 'package:mobile/features/settings/data/repositories/settings_repository.dart';
+import 'package:mobile/features/settings/presentation/settings_notifier.dart';
+import 'package:mobile/features/scene_generation/application/scene_generation_controller.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
+import 'package:mobile/features/care_entry/contract/onboarding_care_turn_continuation.dart';
 import '../support/isar_test_library.dart';
+import '../support/onboarding_test_fixtures.dart';
+import '../support/generated_care_moment_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -112,7 +155,6 @@ void main() {
     addTearDown(() async {
       await _disposeWidgetTree(tester);
     });
-
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -161,7 +203,9 @@ void main() {
 
     expect(find.byKey(const Key('boot-route-gate-ready')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsOneWidget);
-    expect(find.byType(OnboardingSceneScreen), findsOneWidget);
+    await _pumpUntilFound(tester, find.text('今天先从现在这一刻开始。'));
+    expect(find.byType(CareEntryOnboardingScreen), findsOneWidget);
+    expect(find.text('今天先从现在这一刻开始。'), findsOneWidget);
     expect(find.byKey(const Key('home-start-practice')), findsNothing);
 
     final content = harness.bootState.content!;
@@ -179,16 +223,500 @@ void main() {
     expect(allActivities.map((activity) => activity.id), [
       'bath_time',
       'diaper_change',
+      'post_cry_soothing',
       'feeding_time',
       'bedtime',
     ]);
-    expect(allPhrases, hasLength(9));
+    expect(allPhrases, hasLength(10));
 
     for (final phrase in allPhrases) {
       final audioBytes = await rootBundle.load(phrase.audioAsset);
       expect(audioBytes.lengthInBytes, greaterThan(0));
     }
   });
+
+  testWidgets('deferred V4 cold start stays in Today shell', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      await FileOnboardingConversationRepository(
+        directoryResolver: () async => created.tempDir,
+      ).save(
+        OnboardingConversationSnapshot(
+          status: OnboardingConversationStatus.deferred,
+          deferredAt: DateTime.utc(2026, 8, 14, 12),
+          registryRevision: 'test.deferred.1',
+          phase: OnboardingCheckpointPhase.selection,
+          selectedEntryId: const CareEntryId('care.bedtime_soothing'),
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async => _disposeWidgetTree(tester));
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
+
+    expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
+    expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
+  });
+
+  testWidgets('in-progress M1 boot quarantines metadata and opens fresh V4', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      await File(
+        '${created.tempDir.path}${Platform.pathSeparator}onboarding_flow_snapshot.json',
+      ).writeAsString(
+        '{"schemaVersion":1,"step":"care_turn","starterPhraseId":"legacy-private","updatedAt":"2026-08-01T08:00:00.000Z"}',
+      );
+      await OnboardingSnapshotStore(
+        directoryResolver: () async => created.tempDir,
+      ).write(
+        const OnboardingSnapshot(
+          schemaVersion: 1,
+          childDisplayName: 'legacy-private-name',
+          ageBucket: OnboardingAgeBucket.oneToTwo,
+          approxMonths: 15,
+          currentStage: 'gesture_plus_words',
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bedtime',
+          starterPhraseId: 'legacy-private-phrase',
+          consentState: OnboardingConsentState.localOnly,
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async => _disposeWidgetTree(tester));
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('boot-route-onboarding')),
+    );
+
+    final metadata = (await tester.runAsync<List<String>>(() async {
+      final legacy = File(
+        '${harness.tempDir.path}${Platform.pathSeparator}onboarding_flow_snapshot.json',
+      );
+      expect(await legacy.exists(), isFalse);
+      final legacySnapshot = File(
+        '${harness.tempDir.path}${Platform.pathSeparator}onboarding_snapshot.json',
+      );
+      expect(await legacySnapshot.exists(), isFalse);
+      return Future.wait(<Future<String>>[
+        File(
+          '${harness.tempDir.path}${Platform.pathSeparator}onboarding_flow_snapshot.m1_quarantine.json',
+        ).readAsString(),
+        File(
+          '${harness.tempDir.path}${Platform.pathSeparator}onboarding_snapshot.m1_quarantine.json',
+        ).readAsString(),
+      ]);
+    }))!;
+    expect(metadata, everyElement(contains('legacy_m1_in_progress')));
+    expect(metadata.join(), isNot(contains('legacy-private')));
+    expect(find.byKey(const Key('boot-route-shell')), findsNothing);
+  });
+
+  testWidgets('account route renders the AccountNotifier-backed entry screen', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(_createHarness))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('boot-route-onboarding')),
+    );
+
+    GoRouter.of(
+      tester.element(find.byKey(const Key('boot-route-onboarding'))),
+    ).go(AppRouteNames.account);
+    await _pumpUntilFound(tester, find.byKey(const Key('account-phone-field')));
+
+    expect(find.byKey(const Key('account-phone-field')), findsOneWidget);
+    expect(find.byKey(const Key('account-submit-button')), findsOneWidget);
+    expect(find.byKey(const Key('account-entry-surface')), findsOneWidget);
+  });
+
+  testWidgets('runtime router opens the custom scene input screen', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(_createHarness))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(
+      _bootApp(harness, completedSnapshotLoader: () async => null),
+    );
+    await _pumpUntilFound(
+      tester,
+      find.byKey(const Key('boot-route-onboarding')),
+    );
+
+    GoRouter.of(
+      tester.element(find.byKey(const Key('boot-route-onboarding'))),
+    ).go(AppRouteNames.customScene);
+    await _pumpUntilFound(tester, find.byType(CustomSceneInputScreen));
+
+    expect(find.byType(CustomSceneInputScreen), findsOneWidget);
+  });
+
+  testWidgets(
+    'production custom-scene recovery uses runtime routes and keeps state after pop',
+    (WidgetTester tester) async {
+      final harness = (await tester.runAsync<_AppBootHarness>(_createHarness))!;
+      addTearDown(harness.close);
+      addTearDown(() async => _disposeWidgetTree(tester));
+
+      final controller = _ProductionCustomSceneSubmissionController(
+        directory: harness.tempDir,
+        failureKind: CustomSceneFailureKind.sharedProfileUnavailable,
+      );
+      addTearDown(controller.dispose);
+      final accountNotifier = AccountNotifier(
+        repository: _SignedInAccountRepository(),
+      );
+      await accountNotifier.initialize();
+      final settingsDataSource = (await tester
+          .runAsync<SettingsLocalDataSource>(() {
+            return SettingsLocalDataSource.open(
+              directory: harness.tempDir.path,
+              name: 'settings_custom_scene_recovery_test',
+            );
+          }))!;
+      final settingsRepository = SettingsRepository(
+        localDataSource: settingsDataSource,
+      );
+      addTearDown(() => settingsDataSource.close(deleteFromDisk: true));
+      final settingsNotifier = SettingsNotifier(
+        repository: settingsRepository,
+        accountStateListenable: accountNotifier,
+      );
+      final householdNotifier = HouseholdNotifier(
+        repository: _AcceptingHouseholdRepository(
+          directory: harness.tempDir,
+          practiceArgs: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => null,
+          customSceneSubmissionController: controller,
+          accountNotifier: accountNotifier,
+          householdNotifier: householdNotifier,
+          settingsNotifier: settingsNotifier,
+        ),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('boot-route-onboarding')),
+      );
+
+      final router = GoRouter.of(
+        tester.element(find.byKey(const Key('boot-route-onboarding'))),
+      );
+      router.go(AppRouteNames.customScene);
+      await _pumpUntilFound(tester, find.byType(CustomSceneInputScreen));
+      expect(find.text('查看家庭状态'), findsOneWidget);
+
+      await tester.tap(find.text('查看家庭状态'));
+      await _pumpUntilFound(
+        tester,
+        find.byKey(const Key('account-entry-surface')),
+      );
+      expect(router.state.uri.path, AppRouteNames.account);
+      expect(
+        controller.state.failureKind,
+        CustomSceneFailureKind.sharedProfileUnavailable,
+      );
+      router.pop();
+      await _pumpUntilFound(tester, find.byType(CustomSceneInputScreen));
+      expect(find.text('查看家庭状态'), findsOneWidget);
+      expect(
+        controller.state.failureKind,
+        CustomSceneFailureKind.sharedProfileUnavailable,
+      );
+
+      controller.publishFailure(CustomSceneFailureKind.profileUnavailable);
+      await tester.pump();
+      expect(find.text('完善宝宝档案'), findsOneWidget);
+      final profileAction = tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('custom-scene-recovery-action')),
+          )
+          .onPressed!;
+      profileAction();
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        AppRouteNames.meBabyProfile,
+      );
+      await tester.pump();
+      expect(router.canPop(), isTrue);
+      router.pop();
+      await tester.pump();
+      expect(find.byType(CustomSceneInputScreen), findsOneWidget);
+      expect(find.text('完善宝宝档案'), findsOneWidget);
+      expect(
+        controller.state.failureKind,
+        CustomSceneFailureKind.profileUnavailable,
+      );
+    },
+  );
+
+  testWidgets(
+    'production app router gates preset entries and bypasses generated/onboarding',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          _onboardingRepositoryFor(created),
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bath_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          firstTraceEventKey: 'install_router_gate:evt_onboarding_first',
+          completedAt: DateTime.utc(2026, 9, 9, 8),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async => _disposeWidgetTree(tester));
+
+      final pendingRepository = _PendingSceneGenerationRepository();
+      final controller = SceneGenerationController(
+        repository: pendingRepository,
+        approvedBundleRegistrar: (_) async {},
+      );
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => completedSnapshot,
+          sceneGenerationController: controller,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+      final router = GoRouter.of(
+        tester.element(find.byKey(const Key('shell-ready'))),
+      );
+      router.push(
+        AppRouteNames.practice,
+        extra: const PracticeRouteArgs(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        ),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byType(PresetSceneGenerationGateScreen),
+      );
+      expect(controller.status, SceneGenerationControllerStatus.submitting);
+      expect(pendingRepository.generateCount, 1);
+      expect(pendingRepository.lastSource, isA<PresetSceneGenerationSource>());
+
+      router.pop();
+      await tester.pump();
+      router.push(
+        AppRouteNames.practice,
+        extra: GeneratedCareTurnRouteArgs(
+          generatedContentId: 'generated_router_bypass',
+        ),
+      );
+      for (var index = 0; index < 4; index += 1) {
+        await tester.pump();
+      }
+      expect(find.byType(PresetSceneGenerationGateScreen), findsNothing);
+      expect(find.byType(PracticeSessionScreen), findsOneWidget);
+
+      router.pop();
+      await tester.pump();
+      router.push(
+        AppRouteNames.practice,
+        extra: const OnboardingCareTurnRouteArgs(
+          completionId: 'completion_router_bypass',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          entryTitle: '洗澡',
+          utteranceId: 'utterance_router_bypass',
+          english: 'Warm water.',
+          chinese: '温水。',
+          source: OnboardingCareTurnSource.localFallback,
+        ),
+      );
+      for (var index = 0; index < 4; index += 1) {
+        await tester.pump();
+      }
+      expect(find.byType(PresetSceneGenerationGateScreen), findsNothing);
+      expect(find.byType(PracticeSessionScreen), findsOneWidget);
+      expect(pendingRepository.generateCount, 1);
+    },
+  );
+
+  testWidgets(
+    'production share reentry sends PracticeRouteArgs into central preset gate',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          _onboardingRepositoryFor(created),
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bath_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          firstTraceEventKey: 'install_share_reentry:evt_first',
+          completedAt: DateTime.utc(2026, 9, 9, 9),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async => _disposeWidgetTree(tester));
+
+      final shareStream = StreamController<Uri>.broadcast();
+      addTearDown(shareStream.close);
+      final shareCoordinator = ShareReentryCoordinator();
+      final pendingRepository = _PendingSceneGenerationRepository();
+      final generationController = SceneGenerationController(
+        repository: pendingRepository,
+        approvedBundleRegistrar: (_) async {},
+      );
+      addTearDown(generationController.dispose);
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => completedSnapshot,
+          sceneGenerationController: generationController,
+          shareUriStream: shareStream.stream,
+          shareReentryCoordinator: shareCoordinator,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+      shareStream.add(
+        Uri.parse(
+          'babytalk://share/open?token=share_app_12345678&'
+          'spaceId=daily_care&activityId=bath_time',
+        ),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byType(PresetSceneGenerationGateScreen),
+      );
+
+      expect(shareCoordinator.handledRouteCount, 1);
+      expect(pendingRepository.generateCount, 1);
+      expect(pendingRepository.lastSource, isA<PresetSceneGenerationSource>());
+    },
+  );
+
+  testWidgets(
+    'production invite reentry sends accepted PracticeRouteArgs into central gate',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          _onboardingRepositoryFor(created),
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['feeding_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'feeding_time',
+          starterPhraseId: 'feeding_time_open_wide',
+          firstTraceEventKey: 'install_invite_reentry:evt_first',
+          completedAt: DateTime.utc(2026, 9, 9, 10),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async => _disposeWidgetTree(tester));
+
+      final inviteStream = StreamController<Uri>.broadcast();
+      addTearDown(inviteStream.close);
+      final inviteCoordinator = InviteReentryCoordinator();
+      final pendingRepository = _PendingSceneGenerationRepository();
+      final generationController = SceneGenerationController(
+        repository: pendingRepository,
+        approvedBundleRegistrar: (_) async {},
+      );
+      addTearDown(generationController.dispose);
+      final accountNotifier = AccountNotifier(
+        repository: _SignedInAccountRepository(),
+      );
+      await accountNotifier.initialize();
+      final householdNotifier = HouseholdNotifier(
+        repository: _AcceptingHouseholdRepository(
+          directory: harness.tempDir,
+          practiceArgs: const PracticeRouteArgs(
+            spaceId: 'daily_care',
+            activityId: 'feeding_time',
+            entrySource: PracticeRouteEntrySource.inviteReentry,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => completedSnapshot,
+          sceneGenerationController: generationController,
+          shareUriStream: inviteStream.stream,
+          inviteReentryCoordinator: inviteCoordinator,
+          accountNotifier: accountNotifier,
+          householdNotifier: householdNotifier,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+      inviteStream.add(
+        Uri.parse(
+          'babytalk://invite/open?token=invite_app_12345678&'
+          'source=invite_link&role=caregiver',
+        ),
+      );
+      await _pumpUntilFound(
+        tester,
+        find.byType(PresetSceneGenerationGateScreen),
+      );
+
+      expect(inviteCoordinator.handledRouteCount, 1);
+      expect(pendingRepository.generateCount, 1);
+      expect(pendingRepository.lastSource, isA<PresetSceneGenerationSource>());
+    },
+  );
 
   testWidgets('存在 completed snapshot 时冷启动直接进入 shell home', (
     WidgetTester tester,
@@ -200,13 +728,17 @@ void main() {
         snapshotStore: OnboardingSnapshotStore(
           directoryResolver: () async => created.tempDir,
         ),
-        practiceRepository: created.repository,
-        starterSpaceId: created.bootState.primarySpaceId!,
-        starterActivityId: created.bootState.primaryActivityId!,
       );
-      completedSnapshot = await onboardingRepository.completeOnboarding(
+      completedSnapshot = await saveCompletedOnboardingSnapshot(
+        onboardingRepository,
         childDisplayName: '米米',
         ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bedtime'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'family_rhythm',
+        starterActivityId: 'bedtime',
+        starterPhraseId: 'bedtime_dim_the_lights',
+        firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
         completedAt: DateTime.utc(2026, 4, 8, 8),
       );
       return created;
@@ -247,16 +779,10 @@ void main() {
             );
           }),
           onboardingRepositoryProvider.overrideWith((ref) {
-            final practiceRepo = ref
-                .read(practiceRepositoryProvider)
-                .requireValue;
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
                 directoryResolver: () async => harness.tempDir,
               ),
-              practiceRepository: practiceRepo,
-              starterSpaceId: harness.bootState.primarySpaceId!,
-              starterActivityId: harness.bootState.primaryActivityId!,
             );
           }),
         ],
@@ -274,7 +800,124 @@ void main() {
     expect(find.byKey(const Key('boot-route-gate-ready')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-shell')), findsOneWidget);
     expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shell-ready'))),
+    );
+    final defaultArgs = container.read(defaultPracticeRouteArgsProvider);
+    expect(defaultArgs.spaceId, 'family_rhythm');
+    expect(defaultArgs.activityId, 'bedtime');
   });
+
+  testWidgets('legacy completed snapshot remains shell compatible', (
+    WidgetTester tester,
+  ) async {
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      final match = StageMatchCatalog.forAgeBucket(
+        OnboardingAgeBucket.zeroToSix,
+      );
+      await _onboardingRepositoryFor(created).saveSnapshot(
+        OnboardingSnapshot(
+          schemaVersion: 1,
+          childDisplayName: '米米',
+          ageBucket: match.ageBucket,
+          approxMonths: match.approxMonths,
+          currentStage: match.stageId,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          consentState: OnboardingConsentState.localOnly,
+          completedAt: DateTime.utc(2026, 7, 24, 12),
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(_bootApp(harness));
+    await _pumpUntilFound(tester, find.byKey(const Key('boot-route-shell')));
+
+    expect(find.byKey(const Key('boot-route-onboarding')), findsNothing);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shell-ready'))),
+    );
+    expect(
+      container.read(defaultPracticeRouteArgsProvider).activityId,
+      'bath_time',
+    );
+  });
+
+  testWidgets(
+    'production router opens the same generated Care Turn for automatic and retry handoff',
+    (WidgetTester tester) async {
+      late OnboardingSnapshot completedSnapshot;
+      final harness = (await tester.runAsync<_AppBootHarness>(() async {
+        final created = await _createHarness();
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          _onboardingRepositoryFor(created),
+          childDisplayName: '米米',
+          ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bedtime'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'family_rhythm',
+          starterActivityId: 'bedtime',
+          starterPhraseId: 'bedtime_dim_the_lights',
+          firstTraceEventKey: 'install_handoff_test:evt_onboarding_first',
+          completedAt: DateTime.utc(2026, 8, 2, 8),
+        );
+        return created;
+      }))!;
+      addTearDown(harness.close);
+      addTearDown(() async {
+        await _disposeWidgetTree(tester);
+      });
+
+      await tester.pumpWidget(
+        _bootApp(
+          harness,
+          completedSnapshotLoader: () async => completedSnapshot,
+        ),
+      );
+      await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+      const sink = AppCustomSceneCareTurnHandoffSink();
+      final handoff = CustomSceneCareTurnHandoff(
+        generatedContentId: 'generated_reconciled',
+      );
+
+      Future<void> expectGeneratedHandoff() async {
+        var routeAttemptCompleted = false;
+        final routeAttempt = await sink.handoff(handoff);
+        unawaited(
+          routeAttempt.routeCompletion.then((_) {
+            routeAttemptCompleted = true;
+          }),
+        );
+        await _pumpUntilFound(tester, find.byType(PracticeSessionScreen));
+        final screen = tester.widget<PracticeSessionScreen>(
+          find.byType(PracticeSessionScreen),
+        );
+        expect(
+          screen.routeEntry.generatedArgs?.generatedContentId,
+          'generated_reconciled',
+        );
+        await tester.pump();
+        expect(routeAttemptCompleted, isFalse);
+
+        Navigator.of(tester.element(find.byType(PracticeSessionScreen))).pop();
+        await routeAttempt.routeCompletion;
+        expect(routeAttemptCompleted, isTrue);
+        await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+      }
+
+      await expectGeneratedHandoff();
+      await expectGeneratedHandoff();
+    },
+  );
 
   testWidgets(
     '存在 completed snapshot 与 recent activity 时冷启动会 seed continuity recommendation',
@@ -302,13 +945,17 @@ void main() {
           snapshotStore: OnboardingSnapshotStore(
             directoryResolver: () async => created.tempDir,
           ),
-          practiceRepository: created.repository,
-          starterSpaceId: created.bootState.primarySpaceId!,
-          starterActivityId: created.bootState.primaryActivityId!,
         );
-        completedSnapshot = await onboardingRepository.completeOnboarding(
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          onboardingRepository,
           childDisplayName: '米米',
           ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bath_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
           completedAt: DateTime.utc(2026, 4, 8, 8),
         );
         return created;
@@ -351,16 +998,10 @@ void main() {
               );
             }),
             onboardingRepositoryProvider.overrideWith((ref) {
-              final practiceRepo = ref
-                  .read(practiceRepositoryProvider)
-                  .requireValue;
               return OnboardingRepository(
                 snapshotStore: OnboardingSnapshotStore(
                   directoryResolver: () async => harness.tempDir,
                 ),
-                practiceRepository: practiceRepo,
-                starterSpaceId: harness.bootState.primarySpaceId!,
-                starterActivityId: harness.bootState.primaryActivityId!,
               );
             }),
           ],
@@ -433,6 +1074,319 @@ void main() {
     },
   );
 
+  testWidgets('account projection 首次不可用后会自动刷新 generated Today 与 Garden', (
+    WidgetTester tester,
+  ) async {
+    late OnboardingSnapshot completedSnapshot;
+    late PracticeRepository generatedRepository;
+    late _ReadTrackingSecureStorage accountStorage;
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final generatedHarness = await _createGeneratedProjectionHarness();
+      final created = generatedHarness.harness;
+      generatedRepository = created.repository;
+      accountStorage = generatedHarness.accountStorage;
+      completedSnapshot = await saveCompletedOnboardingSnapshot(
+        _onboardingRepositoryFor(created),
+        childDisplayName: '米米',
+        ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bath_time'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+        starterPhraseId: 'bath_time_warm_water',
+        firstTraceEventKey: 'install_projection_boot:evt_onboarding_first',
+        completedAt: DateTime.utc(2026, 8, 9, 8),
+      );
+
+      return created;
+    }))!;
+    addTearDown(() async {
+      await harness.mentorRepository.close(deleteFromDisk: true);
+      await harness.repository.close();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (await harness.tempDir.exists()) {
+        await _deleteDirectoryWithRetry(harness.tempDir);
+      }
+    });
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+    addTearDown(accountStorage.releaseRead);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            harness.bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          mentorRepositoryProvider.overrideWith(
+            (ref) async => harness.mentorRepository,
+          ),
+          practiceRepositoryProvider.overrideWith((ref) => generatedRepository),
+          accountRepositoryProvider.overrideWith(
+            (ref) => AccountRepository(
+              localStore: AccountLocalStore(secureStorage: accountStorage),
+              practiceRepository: generatedRepository,
+              connectivityChecker: () async => false,
+            ),
+          ),
+          householdRepositoryProvider.overrideWith((ref) {
+            final accountRepository = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
+            return HouseholdRepository(
+              localStore: HouseholdLocalStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              apiService: HouseholdApiService(),
+              accountSnapshotLoader: accountRepository.loadSnapshot,
+              persistRefreshedSession:
+                  accountRepository.persistRefreshedSession,
+            );
+          }),
+          onboardingRepositoryProvider.overrideWith(
+            (ref) => _onboardingRepositoryFor(harness),
+          ),
+          gardenFertilizerNotifierProvider.overrideWith(
+            (ref) => _FertilizerNotifierStub(
+              ref.watch(gardenGrowthNotifierProvider),
+            ),
+          ),
+        ],
+        child: BabyTalkApp(
+          bootState: harness.bootState,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: Duration.zero,
+          gardenGrowthRefreshTimeout: Duration.zero,
+        ),
+      ),
+    );
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+    final projectionContainer = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shell-ready'))),
+    );
+    final observedContinuity = projectionContainer.read(
+      practiceContinuityNotifierProvider,
+    );
+    final observedGarden = projectionContainer.read(
+      gardenGrowthNotifierProvider,
+    );
+    final observedCarePath = projectionContainer.read(carePathNotifierProvider);
+    for (var index = 0; index < 120; index++) {
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      if (accountStorage.wasRead &&
+          !observedContinuity.isRefreshing &&
+          !observedGarden.isRefreshing) {
+        break;
+      }
+    }
+    var continuityRefreshStarts = 0;
+    var gardenRefreshStarts = 0;
+    var continuityWasRefreshing = observedContinuity.isRefreshing;
+    var gardenWasRefreshing = observedGarden.isRefreshing;
+    void countContinuityRefresh() {
+      if (!continuityWasRefreshing &&
+          observedContinuity.isRefreshing &&
+          observedContinuity.lastRefreshReason == 'account_projection_ready') {
+        continuityRefreshStarts += 1;
+      }
+      continuityWasRefreshing = observedContinuity.isRefreshing;
+    }
+
+    void countGardenRefresh() {
+      if (!gardenWasRefreshing && observedGarden.isRefreshing) {
+        gardenRefreshStarts += 1;
+      }
+      gardenWasRefreshing = observedGarden.isRefreshing;
+    }
+
+    observedContinuity.addListener(countContinuityRefresh);
+    observedGarden.addListener(countGardenRefresh);
+    addTearDown(() {
+      observedContinuity.removeListener(countContinuityRefresh);
+      observedGarden.removeListener(countGardenRefresh);
+    });
+    accountStorage.releaseRead();
+    for (var index = 0; index < 120; index++) {
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+      final continuity = projectionContainer.read(
+        practiceContinuityNotifierProvider,
+      );
+      final garden = projectionContainer.read(gardenGrowthNotifierProvider);
+      if (continuity.lastRefreshReason == 'account_projection_ready' &&
+          continuity.status == PracticeContinuityLoadStatus.ready &&
+          !continuity.isRefreshing &&
+          !garden.isRefreshing &&
+          !observedCarePath.isBusy) {
+        break;
+      }
+    }
+
+    final container = projectionContainer;
+    final continuity = container.read(practiceContinuityNotifierProvider);
+    final garden = container.read(gardenGrowthNotifierProvider);
+    final account = container.read(accountNotifierProvider);
+    expect(accountStorage.wasRead, isTrue);
+    expect(
+      continuity.lastRefreshReason,
+      'account_projection_ready',
+      reason:
+          'status=${continuity.status.name}; accountLoaded=${account.hasLoaded}; '
+          'accountBusy=${account.isBusy}; accountSignedIn=${account.isSignedIn}; '
+          'gardenStatus=${garden.status.name}',
+    );
+    expect(
+      continuity.generatedRecommendedArgs?.generatedContentId,
+      'fixture_generated_cold_boot',
+    );
+    expect(continuityRefreshStarts, 1);
+    expect(gardenRefreshStarts, 1);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('home-today-care-moment-title')))
+          .data,
+      '测试照护时刻',
+    );
+    expect(
+      garden.snapshot.spaces.any(
+        (space) => space.activities.any(
+          (activity) => activity.activityId == 'fixture_generated_activity',
+        ),
+      ),
+      isTrue,
+    );
+  });
+
+  testWidgets('production signed-out account keeps bundled scenes available', (
+    WidgetTester tester,
+  ) async {
+    late OnboardingSnapshot completedSnapshot;
+    late PracticeRepository signedOutRepository;
+    const signedOutStorage = _SignedOutSecureStorage();
+    final signedOutAccountStore = AccountLocalStore(
+      secureStorage: signedOutStorage,
+    );
+    final harness = (await tester.runAsync<_AppBootHarness>(() async {
+      final created = await _createHarness();
+      completedSnapshot = await saveCompletedOnboardingSnapshot(
+        _onboardingRepositoryFor(created),
+        childDisplayName: '米米',
+        ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bath_time'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+        starterPhraseId: 'bath_time_warm_water',
+        firstTraceEventKey: 'install_signed_out:evt_onboarding_first',
+        completedAt: DateTime.utc(2026, 8, 11, 8),
+      );
+      signedOutRepository = PracticeRepository(
+        assetPhraseService: created.bootState.assetPhraseService!,
+        localDataSource: created.localDataSource,
+        installationIdService: InstallationIdService(
+          directoryResolver: () async => created.tempDir,
+          idGenerator: () => 'install_signed_out',
+        ),
+        contentResolver: GeneratedPracticeContentRegistry(
+          store: GeneratedCareMomentLocalStore(
+            directoryResolver: () async => created.tempDir,
+          ),
+          resumeStore: GeneratedCareTurnResumeMarkerStore(
+            directoryResolver: () async => created.tempDir,
+          ),
+          accountContextLoader: () async {
+            return (await signedOutAccountStore.read()).session?.accountId;
+          },
+        ),
+      );
+      return created;
+    }))!;
+    addTearDown(harness.close);
+    addTearDown(() async {
+      await _disposeWidgetTree(tester);
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetPhraseServiceProvider.overrideWithValue(
+            harness.bootState.assetPhraseService!,
+          ),
+          appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+          mentorRepositoryProvider.overrideWith(
+            (ref) async => harness.mentorRepository,
+          ),
+          practiceRepositoryProvider.overrideWith((ref) => signedOutRepository),
+          accountRepositoryProvider.overrideWith(
+            (ref) => AccountRepository(
+              localStore: signedOutAccountStore,
+              practiceRepository: signedOutRepository,
+            ),
+          ),
+          householdRepositoryProvider.overrideWith((ref) {
+            final accountRepository = ref
+                .read(accountRepositoryProvider)
+                .requireValue;
+            return HouseholdRepository(
+              localStore: HouseholdLocalStore(
+                directoryResolver: () async => harness.tempDir,
+              ),
+              apiService: HouseholdApiService(),
+              accountSnapshotLoader: accountRepository.loadSnapshot,
+              persistRefreshedSession:
+                  accountRepository.persistRefreshedSession,
+            );
+          }),
+          onboardingRepositoryProvider.overrideWith(
+            (ref) => _onboardingRepositoryFor(harness),
+          ),
+        ],
+        child: BabyTalkApp(
+          bootState: harness.bootState,
+          audioControllerFactory: _SilentPracticeAudioController.new,
+          completedSnapshotLoader: () async => completedSnapshot,
+          practiceContinuityRefreshTimeout: Duration.zero,
+          gardenGrowthRefreshTimeout: Duration.zero,
+        ),
+      ),
+    );
+    await _pumpUntilFound(tester, find.byKey(const Key('shell-ready')));
+
+    await tester.tap(find.byKey(const Key('shell-nav-discover')));
+    await _pumpUntilFound(
+      tester,
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key == const Key('discover-phrase-list') ||
+            widget.key == const Key('discover-error-state'),
+      ),
+    );
+
+    expect(find.byKey(const Key('discover-error-state')), findsNothing);
+    expect(
+      find.byKey(const Key('discover-phrase-card-bath_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-diaper_change')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-feeding_time')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('discover-phrase-card-bedtime')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('malformed account snapshot 只会退回未登录，不会破坏 shell route gate', (
     WidgetTester tester,
   ) async {
@@ -444,13 +1398,17 @@ void main() {
         snapshotStore: OnboardingSnapshotStore(
           directoryResolver: () async => created.tempDir,
         ),
-        practiceRepository: created.repository,
-        starterSpaceId: created.bootState.primarySpaceId!,
-        starterActivityId: created.bootState.primaryActivityId!,
       );
-      completedSnapshot = await onboardingRepository.completeOnboarding(
+      completedSnapshot = await saveCompletedOnboardingSnapshot(
+        onboardingRepository,
         childDisplayName: '米米',
         ageBucket: OnboardingAgeBucket.zeroToSix,
+        selectedSceneIds: const ['bath_time'],
+        supportGoal: OnboardingSupportGoal.firstWords,
+        starterSpaceId: 'daily_care',
+        starterActivityId: 'bath_time',
+        starterPhraseId: 'bath_time_warm_water',
+        firstTraceEventKey: 'install_smoke_test:evt_onboarding_first',
         completedAt: DateTime.utc(2026, 4, 8, 8),
       );
       final accountRepository = AccountRepository(
@@ -501,16 +1459,10 @@ void main() {
             );
           }),
           onboardingRepositoryProvider.overrideWith((ref) {
-            final practiceRepo = ref
-                .read(practiceRepositoryProvider)
-                .requireValue;
             return OnboardingRepository(
               snapshotStore: OnboardingSnapshotStore(
                 directoryResolver: () async => harness.tempDir,
               ),
-              practiceRepository: practiceRepo,
-              starterSpaceId: harness.bootState.primarySpaceId!,
-              starterActivityId: harness.bootState.primaryActivityId!,
             );
           }),
         ],
@@ -651,6 +1603,276 @@ class _SilentPracticeAudioController implements PracticeAudioController {
   }
 }
 
+class _PendingSceneGenerationRepository implements SceneGenerationRepository {
+  final Completer<GeneratedCareMoment> _pending =
+      Completer<GeneratedCareMoment>();
+  int generateCount = 0;
+  SceneGenerationSource? lastSource;
+
+  @override
+  Future<GeneratedCareMoment> generate({
+    required SceneGenerationSource source,
+    required String clientRequestId,
+  }) {
+    generateCount += 1;
+    lastSource = source;
+    return _pending.future;
+  }
+}
+
+class _ProductionCustomSceneSubmissionController
+    extends CustomSceneSubmissionController {
+  _ProductionCustomSceneSubmissionController({
+    required Directory directory,
+    required CustomSceneFailureKind failureKind,
+  }) : super(
+         repository: _NoopCustomSceneRepository(),
+         draftStore: CustomSceneDraftStore(
+           directoryResolver: () async => directory,
+         ),
+         draftContinuationCoordinator: CustomSceneDraftContinuationCoordinator(
+           draftStore: CustomSceneDraftStore(
+             directoryResolver: () async => directory,
+           ),
+           authContinuationCoordinator: AuthContinuationCoordinator(
+             store: AuthContinuationStore(
+               directoryResolver: () async => directory,
+             ),
+           ),
+         ),
+         approvedContentRegistrar: _NoopCustomSceneRegistrar(),
+         accountContextLoader: () async => 'production_test_account',
+       ) {
+    publishFailure(failureKind);
+  }
+
+  CustomSceneSubmissionState _testState =
+      const CustomSceneSubmissionState.editing();
+
+  @override
+  CustomSceneSubmissionState get state => _testState;
+
+  void publishFailure(CustomSceneFailureKind kind) {
+    _testState = CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.recoverableError,
+      failure: CustomSceneFailure(kind: kind, retryable: false),
+    );
+    notifyListeners();
+  }
+}
+
+class _NoopCustomSceneRepository implements CustomSceneRepository {
+  @override
+  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) async {
+    return _generatedColdBootMoment();
+  }
+}
+
+class _NoopCustomSceneRegistrar implements CustomSceneApprovedContentRegistrar {
+  @override
+  Future<void> register({
+    required String accountContext,
+    required GeneratedCareMoment moment,
+  }) async {}
+}
+
+class _SignedInAccountRepository implements AccountRepositoryContract {
+  static final AccountLocalSnapshot _snapshot = AccountLocalSnapshot(
+    consentState: AccountConsentState.acceptedPendingSync,
+    session: AccountSession(
+      accountId: 'app_reentry_account',
+      sessionId: 'app_reentry_session',
+      maskedPhoneNumber: '138****8000',
+      createdAt: DateTime.utc(2026, 9, 9),
+    ),
+  );
+
+  @override
+  Future<AccountLocalSnapshot> loadSnapshot() async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> signIn({
+    required String phoneNumber,
+    required String verificationCode,
+  }) async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> refreshRuntimeState({
+    required AccountRuntimeTrigger trigger,
+    AccountLocalSnapshot? seedSnapshot,
+    bool forceBootstrap = false,
+  }) async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> clearPlaceholderSession({
+    bool revertToLocalOnly = false,
+  }) async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> revokeConsent({
+    String reason = 'user_requested',
+  }) async => _snapshot;
+
+  @override
+  Future<AccountLocalSnapshot> deleteAccount({
+    String reason = 'forget_me',
+  }) async => _snapshot;
+
+  @override
+  Future<void> close() async {}
+}
+
+class _AcceptingHouseholdRepository extends HouseholdRepository {
+  _AcceptingHouseholdRepository({
+    required Directory directory,
+    required this.practiceArgs,
+  }) : super(
+         localStore: HouseholdLocalStore(
+           directoryResolver: () async => directory,
+         ),
+         apiService: HouseholdApiService(),
+         accountSnapshotLoader: () async => AccountLocalSnapshot.signedOut,
+         persistRefreshedSession: (session) async => session,
+       );
+
+  final PracticeRouteArgs practiceArgs;
+
+  @override
+  Future<HouseholdLocalSnapshot> loadSnapshot() async =>
+      HouseholdLocalSnapshot.empty;
+
+  @override
+  Future<HouseholdInviteAcceptResult> acceptInvite({
+    required String token,
+    required String source,
+  }) async {
+    return HouseholdInviteAcceptResult(
+      snapshot: HouseholdLocalSnapshot.empty,
+      message: '邀请已接受。',
+      practiceArgs: practiceArgs,
+    );
+  }
+}
+
+class _FertilizerNotifierStub extends GardenFertilizerNotifier {
+  _FertilizerNotifierStub(GardenGrowthNotifier growth)
+    : super(
+        repositoryFuture: Completer<GardenFertilizerRepository>().future,
+        growthNotifier: growth,
+      );
+
+  @override
+  GardenFertilizerViewState get view => GardenFertilizerViewState(
+    isLoading: false,
+    pendingPacks: const [],
+    claimedPacks: const [],
+    backpackCount: 0,
+    stageInfo: resolveFertilizerStage(0),
+  );
+
+  @override
+  Future<void> initialize() async {}
+}
+
+OnboardingRepository _onboardingRepositoryFor(_AppBootHarness harness) {
+  return OnboardingRepository(
+    snapshotStore: OnboardingSnapshotStore(
+      directoryResolver: () async => harness.tempDir,
+    ),
+  );
+}
+
+Widget _bootApp(
+  _AppBootHarness harness, {
+  Future<OnboardingSnapshot?> Function()? completedSnapshotLoader,
+  SceneGenerationController? sceneGenerationController,
+  PresetSceneDefinitionLoader? presetSceneDefinitionLoader,
+  Stream<Uri>? shareUriStream,
+  ShareReentryCoordinator? shareReentryCoordinator,
+  InviteReentryCoordinator? inviteReentryCoordinator,
+  AccountNotifier? accountNotifier,
+  HouseholdNotifier? householdNotifier,
+  CustomSceneSubmissionController? customSceneSubmissionController,
+  SettingsNotifier? settingsNotifier,
+}) {
+  return ProviderScope(
+    overrides: [
+      assetPhraseServiceProvider.overrideWithValue(
+        harness.bootState.assetPhraseService!,
+      ),
+      appDirectoryProvider.overrideWith((ref) => harness.tempDir),
+      mentorRepositoryProvider.overrideWith(
+        (ref) async => harness.mentorRepository,
+      ),
+      practiceRepositoryProvider.overrideWith((ref) => harness.repository),
+      accountRepositoryProvider.overrideWith(
+        (ref) => AccountRepository(
+          localStore: AccountLocalStore(),
+          practiceRepository: harness.repository,
+        ),
+      ),
+      householdRepositoryProvider.overrideWith((ref) {
+        final accountRepository = ref
+            .read(accountRepositoryProvider)
+            .requireValue;
+        return HouseholdRepository(
+          localStore: HouseholdLocalStore(
+            directoryResolver: () async => harness.tempDir,
+          ),
+          apiService: HouseholdApiService(),
+          accountSnapshotLoader: accountRepository.loadSnapshot,
+          persistRefreshedSession: accountRepository.persistRefreshedSession,
+        );
+      }),
+      onboardingRepositoryProvider.overrideWith(
+        (ref) => _onboardingRepositoryFor(harness),
+      ),
+      if (sceneGenerationController != null)
+        sceneGenerationControllerProvider.overrideWith(
+          (ref, _) => sceneGenerationController,
+        ),
+      if (accountNotifier != null)
+        accountNotifierProvider.overrideWith((ref) => accountNotifier),
+      if (householdNotifier != null)
+        householdNotifierProvider.overrideWith((ref) => householdNotifier),
+      if (customSceneSubmissionController != null)
+        customSceneSubmissionControllerProvider.overrideWith(
+          (ref) async => customSceneSubmissionController,
+        ),
+      if (settingsNotifier != null)
+        settingsNotifierProvider.overrideWith((ref) => settingsNotifier),
+    ],
+    child: BabyTalkApp(
+      bootState: harness.bootState,
+      audioControllerFactory: _SilentPracticeAudioController.new,
+      completedSnapshotLoader: completedSnapshotLoader,
+      presetSceneDefinitionLoader:
+          presetSceneDefinitionLoader ??
+          (args) async => _testPresetSceneDefinition(args.normalizedActivityId),
+      shareUriStream: shareUriStream,
+      shareReentryCoordinator: shareReentryCoordinator,
+      inviteReentryCoordinator: inviteReentryCoordinator,
+      practiceContinuityRefreshTimeout: Duration.zero,
+      gardenGrowthRefreshTimeout: Duration.zero,
+    ),
+  );
+}
+
+Future<PresetSceneDefinition?> _testPresetSceneDefinition(
+  String activityId,
+) async {
+  return PresetSceneDefinition(
+    presetSceneId: activityId,
+    publishedVersion: 1,
+    spaceId: 'daily_care',
+    title: activityId,
+    summary: activityId,
+    sceneTag: activityId,
+    coachTip: activityId,
+    sortOrder: 1,
+  );
+}
+
 Future<_AppBootHarness> _createHarness() async {
   final bootState = await AppBootState.load(rootBundle);
   final tempDir = Directory(
@@ -686,6 +1908,92 @@ Future<_AppBootHarness> _createHarness() async {
     localDataSource: localDataSource,
     repository: repository,
     mentorRepository: mentorRepository,
+  );
+}
+
+Future<({_AppBootHarness harness, _ReadTrackingSecureStorage accountStorage})>
+_createGeneratedProjectionHarness() async {
+  const accountContext = 'fixture_projection_account';
+  final bootState = await AppBootState.load(rootBundle);
+  final tempDir = Directory(
+    '${Directory.systemTemp.path}${Platform.pathSeparator}generated_app_boot_test_${DateTime.now().microsecondsSinceEpoch}',
+  );
+  await tempDir.create(recursive: true);
+  final projectionGate = _GeneratedProjectionAccountGate(accountContext);
+  final accountStorage = _ReadTrackingSecureStorage(
+    onRead: projectionGate.release,
+  );
+  await AccountLocalStore(secureStorage: accountStorage).write(
+    AccountLocalSnapshot(
+      consentState: AccountConsentState.acceptedPendingSync,
+      session: AccountSession.validated(
+        accountId: accountContext,
+        sessionId: 'fixture_projection_session',
+        maskedPhoneNumber: '***',
+        createdAt: DateTime.utc(2026, 8, 9, 8),
+      ),
+    ),
+  );
+  final generatedStore = GeneratedCareMomentLocalStore(
+    directoryResolver: () async => tempDir,
+  );
+  final generatedMoment = _generatedColdBootMoment();
+  await generatedStore.upsert(
+    StoredGeneratedCareMoment(
+      accountContext: accountContext,
+      moment: generatedMoment,
+    ),
+  );
+  final localDataSource = await PracticeLocalDataSource.open(
+    directory: tempDir.path,
+    name: 'generated_app_boot_test_${DateTime.now().microsecondsSinceEpoch}',
+  );
+  final repository = PracticeRepository(
+    assetPhraseService: bootState.assetPhraseService!,
+    localDataSource: localDataSource,
+    contentResolver: GeneratedPracticeContentRegistry(
+      store: generatedStore,
+      resumeStore: GeneratedCareTurnResumeMarkerStore(
+        directoryResolver: () async => tempDir,
+      ),
+      accountContextLoader: projectionGate.load,
+    ),
+    installationIdService: InstallationIdService(
+      directoryResolver: () async => tempDir,
+      idGenerator: () => 'install_projection_boot_test',
+    ),
+  );
+  await repository.recordReaction(
+    spaceId: generatedMoment.spaceId,
+    activityId: generatedMoment.activityId,
+    phraseId: generatedMoment.starter.phraseId,
+    reactionType: BabyReactionType.cooperating,
+    generatedContentId: generatedMoment.generatedContentId,
+    utteranceId: generatedMoment.starter.utteranceId,
+    clientTimestamp: DateTime.utc(2026, 8, 9, 8, 5),
+  );
+  projectionGate.armColdBoot();
+  final mentorLocalDataSource = await MentorLocalDataSource.open(
+    directory: tempDir.path,
+    name:
+        'mentor_generated_app_boot_test_${DateTime.now().microsecondsSinceEpoch}',
+  );
+  final mentorRepository = MentorRepository(
+    localDataSource: mentorLocalDataSource,
+    practiceRepository: repository,
+    onboardingSnapshotStore: OnboardingSnapshotStore(
+      directoryResolver: () async => tempDir,
+    ),
+  );
+  return (
+    harness: _AppBootHarness(
+      bootState: bootState,
+      tempDir: tempDir,
+      localDataSource: localDataSource,
+      repository: repository,
+      mentorRepository: mentorRepository,
+    ),
+    accountStorage: accountStorage,
   );
 }
 
@@ -774,4 +2082,120 @@ class _MalformedSecureStorage extends FlutterSecureStorage {
   }) async {
     return '{"consentState":"accepted_pending_sync","session":null}';
   }
+}
+
+class _SignedOutSecureStorage extends FlutterSecureStorage {
+  const _SignedOutSecureStorage();
+
+  @override
+  Future<String?> read({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async => null;
+}
+
+class _GeneratedProjectionAccountGate {
+  _GeneratedProjectionAccountGate(this.accountContext);
+
+  final String accountContext;
+  bool _available = true;
+
+  Future<String?> load() async => _available ? accountContext : null;
+
+  void armColdBoot() {
+    _available = false;
+  }
+
+  void release() {
+    _available = true;
+  }
+}
+
+class _ReadTrackingSecureStorage extends FlutterSecureStorage {
+  _ReadTrackingSecureStorage({required this.onRead});
+
+  final VoidCallback onRead;
+  final Map<String, String> _values = <String, String>{};
+  final Completer<void> _readGate = Completer<void>();
+  bool wasRead = false;
+
+  void releaseRead() {
+    if (!_readGate.isCompleted) {
+      _readGate.complete();
+    }
+  }
+
+  @override
+  Future<String?> read({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    wasRead = true;
+    await _readGate.future;
+    onRead();
+    return _values[key];
+  }
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (value == null) {
+      _values.remove(key);
+    } else {
+      _values[key] = value;
+    }
+  }
+
+  @override
+  Future<void> delete({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    _values.remove(key);
+  }
+}
+
+GeneratedCareMoment _generatedColdBootMoment() {
+  return generatedCareMomentFixture(
+    generatedContentId: 'fixture_generated_cold_boot',
+    sceneId: 'fixture_scene',
+    spaceId: 'fixture_generated_space',
+    momentId: 'fixture_moment',
+    activityId: 'fixture_generated_activity',
+    title: '测试照护时刻',
+    sceneTag: 'fixture',
+    coachTip: '慢慢回应',
+    utteranceIdPrefix: 'fixture_utterance',
+    phraseIdPrefix: 'fixture_phrase',
+    englishForSuffix: (suffix) => 'A calm fixture phrase $suffix.',
+    chinese: '测试照护短句',
+    pronunciation: 'fixture',
+    tprActionZh: '轻轻靠近',
+    deliveryGuidanceZh: '放慢语速',
+    providerName: 'fixture_provider',
+    modelName: 'fixture_model',
+  );
 }

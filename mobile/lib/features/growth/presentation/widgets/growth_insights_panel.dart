@@ -89,6 +89,8 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
           const SizedBox(height: AppLayoutConstants.spacingLg),
           if (view.isLoading)
             _buildLoading(colors)
+          else if (view.hasError)
+            _buildError(theme, colors)
           else if (view.isEmpty)
             _buildEmpty(theme, colors)
           else
@@ -133,6 +135,29 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
     );
   }
 
+  Widget _buildError(ThemeData theme, BabyTalkColors colors) {
+    return Padding(
+      key: const Key('growth-insights-error'),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppLayoutConstants.spacingLg,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off_rounded, color: colors.textMuted, size: 28),
+          const SizedBox(width: AppLayoutConstants.spacingSm),
+          Expanded(
+            child: Text(
+              '成长数据暂时无法加载，请稍后重试。',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _emptyHint(GrowthPeriod period) {
     switch (period) {
       case GrowthPeriod.week:
@@ -153,6 +178,16 @@ class _GrowthInsightsPanelState extends ConsumerState<GrowthInsightsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (view.isCached) ...[
+          Text(
+            key: const Key('growth-insights-cached-notice'),
+            '显示的是最近缓存的数据。',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+        ],
         // ── Streak card ──
         Container(
           key: const Key('growth-insights-streak'),

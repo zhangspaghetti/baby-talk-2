@@ -1,0 +1,266 @@
+package com.zhangspaghetti.babytalk.practice.generated;
+
+import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
+import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
+import com.zhangspaghetti.babytalk.practice.agentic.config.GenerationProfile;
+import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
+import com.zhangspaghetti.babytalk.practice.generated.contract.CompleteGeneratedBundle;
+import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceSummary;
+import com.zhangspaghetti.babytalk.practice.discovery.GeneratedCoachTipComposer;
+import com.zhangspaghetti.babytalk.practice.generated.quality.TypedRepairPackage;
+import java.util.List;
+import java.util.Objects;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
+
+@Service
+@ConditionalOnProperty(
+        prefix = "babytalk.practice.discovery.custom-scene",
+        name = "provider-mode",
+        havingValue = "agentic"
+)
+public class AgenticCustomSceneRepairer implements CustomSceneRepairer {
+
+    private static final String SUBJECT_TYPE = "generated_content";
+
+    private final PracticeAiOperationRunner operationRunner;
+    private final PracticeAiStructuredOutputCaller structuredOutputCaller;
+    private final VersionedResourceRegistry resourceRegistry;
+    private final ObjectMapper objectMapper;
+    private final GeneratedCoachTipComposer coachTipComposer;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AgenticCustomSceneRepairer(
+            PracticeAiOperationRunner operationRunner,
+            PracticeAiStructuredOutputCaller structuredOutputCaller,
+            VersionedResourceRegistry resourceRegistry
+    ) {
+        this(operationRunner, structuredOutputCaller, resourceRegistry,
+                new ObjectMapper(), new GeneratedCoachTipComposer());
+    }
+
+    AgenticCustomSceneRepairer(
+            PracticeAiOperationRunner operationRunner,
+            PracticeAiStructuredOutputCaller structuredOutputCaller,
+            VersionedResourceRegistry resourceRegistry,
+            ObjectMapper objectMapper
+    ) {
+        this(operationRunner, structuredOutputCaller, resourceRegistry,
+                objectMapper, new GeneratedCoachTipComposer());
+    }
+
+    AgenticCustomSceneRepairer(
+            PracticeAiOperationRunner operationRunner,
+            PracticeAiStructuredOutputCaller structuredOutputCaller,
+            VersionedResourceRegistry resourceRegistry,
+            ObjectMapper objectMapper,
+            GeneratedCoachTipComposer coachTipComposer
+    ) {
+        this.operationRunner = Objects.requireNonNull(operationRunner, "operationRunner");
+        this.structuredOutputCaller = Objects.requireNonNull(structuredOutputCaller, "structuredOutputCaller");
+        this.resourceRegistry = Objects.requireNonNull(resourceRegistry, "resourceRegistry");
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.coachTipComposer = Objects.requireNonNull(coachTipComposer, "coachTipComposer");
+    }
+
+    @Override
+    public GeneratedCareMomentBundle repairCareMoment(RepairRequest request) {
+        Objects.requireNonNull(request, "request");
+        var repairPackage = request.repairPackage();
+        var currentProfile = Objects.requireNonNull(
+                resourceRegistry.currentGenerationProfile(), "currentGenerationProfile");
+        if (!currentProfile.equals(repairPackage.generationProfile())) {
+            throw new IllegalArgumentException(
+                    "repair request generation profile must match current registry profile");
+        }
+        var repairPrompt = currentProfile.repairPrompt();
+        var systemPrompt = resourceRegistry.promptText(VersionedResourceRegistry.PromptKind.REPAIR);
+        var userPrompt = objectMapper.writeValueAsString(new RepairPromptPayload(
+                request.attemptNumber(),
+                request.locale(),
+                new GenerationRequestContextPayload(
+                        request.context().babyName(),
+                        request.context().ageRange(),
+                        request.context().parentGoal(),
+                        request.context().locale(),
+                        request.context().recentPracticeCount(),
+                        request.context().dominantReaction(),
+                        request.context().recentActivitySummary()),
+                repairPackage.displayText(),
+                repairPackage.ageRange(),
+                repairPackage.parentGoal(),
+                repairPackage.previousBundle(),
+                repairPackage.effectiveVerdict().name(),
+                repairPackage.failedDimensions().stream().map(Enum::name).toList(),
+                repairPackage.violationCodes(),
+                repairPackage.branchRequirements().stream()
+                        .map(requirement -> new BranchRequirementPayload(
+                                requirement.branch().wireValue(),
+                                requirement.violationCodes().stream().map(Enum::name).toList()))
+                        .toList(),
+                repairPackage.repairDirectives().stream().map(Enum::name).toList(),
+                contentConstraintsPayload(request.contentConstraints()),
+                coachTipComposer.compositionPolicy(request.contentConstraints().maxCoachTipChars()),
+                CompleteGeneratedBundle.persistenceCodePointLimits(),
+                EvidenceActionConsistencyPolicyPayload.strict(),
+                repairPackage.evidenceSummaries().stream().map(EvidenceSummary::sanitizedSummary).toList(),
+                generationProfilePayload(currentProfile)));
+        var result = operationRunner.execute(new OperationRequest<>(
+                PracticeAiCapability.CUSTOM_SCENE_REPAIR,
+                SUBJECT_TYPE,
+                request.generatedContentId(),
+                request.generatedContentId(),
+                request.attemptNumber(),
+                request.evidenceBundleId(),
+                repairPrompt.version(),
+                repairPrompt.contentHash(),
+                currentProfile.evidencePolicy().version(),
+                currentProfile.evidencePolicy().contentHash(),
+                provider -> {
+                    var content = OperationRequest.atFailureStage(
+                            OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING,
+                            () -> callRepairProvider(provider, systemPrompt, userPrompt, currentProfile));
+                    var wire = OperationRequest.atFailureStage(
+                            OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER,
+                            () -> CompleteGeneratedBundle.ProviderResponse.parse(content));
+                    return new OperationRequest.ProviderInvocationResult<>(wire, null);
+                }));
+        return GeneratedCareMomentBundle.fromCompleteBundle(result.value().toCompleteBundle(
+                new CompleteGeneratedBundle.ProviderProvenance(
+                        CompleteGeneratedBundle.ProviderOrigin.PROVIDER_REPAIRED,
+                        result.providerName(),
+                        result.modelName(),
+                        request.attemptNumber())));
+    }
+
+    private GenerationProfilePayload generationProfilePayload(GenerationProfile profile) {
+        return new GenerationProfilePayload(
+                profile.version(),
+                profile.repairPrompt().version(),
+                profile.strategyVersion(),
+                profile.contentSafetyPolicyVersion(),
+                profile.generatedOutputSchemaVersion());
+    }
+
+    private String callRepairProvider(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            GenerationProfile profile
+    ) {
+        var inferencePolicy = profile.repairInferencePolicy();
+        if (inferencePolicy != null
+                && inferencePolicy.matches(provider.providerType(), provider.modelName())) {
+            return structuredOutputCaller.callRaw(
+                    provider,
+                    systemPrompt,
+                    userPrompt,
+                    CompleteGeneratedBundle.ProviderResponse.class,
+                    profile.minimumCompleteBundleOutputTokens(),
+                    inferencePolicy.reasoningEffort());
+        }
+        return structuredOutputCaller.callRaw(
+                provider,
+                systemPrompt,
+                userPrompt,
+                CompleteGeneratedBundle.ProviderResponse.class,
+                profile.minimumCompleteBundleOutputTokens());
+    }
+
+    private ContentConstraintsPayload contentConstraintsPayload(
+            SceneContentGenerator.ContentConstraints constraints
+    ) {
+        return new ContentConstraintsPayload(
+                constraints.maxEnglishWords(),
+                constraints.maxEnglishChars(),
+                constraints.maxChineseChars(),
+                constraints.maxCoachTipChars(),
+                constraints.maxSceneTagChars(),
+                constraints.allowedDifficulties().stream().sorted().toList(),
+                constraints.allowedGenerationSources().stream().sorted().toList());
+    }
+
+    private record RepairPromptPayload(
+            int attemptNumber,
+            String locale,
+            GenerationRequestContextPayload context,
+            String displayText,
+            String ageRange,
+            String parentGoal,
+            CompleteGeneratedBundle previousBundle,
+            String effectiveVerdict,
+            List<String> failedDimensions,
+            List<String> violationCodes,
+            List<BranchRequirementPayload> branchRequirements,
+            List<String> repairDirectives,
+            ContentConstraintsPayload contentConstraints,
+            GeneratedCoachTipComposer.CompositionPolicy coachTipCompositionPolicy,
+            CompleteGeneratedBundle.PersistenceCodePointLimits persistenceCodePointLimits,
+            EvidenceActionConsistencyPolicyPayload evidenceActionConsistencyPolicy,
+            List<String> orderedSanitizedEvidenceSummaries,
+            GenerationProfilePayload generationProfile
+    ) {
+    }
+
+    private record GenerationRequestContextPayload(
+            String babyName,
+            String ageRange,
+            String parentGoal,
+            String locale,
+            int recentPracticeCount,
+            String dominantReaction,
+            String recentActivitySummary
+    ) {
+    }
+
+    private record BranchRequirementPayload(
+            String branch,
+            List<String> violationCodes
+    ) {
+    }
+
+    private record ContentConstraintsPayload(
+            int maxEnglishWords,
+            int maxEnglishChars,
+            int maxChineseChars,
+            int maxCoachTipChars,
+            int maxSceneTagChars,
+            List<String> allowedDifficulties,
+            List<String> allowedGenerationSources
+    ) {
+    }
+
+    private record EvidenceActionConsistencyPolicyPayload(
+            List<String> groundingSources,
+            boolean requireEachTprActionSupportedByGrounding,
+            boolean forbidUnmentionedObjectsOrBodyActions,
+            boolean repairAllTprBranchesWhenJudgeReportsInconsistency
+    ) {
+
+        private static EvidenceActionConsistencyPolicyPayload strict() {
+            return new EvidenceActionConsistencyPolicyPayload(
+                    List.of(
+                            "displayText",
+                            "parentGoal",
+                            "utteranceEnglishText",
+                            "utteranceChineseText",
+                            "orderedSanitizedEvidenceSummaries"),
+                    true,
+                    true,
+                    true);
+        }
+    }
+
+    private record GenerationProfilePayload(
+            String version,
+            String repairPromptVersion,
+            String strategyVersion,
+            String contentSafetyPolicyVersion,
+            String generatedOutputSchemaVersion
+    ) {
+    }
+}

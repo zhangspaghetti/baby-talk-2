@@ -25,7 +25,8 @@ class GardenSnapshotPayload {
       knownEvents: _readInt(json, 'knownEvents'),
       coveredSpaceCount: _readInt(json, 'coveredSpaceCount'),
       currentStreakDays: _readInt(json, 'currentStreakDays'),
-      milestones: (json['milestones'] as List<dynamic>?)
+      milestones:
+          (json['milestones'] as List<dynamic>?)
               ?.map((e) => MilestonePayload.fromJson(e as Map<String, dynamic>))
               .toList(growable: false) ??
           const [],

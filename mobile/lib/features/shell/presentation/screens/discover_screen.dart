@@ -9,6 +9,10 @@ import 'package:mobile/app/widgets/app_english_phrase.dart';
 import 'package:mobile/app/widgets/app_scene_pill.dart';
 import 'package:mobile/app/widgets/app_shimmer.dart';
 import 'package:mobile/app/widgets/app_surface_card.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -36,10 +40,16 @@ const _sceneCategories = [
 ];
 
 class DiscoverScreen extends ConsumerStatefulWidget {
-  const DiscoverScreen({super.key, this.catalogLoader, this.practiceOpener});
+  const DiscoverScreen({
+    super.key,
+    this.catalogLoader,
+    this.practiceOpener,
+    this.customSceneEntryOpener,
+  });
 
   final DiscoverCatalogLoader? catalogLoader;
   final DiscoverPracticeOpener? practiceOpener;
+  final CustomSceneEntryOpener? customSceneEntryOpener;
 
   @override
   ConsumerState<DiscoverScreen> createState() => _DiscoverScreenState();
@@ -75,6 +85,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
+    final customSceneEnabled = ref.watch(customSceneFeatureEnabledProvider);
     super.build(context);
     final theme = Theme.of(context);
 
@@ -93,7 +104,14 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                   snapshot.connectionState != ConnectionState.done;
               final catalog = snapshot.data;
               final allActivities = catalog?.activities ?? [];
-              final filtered = _applyFilters(allActivities);
+              final categoryCounts = _availableCategoryCounts(allActivities);
+              final selectedScene = categoryCounts.containsKey(_selectedScene)
+                  ? _selectedScene
+                  : 'all';
+              final filtered = _applyFilters(
+                allActivities,
+                selectedScene: selectedScene,
+              );
 
               return ListView(
                 key: const Key('shell-tab-discover'),
@@ -119,7 +137,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
                   // --- Scene pills + sort ---
                   _DiscoverFilterBar(
-                    selectedScene: _selectedScene,
+                    categoryCounts: categoryCounts,
+                    selectedScene: selectedScene,
                     sortMode: _sortMode,
                     onSceneChanged: (scene) {
                       setState(() => _selectedScene = scene);
@@ -176,6 +195,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     _DiscoverSceneList(
                       activities: filtered,
                       onOpenActivity: _openActivity,
+                      showCustomSceneEntry: customSceneEnabled,
+                      onOpenCustomScene: _openCustomScene,
                     ),
                 ],
               );
@@ -188,18 +209,14 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
   /// Apply scene filter, search query, and sort to the activity list.
   List<PracticeCatalogActivitySummary> _applyFilters(
-    List<PracticeCatalogActivitySummary> activities,
-  ) {
+    List<PracticeCatalogActivitySummary> activities, {
+    required String selectedScene,
+  }) {
     var result = List<PracticeCatalogActivitySummary>.from(activities);
 
     // Scene filter
-    if (_selectedScene != 'all') {
-      final sceneLabel = _sceneLabel(_selectedScene);
-      result = result
-          .where(
-            (a) => a.sceneTag.toLowerCase().contains(sceneLabel.toLowerCase()),
-          )
-          .toList();
+    if (selectedScene != 'all') {
+      result = result.where((a) => _matchesScene(a, selectedScene)).toList();
     }
 
     // Search filter (supports English and Chinese scene text)
@@ -233,22 +250,46 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     return result;
   }
 
-  String _sceneLabel(String sceneKey) {
-    switch (sceneKey) {
+  Map<String, int> _availableCategoryCounts(
+    List<PracticeCatalogActivitySummary> activities,
+  ) {
+    final counts = <String, int>{'all': activities.length};
+    for (final category in _sceneCategories.skip(1)) {
+      final count = activities
+          .where((activity) => _matchesScene(activity, category))
+          .length;
+      if (count > 0) {
+        counts[category] = count;
+      }
+    }
+    return counts;
+  }
+
+  bool _matchesScene(PracticeCatalogActivitySummary activity, String category) {
+    final haystack = [
+      activity.title,
+      activity.summary,
+      activity.sceneTag,
+    ].join(' ').toLowerCase();
+    return _sceneSearchTerms(category).any(haystack.contains);
+  }
+
+  Iterable<String> _sceneSearchTerms(String category) {
+    switch (category) {
       case 'mealtime':
-        return '喂饭';
+        return const ['喂饭', '吃饭', 'feeding', 'mealtime'];
       case 'drinking':
-        return '喝水';
+        return const ['喝水', 'drinking'];
       case 'diaper':
-        return '换尿布';
+        return const ['换尿布', 'diaper'];
       case 'bath':
-        return '洗澡';
+        return const ['洗澡', 'bath'];
       case 'bedtime':
-        return '睡前';
+        return const ['睡前', 'bedtime'];
       case 'outing':
-        return '出门';
+        return const ['出门', 'outing'];
       default:
-        return '';
+        return const [];
     }
   }
 
@@ -300,6 +341,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
         _navigationError = l.discoverOpenActivityError(activity.title, '请稍后重试');
       });
     }
+  }
+
+  Future<void> _openCustomScene() {
+    final opener = widget.customSceneEntryOpener;
+    if (opener != null) {
+      return opener(context, CustomSceneEntrySource.scene);
+    }
+    return CustomSceneRouteArgs(
+      entrySource: CustomSceneEntrySource.scene,
+    ).push<void>(context);
   }
 }
 
@@ -419,12 +470,14 @@ class _DiscoverSearchBar extends StatelessWidget {
 
 class _DiscoverFilterBar extends StatelessWidget {
   const _DiscoverFilterBar({
+    required this.categoryCounts,
     required this.selectedScene,
     required this.sortMode,
     required this.onSceneChanged,
     required this.onSortChanged,
   });
 
+  final Map<String, int> categoryCounts;
   final String selectedScene;
   final _SortMode sortMode;
   final ValueChanged<String> onSceneChanged;
@@ -436,6 +489,8 @@ class _DiscoverFilterBar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('筛选', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: AppLayoutConstants.spacingXs),
         // Scene pills (horizontal scroll)
         SizedBox(
           height: AppLayoutConstants.minTouchTarget,
@@ -444,14 +499,20 @@ class _DiscoverFilterBar extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                for (var i = 0; i < _sceneCategories.length; i++) ...[
+                for (var i = 0; i < categoryCounts.length; i++) ...[
                   if (i > 0)
                     const SizedBox(width: AppLayoutConstants.spacingXs),
-                  AppScenePill(
-                    key: Key('discover-pill-${_sceneCategories[i]}'),
-                    label: _sceneLabelFromKey(l, _sceneCategories[i]),
-                    isSelected: _sceneCategories[i] == selectedScene,
-                    onTap: () => onSceneChanged(_sceneCategories[i]),
+                  Builder(
+                    builder: (context) {
+                      final category = categoryCounts.keys.elementAt(i);
+                      final count = categoryCounts[category]!;
+                      return AppScenePill(
+                        key: Key('discover-pill-$category'),
+                        label: '${_sceneLabelFromKey(l, category)}（$count）',
+                        isSelected: category == selectedScene,
+                        onTap: () => onSceneChanged(category),
+                      );
+                    },
                   ),
                 ],
               ],
@@ -606,10 +667,14 @@ class _DiscoverSceneList extends StatelessWidget {
   const _DiscoverSceneList({
     required this.activities,
     required this.onOpenActivity,
+    required this.showCustomSceneEntry,
+    required this.onOpenCustomScene,
   });
 
   final List<PracticeCatalogActivitySummary> activities;
   final ValueChanged<PracticeCatalogActivitySummary> onOpenActivity;
+  final bool showCustomSceneEntry;
+  final Future<void> Function() onOpenCustomScene;
 
   @override
   Widget build(BuildContext context) {
@@ -631,6 +696,13 @@ class _DiscoverSceneList extends StatelessWidget {
         for (final activity in activities) ...[
           _SceneCard(activity: activity, onTap: () => onOpenActivity(activity)),
           const SizedBox(height: AppLayoutConstants.spacingXs),
+        ],
+        if (showCustomSceneEntry) ...[
+          const SizedBox(height: AppLayoutConstants.spacingSm),
+          CustomSceneEntryLink(
+            source: CustomSceneEntrySource.scene,
+            onOpen: (_, _) => onOpenCustomScene(),
+          ),
         ],
       ],
     );

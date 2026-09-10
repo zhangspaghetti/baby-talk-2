@@ -138,8 +138,11 @@
                occurred_at
         from incidents
         where 1 = 1
-        <if test="installationId != null">
-            and installation_id = #{installationId}
+        <if test="installationReference != null">
+            and (installation_id = #{installationReference}
+                 <if test="legacyInstallationId != null">
+                     or installation_id = #{legacyInstallationId}
+                 </if>)
         </if>
         <if test="flagCode != null">
             and flag_code = #{flagCode}
@@ -202,7 +205,10 @@
     <select id="countCurrentWindowRequests" resultType="int">
         select count(*)
         from mentor_audit_logs
-        where installation_id = #{installationId}
+        where (installation_id = #{installationReference}
+               <if test="legacyInstallationId != null">
+                   or installation_id = #{legacyInstallationId}
+               </if>)
           and event_type = 'chat_requested'
           and created_at <![CDATA[>=]]> #{windowStart}
     </select>

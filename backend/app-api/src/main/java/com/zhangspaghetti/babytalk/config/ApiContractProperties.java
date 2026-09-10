@@ -10,6 +10,7 @@ import org.springframework.validation.annotation.Validated;
 public record ApiContractProperties(
         @NotBlank String minSupportedVersion,
         @NotBlank String upgradeUrl,
+        @NotBlank String consentVersion,
         @Min(1) int syncMaxBatchSize,
         @Min(1) int bootstrapMaxEvents
 ) {

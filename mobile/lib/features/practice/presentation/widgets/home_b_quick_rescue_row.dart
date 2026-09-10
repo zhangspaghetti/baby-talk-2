@@ -7,26 +7,14 @@ import 'package:mobile/app/theme/app_theme.dart';
 /// get Xiaohe's help for common urgent situations.
 /// Design spec: "宝宝不肯睡", "洗澡哭了", "要出门了".
 class HomeBQuickRescueRow extends StatelessWidget {
-  const HomeBQuickRescueRow({
-    super.key,
-    this.onSceneSelected,
-  });
+  const HomeBQuickRescueRow({super.key, this.onSceneSelected});
 
   final void Function(String scene)? onSceneSelected;
 
   static const List<_RescueScene> _scenes = [
-    _RescueScene(
-      label: '宝宝不肯睡',
-      icon: Icons.nightlight_round,
-    ),
-    _RescueScene(
-      label: '洗澡哭了',
-      icon: Icons.bubble_chart_outlined,
-    ),
-    _RescueScene(
-      label: '要出门了',
-      icon: Icons.directions_walk_rounded,
-    ),
+    _RescueScene(label: '宝宝不肯睡', icon: Icons.nightlight_round),
+    _RescueScene(label: '洗澡哭了', icon: Icons.bubble_chart_outlined),
+    _RescueScene(label: '要出门了', icon: Icons.directions_walk_rounded),
   ];
 
   @override
@@ -71,11 +59,7 @@ class HomeBQuickRescueRow extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          scene.icon,
-                          size: 16,
-                          color: colors.accentDark,
-                        ),
+                        Icon(scene.icon, size: 16, color: colors.accentDark),
                         const SizedBox(width: 8),
                         Text(
                           scene.label,
@@ -97,10 +81,7 @@ class HomeBQuickRescueRow extends StatelessWidget {
 }
 
 class _RescueScene {
-  const _RescueScene({
-    required this.label,
-    required this.icon,
-  });
+  const _RescueScene({required this.label, required this.icon});
 
   final String label;
   final IconData icon;

@@ -55,9 +55,7 @@ void main() {
       expect(find.text('20:30'), findsOneWidget);
 
       // Switch is present and on
-      final switchWidget = tester.widget<Switch>(
-        find.byType(Switch),
-      );
+      final switchWidget = tester.widget<Switch>(find.byType(Switch));
       expect(switchWidget.value, isTrue);
     });
 
@@ -75,10 +73,7 @@ void main() {
     ) async {
       await _pumpSettingsScreen(
         tester,
-        snapshot: const SettingsSnapshot(
-          childName: '米米',
-          childAgeMonths: 12,
-        ),
+        snapshot: const SettingsSnapshot(childName: '米米', childAgeMonths: 12),
       );
 
       expect(find.textContaining('米米'), findsOneWidget);
@@ -106,6 +101,22 @@ void main() {
 
       expect(find.textContaining('妈妈'), findsOneWidget);
       expect(find.textContaining('中文'), findsOneWidget);
+    });
+
+    testWidgets('localizes bilingual caregiver language in subtitle', (
+      tester,
+    ) async {
+      await _pumpSettingsScreen(
+        tester,
+        snapshot: const SettingsSnapshot(
+          caregiverRole: '妈妈',
+          preferredLanguage: 'bilingual',
+        ),
+      );
+
+      expect(find.textContaining('妈妈'), findsOneWidget);
+      expect(find.textContaining('双语'), findsOneWidget);
+      expect(find.textContaining('bilingual'), findsNothing);
     });
 
     testWidgets('shows playback auto-play and speed in subtitle', (
@@ -148,9 +159,7 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            settingsNotifierProvider.overrideWith((ref) => notifier),
-          ],
+          overrides: [settingsNotifierProvider.overrideWith((ref) => notifier)],
           child: MaterialApp(
             locale: const Locale('zh'),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -217,7 +226,8 @@ Future<void> _pumpSettingsScreen(
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
 
-  final effectiveNotifier = notifier ??
+  final effectiveNotifier =
+      notifier ??
       _StubSettingsNotifier(
         snapshot: snapshot ?? const SettingsSnapshot(),
         isLoading: isLoading,
@@ -317,6 +327,9 @@ class _StubSettingsNotifier extends ChangeNotifier implements SettingsNotifier {
 
   @override
   Future<void> refresh() async {}
+
+  @override
+  Future<void> refreshAccountProfile() async {}
 
   @override
   Future<void> updateReminder({

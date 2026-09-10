@@ -213,10 +213,7 @@ class _BotanicalEmoji extends StatelessWidget {
       right: right,
       child: Opacity(
         opacity: opacity,
-        child: Text(
-          emoji,
-          style: TextStyle(fontSize: size),
-        ),
+        child: Text(emoji, style: TextStyle(fontSize: size)),
       ),
     );
   }

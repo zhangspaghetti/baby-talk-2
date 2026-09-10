@@ -43,7 +43,10 @@ void main() {
       try {
         await tester.pumpWidget(
           buildTestApp(
-            const AppMentorBubble(message: '先看一条提示。', trailing: Text('文字优先回复说明')),
+            const AppMentorBubble(
+              message: '先看一条提示。',
+              trailing: Text('文字优先回复说明'),
+            ),
           ),
         );
 

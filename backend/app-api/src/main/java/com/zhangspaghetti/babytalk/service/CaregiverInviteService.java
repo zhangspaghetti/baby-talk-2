@@ -5,6 +5,7 @@ import com.zhangspaghetti.babytalk.web.ContractException;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ public class CaregiverInviteService {
     private final AuthConsentSyncRepository authConsentSyncRepository;
     private final HouseholdSharedContextProjector householdSharedContextProjector;
     private final CaregiverInviteProperties properties;
+    private final SensitiveAuthDataProtector sensitiveAuthDataProtector;
     private final Clock clock = Clock.systemUTC();
     private final TransactionTemplate auditTransactionTemplate;
 
@@ -60,12 +62,14 @@ public class CaregiverInviteService {
             AuthConsentSyncRepository authConsentSyncRepository,
             HouseholdSharedContextProjector householdSharedContextProjector,
             CaregiverInviteProperties properties,
+            SensitiveAuthDataProtector sensitiveAuthDataProtector,
             org.springframework.transaction.PlatformTransactionManager transactionManager
     ) {
         this.repository = repository;
         this.authConsentSyncRepository = authConsentSyncRepository;
         this.householdSharedContextProjector = householdSharedContextProjector;
         this.properties = properties;
+        this.sensitiveAuthDataProtector = sensitiveAuthDataProtector;
         this.auditTransactionTemplate = new TransactionTemplate(transactionManager);
         this.auditTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -79,17 +83,18 @@ public class CaregiverInviteService {
         try {
             var membership = requirePrimaryInviteManager(session, now, "create", source, requestedRole);
             var token = generateToken();
+            var tokenLookupRef = inviteTokenLookupRef(token);
             var expiresAt = now.plus(properties.defaultLinkTtl());
             repository.insertInvite(new CaregiverInviteRepository.InviteRow(
                     0,
-                    token,
+                    tokenLookupRef,
                     membership.householdId(),
                     session.accountId(),
                     requestedRole,
                     source,
                     "pending",
-                    now,
-                    expiresAt,
+                    dbTime(now),
+                    dbTime(expiresAt),
                     null,
                     null,
                     null,
@@ -118,12 +123,13 @@ public class CaregiverInviteService {
     public AcceptInviteResponse acceptInvite(String sessionId, AcceptInviteCommand command) {
         var session = requireEligibleSession(sessionId);
         var token = normalizeToken(command.token());
+        var tokenLookupRef = inviteTokenLookupRef(token);
         var source = normalizeSource(command.source());
         var now = Instant.now(clock);
         try {
-            var invite = repository.findInviteByToken(token)
+            var invite = repository.findInviteByTokenLookupRef(tokenLookupRef)
                     .orElseThrow(() -> notFoundInvite(token, session.accountId(), source, now));
-            ensureInviteAcceptable(invite, session.accountId(), source, now);
+            ensureInviteAcceptable(invite, token, session.accountId(), source, now);
 
             var existingMembership = repository.findActiveMembershipByAccount(session.accountId()).orElse(null);
             if (existingMembership != null) {
@@ -144,8 +150,8 @@ public class CaregiverInviteService {
                     invite.targetRole(),
                     "active",
                     invite.inviterAccountId(),
-                    now,
-                    now
+                    dbTime(now),
+                    dbTime(now)
             ));
             refreshSharedContextProjectionOrThrow(
                     invite.householdId(),
@@ -156,7 +162,7 @@ public class CaregiverInviteService {
                     source,
                     invite.targetRole()
             );
-            repository.markInviteAccepted(token, session.accountId(), now);
+            repository.markInviteAccepted(tokenLookupRef, session.accountId(), dbTime(now));
             repository.insertEvent(eventRow(token, invite.householdId(), session.accountId(), "accept", source, invite.targetRole(),
                     "accept", null, now));
             var sharedContext = requireSharedContextResponse(session.accountId());
@@ -179,9 +185,10 @@ public class CaregiverInviteService {
     public RevokeInviteResponse revokeInvite(String sessionId, String rawToken) {
         var session = requireEligibleSession(sessionId);
         var token = normalizeToken(rawToken);
+        var tokenLookupRef = inviteTokenLookupRef(token);
         var now = Instant.now(clock);
         try {
-            var invite = repository.findInviteByToken(token)
+            var invite = repository.findInviteByTokenLookupRef(tokenLookupRef)
                     .orElseThrow(() -> notFoundInvite(token, session.accountId(), null, now));
             var membership = requirePrimaryInviteManager(session, now, "revoke", invite.source(), invite.targetRole());
             if (!membership.householdId().equals(invite.householdId())) {
@@ -190,7 +197,7 @@ public class CaregiverInviteService {
                 throw new ContractException(HttpStatus.FORBIDDEN, "role_not_allowed", "当前账号不能管理其他 household 的 invite。");
             }
             if (isExpired(invite, now)) {
-                persistInviteExpired(token);
+                persistInviteExpired(tokenLookupRef);
                 recordEventSafely(eventRow(token, invite.householdId(), session.accountId(), "revoke", invite.source(), invite.targetRole(),
                         "expired", "token_expired", now));
                 throw new ContractException(HttpStatus.GONE, "invite_expired", "invite 已过期，请重新创建。", Map.of("retryable", true));
@@ -203,7 +210,7 @@ public class CaregiverInviteService {
             if ("revoked".equals(invite.status())) {
                 return new RevokeInviteResponse(false, "duplicate", token, now);
             }
-            repository.markInviteRevoked(token, now, "invite_revoked");
+            repository.markInviteRevoked(tokenLookupRef, dbTime(now), "invite_revoked");
             repository.insertEvent(eventRow(token, invite.householdId(), session.accountId(), "revoke", invite.source(), invite.targetRole(),
                     "revoked", "invite_revoked", now));
             return new RevokeInviteResponse(true, "revoked", token, now);
@@ -225,7 +232,7 @@ public class CaregiverInviteService {
                     .orElseThrow(() -> {
                         recordEventSafely(eventRow(null, null, session.accountId(), "shared_context", null, null,
                                 "role_not_allowed", "household_membership_missing", now));
-                        return new ContractException(HttpStatus.FORBIDDEN, "role_not_allowed", "当前账号尚未加入共享家庭。");
+                        return new ContractException(HttpStatus.FORBIDDEN, "household_membership_missing", "当前账号尚未加入共享家庭。");
                     });
             refreshSharedContextProjectionOrThrow(
                     membership.householdId(),
@@ -279,7 +286,7 @@ public class CaregiverInviteService {
                     resolution,
                     preferredPlatform,
                     "无法继续打开 app，请先返回邀请页确认链接状态。",
-                    resolution.snapshot() == null ? directDownloadFallback(preferredPlatform) : invitePagePath(resolution.snapshot().token())
+                    resolution.snapshot() == null ? directDownloadFallback(preferredPlatform) : invitePagePath(resolution.token())
             ));
         }
 
@@ -295,7 +302,7 @@ public class CaregiverInviteService {
                             resolution,
                             null,
                             "暂时无法判断设备平台，请返回邀请页或直接进入下载页。",
-                            downloadRoutePath(resolution.snapshot().token(), null)
+                            downloadRoutePath(resolution.token(), null)
                     )
             );
         }
@@ -312,13 +319,13 @@ public class CaregiverInviteService {
                             resolution,
                             platform,
                             "当前平台暂未配置安全的打开 app 入口，请先进入下载页。",
-                            downloadRoutePath(resolution.snapshot().token(), platform)
+                            downloadRoutePath(resolution.token(), platform)
                     )
             );
         }
 
         var location = UriComponentsBuilder.fromUriString(target)
-                .queryParam("token", resolution.snapshot().token())
+                .queryParam("token", resolution.token())
                 .queryParam("source", resolution.snapshot().source())
                 .queryParam("role", resolution.snapshot().targetRole())
                 .build(true)
@@ -355,7 +362,7 @@ public class CaregiverInviteService {
                             resolution,
                             preferredPlatform,
                             "下载回流入口暂不可用，请稍后再试。",
-                            invitePagePath(resolution.snapshot().token())
+                            invitePagePath(resolution.token())
                     )
             );
         }
@@ -405,8 +412,7 @@ public class CaregiverInviteService {
             String source,
             String requestedRole
     ) {
-        var membership = repository.findActiveMembershipByAccount(session.accountId())
-                .orElseGet(() -> createPrimaryHousehold(session.accountId(), now));
+        var membership = repository.ensurePrimaryHousehold(session.accountId(), dbTime(now));
         if (!"primary_caregiver".equals(membership.role())) {
             recordEventSafely(eventRow(null, membership.householdId(), session.accountId(), entrypoint, source, requestedRole,
                     "role_not_allowed", "current_role_" + membership.role(), now));
@@ -420,51 +426,31 @@ public class CaregiverInviteService {
         return membership;
     }
 
-    private CaregiverInviteRepository.HouseholdMemberRow createPrimaryHousehold(String accountId, Instant now) {
-        var householdId = "household_" + UUID.randomUUID();
-        repository.insertHousehold(new CaregiverInviteRepository.HouseholdRow(
-                householdId,
-                accountId,
-                "active",
-                now,
-                null
-        ));
-        return repository.insertMember(new CaregiverInviteRepository.HouseholdMemberRow(
-                0,
-                householdId,
-                accountId,
-                "primary_caregiver",
-                "active",
-                null,
-                now,
-                null
-        ));
-    }
-
     private void ensureInviteAcceptable(
             CaregiverInviteRepository.InviteRow invite,
+            String rawToken,
             String actorAccountId,
             String source,
             Instant now
     ) {
         if (isExpired(invite, now)) {
-            persistInviteExpired(invite.token());
-            recordEventSafely(eventRow(invite.token(), invite.householdId(), actorAccountId, "accept", source, invite.targetRole(),
+            persistInviteExpired(invite.tokenLookupRef());
+            recordEventSafely(eventRow(rawToken, invite.householdId(), actorAccountId, "accept", source, invite.targetRole(),
                     "expired", "token_expired", now));
             throw new ContractException(HttpStatus.GONE, "invite_expired", "invite 已过期，请让主照护者重新生成。", Map.of("retryable", true));
         }
         if ("accepted".equals(invite.status())) {
-            recordEventSafely(eventRow(invite.token(), invite.householdId(), actorAccountId, "accept", source, invite.targetRole(),
+            recordEventSafely(eventRow(rawToken, invite.householdId(), actorAccountId, "accept", source, invite.targetRole(),
                     "already_used", "token_already_used", now));
             throw new ContractException(HttpStatus.CONFLICT, "invite_already_used", "invite 已被使用。", Map.of("retryable", false));
         }
         if ("revoked".equals(invite.status())) {
-            recordEventSafely(eventRow(invite.token(), invite.householdId(), actorAccountId, "accept", source, invite.targetRole(),
+            recordEventSafely(eventRow(rawToken, invite.householdId(), actorAccountId, "accept", source, invite.targetRole(),
                     "revoked", "invite_revoked", now));
             throw new ContractException(HttpStatus.CONFLICT, "invite_revoked", "invite 已撤销。", Map.of("retryable", false));
         }
         if (!"pending".equals(invite.status())) {
-            recordEventSafely(eventRow(invite.token(), invite.householdId(), actorAccountId, "accept", source, invite.targetRole(),
+            recordEventSafely(eventRow(rawToken, invite.householdId(), actorAccountId, "accept", source, invite.targetRole(),
                     "invalid", "invite_status_invalid", now));
             throw new ContractException(HttpStatus.CONFLICT, "invite_invalid", "invite 当前状态不可接受。", Map.of("retryable", false));
         }
@@ -506,12 +492,12 @@ public class CaregiverInviteService {
     }
 
     private boolean isExpired(CaregiverInviteRepository.InviteRow invite, Instant now) {
-        return "expired".equals(invite.status()) || invite.expiresAt().isBefore(now);
+        return "expired".equals(invite.status()) || invite.expiresAt().isBefore(dbTime(now));
     }
 
-    private void persistInviteExpired(String token) {
+    private void persistInviteExpired(String tokenLookupRef) {
         try {
-            auditTransactionTemplate.executeWithoutResult(status -> repository.markInviteExpired(token, "token_expired"));
+            auditTransactionTemplate.executeWithoutResult(status -> repository.markInviteExpired(tokenLookupRef, "token_expired"));
         } catch (RuntimeException ignored) {
             // 忽略状态补写失败，避免覆盖原始合同错误。
         }
@@ -545,14 +531,14 @@ public class CaregiverInviteService {
         return new SharedContextResponse(
                 response.householdId(),
                 response.role(),
-                response.lastAcceptedAt(),
+                apiTime(response.lastAcceptedAt()),
                 new SharedContextSnapshot(
                         response.babyProfileSummary(),
                         response.continuitySummary(),
                         response.gardenSummary(),
                         new PracticeRouteArgs(response.spaceId(), response.activityId()),
-                        response.latestInteractionAt(),
-                        response.updatedAt(),
+                        apiTime(response.latestInteractionAt()),
+                        apiTime(response.updatedAt()),
                         toLatestActor(response.latestActorRole(), response.latestActorSource(), response.latestActorResult()),
                         toNextStep(response.nextStepSpaceId(), response.nextStepActivityId(), response.nextStepReason())
                 )
@@ -596,9 +582,10 @@ public class CaregiverInviteService {
             return PublicInviteResolution.invalid(safeToken(token), "token_malformed", auditStatus, HttpStatus.BAD_REQUEST);
         }
 
+        var tokenLookupRef = inviteTokenLookupRef(token);
         final CaregiverInviteRepository.InviteRow snapshot;
         try {
-            snapshot = repository.findInviteByToken(token).orElse(null);
+            snapshot = repository.findInviteByTokenLookupRef(tokenLookupRef).orElse(null);
         } catch (DataAccessException exception) {
             return PublicInviteResolution.unavailable(token, "storage_unavailable", AuditStatus.FAILED, HttpStatus.SERVICE_UNAVAILABLE);
         }
@@ -607,23 +594,23 @@ public class CaregiverInviteService {
             return PublicInviteResolution.invalid(token, "token_not_found", auditStatus, HttpStatus.NOT_FOUND);
         }
         if (isExpired(snapshot, Instant.now(clock))) {
-            persistInviteExpired(snapshot.token());
+            persistInviteExpired(snapshot.tokenLookupRef());
             var auditStatus = recordPublicAudit(snapshot, entrypoint, platform, "expired", "token_expired");
-            return PublicInviteResolution.expired(snapshot, "token_expired", auditStatus, HttpStatus.GONE);
+            return PublicInviteResolution.expired(snapshot, token, "token_expired", auditStatus, HttpStatus.GONE);
         }
         if ("accepted".equals(snapshot.status())) {
             var auditStatus = recordPublicAudit(snapshot, entrypoint, platform, "already_used", "token_already_used");
-            return PublicInviteResolution.alreadyUsed(snapshot, "token_already_used", auditStatus, HttpStatus.CONFLICT);
+            return PublicInviteResolution.alreadyUsed(snapshot, token, "token_already_used", auditStatus, HttpStatus.CONFLICT);
         }
         if ("revoked".equals(snapshot.status())) {
             var auditStatus = recordPublicAudit(snapshot, entrypoint, platform, "revoked", "invite_revoked");
-            return PublicInviteResolution.revoked(snapshot, "invite_revoked", auditStatus, HttpStatus.CONFLICT);
+            return PublicInviteResolution.revoked(snapshot, token, "invite_revoked", auditStatus, HttpStatus.CONFLICT);
         }
         if (!"pending".equals(snapshot.status())) {
             var auditStatus = recordPublicAudit(snapshot, entrypoint, platform, "invalid", "invite_status_invalid");
-            return PublicInviteResolution.invalid(snapshot.token(), "invite_status_invalid", auditStatus, HttpStatus.CONFLICT);
+            return PublicInviteResolution.invalid(token, "invite_status_invalid", auditStatus, HttpStatus.CONFLICT);
         }
-        return PublicInviteResolution.active(snapshot);
+        return PublicInviteResolution.active(snapshot, token);
     }
 
     private AuditStatus recordPublicAudit(
@@ -633,9 +620,9 @@ public class CaregiverInviteService {
             String result,
             String failureReason
     ) {
-        return recordPublicAudit(
+        return recordPublicAuditByLookupRef(
                 snapshot,
-                snapshot == null ? null : snapshot.token(),
+                snapshot == null ? null : snapshot.tokenLookupRef(),
                 entrypoint,
                 snapshot == null ? null : snapshot.householdId(),
                 snapshot == null ? null : snapshot.source(),
@@ -657,8 +644,32 @@ public class CaregiverInviteService {
             String result,
             String failureReason
     ) {
+        return recordPublicAuditByLookupRef(
+                snapshot,
+                inviteTokenLookupRefForAudit(token),
+                entrypoint,
+                householdId,
+                source,
+                requestedRole,
+                platform,
+                result,
+                failureReason
+        );
+    }
+
+    private AuditStatus recordPublicAuditByLookupRef(
+            CaregiverInviteRepository.InviteRow snapshot,
+            String tokenLookupRef,
+            String entrypoint,
+            String householdId,
+            String source,
+            String requestedRole,
+            String platform,
+            String result,
+            String failureReason
+    ) {
         return recordAudit(new CaregiverInviteRepository.EventRow(
-                safeToken(token),
+                tokenLookupRef,
                 householdId,
                 null,
                 entrypoint,
@@ -667,7 +678,7 @@ public class CaregiverInviteService {
                 sanitizePlatform(platform),
                 result,
                 sanitizeFailureReason(failureReason),
-                Instant.now(clock)
+                dbTime(Instant.now(clock))
         ));
     }
 
@@ -731,13 +742,13 @@ public class CaregiverInviteService {
             case UNAVAILABLE -> "unavailable";
         };
         var pageFailureReason = resolution.mode() == InviteResolutionMode.ACTIVE ? failureReason : resolution.failureReason();
-        var tokenForUrl = snapshot == null ? resolution.token() : snapshot.token();
+        var tokenForUrl = resolution.token();
         var chips = buildChipMarkup(snapshot);
         var platformButtons = new StringBuilder();
         if (resolution.mode() == InviteResolutionMode.ACTIVE) {
             for (var entry : orderTargets(openAppTargets).entrySet()) {
                 var platform = entry.getKey();
-                var href = openAppRoutePath(snapshot.token(), platform);
+                var href = openAppRoutePath(resolution.token(), platform);
                 platformButtons.append("""
                         <a class=\"cta-link\" href=\"%s\">打开 app · %s%s</a>
                         """.formatted(
@@ -748,7 +759,7 @@ public class CaregiverInviteService {
             }
         }
         var fallbackHref = resolution.mode() == InviteResolutionMode.ACTIVE
-                ? downloadRoutePath(snapshot.token(), preferredPlatform)
+                ? downloadRoutePath(resolution.token(), preferredPlatform)
                 : directDownloadFallback(preferredPlatform);
         return """
                 <!doctype html>
@@ -937,7 +948,7 @@ public class CaregiverInviteService {
     }
 
     private String renderRedirectErrorHtml(PublicInviteResolution resolution, String platform, String message, String fallbackHref) {
-        var token = resolution.snapshot() == null ? resolution.token() : resolution.snapshot().token();
+        var token = resolution.token();
         return """
                 <!doctype html>
                 <html lang=\"zh-CN\">
@@ -1238,6 +1249,18 @@ public class CaregiverInviteService {
         return normalized;
     }
 
+    private String inviteTokenLookupRef(String normalizedToken) {
+        return sensitiveAuthDataProtector.inviteTokenLookupRef(normalizedToken);
+    }
+
+    private String inviteTokenLookupRefForAudit(String rawToken) {
+        var normalized = trimToNull(rawToken);
+        if (normalized == null || !PUBLIC_TOKEN_PATTERN.matcher(normalized).matches()) {
+            return null;
+        }
+        return inviteTokenLookupRef(normalized);
+    }
+
     private String buildInviteUrl(String token) {
         return publicInviteUrl(token);
     }
@@ -1301,7 +1324,7 @@ public class CaregiverInviteService {
             Instant createdAt
     ) {
         return new CaregiverInviteRepository.EventRow(
-                safeToken(token),
+                inviteTokenLookupRefForAudit(token),
                 householdId,
                 actorAccountId,
                 entrypoint,
@@ -1310,8 +1333,16 @@ public class CaregiverInviteService {
                 sanitizePlatform(platform),
                 result,
                 sanitizeFailureReason(failureReason),
-                createdAt
+                dbTime(createdAt)
         );
+    }
+
+    private OffsetDateTime dbTime(Instant time) {
+        return time == null ? null : time.atOffset(ZoneOffset.UTC);
+    }
+
+    private Instant apiTime(OffsetDateTime time) {
+        return time == null ? null : time.toInstant();
     }
 
     private String sanitizePlatform(String platform) {
@@ -1480,24 +1511,24 @@ public class CaregiverInviteService {
             AuditStatus auditStatus,
             HttpStatus status
     ) {
-        static PublicInviteResolution active(CaregiverInviteRepository.InviteRow snapshot) {
-            return new PublicInviteResolution(InviteResolutionMode.ACTIVE, snapshot, snapshot.token(), null, AuditStatus.RECORDED, HttpStatus.OK);
+        static PublicInviteResolution active(CaregiverInviteRepository.InviteRow snapshot, String rawToken) {
+            return new PublicInviteResolution(InviteResolutionMode.ACTIVE, snapshot, rawToken, null, AuditStatus.RECORDED, HttpStatus.OK);
         }
 
         static PublicInviteResolution invalid(String token, String failureReason, AuditStatus auditStatus, HttpStatus status) {
             return new PublicInviteResolution(InviteResolutionMode.INVALID, null, token, failureReason, auditStatus, status);
         }
 
-        static PublicInviteResolution expired(CaregiverInviteRepository.InviteRow snapshot, String failureReason, AuditStatus auditStatus, HttpStatus status) {
-            return new PublicInviteResolution(InviteResolutionMode.EXPIRED, snapshot, snapshot.token(), failureReason, auditStatus, status);
+        static PublicInviteResolution expired(CaregiverInviteRepository.InviteRow snapshot, String rawToken, String failureReason, AuditStatus auditStatus, HttpStatus status) {
+            return new PublicInviteResolution(InviteResolutionMode.EXPIRED, snapshot, rawToken, failureReason, auditStatus, status);
         }
 
-        static PublicInviteResolution alreadyUsed(CaregiverInviteRepository.InviteRow snapshot, String failureReason, AuditStatus auditStatus, HttpStatus status) {
-            return new PublicInviteResolution(InviteResolutionMode.ALREADY_USED, snapshot, snapshot.token(), failureReason, auditStatus, status);
+        static PublicInviteResolution alreadyUsed(CaregiverInviteRepository.InviteRow snapshot, String rawToken, String failureReason, AuditStatus auditStatus, HttpStatus status) {
+            return new PublicInviteResolution(InviteResolutionMode.ALREADY_USED, snapshot, rawToken, failureReason, auditStatus, status);
         }
 
-        static PublicInviteResolution revoked(CaregiverInviteRepository.InviteRow snapshot, String failureReason, AuditStatus auditStatus, HttpStatus status) {
-            return new PublicInviteResolution(InviteResolutionMode.REVOKED, snapshot, snapshot.token(), failureReason, auditStatus, status);
+        static PublicInviteResolution revoked(CaregiverInviteRepository.InviteRow snapshot, String rawToken, String failureReason, AuditStatus auditStatus, HttpStatus status) {
+            return new PublicInviteResolution(InviteResolutionMode.REVOKED, snapshot, rawToken, failureReason, auditStatus, status);
         }
 
         static PublicInviteResolution unavailable(String token, String failureReason, AuditStatus auditStatus, HttpStatus status) {

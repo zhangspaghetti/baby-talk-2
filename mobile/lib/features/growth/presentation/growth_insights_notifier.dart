@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
 import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
@@ -20,11 +22,13 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     required GrowthInsightsApiService apiService,
     SharedPreferences? prefs,
     DateTime Function() now = DateTime.now,
+    String? accountContext,
   }) : _apiService = apiService,
        _prefsFuture = prefs != null
            ? Future.value(prefs)
            : SharedPreferences.getInstance(),
-       _now = now;
+       _now = now,
+       _accountContext = _normalizeAccountContext(accountContext);
 
   static const _cacheKeyPrefix = 'growth_insights_reaction_v2_';
 
@@ -32,22 +36,53 @@ class GrowthInsightsNotifier extends ChangeNotifier {
   final Future<SharedPreferences> _prefsFuture;
   final DateTime Function() _now;
 
+  String? _accountContext;
   bool _loaded = false;
   bool _hasError = false;
   bool _disposed = false;
+  int _scopeGeneration = 0;
+  Future<void>? _initializeFuture;
   Map<GrowthPeriod, GrowthInsightsViewState> _views = {};
 
   bool get isLoaded => _loaded;
   bool get hasError => _hasError;
+  String? get accountContext => _accountContext;
 
-  Future<void> initialize() async {
-    if (_loaded) return;
+  Future<void> initialize() {
+    if (_disposed || _loaded) return Future.value();
+    final existing = _initializeFuture;
+    if (existing != null) return existing;
 
-    // 1. Load from cache for instant paint.
-    await _loadFromCache();
+    final generation = _scopeGeneration;
+    final accountContext = _accountContext;
+    final future = _initializeInternal(
+      generation: generation,
+      accountContext: accountContext,
+    );
+    _initializeFuture = future;
+    return future.whenComplete(() {
+      if (identical(_initializeFuture, future)) {
+        _initializeFuture = null;
+      }
+    });
+  }
+
+  Future<void> _initializeInternal({
+    required int generation,
+    required String? accountContext,
+  }) async {
+    // 1. Load from the current account's cache for instant paint.
+    await _loadFromCache(
+      generation: generation,
+      accountContext: accountContext,
+    );
+    if (!_ownsScope(generation, accountContext)) return;
 
     // 2. Fetch fresh data from API.
-    await _fetchAndCache();
+    await _fetchAndCache(
+      generation: generation,
+      accountContext: accountContext,
+    );
   }
 
   /// Returns the view-state for [period]. Returns a loading state until
@@ -61,13 +96,27 @@ class GrowthInsightsNotifier extends ChangeNotifier {
 
   // ── Cache ────────────────────────────────────────────────────────────────
 
-  String _cacheKey(GrowthPeriod period) => '$_cacheKeyPrefix${period.name}';
+  String? _cacheKey(String? accountContext, GrowthPeriod period) {
+    final normalized = _normalizeAccountContext(accountContext);
+    if (normalized == null) return null;
+    final scopeFingerprint = sha256.convert(utf8.encode(normalized)).toString();
+    return '$_cacheKeyPrefix${scopeFingerprint}_${period.name}';
+  }
 
-  Future<void> _loadFromCache() async {
+  Future<void> _loadFromCache({
+    required int generation,
+    required String? accountContext,
+  }) async {
+    // Anonymous/local-only state has no account-owned remote cache. In
+    // particular, never read legacy period-only keys into an account view.
+    if (accountContext == null) return;
     try {
       final prefs = await _prefsFuture;
       for (final period in GrowthPeriod.values) {
-        final raw = prefs.getString(_cacheKey(period));
+        if (!_ownsScope(generation, accountContext)) return;
+        final key = _cacheKey(accountContext, period);
+        if (key == null) return;
+        final raw = prefs.getString(key);
         if (raw == null) continue;
         final json = jsonDecode(raw) as Map<String, dynamic>;
         final cachedAtStr = json['cachedAt'] as String?;
@@ -78,9 +127,9 @@ class GrowthInsightsNotifier extends ChangeNotifier {
         final payload = GrowthInsightsPayload.fromJson(
           json['payload'] as Map<String, dynamic>,
         );
-        _views[period] = _mapToViewState(period, payload);
+        _views[period] = _mapToViewState(period, payload, isCached: true);
       }
-      if (_views.isNotEmpty) {
+      if (_views.isNotEmpty && _ownsScope(generation, accountContext)) {
         _loaded = true;
         if (!_disposed) notifyListeners();
       }
@@ -89,17 +138,20 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveToCache() async {
+  Future<void> _saveToCache({required String accountContext}) async {
     try {
       final prefs = await _prefsFuture;
       final now = _now().toUtc().toIso8601String();
       for (final period in GrowthPeriod.values) {
+        if (!_ownsScope(_scopeGeneration, accountContext)) return;
         final view = _views[period];
-        if (view == null) continue;
+        if (view == null || view.hasError || view.isCached) continue;
         // Reconstruct the payload fields from the view-state for serialization.
         final payload = _viewStateToPayloadJson(period, view);
         final cacheEntry = jsonEncode({'cachedAt': now, 'payload': payload});
-        await prefs.setString(_cacheKey(period), cacheEntry);
+        final key = _cacheKey(accountContext, period);
+        if (key == null) return;
+        await prefs.setString(key, cacheEntry);
       }
     } catch (_) {
       // Cache write failure is non-fatal.
@@ -108,80 +160,99 @@ class GrowthInsightsNotifier extends ChangeNotifier {
 
   // ── API fetch ────────────────────────────────────────────────────────────
 
-  Future<void> _fetchAndCache() async {
+  Future<void> _fetchAndCache({
+    required int generation,
+    required String? accountContext,
+  }) async {
     final newViews = <GrowthPeriod, GrowthInsightsViewState>{};
     bool anySuccess = false;
 
-    // Fetch all 3 periods in parallel. Wrap each in catchError so a single
-    // period failure doesn't cancel the others via AggregateException.
+    // Fetch all 3 periods in parallel. Keep each failure explicit: a failed
+    // request must never be represented as a zero-value growth payload.
     final periods = GrowthPeriod.values;
-    final results = await Future.wait([
-      for (final period in periods)
-        _apiService
-            .fetchInsights(period.name)
-            .catchError(
-              (Object e) => GrowthInsightsPayload(
-                period: period.name,
-                windowStart: _now(),
-                windowEnd: _now(),
-                generatedAt: _now(),
-                stats: const InsightsStats(
-                  totalEvents: 0,
-                  uniquePhrases: 0,
-                  uniqueActivities: 0,
-                  cooperatingCount: 0,
-                  practicedDays: 0,
-                ),
-                streak: const InsightsStreak(
-                  currentStreak: 0,
-                  longestStreak: 0,
-                  totalDaysPracticed: 0,
-                ),
-                bars: const [],
-                scenes: const [],
-                recentActivity: const InsightsRecentActivity(
-                  thisWeekCount: 0,
-                  lastWeekCount: 0,
-                ),
-                isFallback: true,
-              ),
-            ),
+    final results = await Future.wait<_GrowthFetchResult>([
+      for (final period in periods) _fetchPeriod(period),
     ]);
 
+    if (!_ownsScope(generation, accountContext)) return;
+
     for (var i = 0; i < periods.length; i++) {
-      if (!results[i].isFallback) {
-        newViews[periods[i]] = _mapToViewState(periods[i], results[i]);
+      final result = results[i];
+      if (result.payload case final payload?) {
+        newViews[periods[i]] = _mapToViewState(periods[i], payload);
         anySuccess = true;
+      } else if (!_views.containsKey(periods[i])) {
+        newViews[periods[i]] = GrowthInsightsViewState.error(periods[i]);
       }
     }
 
-    if (anySuccess) {
+    if (newViews.isNotEmpty) {
       _views = {..._views, ...newViews};
-      _hasError = false;
-      await _saveToCache();
-    } else if (_views.isEmpty) {
-      _hasError = true;
-      // Populate _views with error states so viewFor returns hasError
-      // instead of the loading placeholder.
-      for (final period in GrowthPeriod.values) {
-        _views[period] = GrowthInsightsViewState.error(period);
-      }
     }
-    // else: keep stale cache data already loaded, _hasError stays false.
+    if (anySuccess) {
+      if (accountContext != null) {
+        await _saveToCache(accountContext: accountContext);
+      }
+      if (!_ownsScope(generation, accountContext)) return;
+    }
+    _hasError =
+        _views.values.isNotEmpty &&
+        _views.values.every((view) => view.hasError);
 
     _loaded = true;
     if (!_disposed) notifyListeners();
+  }
+
+  /// Changes the owner of this notifier and invalidates every result that was
+  /// loaded for the previous owner. The account context is only used to
+  /// select an account-owned cache partition; it is never logged or exposed
+  /// in a cache key in clear text.
+  void bindAccountContext(String? accountContext, {bool notify = true}) {
+    final normalized = _normalizeAccountContext(accountContext);
+    if (_accountContext == normalized) return;
+
+    _accountContext = normalized;
+    _scopeGeneration += 1;
+    _loaded = false;
+    _hasError = false;
+    _views = {};
+    _initializeFuture = null;
+    if (notify) notifyListeners();
+  }
+
+  Future<_GrowthFetchResult> _fetchPeriod(GrowthPeriod period) async {
+    try {
+      return _GrowthFetchResult.success(
+        await _apiService.fetchInsights(period.name),
+      );
+    } on Object {
+      return const _GrowthFetchResult.failure();
+    }
+  }
+
+  bool _ownsScope(int generation, String? accountContext) {
+    return !_disposed &&
+        generation == _scopeGeneration &&
+        accountContext == _accountContext;
+  }
+
+  static String? _normalizeAccountContext(String? accountContext) {
+    final normalized = accountContext?.trim();
+    if (normalized == null || normalized.isEmpty) return null;
+    return normalized;
   }
 
   // ── Mapping ──────────────────────────────────────────────────────────────
 
   GrowthInsightsViewState _mapToViewState(
     GrowthPeriod period,
-    GrowthInsightsPayload payload,
-  ) {
+    GrowthInsightsPayload payload, {
+    bool isCached = false,
+  }) {
     return GrowthInsightsViewState(
       isLoading: false,
       hasError: false,
+      isCached: isCached,
       period: period,
       streak: StreakResult(
         currentStreak: payload.streak.currentStreak,
@@ -325,4 +396,11 @@ class GrowthInsightsNotifier extends ChangeNotifier {
     _disposed = true;
     super.dispose();
   }
+}
+
+class _GrowthFetchResult {
+  const _GrowthFetchResult.success(this.payload);
+  const _GrowthFetchResult.failure() : payload = null;
+
+  final GrowthInsightsPayload? payload;
 }

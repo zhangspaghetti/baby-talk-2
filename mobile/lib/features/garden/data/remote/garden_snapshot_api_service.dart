@@ -17,13 +17,13 @@ class GardenSnapshotApiException implements Exception {
   });
 
   const GardenSnapshotApiException.network({required String message})
-      : this(kind: GardenSnapshotApiFailureKind.network, message: message);
+    : this(kind: GardenSnapshotApiFailureKind.network, message: message);
 
   const GardenSnapshotApiException.timeout({required String message})
-      : this(kind: GardenSnapshotApiFailureKind.timeout, message: message);
+    : this(kind: GardenSnapshotApiFailureKind.timeout, message: message);
 
   const GardenSnapshotApiException.malformed({required String message})
-      : this(kind: GardenSnapshotApiFailureKind.malformed, message: message);
+    : this(kind: GardenSnapshotApiFailureKind.malformed, message: message);
 
   final GardenSnapshotApiFailureKind kind;
   final String message;
@@ -40,9 +40,9 @@ class GardenSnapshotApiService {
     Dio? dio,
     String? baseUrl,
     this.appVersion = defaultAccountApiVersion,
-  })  : _dio =
-            dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
-        _ownsDio = dio == null;
+  }) : _dio =
+           dio ?? AppDio.create(baseUrl: baseUrl ?? defaultAccountApiBaseUrl),
+       _ownsDio = dio == null;
 
   final Dio _dio;
   final bool _ownsDio;

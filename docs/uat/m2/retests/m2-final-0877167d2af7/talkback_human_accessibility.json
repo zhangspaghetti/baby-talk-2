@@ -1,0 +1,87 @@
+{
+  "schema_version": "m2_android_uat_v1",
+  "record_id": "uat_talkback_human_0877167d_20260731",
+  "case_id": "talkback_human_accessibility",
+  "canonical_scene": "bath",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-07-31T12:56:16+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate": {
+    "mobile_source_sha": "0877167d2af7584081ed2d8c16bee94a59b35979",
+    "mobile_apk_sha256": "e06a6a26a8502a03fccb885956bc8dd33a37db51014942a92909e1678f6f386d",
+    "backend_source_sha": "0877167d2af7584081ed2d8c16bee94a59b35979",
+    "backend_artifact_identity": "image_sha256:ba0a62f17d1214ae8790c4b04e9ec113cabc6ef3e9a8ed423febc240e5a2927a",
+    "environment_identity": "sanitized-qa-kind-rev10",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:cc7090d9aea273746c3cc6656434891482bf1cf1464e663bc6d222b4d7dcfae3",
+    "configuration_fingerprint": "sha256:529ed61acb73794fff504d7d4037fd8ad9ff5130b768f618c912ef7db1185054"
+  },
+  "device": {
+    "device_class": "pixel_9_pro_emulator",
+    "android_version": "15",
+    "talkback_version": "15.0.0"
+  },
+  "authenticity": {
+    "execution": "AUTOMATED",
+    "provider_path": "FORMAL_PRODUCTION",
+    "llm_provider": "REAL",
+    "tts_provider": "REAL"
+  },
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "generated_flow_available", "status": "BLOCKED"},
+    {"id": "external_embedding_provider_available", "status": "BLOCKED"},
+    {"id": "human_android_operator_available", "status": "BLOCKED"}
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "action": "enable_talkback_for_candidate",
+      "expected": "talkback_service_active",
+      "actual": "awaiting_human_android_execution",
+      "status": "BLOCKED"
+    },
+    {
+      "index": 2,
+      "action": "touch_explore_generated_flow",
+      "expected": "generated_controls_reachable",
+      "actual": "blocked_by_external_embedding_provider_quota",
+      "status": "BLOCKED"
+    },
+    {
+      "index": 3,
+      "action": "verify_spoken_order_and_announcements",
+      "expected": "human_heard_order_and_announcements",
+      "actual": "awaiting_human_hearing",
+      "status": "BLOCKED"
+    },
+    {
+      "index": 4,
+      "action": "verify_return_focus",
+      "expected": "focus_returns_to_trigger",
+      "actual": "not_run",
+      "status": "NOT_RUN"
+    }
+  ],
+  "status": "FINAL",
+  "verdict": "BLOCKED",
+  "evidence_location": "reviewed://m2_28/m2_final_0877167d2af7/talkback_human_accessibility",
+  "defects": [],
+  "retest_outcome": "BLOCKED",
+  "privacy": {
+    "raw_content_stored": false,
+    "raw_evidence_stored": false,
+    "sensitive_identifiers_stored": false,
+    "sanitized": true
+  },
+  "branch_reviews": [],
+  "accessibility": {
+    "method": "SEMANTICS",
+    "observations": [
+      "external_embedding_provider_quota_blocked_generated_flow",
+      "human_android_execution_not_performed",
+      "human_hearing_awaiting_confirmation"
+    ]
+  }
+}

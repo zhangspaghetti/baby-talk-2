@@ -61,7 +61,9 @@ class GardenFertilizerControllerTest extends AbstractIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.availableCount").value(0))
-                .andExpect(jsonPath("$.appliedCount").value(0));
+                .andExpect(jsonPath("$.appliedCount").value(0))
+                .andExpect(jsonPath("$.claimedEventKeys").isArray())
+                .andExpect(jsonPath("$.claimedEventKeys").isEmpty());
 
         Integer after = jdbcTemplate.queryForObject("select count(*) from garden_fertilizer_state", Integer.class);
         assertThat(before).isEqualTo(0);
@@ -69,13 +71,13 @@ class GardenFertilizerControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void sidMissingShouldReturnExplicit4xxContractError() {
+    void subjectMissingShouldReturnExplicit4xxContractError() {
         var controller = new GardenFertilizerController(gardenFertilizerService);
-        var jwt = Jwt.withTokenValue("missing-sid-token")
+        var jwt = Jwt.withTokenValue("missing-subject-token")
                 .header("alg", "HS256")
                 .claim("type", "access")
                 .claim("rtid", "rtid-1")
-                .subject("acc-1")
+                .claim("sid", "session-1")
                 .build();
 
         assertThatThrownBy(() -> controller.getState(new JwtAuthenticationToken(jwt)))
@@ -103,7 +105,8 @@ class GardenFertilizerControllerTest extends AbstractIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idempotent").value(false))
-                .andExpect(jsonPath("$.availableCount").value(1));
+                .andExpect(jsonPath("$.availableCount").value(1))
+                .andExpect(jsonPath("$.claimedEventKeys[0]").value("e1"));
 
         mockMvc.perform(post("/api/v1/garden/fertilizer/claim")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -117,7 +120,8 @@ class GardenFertilizerControllerTest extends AbstractIntegrationTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idempotent").value(true))
-                .andExpect(jsonPath("$.availableCount").value(1));
+                .andExpect(jsonPath("$.availableCount").value(1))
+                .andExpect(jsonPath("$.claimedEventKeys[0]").value("e1"));
     }
 
     @Test

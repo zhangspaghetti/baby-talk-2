@@ -78,7 +78,7 @@ class _GardenGrowthCombinedScreenState
     final shareNotifier = ref.watch(shareNotifierProvider);
     final continuitySnapshot = continuityNotifier.snapshot;
     final continuityActivity = continuityNotifier.activitySnapshot;
-    final practiceArgs = continuityNotifier.recommendedArgs;
+    final practiceArgs = continuityNotifier.recommendedRoute;
 
     // Shared context
     final sharedContext = householdNotifier.snapshot.sharedContext;
@@ -423,9 +423,7 @@ class _GardenGrowthCombinedScreenState
                       ),
                       if (orderedMilestones.length > 6)
                         _GrowthPreviewActionButton(
-                          key: const Key(
-                            'growth-combined-milestones-view-all',
-                          ),
+                          key: const Key('growth-combined-milestones-view-all'),
                           onPressed: () {
                             AppHaptics.lightTap();
                             _showGrowthPreviewSheet(
@@ -827,18 +825,18 @@ class _MilestoneCard extends StatelessWidget {
                     Text(
                       _formatMilestoneDate(milestone.achievedAt!),
                       key: Key('$keyPrefix-${milestone.id}-date'),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.textMuted,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelSmall?.copyWith(color: colors.textMuted),
                     ),
                   ] else if (!achieved && milestone.remainingHint != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       milestone.remainingHint!,
                       key: Key('$keyPrefix-${milestone.id}-remaining'),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.textMuted,
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelSmall?.copyWith(color: colors.textMuted),
                     ),
                   ],
                 ],

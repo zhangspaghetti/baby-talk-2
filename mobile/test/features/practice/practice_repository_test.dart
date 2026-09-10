@@ -5,12 +5,24 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/remote/preset_scene_catalog_api.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
+import 'package:mobile/features/practice/domain/generated_care_turn_resume.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_continuity_snapshot.dart';
+import 'package:mobile/features/practice/domain/models/practice_content_source.dart';
+import 'package:mobile/features/practice/domain/models/practice_phrase.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import '../../support/isar_test_library.dart';
+import '../../support/generated_care_moment_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -97,6 +109,7 @@ void main() {
       expect(catalog.activities.map((activity) => activity.activityId), [
         'bath_time',
         'diaper_change',
+        'post_cry_soothing',
         'feeding_time',
         'bedtime',
       ]);
@@ -111,6 +124,584 @@ void main() {
         expect(activity.warningMessage, isNull);
         expect(activity.nextPhraseId, isNotNull);
         expect(activity.nextPhraseEnglish, isNotNull);
+      }
+    });
+
+    test(
+      'recordBundledReaction validates shipped seed content without generated registry',
+      () async {
+        final generatedResolver = _GeneratedSameScopeResolver();
+        final bundledOnlyRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: generatedResolver,
+        );
+
+        final event = await bundledOnlyRepository.recordBundledReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.cooperating,
+          localEventId: 'bundled_reaction_1',
+        );
+
+        expect(event.generatedContentId, isNull);
+        expect(event.utteranceId, isNull);
+        expect(generatedResolver.resolveActivityCalls, 0);
+        expect(
+          (await bundledOnlyRepository.listEventHistory()).single.phraseId,
+          'bath_time_warm_water',
+        );
+      },
+    );
+
+    test('未登录时 generated projection 不可用仍返回完整 seed catalog', () async {
+      final signedOutRepository = PracticeRepository(
+        assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        localDataSource: localDataSource,
+        installationIdService: InstallationIdService(
+          directoryResolver: () async => tempDir,
+          idGenerator: () => 'install_test',
+        ),
+        contentResolver: const _ThrowingPracticeContentResolver(
+          GeneratedPracticeProjectionUnavailableException(
+            GeneratedPracticeProjectionUnavailableReason.accountUnavailable,
+          ),
+        ),
+      );
+
+      final catalog = await signedOutRepository.getActivityCatalog();
+
+      expect(catalog.activities.map((activity) => activity.activityId), [
+        'bath_time',
+        'diaper_change',
+        'post_cry_soothing',
+        'feeding_time',
+        'bedtime',
+      ]);
+      expect(
+        catalog.activities.where(
+          (activity) => activity.generatedContentId != null,
+        ),
+        isEmpty,
+      );
+      expect(catalog.knownEvents, 0);
+    });
+
+    test(
+      'attributes a matching preset event to its stable catalog activity',
+      () async {
+        final generatedStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final resumeStore = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+        final registry = GeneratedPracticeContentRegistry(
+          store: generatedStore,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => 'account_preset',
+        );
+        final preset = generatedCareMomentFixture(
+          generatedContentId: 'preset_generated_bath',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(
+          accountContext: 'account_preset',
+          moment: preset,
+        );
+        final presetRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: registry,
+        );
+
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'preset_event_1',
+            installationId: 'install_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: preset.starter.phraseId,
+            reactionType: BabyReactionType.cooperating,
+            clientTimestamp: DateTime.utc(2026, 9, 8, 10),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: preset.starter.utteranceId,
+          ),
+        );
+
+        final catalog = await presetRepository.getActivityCatalog();
+        final bath = catalog.findActivity(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        expect(bath, isNotNull);
+        expect(bath!.totalEvents, 1);
+        expect(bath.generatedContentId, isNull);
+        expect(
+          catalog.activities.where(
+            (activity) => activity.generatedContentId != null,
+          ),
+          isEmpty,
+        );
+        expect(catalog.knownEvents, 1);
+        expect(catalog.skippedUnknownContentEvents, 0);
+      },
+    );
+
+    test(
+      'restores a preset resume marker through direct generated-content resolve',
+      () async {
+        final generatedStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final resumeStore = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+        final registry = GeneratedPracticeContentRegistry(
+          store: generatedStore,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => 'account_preset_resume',
+        );
+        final preset = generatedCareMomentFixture(
+          generatedContentId: 'preset_resume_bath',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(
+          accountContext: 'account_preset_resume',
+          moment: preset,
+        );
+        await resumeStore.write(
+          accountContext: 'account_preset_resume',
+          generatedContentId: preset.generatedContentId,
+          confirmedAt: DateTime.utc(2026, 9, 8, 10),
+        );
+        final presetRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: registry,
+        );
+
+        expect(await presetRepository.getGeneratedActivitySnapshots(), isEmpty);
+        final continuity = await presetRepository.getContinuitySnapshot();
+
+        expect(
+          continuity.recommendedActivity.generatedContentId,
+          preset.generatedContentId,
+        );
+        expect(continuity.recommendedActivity.spaceId, preset.spaceId);
+        expect(continuity.recommendedActivity.activityId, preset.activityId);
+        expect(
+          continuity.recommendation.generatedContentId,
+          preset.generatedContentId,
+        );
+      },
+    );
+
+    test(
+      'ignores preset events with wrong phrase or utterance identity',
+      () async {
+        final generatedStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final resumeStore = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+        final registry = GeneratedPracticeContentRegistry(
+          store: generatedStore,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => 'account_preset_identity',
+        );
+        final preset = generatedCareMomentFixture(
+          generatedContentId: 'preset_identity_bath',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(
+          accountContext: 'account_preset_identity',
+          moment: preset,
+        );
+        for (final event in <InteractionEventPayload>[
+          InteractionEventPayload.validated(
+            localEventId: 'preset_wrong_phrase',
+            installationId: 'install_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: 'not_in_generated_bundle',
+            reactionType: BabyReactionType.cooperating,
+            clientTimestamp: DateTime.utc(2026, 9, 8, 10),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: 'wrong_phrase_utterance',
+          ),
+          InteractionEventPayload.validated(
+            localEventId: 'preset_wrong_utterance',
+            installationId: 'install_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: preset.starter.phraseId,
+            reactionType: BabyReactionType.hesitant,
+            clientTimestamp: DateTime.utc(2026, 9, 8, 10, 1),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: 'not_in_generated_bundle',
+          ),
+        ]) {
+          await localDataSource.appendInteractionEvent(event);
+        }
+        final presetRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: registry,
+        );
+
+        final catalog = await presetRepository.getActivityCatalog();
+        final bath = catalog.findActivity(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        expect(bath!.totalEvents, 0);
+        expect(catalog.knownEvents, 0);
+        expect(catalog.skippedUnknownContentEvents, 2);
+      },
+    );
+
+    test(
+      'route snapshot follows current published version after rollback',
+      () async {
+        final generatedStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final resumeStore = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+        final registry = GeneratedPracticeContentRegistry(
+          store: generatedStore,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => 'account_published',
+        );
+        final older = generatedCareMomentFixture(
+          generatedContentId: 'published_older',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        final newer = generatedCareMomentFixture(
+          generatedContentId: 'published_newer',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 2,
+        );
+        await registry.register(
+          accountContext: 'account_published',
+          moment: older,
+        );
+        await registry.register(
+          accountContext: 'account_published',
+          moment: newer,
+        );
+        final currentCatalog = PresetSceneCatalogRepository(
+          api: _PresetSceneCatalogApi(<PresetSceneDefinition>[
+            _publishedDefinition('bath_time', version: 1),
+          ]),
+          store: PresetSceneCatalogStore(
+            directoryResolver: () async => tempDir,
+          ),
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final routeRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: registry,
+          presetSceneCatalogRepository: currentCatalog,
+        );
+
+        final snapshot = await routeRepository.getActivitySnapshot(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        expect(snapshot.generatedContentId, older.generatedContentId);
+        expect(snapshot.presetSceneVersion, 1);
+      },
+    );
+
+    test(
+      'route snapshot does not revive preset missing from current catalog',
+      () async {
+        final generatedStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final resumeStore = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+        final registry = GeneratedPracticeContentRegistry(
+          store: generatedStore,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => 'account_disabled',
+        );
+        final preset = generatedCareMomentFixture(
+          generatedContentId: 'disabled_preset',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(
+          accountContext: 'account_disabled',
+          moment: preset,
+        );
+        final disabledCatalog = PresetSceneCatalogRepository(
+          api: _PresetSceneCatalogApi(const <PresetSceneDefinition>[]),
+          store: PresetSceneCatalogStore(
+            directoryResolver: () async => tempDir,
+          ),
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final routeRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: registry,
+          presetSceneCatalogRepository: disabledCatalog,
+        );
+
+        await expectLater(
+          routeRepository.getActivitySnapshot(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ),
+          throwsFormatException,
+        );
+      },
+    );
+
+    test(
+      'catalog does not attribute an older published route to the current bundle',
+      () async {
+        final generatedStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final resumeStore = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+        final registry = GeneratedPracticeContentRegistry(
+          store: generatedStore,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => 'account_catalog_version',
+        );
+        final old = generatedCareMomentFixture(
+          generatedContentId: 'catalog_old_version',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        final current = generatedCareMomentFixture(
+          generatedContentId: 'catalog_current_version',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 2,
+        );
+        await registry.register(
+          accountContext: 'account_catalog_version',
+          moment: old,
+        );
+        await registry.register(
+          accountContext: 'account_catalog_version',
+          moment: current,
+        );
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'catalog_old_version_event',
+            installationId: 'install_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: old.starter.phraseId,
+            reactionType: BabyReactionType.cooperating,
+            clientTimestamp: DateTime.utc(2026, 9, 8, 10),
+            generatedContentId: old.generatedContentId,
+            utteranceId: old.starter.utteranceId,
+          ),
+        );
+        final currentCatalog = PresetSceneCatalogRepository(
+          api: _PresetSceneCatalogApi(<PresetSceneDefinition>[
+            _publishedDefinition('bath_time', version: 2),
+          ]),
+          store: PresetSceneCatalogStore(
+            directoryResolver: () async => tempDir,
+          ),
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final routeRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: registry,
+          presetSceneCatalogRepository: currentCatalog,
+        );
+
+        final catalog = await routeRepository.getActivityCatalog();
+        final bath = catalog.findActivity(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        expect(bath?.totalEvents, 0);
+        expect(catalog.knownEvents, 0);
+        expect(catalog.skippedUnknownContentEvents, 1);
+      },
+    );
+
+    test(
+      'route snapshot uses cached current version while remote catalog is offline',
+      () async {
+        final generatedStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final resumeStore = GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+        final registry = GeneratedPracticeContentRegistry(
+          store: generatedStore,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => 'account_offline_catalog',
+        );
+        final older = generatedCareMomentFixture(
+          generatedContentId: 'offline_current',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        final newer = generatedCareMomentFixture(
+          generatedContentId: 'offline_future',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 2,
+        );
+        await registry.register(
+          accountContext: 'account_offline_catalog',
+          moment: older,
+        );
+        await registry.register(
+          accountContext: 'account_offline_catalog',
+          moment: newer,
+        );
+        final catalogStore = PresetSceneCatalogStore(
+          directoryResolver: () async => tempDir,
+        );
+        final onlineCatalog = PresetSceneCatalogRepository(
+          api: _PresetSceneCatalogApi(<PresetSceneDefinition>[
+            _publishedDefinition('bath_time', version: 1),
+          ]),
+          store: catalogStore,
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        await onlineCatalog.loadCatalog();
+        final offlineCatalog = PresetSceneCatalogRepository(
+          api: _PresetSceneCatalogApi(
+            const <PresetSceneDefinition>[],
+            error: StateError('offline'),
+          ),
+          store: catalogStore,
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final routeRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: registry,
+          presetSceneCatalogRepository: offlineCatalog,
+        );
+
+        final snapshot = await routeRepository.getActivitySnapshot(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        expect(snapshot.generatedContentId, older.generatedContentId);
+        expect(snapshot.presetSceneVersion, 1);
+      },
+    );
+
+    test('generated projection 读取故障与未知错误继续显式失败', () async {
+      final errors = <Object>[
+        const GeneratedPracticeProjectionUnavailableException(
+          GeneratedPracticeProjectionUnavailableReason.accountLoadFailed,
+        ),
+        const GeneratedPracticeProjectionUnavailableException(
+          GeneratedPracticeProjectionUnavailableReason.contentLoadFailed,
+        ),
+        StateError('unexpected projection failure'),
+      ];
+
+      for (final error in errors) {
+        final failingRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+          contentResolver: _ThrowingPracticeContentResolver(error),
+        );
+
+        await expectLater(
+          failingRepository.getActivityCatalog(),
+          throwsA(same(error)),
+        );
       }
     });
 
@@ -378,6 +969,91 @@ void main() {
       expect(catalog.spaces.last.totalEvents, 1);
     });
 
+    test(
+      'same localEventId and same immutable facts reconcile to one event',
+      () async {
+        final first = await repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          localEventId: 'evt_reconcile_same',
+          clientTimestamp: DateTime.utc(2026, 7, 23, 12),
+        );
+        final second = await repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          localEventId: 'evt_reconcile_same',
+          clientTimestamp: DateTime.utc(2026, 7, 23, 12, 1),
+        );
+
+        expect(second.eventKey, first.eventKey);
+        expect(await repository.listEventHistory(), hasLength(1));
+      },
+    );
+
+    test('same localEventId with different facts fails closed', () async {
+      await repository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.hesitant,
+        localEventId: 'evt_reconcile_conflict',
+      );
+      await expectLater(
+        repository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.resisting,
+          localEventId: 'evt_reconcile_conflict',
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('localEventId 已绑定不同事件事实'),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'write success with lost response reconciles the stored event',
+      () async {
+        final writeThenThrowDataSource = _WriteThenThrowLocalDataSource(
+          isar: localDataSource.isar,
+        );
+        final unknownOutcomeRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: writeThenThrowDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_test',
+          ),
+        );
+
+        final reconciled = await unknownOutcomeRepository.recordReaction(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: BabyReactionType.hesitant,
+          localEventId: 'evt_unknown_outcome',
+        );
+
+        expect(reconciled.localEventId, 'evt_unknown_outcome');
+        expect(
+          await unknownOutcomeRepository.findEventByLocalEventId(
+            'evt_unknown_outcome',
+          ),
+          reconciled,
+        );
+        expect(await unknownOutcomeRepository.listEventHistory(), hasLength(1));
+      },
+    );
+
     test('重开 Isar 后仍能从 append-only 事件重建最近结果', () async {
       await repository.recordReaction(
         spaceId: 'daily_care',
@@ -468,9 +1144,9 @@ void main() {
           lastSyncAt: DateTime.utc(2026, 4, 7, 12, 6),
         ),
         InteractionEventPayload.fromWire(
-          eventKey: 'install_test:evt_remote',
+          eventKey: 'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:evt_remote',
           localEventId: 'evt_remote',
-          installationId: 'install_test',
+          installationId: 'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_all_clean',
@@ -501,7 +1177,10 @@ void main() {
       expect(events[1].syncState, InteractionSyncState.failed);
       expect(events[1].lastSyncPhase, 'batch_upload_failed');
       expect(events[1].lastSyncError, 'server 500 while syncing');
-      expect(events[2].eventKey, 'install_test:evt_remote');
+      expect(
+        events[2].eventKey,
+        'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:evt_remote',
+      );
       expect(events[2].syncState, InteractionSyncState.synced);
       expect(events[2].lastSyncPhase, 'bootstrap_import');
 
@@ -521,6 +1200,66 @@ void main() {
           'lastSyncAt',
         ]),
       );
+    });
+
+    test('bootstrap 同 localEventId 同事实保留本地 raw identity 并标记 synced', () async {
+      final local = await repository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.cooperating,
+        clientTimestamp: DateTime.utc(2026, 4, 7, 13),
+        localEventId: 'evt_bootstrap_reconcile',
+      );
+      final opaqueInstallation = 'v1:${'A' * 43}';
+
+      await repository.importServerEvents([
+        InteractionEventPayload.fromWire(
+          eventKey: '$opaqueInstallation:evt_bootstrap_reconcile',
+          localEventId: 'evt_bootstrap_reconcile',
+          installationId: opaqueInstallation,
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: 'cooperating',
+          clientTimestamp: DateTime.utc(2026, 4, 7, 13),
+          syncState: 'synced',
+          lastSyncPhase: 'bootstrap_import',
+          lastSyncAt: DateTime.utc(2026, 4, 7, 13, 1),
+        ),
+      ]);
+
+      final events = await repository.listEventHistory(activityId: 'bath_time');
+      expect(events, hasLength(1));
+      expect(events.single.eventKey, local.eventKey);
+      expect(events.single.installationId, local.installationId);
+      expect(events.single.syncState, InteractionSyncState.synced);
+      expect(events.single.lastSyncPhase, 'bootstrap_import');
+    });
+
+    test('bootstrap 远端新设备导入 opaque identity', () async {
+      final opaqueInstallation = 'v1:${'C' * 43}';
+      await repository.importServerEvents([
+        InteractionEventPayload.fromWire(
+          eventKey: '$opaqueInstallation:evt_remote_device',
+          localEventId: 'evt_remote_device',
+          installationId: opaqueInstallation,
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          phraseId: 'bath_time_warm_water',
+          reactionType: 'cooperating',
+          clientTimestamp: DateTime.utc(2026, 4, 7, 13),
+          syncState: 'synced',
+          lastSyncPhase: 'bootstrap_import',
+          lastSyncAt: DateTime.utc(2026, 4, 7, 13, 1),
+        ),
+      ]);
+
+      final events = await repository.listEventHistory(activityId: 'bath_time');
+      expect(events, hasLength(1));
+      expect(events.single.eventKey, '$opaqueInstallation:evt_remote_device');
+      expect(events.single.installationId, opaqueInstallation);
+      expect(events.single.syncState, InteractionSyncState.synced);
     });
 
     test(
@@ -652,6 +1391,126 @@ void main() {
   });
 }
 
+class _WriteThenThrowLocalDataSource extends PracticeLocalDataSource {
+  _WriteThenThrowLocalDataSource({required super.isar});
+
+  @override
+  Future<void> appendInteractionEvent(InteractionEventPayload payload) async {
+    await super.appendInteractionEvent(payload);
+    throw StateError('simulated lost response after local commit');
+  }
+}
+
+class _GeneratedSameScopeResolver implements PracticeContentResolver {
+  int resolveActivityCalls = 0;
+
+  @override
+  Future<PracticeActivitySnapshot?> resolveActivity({
+    required String spaceId,
+    required String activityId,
+  }) async {
+    resolveActivityCalls += 1;
+    return const PracticeActivitySnapshot(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+      title: 'generated same scope',
+      summary: 'generated same scope',
+      sceneTag: 'generated',
+      coachTip: 'generated',
+      contentSource: PracticeContentSource.generated,
+      generatedContentId: 'generated_same_scope',
+      phrases: <PracticePhrase>[],
+    );
+  }
+
+  @override
+  Future<PracticeActivitySnapshot?> resolveGeneratedContent({
+    required String generatedContentId,
+  }) async => null;
+
+  @override
+  Future<List<PracticeActivitySnapshot>> listGeneratedActivities() async =>
+      const <PracticeActivitySnapshot>[];
+
+  @override
+  Future<GeneratedCareTurnResumeMarker?>
+  loadGeneratedCareTurnResumeMarker() async => null;
+
+  @override
+  Future<void> completeGeneratedCareTurnResume({
+    required String generatedContentId,
+  }) async {}
+
+  @override
+  Future<void> clearForLifecycle() async {}
+}
+
+class _ThrowingPracticeContentResolver implements PracticeContentResolver {
+  const _ThrowingPracticeContentResolver(this.error);
+
+  final Object error;
+
+  @override
+  Future<List<PracticeActivitySnapshot>> listGeneratedActivities() async {
+    throw error;
+  }
+
+  @override
+  Future<PracticeActivitySnapshot?> resolveActivity({
+    required String spaceId,
+    required String activityId,
+  }) async => null;
+
+  @override
+  Future<PracticeActivitySnapshot?> resolveGeneratedContent({
+    required String generatedContentId,
+  }) async => null;
+
+  @override
+  Future<GeneratedCareTurnResumeMarker?>
+  loadGeneratedCareTurnResumeMarker() async => null;
+
+  @override
+  Future<void> completeGeneratedCareTurnResume({
+    required String generatedContentId,
+  }) async {}
+
+  @override
+  Future<void> clearForLifecycle() async {}
+}
+
+PresetSceneDefinition _publishedDefinition(
+  String activityId, {
+  required int version,
+  String spaceId = 'daily_care',
+}) {
+  return PresetSceneDefinition(
+    presetSceneId: activityId,
+    publishedVersion: version,
+    spaceId: spaceId,
+    title: activityId,
+    summary: activityId,
+    sceneTag: activityId,
+    coachTip: activityId,
+    sortOrder: 0,
+  );
+}
+
+class _PresetSceneCatalogApi extends PresetSceneCatalogApi {
+  _PresetSceneCatalogApi(this.scenes, {this.error});
+
+  final List<PresetSceneDefinition> scenes;
+  final Object? error;
+
+  @override
+  Future<List<PresetSceneDefinition>> fetchPublishedScenes() async {
+    final failure = error;
+    if (failure != null) {
+      throw failure;
+    }
+    return scenes;
+  }
+}
 
 class _FakeAssetBundle extends CachingAssetBundle {
   _FakeAssetBundle({required this.strings, required this.binaryAssets});

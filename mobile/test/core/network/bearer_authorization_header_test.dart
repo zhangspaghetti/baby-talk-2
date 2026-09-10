@@ -10,6 +10,9 @@ import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_api.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_dtos.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_source.dart';
 
 void main() {
   group('Bearer authorization headers', () {
@@ -121,7 +124,138 @@ void main() {
         );
       },
     );
+
+    test(
+      'SceneGenerationApi uses unified endpoint and current API version',
+      () async {
+        final adapter = _RecordingDioAdapter(_sceneGenerationResponseFor);
+        final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080'));
+        dio.httpClientAdapter = adapter;
+        final api = SceneGenerationApi(
+          dio: dio,
+          authenticatedApiClient: AuthenticatedApiClient(
+            apiService: _NoRefreshAccountApiService(),
+          ),
+        );
+
+        await api.generate(
+          session: _jwtSession(),
+          persistRefreshedSession: (session) async => session,
+          request: SceneGenerationRequestDto(
+            source: const CustomSceneGenerationSource('宝宝洗澡时一直躲水。'),
+            locale: 'zh-CN',
+            installationId: 'install_test',
+            clientRequestId: 'scene_request_test',
+          ),
+        );
+
+        expect(adapter.requests, hasLength(1));
+        expect(
+          adapter.requests.single.path,
+          '/api/v1/practice/scene-generations',
+        );
+        expect(
+          adapter.requests.single.headers[authorizationHeaderName],
+          'Bearer access-live',
+        );
+        expect(adapter.requests.single.headers['X-App-Version'], '1.3.0');
+      },
+    );
   });
+}
+
+Map<String, Object?> _sceneGenerationResponseFor(RequestOptions options) {
+  Map<String, Object?> utterance({
+    required String utteranceId,
+    required String phraseId,
+    required String role,
+    required String? reaction,
+    required int displayOrder,
+  }) => <String, Object?>{
+    'utteranceId': utteranceId,
+    'phraseId': phraseId,
+    'english': 'I am here.',
+    'chinese': '我在这里。',
+    'pronunciation': 'aɪ æm hɪr',
+    'tprActionZh': '靠近宝宝',
+    'deliveryGuidanceZh': '慢慢说',
+    'difficulty': 'starter',
+    'role': role,
+    'reaction': reaction,
+    'displayOrder': displayOrder,
+    'providerProvenance': <String, Object?>{
+      'origin': 'provider_generated',
+      'providerName': 'provider',
+      'modelName': 'model',
+      'attemptNumber': 1,
+    },
+  };
+
+  return <String, Object?>{
+    'generatedContentId': 'gcn_bearer',
+    'bundleSchemaVersion': 'custom-scene-generated-output-v1',
+    'route': <String, Object?>{
+      'sceneId': 'space_bath',
+      'spaceId': 'space_bath',
+      'momentId': 'activity_bath',
+      'activityId': 'activity_bath',
+      'phraseId': 'phrase_starter',
+    },
+    'scene': <String, Object?>{
+      'spaceTitle': '日常照护',
+      'activityTitle': '洗澡安抚',
+      'sceneTag': 'bath',
+    },
+    'starter': utterance(
+      utteranceId: 'utt_starter',
+      phraseId: 'phrase_starter',
+      role: 'starter',
+      reaction: null,
+      displayOrder: 1,
+    ),
+    'reactionSupports': <Map<String, Object?>>[
+      utterance(
+        utteranceId: 'utt_cooperating',
+        phraseId: 'phrase_cooperating',
+        role: 'reaction_support',
+        reaction: 'cooperating',
+        displayOrder: 2,
+      ),
+      utterance(
+        utteranceId: 'utt_hesitant',
+        phraseId: 'phrase_hesitant',
+        role: 'reaction_support',
+        reaction: 'hesitant',
+        displayOrder: 3,
+      ),
+      utterance(
+        utteranceId: 'utt_resisting',
+        phraseId: 'phrase_resisting',
+        role: 'reaction_support',
+        reaction: 'resisting',
+        displayOrder: 4,
+      ),
+      utterance(
+        utteranceId: 'utt_no_response',
+        phraseId: 'phrase_no_response',
+        role: 'reaction_support',
+        reaction: 'no_response',
+        displayOrder: 5,
+      ),
+      utterance(
+        utteranceId: 'utt_other',
+        phraseId: 'phrase_other',
+        role: 'reaction_support',
+        reaction: 'other',
+        displayOrder: 6,
+      ),
+    ],
+    'source': <String, Object?>{
+      'type': 'custom',
+      'presetSceneId': null,
+      'presetSceneVersion': null,
+    },
+  };
 }
 
 Map<String, Object?> _accountResponseFor(RequestOptions options) {

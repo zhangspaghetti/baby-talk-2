@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentQueryMapper">
+
+    <resultMap id="generatedContentEntityMap"
+               type="com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity">
+        <id property="generatedContentId" column="generated_content_id"/>
+        <result property="ownerScope" column="owner_scope"/>
+        <result property="ownerKey" column="owner_key"/>
+        <result property="ownerKeyVersion" column="owner_key_version"/>
+        <result property="accountId" column="account_id"/>
+        <result property="installationRefHash" column="installation_ref_hash"/>
+        <result property="profileId" column="profile_id"/>
+        <result property="surface" column="surface"/>
+        <result property="mode" column="mode"/>
+        <result property="inputSource" column="input_source"/>
+        <result property="presetActivityId" column="preset_activity_id"/>
+        <result property="presetSceneVersionId" column="preset_scene_version_id"/>
+        <result property="profileVersion" column="profile_version"/>
+        <result property="householdContextVersion" column="household_context_version"/>
+        <result property="requestFingerprint" column="request_fingerprint"/>
+        <result property="clientRequestId" column="client_request_id"/>
+        <result property="clientRequestFingerprint" column="client_request_fingerprint"/>
+        <result property="normalizedSceneText" column="normalized_scene_text"/>
+        <result property="ageRange" column="age_range"/>
+        <result property="parentGoal" column="parent_goal"/>
+        <result property="locale" column="locale"/>
+        <result property="spaceSlug" column="space_slug"/>
+        <result property="activitySlug" column="activity_slug"/>
+        <result property="phraseSlug" column="phrase_slug"/>
+        <result property="spaceTitleZh" column="space_title_zh"/>
+        <result property="activityTitleZh" column="activity_title_zh"/>
+        <result property="sceneTagEn" column="scene_tag_en"/>
+        <result property="tprActionZh" column="tpr_action_zh"/>
+        <result property="deliveryGuidanceZh" column="delivery_guidance_zh"/>
+        <result property="englishText" column="english_text"/>
+        <result property="chineseText" column="chinese_text"/>
+        <result property="pronunciationHint" column="pronunciation_hint"/>
+        <result property="difficulty" column="difficulty"/>
+        <result property="generationSource" column="generation_source"/>
+        <result property="status" column="status"/>
+        <result property="generationProfileVersion" column="generation_profile_version"/>
+        <result property="generationProfileHash" column="generation_profile_hash"/>
+        <result property="rubricVersion" column="rubric_version"/>
+        <result property="rubricContentHash" column="rubric_content_hash"/>
+        <result property="evidencePolicyVersion" column="evidence_policy_version"/>
+        <result property="evidencePolicyContentHash" column="evidence_policy_content_hash"/>
+        <result property="providerRoutingPolicyVersion" column="provider_routing_policy_version"/>
+        <result property="providerRoutingPolicyHash" column="provider_routing_policy_hash"/>
+        <result property="generationAttemptLimit" column="generation_attempt_limit"/>
+        <result property="contentRefreshEpoch" column="content_refresh_epoch"/>
+        <result property="contentVersion" column="content_version"/>
+        <result property="generationErrorCode" column="generation_error_code"/>
+        <result property="generationErrorRetryable" column="generation_error_retryable"/>
+        <result property="generationStartedAt" column="generation_started_at"/>
+        <result property="generationExpiresAt" column="generation_expires_at"/>
+        <result property="retentionExpiresAt" column="retention_expires_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        generated_content_id, owner_scope, owner_key, owner_key_version, account_id,
+        installation_ref_hash, profile_id, surface, mode, request_fingerprint, client_request_id,
+        client_request_fingerprint,
+        input_source, preset_activity_id, preset_scene_version_id, profile_version,
+        household_context_version,
+        normalized_scene_text, age_range, parent_goal, locale, space_slug, activity_slug,
+        phrase_slug, space_title_zh, activity_title_zh, scene_tag_en, tpr_action_zh,
+        delivery_guidance_zh, english_text, chinese_text, pronunciation_hint, difficulty,
+        generation_source, status, generation_profile_version, generation_profile_hash,
+        rubric_version, rubric_content_hash, evidence_policy_version, evidence_policy_content_hash,
+        provider_routing_policy_version, provider_routing_policy_hash, generation_attempt_limit,
+        content_refresh_epoch, content_version, generation_error_code, generation_error_retryable,
+        generation_started_at, generation_expires_at, retention_expires_at, created_at, updated_at
+    </sql>
+
+    <sql id="accountCanAccessProfileContent">
+        and (
+            c.account_id = #{accountId}
+            or (
+                c.owner_scope = 'profile'
+                and exists (
+                    select 1
+                    from households h
+                    join household_members requester
+                      on requester.household_id = h.household_id
+                     and requester.account_id = #{accountId}
+                     and requester.status = 'active'
+                    join household_members owner_member
+                      on owner_member.household_id = h.household_id
+                     and owner_member.account_id = c.account_id
+                     and owner_member.role = 'primary_caregiver'
+                     and owner_member.status = 'active'
+                    where h.owner_account_id = c.account_id
+                      and h.status = 'active'
+                )
+            )
+        )
+    </sql>
+
+    <select id="findByGeneratedContentId" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where generated_content_id = #{generatedContentId}
+    </select>
+
+    <resultMap id="generatedContentUtteranceEntityMap"
+               type="com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity">
+        <id property="utteranceId" column="utterance_id"/>
+        <result property="generatedContentId" column="generated_content_id"/>
+        <result property="role" column="role"/>
+        <result property="reactionType" column="reaction_type"/>
+        <result property="englishText" column="english_text"/>
+        <result property="chineseText" column="chinese_text"/>
+        <result property="pronunciationHint" column="pronunciation_hint"/>
+        <result property="tprActionZh" column="tpr_action_zh"/>
+        <result property="deliveryGuidanceZh" column="delivery_guidance_zh"/>
+        <result property="difficulty" column="difficulty"/>
+        <result property="displayOrder" column="display_order"/>
+        <result property="approvalStatus" column="approval_status"/>
+        <result property="approvedContentVersion" column="approved_content_version"/>
+        <result property="bundleSchemaVersion" column="bundle_schema_version"/>
+        <result property="providerOrigin" column="provider_origin"/>
+        <result property="providerName" column="provider_name"/>
+        <result property="providerModelName" column="provider_model_name"/>
+        <result property="providerAttemptNumber" column="provider_attempt_number"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="findApprovedUtterances" resultMap="generatedContentUtteranceEntityMap">
+        select utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
+               pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
+               approval_status, approved_content_version, bundle_schema_version, provider_origin,
+               provider_name, provider_model_name, provider_attempt_number, created_at
+        from practice_generated_content_utterances
+        where generated_content_id = #{generatedContentId}
+          and approval_status = 'approved'
+          and bundle_schema_version = 'custom-scene-generated-output-v1'
+          and provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(provider_name), '') is not null
+          and nullif(btrim(provider_model_name), '') is not null
+          and provider_attempt_number between 1 and 5
+        order by display_order asc, utterance_id asc
+    </select>
+
+    <select id="findActiveAccessibleByAccountId" resultMap="generatedContentEntityMap" flushCache="true">
+        select <include refid="columns"/>
+        from practice_generated_content c
+        where c.generated_content_id = #{generatedContentId}
+        <include refid="accountCanAccessProfileContent"/>
+          and c.status = 'active'
+    </select>
+
+    <select id="findApprovedAccessibleActiveBundleUtterances" resultMap="generatedContentUtteranceEntityMap" flushCache="true">
+        select u.utterance_id, u.generated_content_id, u.role, u.reaction_type, u.english_text, u.chinese_text,
+               u.pronunciation_hint, u.tpr_action_zh, u.delivery_guidance_zh, u.difficulty, u.display_order,
+               u.approval_status, u.approved_content_version, u.bundle_schema_version, u.provider_origin,
+               u.provider_name, u.provider_model_name, u.provider_attempt_number, u.created_at
+        from practice_generated_content_utterances u
+        join practice_generated_content c on c.generated_content_id = u.generated_content_id
+        where c.generated_content_id = #{generatedContentId}
+        <include refid="accountCanAccessProfileContent"/>
+          and c.status = 'active'
+          and c.surface = 'care_path'
+          and u.approval_status = 'approved'
+          and u.approved_content_version = c.content_version
+          and u.bundle_schema_version = 'custom-scene-generated-output-v1'
+          and u.provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(u.provider_name), '') is not null
+          and nullif(btrim(u.provider_model_name), '') is not null
+          and u.provider_attempt_number between 1 and 5
+        order by u.display_order asc, u.utterance_id asc
+    </select>
+
+    <select id="findPlayableApprovedUtterance" resultMap="generatedContentUtteranceEntityMap">
+        select utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
+               pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
+               approval_status, approved_content_version, bundle_schema_version, provider_origin,
+               provider_name, provider_model_name, provider_attempt_number, created_at
+        from practice_generated_content_utterances
+        where generated_content_id = #{generatedContentId}
+          and utterance_id = #{utteranceId}
+          and approval_status = 'approved'
+          and role in ('starter', 'reaction_support')
+          and english_text is not null
+          and btrim(english_text) &lt;&gt; ''
+          and bundle_schema_version = 'custom-scene-generated-output-v1'
+          and provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(provider_name), '') is not null
+          and nullif(btrim(provider_model_name), '') is not null
+          and provider_attempt_number between 1 and 5
+    </select>
+
+    <select id="findPlayableAccessibleActiveBundleUtterance" resultMap="generatedContentUtteranceEntityMap" flushCache="true">
+        select u.utterance_id, u.generated_content_id, u.role, u.reaction_type, u.english_text, u.chinese_text,
+               u.pronunciation_hint, u.tpr_action_zh, u.delivery_guidance_zh, u.difficulty, u.display_order,
+               u.approval_status, u.approved_content_version, u.bundle_schema_version, u.provider_origin,
+               u.provider_name, u.provider_model_name, u.provider_attempt_number, u.created_at
+        from practice_generated_content_utterances u
+        join practice_generated_content c on c.generated_content_id = u.generated_content_id
+        where c.generated_content_id = #{generatedContentId}
+        <include refid="accountCanAccessProfileContent"/>
+          and c.status = 'active'
+          and c.surface = 'care_path'
+          and u.utterance_id = #{utteranceId}
+          and u.approval_status = 'approved'
+          and u.approved_content_version = c.content_version
+          and u.english_text is not null
+          and btrim(u.english_text) &lt;&gt; ''
+          and u.bundle_schema_version = 'custom-scene-generated-output-v1'
+          and u.provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(u.provider_name), '') is not null
+          and nullif(btrim(u.provider_model_name), '') is not null
+          and u.provider_attempt_number between 1 and 5
+          and (
+              (u.role = 'starter' and u.reaction_type is null and u.display_order = 1)
+              or (u.role = 'reaction_support' and u.reaction_type = 'cooperating' and u.display_order = 2)
+              or (u.role = 'reaction_support' and u.reaction_type = 'hesitant' and u.display_order = 3)
+              or (u.role = 'reaction_support' and u.reaction_type = 'resisting' and u.display_order = 4)
+              or (u.role = 'reaction_support' and u.reaction_type = 'no_response' and u.display_order = 5)
+              or (u.role = 'reaction_support' and u.reaction_type = 'other' and u.display_order = 6)
+          )
+          and (
+              select count(*) = 6
+                     and count(*) filter (where b.approval_status = 'approved'
+                                           and b.approved_content_version = c.content_version
+                                           and b.bundle_schema_version = 'custom-scene-generated-output-v1'
+                                           and b.provider_origin in ('provider_generated', 'provider_repaired')
+                                           and nullif(btrim(b.provider_name), '') is not null
+                                           and nullif(btrim(b.provider_model_name), '') is not null
+                                           and b.provider_attempt_number between 1 and 5) = 6
+                     and count(*) filter (where b.role = 'starter'
+                                           and b.reaction_type is null
+                                           and b.display_order = 1) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'cooperating'
+                                           and b.display_order = 2) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'hesitant'
+                                           and b.display_order = 3) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'resisting'
+                                           and b.display_order = 4) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'no_response'
+                                           and b.display_order = 5) = 1
+                     and count(*) filter (where b.role = 'reaction_support'
+                                           and b.reaction_type = 'other'
+                                           and b.display_order = 6) = 1
+              from practice_generated_content_utterances b
+              where b.generated_content_id = c.generated_content_id
+          )
+    </select>
+
+    <select id="findByClientRequestId" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where owner_scope = #{ownerScope}
+          and owner_key = #{ownerKey}
+          and owner_key_version = #{ownerKeyVersion}
+          and client_request_id = #{clientRequestId}
+        limit 1
+    </select>
+
+    <select id="findLiveByFingerprint" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where owner_key = #{ownerKey}
+          and owner_key_version = #{ownerKeyVersion}
+          and surface = #{surface}
+          and mode = #{mode}
+          and request_fingerprint = #{requestFingerprint}
+          and generation_profile_version = #{generationProfileVersion}
+          and content_refresh_epoch = #{contentRefreshEpoch}
+          and status in ('draft', 'generating', 'active')
+        order by case status when 'active' then 0 when 'generating' then 1 else 2 end,
+                 updated_at desc, generated_content_id asc
+        limit 1
+    </select>
+
+    <select id="findActiveByGeneratedContentId" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where generated_content_id = #{generatedContentId}
+          and owner_key_version = #{ownerKeyVersion}
+          and status = 'active'
+          and (owner_scope &lt;&gt; 'installation'
+               or retention_expires_at &gt; #{reusableAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})
+    </select>
+
+    <select id="findActiveByFingerprint" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where owner_key = #{ownerKey}
+          and owner_key_version = #{ownerKeyVersion}
+          and surface = #{surface}
+          and mode = #{mode}
+          and request_fingerprint = #{requestFingerprint}
+          and generation_profile_version = #{generationProfileVersion}
+          and content_refresh_epoch = #{contentRefreshEpoch}
+          and status = 'active'
+          and (owner_scope &lt;&gt; 'installation'
+               or retention_expires_at &gt; #{reusableAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})
+        order by updated_at desc, generated_content_id asc
+        limit 1
+    </select>
+
+    <select id="countRecentDraftReservations" resultType="int">
+        select count(*)
+        from practice_generated_content
+        where owner_key = #{ownerKey}
+          and owner_key_version = #{ownerKeyVersion}
+          and surface = #{surface}
+          and mode = #{mode}
+          and created_at &gt;= #{createdAtFrom,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+    </select>
+
+    <select id="findInstallationCleanupCandidates" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where owner_scope = 'installation'
+          and owner_key_version = #{ownerKeyVersion}
+          and installation_ref_hash = #{installationRefHash}
+          and status in ('active', 'expired', 'rejected')
+          and retention_expires_at &lt;= #{retentionExpiresAtOrBefore,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        order by retention_expires_at asc, generated_content_id asc
+        limit #{limit}
+    </select>
+</mapper>

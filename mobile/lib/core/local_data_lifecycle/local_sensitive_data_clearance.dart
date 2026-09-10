@@ -11,10 +11,17 @@ enum LocalSensitiveDataClearanceTrigger {
 
 enum LocalSensitiveDataTarget {
   accountLocalSnapshot,
+  authContinuation,
+  customSceneDraft,
+  generatedCareMoments,
+  presetSceneCatalog,
+  generatedAudioMemory,
   onboardingSnapshot,
+  onboardingCareTurnContinuation,
   householdSnapshot,
   practiceInteractionEvents,
   mentorFactEvents,
+  settingsSnapshot,
   installationId,
 }
 
@@ -59,6 +66,19 @@ final class StaffPlusDestructiveAuthorization
   final String decisionId;
   final String approvedBy;
   final DateTime approvedAt;
+  final String confirmationText;
+}
+
+/// Evidence that the caregiver confirmed a device-local erase in the app.
+/// This never authorizes deletion of the server-side account.
+final class CaregiverConfirmedAuthorization
+    extends LocalSensitiveDataClearanceAuthorization {
+  const CaregiverConfirmedAuthorization({
+    required this.confirmedAt,
+    required this.confirmationText,
+  });
+
+  final DateTime confirmedAt;
   final String confirmationText;
 }
 
@@ -126,6 +146,11 @@ final class LocalSensitiveDataAuthorizationEvidence {
           decisionId: decisionId,
           approvedBy: approvedBy,
           approvedAt: approvedAt,
+        ),
+      CaregiverConfirmedAuthorization(:final confirmedAt) =>
+        LocalSensitiveDataAuthorizationEvidence._(
+          kind: 'caregiver_confirmed',
+          approvedAt: confirmedAt,
         ),
     };
   }
@@ -208,8 +233,7 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
       request.authorization,
     );
 
-    if (_requiresStaffPlusAuthorization(request) &&
-        request.authorization is! StaffPlusDestructiveAuthorization) {
+    if (!_isAuthorized(request)) {
       return LocalSensitiveDataClearanceReport(
         correlationId: request.correlationId,
         trigger: request.trigger,
@@ -328,10 +352,18 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
       LocalSensitiveDataClearanceTrigger.logoutSessionOnly =>
         const <LocalSensitiveDataTarget>{
           LocalSensitiveDataTarget.accountLocalSnapshot,
+          LocalSensitiveDataTarget.authContinuation,
+          LocalSensitiveDataTarget.customSceneDraft,
+          LocalSensitiveDataTarget.generatedCareMoments,
+          LocalSensitiveDataTarget.generatedAudioMemory,
         },
       LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed =>
         const <LocalSensitiveDataTarget>{
           LocalSensitiveDataTarget.accountLocalSnapshot,
+          LocalSensitiveDataTarget.authContinuation,
+          LocalSensitiveDataTarget.customSceneDraft,
+          LocalSensitiveDataTarget.generatedCareMoments,
+          LocalSensitiveDataTarget.generatedAudioMemory,
           LocalSensitiveDataTarget.householdSnapshot,
           LocalSensitiveDataTarget.mentorFactEvents,
         },
@@ -344,18 +376,23 @@ final class RegistryLocalSensitiveDataClearanceOrchestrator
     };
   }
 
-  bool _requiresStaffPlusAuthorization(
-    LocalSensitiveDataClearanceRequest request,
-  ) {
+  bool _isAuthorized(LocalSensitiveDataClearanceRequest request) {
     return switch (request.trigger) {
-      LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed ||
-      LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed => true,
+      LocalSensitiveDataClearanceTrigger.accountDeletionConfirmed =>
+        request.authorization is StaffPlusDestructiveAuthorization,
+      LocalSensitiveDataClearanceTrigger.deviceEraseConfirmed =>
+        request.authorization is CaregiverConfirmedAuthorization ||
+            request.authorization is StaffPlusDestructiveAuthorization,
       LocalSensitiveDataClearanceTrigger.consentWithdrawalConfirmed =>
-        _targetsFor(request).any(
-          (target) => target != LocalSensitiveDataTarget.accountLocalSnapshot,
-        ),
-      LocalSensitiveDataClearanceTrigger.logoutSessionOnly ||
-      LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly => false,
+        !_targetsFor(request).any(
+              (target) =>
+                  target != LocalSensitiveDataTarget.accountLocalSnapshot,
+            ) ||
+            request.authorization is StaffPlusDestructiveAuthorization,
+      LocalSensitiveDataClearanceTrigger.logoutSessionOnly =>
+        request.authorization is ReportOnlyAuthorization,
+      LocalSensitiveDataClearanceTrigger.staffPlusVerificationOnly =>
+        request.authorization is StaffPlusDestructiveAuthorization,
     };
   }
 }

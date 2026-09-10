@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 ENV COREPACK_NPM_REGISTRY=https://mirrors.cloud.tencent.com/npm/ \
     NPM_CONFIG_REGISTRY=https://mirrors.cloud.tencent.com/npm/ \
@@ -12,7 +12,7 @@ COPY admin-web ./admin-web
 RUN pnpm --filter admin-web build
 
 FROM nginx:1.27-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY admin-web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/admin-web/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

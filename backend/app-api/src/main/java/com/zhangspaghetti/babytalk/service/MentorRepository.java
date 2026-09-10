@@ -22,8 +22,8 @@ public class MentorRepository {
         this.requiresNewTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    int countRequestsSince(String installationId, Instant since) {
-        return mapper.countRequestsSince(installationId, since);
+    int countRequestsSince(String installationReference, String legacyInstallationId, Instant since) {
+        return mapper.countRequestsSince(installationReference, legacyInstallationId, since);
     }
 
     /**
@@ -31,12 +31,12 @@ public class MentorRepository {
      * Java 级别 synchronized(per-installationId) 串行化并发请求的 INSERT+COUNT 序列；
      * REQUIRES_NEW 保证每次 INSERT 立即提交，后续请求的 COUNT 能看到前序已提交的行。
      */
-    int insertAuditAndCountWindow(AuditRow row, Instant windowStart) {
+    int insertAuditAndCountWindow(AuditRow row, String legacyInstallationId, Instant windowStart) {
         Object lock = rateLimitLocks.computeIfAbsent(row.installationId(), k -> new Object());
         synchronized (lock) {
             return requiresNewTx.execute(status -> {
                 insertAudit(row);
-                return countRequestsSince(row.installationId(), windowStart);
+                return countRequestsSince(row.installationId(), legacyInstallationId, windowStart);
             });
         }
     }

@@ -2,12 +2,82 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/providers/repository_providers.dart';
+import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
-import 'package:mobile/features/account/presentation/screens/account_entry_screen.dart';
+import 'package:mobile/features/account/presentation/screens/account_settings_screen.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/l10n/app_localizations.dart';
+
+typedef HouseholdIdentityLabel = ({String badge, String? detail});
+
+HouseholdIdentityLabel householdIdentityLabel(
+  HouseholdNotifier notifier,
+  AppLocalizations l,
+) {
+  if (!notifier.hasLoaded) {
+    return (badge: l.meHouseholdIdentityLoading, detail: null);
+  }
+  if (notifier.isLoading) {
+    return (
+      badge: l.meHouseholdIdentityLoading,
+      detail: l.meHouseholdIdentityStale,
+    );
+  }
+  final snapshot = notifier.snapshot;
+  if (_hasHouseholdIdentityError(snapshot)) {
+    final hasStaleIdentity =
+        snapshot.householdId != null ||
+        snapshot.role != null ||
+        snapshot.sharedContext != null;
+    return (
+      badge: l.meHouseholdIdentityUnavailable,
+      detail: hasStaleIdentity
+          ? l.meHouseholdIdentityStale
+          : l.meHouseholdIdentityReadError,
+    );
+  }
+  return switch (snapshot.role) {
+    HouseholdRole.primaryCaregiver => (
+      badge: l.householdPrimaryCaregiver,
+      detail: null,
+    ),
+    HouseholdRole.caregiver => (
+      badge: l.householdCaregiver,
+      detail: l.meHouseholdCaregiverDetail,
+    ),
+    null => (badge: l.meHouseholdIdentityNoMembership, detail: null),
+  };
+}
+
+bool _hasHouseholdIdentityError(HouseholdLocalSnapshot snapshot) {
+  if (snapshot.lastVisibleError?.trim().isNotEmpty == true) {
+    return true;
+  }
+  final phase = snapshot.lastPhase.trim().toLowerCase();
+  if (phase.isEmpty || phase == 'idle' || phase.endsWith('_ready')) {
+    return false;
+  }
+  const errorMarkers = <String>[
+    'error',
+    'failed',
+    'unavailable',
+    'timeout',
+    'offline',
+    'malformed',
+    'invalid',
+    'consent_required',
+    'account_deleted',
+    'role_not_allowed',
+    'persist_failed',
+    'reset',
+  ];
+  return errorMarkers.any(phase.contains);
+}
 
 /// The "Me" tab screen — user profile, garden/growth summary, and function grid.
 class MeScreen extends ConsumerWidget {
@@ -32,6 +102,8 @@ class MeScreen extends ConsumerWidget {
     final gardenNotifier = ref.watch(gardenGrowthNotifierProvider);
     final gardenSnapshot = gardenNotifier.snapshot;
     final account = ref.watch(accountNotifierProvider);
+    final householdNotifier = ref.watch(householdNotifierProvider);
+    final householdIdentity = householdIdentityLabel(householdNotifier, l);
 
     final childName = onboardingSnapshot?.childDisplayName.trim();
     final displayName = (childName != null && childName.isNotEmpty)
@@ -65,7 +137,8 @@ class MeScreen extends ConsumerWidget {
                 ageBucketLabel: onboardingSnapshot?.ageBucket.label,
                 accountStateLabel: accountStateLabel,
                 isSyncing: accountSyncing,
-                onTap: () => openAccountEntryScreen(context),
+                householdIdentity: householdIdentity,
+                onTap: () => openAccountSurface(context),
               ),
               const SizedBox(height: 20),
 
@@ -106,6 +179,7 @@ class _UserInfoSection extends StatelessWidget {
     required this.displayName,
     this.ageBucketLabel,
     required this.accountStateLabel,
+    required this.householdIdentity,
     this.isSyncing = false,
     this.onTap,
   });
@@ -114,6 +188,7 @@ class _UserInfoSection extends StatelessWidget {
   final String displayName;
   final String? ageBucketLabel;
   final String accountStateLabel;
+  final HouseholdIdentityLabel householdIdentity;
   final bool isSyncing;
   final VoidCallback? onTap;
 
@@ -204,6 +279,25 @@ class _UserInfoSection extends StatelessWidget {
                         color: colors.textMuted,
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      householdIdentity.badge,
+                      key: const Key('me-household-identity'),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colors.accentDark,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (householdIdentity.detail != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        householdIdentity.detail!,
+                        key: const Key('me-household-identity-detail'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -403,22 +497,26 @@ class _FunctionGrid extends StatelessWidget {
       _GridEntry(
         icon: Icons.notifications_outlined,
         label: l.meReminders,
-        route: '/me/settings',
+        key: const Key('me-function-reminder'),
+        route: AppRouteNames.meReminder,
       ),
       _GridEntry(
         icon: Icons.child_care_outlined,
         label: l.meBabyProfile,
-        route: '/me/settings',
+        key: const Key('me-function-baby-profile'),
+        route: AppRouteNames.meBabyProfile,
       ),
       _GridEntry(
         icon: Icons.play_circle_outline,
         label: l.mePlaybackPrefs,
-        route: '/me/settings',
+        key: const Key('me-function-playback'),
+        route: AppRouteNames.mePlayback,
       ),
       _GridEntry(
         icon: Icons.help_outline,
         label: l.meHelp,
-        route: '/me/settings',
+        key: const Key('me-function-help'),
+        route: AppRouteNames.meHelp,
       ),
     ];
 
@@ -440,11 +538,13 @@ class _GridEntry {
   const _GridEntry({
     required this.icon,
     required this.label,
+    required this.key,
     required this.route,
   });
 
   final IconData icon;
   final String label;
+  final Key key;
   final String route;
 }
 
@@ -461,6 +561,7 @@ class _FunctionGridTile extends StatelessWidget {
       color: colors.bgSurface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
+        key: entry.key,
         borderRadius: BorderRadius.circular(12),
         onTap: () => context.push(entry.route),
         child: Padding(

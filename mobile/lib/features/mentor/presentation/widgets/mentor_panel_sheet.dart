@@ -187,6 +187,8 @@ class _MentorChatTab extends ConsumerWidget {
     final accountNotifier = ref.watch(accountNotifierProvider);
     final notifier = ref.watch(mentorNotifierProvider);
     final availability = notifier.chatAvailability;
+    final availabilityTitle = mentorChatAvailabilityTitle(l, availability);
+    final availabilityDetail = mentorChatAvailabilityDetail(l, availability);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
@@ -195,8 +197,8 @@ class _MentorChatTab extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppMentorBubble(
-            caption: availability.title,
-            message: availability.detail,
+            caption: availabilityTitle,
+            message: availabilityDetail,
             trailing: Text(
               l.mentorChatNote,
               key: const Key('mentor-chat-text-first-note'),
@@ -206,15 +208,17 @@ class _MentorChatTab extends ConsumerWidget {
           const SizedBox(height: 16),
           AppBanner(
             key: const Key('mentor-chat-banner'),
-            message: notifier.bannerMessage ?? availability.detail,
+            message: notifier.banner == null
+                ? availabilityDetail
+                : mentorBannerLabel(l, notifier.banner!),
             backgroundColor: colors.warningSoft,
             foregroundColor: colors.warning,
           ),
-          if (notifier.audioStatusMessage != null) ...[
+          if (notifier.audioStatusCode != null) ...[
             const SizedBox(height: 12),
             AppBanner(
               key: const Key('mentor-chat-audio-banner'),
-              message: notifier.audioStatusMessage!,
+              message: mentorAudioStatusLabel(l, notifier.audioStatusCode!),
               backgroundColor: colors.warningSoft,
               foregroundColor: colors.warning,
             ),
@@ -228,13 +232,17 @@ class _MentorChatTab extends ConsumerWidget {
                 key: const Key('mentor-chat-phase-chip'),
                 label: Text(
                   notifier.chatResponsePhase == null
-                      ? availability.title
-                      : '最近回应已更新',
+                      ? availabilityTitle
+                      : l.mentorChatResponseUpdated,
                 ),
               ),
               Chip(
                 key: const Key('mentor-chat-status-chip'),
-                label: Text(notifier.statusChipLabel),
+                label: Text(
+                  l.mentorStatusLabel(
+                    mentorPanelStatusLabel(l, notifier.panelStatus),
+                  ),
+                ),
               ),
               if (accountNotifier.snapshot.lastSyncPhase.trim().isNotEmpty)
                 Chip(
@@ -245,7 +253,10 @@ class _MentorChatTab extends ConsumerWidget {
                 Chip(
                   key: const Key('mentor-chat-rate-chip'),
                   label: Text(
-                    '今日剩余 ${notifier.chatRateLimit!.remaining}/${notifier.chatRateLimit!.limit}',
+                    l.mentorChatRateRemaining(
+                      notifier.chatRateLimit!.remaining,
+                      notifier.chatRateLimit!.limit,
+                    ),
                   ),
                 ),
             ],
@@ -272,9 +283,7 @@ class _MentorChatTab extends ConsumerWidget {
                   maxLength: mentorPromptMaxLength,
                   enabled: !notifier.isSubmittingChat,
                   onChanged: notifier.updateChatDraft,
-                  decoration: const InputDecoration(
-                    hintText: '例如：宝宝一直哭，我现在该怎么开口安抚？',
-                  ),
+                  decoration: InputDecoration(hintText: l.mentorChatHint),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -361,11 +370,13 @@ class _ChatResponseCard extends StatelessWidget {
               if (notifier.chatResponseCode != null)
                 Chip(
                   label: Text(
-                    notifier.chatResponseCode == 'ok' ? '回应已生成' : '回应状态已更新',
+                    notifier.chatResponseCode == 'ok'
+                        ? l.mentorChatResponseGenerated
+                        : l.mentorChatResponseStatusUpdated,
                   ),
                 ),
               if (notifier.chatAuthenticated)
-                const Chip(label: Text('账号已连接'))
+                Chip(label: Text(l.mentorChatAccountConnected))
               else
                 Chip(label: Text(l.mentorNotLoggedIn)),
               if (notifier.chatFallbackUsed)

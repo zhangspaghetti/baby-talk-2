@@ -35,6 +35,7 @@ import 'package:mobile/features/practice/data/repositories/practice_repository.d
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
 import '../support/isar_test_library.dart';
+import '../support/onboarding_test_fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -78,13 +79,18 @@ void main() {
           snapshotStore: OnboardingSnapshotStore(
             directoryResolver: () async => created.tempDir,
           ),
-          practiceRepository: created.repository,
-          starterSpaceId: created.bootState.primarySpaceId!,
-          starterActivityId: created.bootState.primaryActivityId!,
         );
-        completedSnapshot = await onboardingRepository.completeOnboarding(
+        completedSnapshot = await saveCompletedOnboardingSnapshot(
+          onboardingRepository,
           childDisplayName: '米米',
           ageBucket: OnboardingAgeBucket.zeroToSix,
+          selectedSceneIds: const ['bath_time'],
+          supportGoal: OnboardingSupportGoal.firstWords,
+          starterSpaceId: 'daily_care',
+          starterActivityId: 'bath_time',
+          starterPhraseId: 'bath_time_warm_water',
+          firstTraceEventKey:
+              'install_app_composition_test:evt_onboarding_first',
           completedAt: DateTime.utc(2026, 5, 18, 8),
         );
         return created;
@@ -124,16 +130,10 @@ void main() {
               );
             }),
             onboardingRepositoryProvider.overrideWith((ref) {
-              final practiceRepo = ref
-                  .read(practiceRepositoryProvider)
-                  .requireValue;
               return OnboardingRepository(
                 snapshotStore: OnboardingSnapshotStore(
                   directoryResolver: () async => harness.tempDir,
                 ),
-                practiceRepository: practiceRepo,
-                starterSpaceId: harness.bootState.primarySpaceId!,
-                starterActivityId: harness.bootState.primaryActivityId!,
               );
             }),
             mentorRepositoryProvider.overrideWith(

@@ -1,0 +1,32 @@
+name: Practice AI version lock
+
+on:
+  pull_request:
+    paths:
+      - backend/app-api/src/main/resources/config/practice-ai/**
+      - tool/verify_practice_ai_version_lock.py
+      - .github/workflows/practice-ai-version-lock.yml
+  push:
+    paths:
+      - backend/app-api/src/main/resources/config/practice-ai/**
+      - tool/verify_practice_ai_version_lock.py
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyYAML
+      - run: python tool/verify_practice_ai_version_lock.py --verify
+      - if: github.event_name == 'pull_request'
+        run: |
+          base_path=backend/app-api/src/main/resources/config/practice-ai/version-lock.yml
+          if git cat-file -e "${{ github.event.pull_request.base.sha }}:$base_path"; then
+            git show "${{ github.event.pull_request.base.sha }}:$base_path" > /tmp/base-version-lock.yml
+            python tool/verify_practice_ai_version_lock.py --verify --base-lock /tmp/base-version-lock.yml
+          fi

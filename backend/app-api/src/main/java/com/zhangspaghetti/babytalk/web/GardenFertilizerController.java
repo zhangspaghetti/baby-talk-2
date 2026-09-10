@@ -27,7 +27,7 @@ public class GardenFertilizerController {
 
     @GetMapping
     public GardenFertilizerService.FertilizerStateResponse getState(JwtAuthenticationToken authentication) {
-        return gardenFertilizerService.getState(sessionId(authentication));
+        return gardenFertilizerService.getState(accountId(authentication));
     }
 
     @PostMapping("/claim")
@@ -36,7 +36,7 @@ public class GardenFertilizerController {
             @Valid @RequestBody ClaimRequest request
     ) {
         return gardenFertilizerService.claim(
-                sessionId(authentication),
+                accountId(authentication),
                 request.eventKey(),
                 request.requestId(),
                 request.clientTime()
@@ -49,21 +49,21 @@ public class GardenFertilizerController {
             @Valid @RequestBody ApplyRequest request
     ) {
         return gardenFertilizerService.apply(
-                sessionId(authentication),
+                accountId(authentication),
                 request.requestId(),
                 request.clientTime()
         );
     }
 
-    private String sessionId(JwtAuthenticationToken authentication) {
+    private String accountId(JwtAuthenticationToken authentication) {
         if (authentication == null || authentication.getToken() == null) {
-            throw new ContractException(HttpStatus.BAD_REQUEST, "consumer_session_invalid", "访问令牌缺少 sid。", java.util.Map.of("field", "sid"));
+            throw new ContractException(HttpStatus.BAD_REQUEST, "consumer_session_invalid", "访问令牌缺少账号标识。", java.util.Map.of("field", "sub"));
         }
-        var sid = authentication.getToken().getClaimAsString("sid");
-        if (sid == null || sid.isBlank()) {
-            throw new ContractException(HttpStatus.BAD_REQUEST, "consumer_session_invalid", "访问令牌缺少 sid。", java.util.Map.of("field", "sid"));
+        var subject = authentication.getToken().getSubject();
+        if (subject == null || subject.isBlank()) {
+            throw new ContractException(HttpStatus.BAD_REQUEST, "consumer_session_invalid", "访问令牌缺少账号标识。", java.util.Map.of("field", "sub"));
         }
-        return sid;
+        return subject;
     }
 
     public record ClaimRequest(

@@ -11,11 +11,13 @@ import com.zhangspaghetti.babytalk.growth.mapper.GrowthSummaryMapper;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
 
     private static final String GROWTH_TEST_PREFIX = "growth_test_";
+    private static final String PROTECTED_INSTALLATION_REFERENCE =
+            "v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final Clock GROWTH_CLOCK = Clock.fixed(
             Instant.parse("2026-07-24T12:00:00Z"),
@@ -371,7 +375,7 @@ class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
                     eventKey(installationId, index),
                     session.accountId(),
                     session.sessionId(),
-                    installationId,
+                    PROTECTED_INSTALLATION_REFERENCE,
                     "evt-" + index,
                     scene.spaceId(),
                     scene.activityId(),
@@ -417,10 +421,10 @@ class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
                 )
                 values (?, ?, ?, ?, ?, ?, ?, ?, 'cooperating', ?, ?)
                 """,
-                installationId + ":" + localEventId,
+                eventKey(installationId, localEventId),
                 session.accountId(),
                 session.sessionId(),
-                installationId,
+                PROTECTED_INSTALLATION_REFERENCE,
                 localEventId,
                 spaceId,
                 activityId,
@@ -470,7 +474,14 @@ class GrowthServiceMapperIntegrationTest extends AbstractIntegrationTest {
     }
 
     private String eventKey(String installationId, int index) {
-        return installationId + ":evt-" + index;
+        return eventKey(installationId, "evt-" + index);
+    }
+
+    private String eventKey(String installationId, String localEventId) {
+        var name = UUID.nameUUIDFromBytes(
+                (installationId + ":" + localEventId).getBytes(StandardCharsets.UTF_8)
+        ).toString().replace("-", "");
+        return "e1:" + name + "AAAAAAAAAAA";
     }
 
     private Instant eventTime(Instant windowStart, int index) {

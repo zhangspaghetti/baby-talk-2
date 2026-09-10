@@ -1,0 +1,229 @@
+[
+  {
+    "schema_version": "m2_android_uat_v2",
+    "record_id": "uat_android_generated_flow",
+    "case_id": "android_generated_flow",
+    "input_mode": "custom_scene",
+    "scenario_label": "sleep",
+    "executor": "role:qa_operator",
+    "executed_at": "2026-07-28T12:00:00+08:00",
+    "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
+    "candidate": {
+      "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "backend_source_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "backend_artifact_identity": "image_sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "environment_identity": "sanitized-qa-candidate-01",
+      "provider_mode": "REAL",
+      "provider_profile": "release-provider-profile-v1",
+      "provider_model_identity": "model_sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "configuration_fingerprint": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "device": {
+      "device_class": "android-test-device",
+      "android_version": "15",
+      "talkback_version": "NOT_APPLICABLE"
+    },
+    "authenticity": {
+      "execution": "HUMAN_ANDROID",
+      "provider_path": "FORMAL_PRODUCTION",
+      "llm_provider": "REAL",
+      "tts_provider": "REAL"
+    },
+    "prerequisites": [
+      {"id": "candidate_installed", "status": "PASS"},
+      {"id": "approved_custom_scene_scenario", "status": "PASS"}
+    ],
+    "steps": [
+      {"index": 1, "action": "submit_custom_scene", "expected": "complete_bundle_registered", "actual": "complete_bundle_registered", "status": "PASS"},
+      {"index": 2, "action": "open_care_turn", "expected": "starter_interactive", "actual": "starter_interactive", "status": "PASS"}
+    ],
+    "status": "FINAL",
+    "verdict": "PASS",
+    "evidence_location": "reviewed://m2_28/android_generated_flow",
+    "defects": [],
+    "retest_outcome": "NOT_REQUIRED",
+    "privacy": {
+      "raw_content_stored": false,
+      "raw_evidence_stored": false,
+      "sensitive_identifiers_stored": false,
+      "sanitized": true
+    },
+    "branch_reviews": []
+  },
+  {
+    "schema_version": "m2_android_uat_v2",
+    "record_id": "uat_response_loss_reconciliation",
+    "case_id": "response_loss_reconciliation",
+    "input_mode": "custom_scene",
+    "scenario_label": "bath",
+    "executor": "role:qa_operator",
+    "executed_at": "2026-07-28T12:05:00+08:00",
+    "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
+    "candidate": {
+      "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "backend_source_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "backend_artifact_identity": "image_sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "environment_identity": "sanitized-qa-candidate-01",
+      "provider_mode": "REAL",
+      "provider_profile": "release-provider-profile-v1",
+      "provider_model_identity": "model_sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "configuration_fingerprint": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "device": {"device_class": "android-test-device", "android_version": "15", "talkback_version": "NOT_APPLICABLE"},
+    "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+    "prerequisites": [{"id": "candidate_installed", "status": "PASS"}],
+    "steps": [
+      {"index": 1, "action": "lose_response", "expected": "reconcile_same_request", "actual": "reconcile_same_request", "status": "PASS"},
+      {"index": 2, "action": "retry_request", "expected": "no_duplicate_generation", "actual": "no_duplicate_generation", "status": "PASS"}
+    ],
+    "status": "FINAL",
+    "verdict": "PASS",
+    "evidence_location": "reviewed://m2_28/response_loss_reconciliation",
+    "defects": [],
+    "retest_outcome": "NOT_REQUIRED",
+    "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+    "branch_reviews": []
+  },
+  {
+    "schema_version": "m2_android_uat_v2",
+    "record_id": "uat_force_stop_recovery",
+    "case_id": "force_stop_recovery",
+    "input_mode": "custom_scene",
+    "scenario_label": "bath",
+    "executor": "role:qa_operator",
+    "executed_at": "2026-07-28T12:10:00+08:00",
+    "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
+    "candidate": {
+      "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "backend_source_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "backend_artifact_identity": "image_sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "environment_identity": "sanitized-qa-candidate-01",
+      "provider_mode": "REAL",
+      "provider_profile": "release-provider-profile-v1",
+      "provider_model_identity": "model_sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "configuration_fingerprint": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "device": {"device_class": "android-test-device", "android_version": "15", "talkback_version": "NOT_APPLICABLE"},
+    "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+    "prerequisites": [{"id": "candidate_installed", "status": "PASS"}],
+    "steps": [
+      {"index": 1, "action": "force_stop_candidate", "expected": "ready_intent_persists", "actual": "ready_intent_persists", "status": "PASS"},
+      {"index": 2, "action": "restart_candidate", "expected": "recover_same_handoff", "actual": "recover_same_handoff", "status": "PASS"}
+    ],
+    "status": "FINAL",
+    "verdict": "PASS",
+    "evidence_location": "reviewed://m2_28/force_stop_recovery",
+    "defects": [],
+    "retest_outcome": "NOT_REQUIRED",
+    "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+    "branch_reviews": []
+  },
+  {
+    "schema_version": "m2_android_uat_v2",
+    "record_id": "uat_all_reaction_audio_branches",
+    "case_id": "all_reaction_audio_branches",
+    "input_mode": "custom_scene",
+    "scenario_label": "bath",
+    "executor": "role:qa_operator",
+    "executed_at": "2026-07-28T12:15:00+08:00",
+    "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
+    "candidate": {
+      "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "backend_source_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "backend_artifact_identity": "image_sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "environment_identity": "sanitized-qa-candidate-01",
+      "provider_mode": "REAL",
+      "provider_profile": "release-provider-profile-v1",
+      "provider_model_identity": "model_sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "configuration_fingerprint": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "device": {"device_class": "android-test-device", "android_version": "15", "talkback_version": "NOT_APPLICABLE"},
+    "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+    "prerequisites": [{"id": "candidate_installed", "status": "PASS"}],
+    "steps": [
+      {"index": 1, "action": "select_every_branch", "expected": "displayed_branch_audio_matches", "actual": "displayed_branch_audio_matches", "status": "PASS"}
+    ],
+    "status": "FINAL",
+    "verdict": "PASS",
+    "evidence_location": "reviewed://m2_28/all_reaction_audio_branches",
+    "defects": [],
+    "retest_outcome": "NOT_REQUIRED",
+    "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+    "branch_reviews": [
+      {"branch": "starter", "scene_match": "PASS", "reaction_match": "PASS", "low_pressure_language": "PASS", "directly_speakable": "PASS", "audio_matches_displayed_branch": "PASS", "reviewer_verdict": "PASS"},
+      {"branch": "cooperating", "scene_match": "PASS", "reaction_match": "PASS", "low_pressure_language": "PASS", "directly_speakable": "PASS", "audio_matches_displayed_branch": "PASS", "reviewer_verdict": "PASS"},
+      {"branch": "hesitant", "scene_match": "PASS", "reaction_match": "PASS", "low_pressure_language": "PASS", "directly_speakable": "PASS", "audio_matches_displayed_branch": "PASS", "reviewer_verdict": "PASS"},
+      {"branch": "resisting", "scene_match": "PASS", "reaction_match": "PASS", "low_pressure_language": "PASS", "directly_speakable": "PASS", "audio_matches_displayed_branch": "PASS", "reviewer_verdict": "PASS"},
+      {"branch": "no_response", "scene_match": "PASS", "reaction_match": "PASS", "low_pressure_language": "PASS", "directly_speakable": "PASS", "audio_matches_displayed_branch": "PASS", "reviewer_verdict": "PASS"},
+      {"branch": "other", "scene_match": "PASS", "reaction_match": "PASS", "low_pressure_language": "PASS", "directly_speakable": "PASS", "audio_matches_displayed_branch": "PASS", "reviewer_verdict": "PASS"}
+    ]
+  },
+  {
+    "schema_version": "m2_android_uat_v2",
+    "record_id": "uat_talkback_human_accessibility",
+    "case_id": "talkback_human_accessibility",
+    "input_mode": "custom_scene",
+    "scenario_label": "bath",
+    "executor": "role:qa_operator",
+    "executed_at": "2026-07-28T12:20:00+08:00",
+    "timezone": "Asia/Shanghai",
+    "candidate_manifest": {
+      "candidate_id": "m2-final-synthetic-fixture",
+      "sha256": "c049d0331c8dc9cbe4cff65b5b184040ad290d46049f2387a9107bc0365ad231",
+      "bytes": 2703
+    },
+    "candidate": {
+      "mobile_source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mobile_apk_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "backend_source_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "backend_artifact_identity": "image_sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "environment_identity": "sanitized-qa-candidate-01",
+      "provider_mode": "REAL",
+      "provider_profile": "release-provider-profile-v1",
+      "provider_model_identity": "model_sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "configuration_fingerprint": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "device": {"device_class": "android-test-device", "android_version": "15", "talkback_version": "15.1"},
+    "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+    "prerequisites": [{"id": "talkback_enabled", "status": "PASS"}],
+    "steps": [
+      {"index": 1, "action": "touch_explore_care_turn", "expected": "spoken_order_and_labels", "actual": "spoken_order_and_labels", "status": "PASS"},
+      {"index": 2, "action": "return_from_error_retry", "expected": "return_focus_announced", "actual": "return_focus_announced", "status": "PASS"}
+    ],
+    "status": "FINAL",
+    "verdict": "PASS",
+    "evidence_location": "reviewed://m2_28/talkback_human_accessibility",
+    "defects": [],
+    "retest_outcome": "NOT_REQUIRED",
+    "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+    "branch_reviews": [],
+    "accessibility": {
+      "method": "HUMAN_HEARD_TOUCH_EXPLORATION",
+      "observations": ["spoken_order", "touch_exploration", "labels", "cta_error_retry_announcements", "return_focus"]
+    }
+  }
+]

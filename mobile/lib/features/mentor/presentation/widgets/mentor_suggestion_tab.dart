@@ -9,6 +9,136 @@ import 'package:mobile/features/mentor/presentation/mentor_notifier.dart';
 import 'package:mobile/app/widgets/app_mentor_bubble.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
+String mentorPanelStatusLabel(AppLocalizations l, MentorPanelStatus status) {
+  switch (status) {
+    case MentorPanelStatus.idle:
+      return l.mentorStatusPreparing;
+    case MentorPanelStatus.loading:
+      return l.mentorStatusOrganizing;
+    case MentorPanelStatus.ready:
+      return l.mentorStatusReady;
+    case MentorPanelStatus.fallback:
+      return l.mentorStatusLocalFallback;
+    case MentorPanelStatus.error:
+      return l.mentorStatusSafeFallback;
+  }
+}
+
+String mentorPanelTabLabel(AppLocalizations l, MentorPanelTab tab) {
+  switch (tab) {
+    case MentorPanelTab.suggestions:
+      return l.mentorSuggestionTab;
+    case MentorPanelTab.chat:
+      return l.mentorChatTab;
+  }
+}
+
+String mentorChatAvailabilityTitle(
+  AppLocalizations l,
+  MentorChatAvailability availability,
+) {
+  switch (availability.code) {
+    case MentorChatAvailabilityCode.accountLoading:
+      return l.mentorChatAvailabilityLoadingTitle;
+    case MentorChatAvailabilityCode.ready:
+      return l.mentorChatAvailabilityReadyTitle;
+    case MentorChatAvailabilityCode.offline:
+      return l.mentorChatAvailabilityOfflineTitle;
+    case MentorChatAvailabilityCode.loginRequired:
+      return availability.phase == 'mentor_session_required'
+          ? l.mentorChatAvailabilityReloginTitle
+          : l.mentorChatAvailabilityLoginTitle;
+    case MentorChatAvailabilityCode.consentRequired:
+      return l.mentorChatAvailabilityConsentTitle;
+  }
+}
+
+String mentorChatAvailabilityDetail(
+  AppLocalizations l,
+  MentorChatAvailability availability,
+) {
+  switch (availability.code) {
+    case MentorChatAvailabilityCode.accountLoading:
+      return l.mentorChatAvailabilityLoadingDetail;
+    case MentorChatAvailabilityCode.ready:
+      return l.mentorChatAvailabilityReadyDetail;
+    case MentorChatAvailabilityCode.offline:
+      return l.mentorChatAvailabilityOfflineDetail;
+    case MentorChatAvailabilityCode.loginRequired:
+      return availability.phase == 'mentor_session_required'
+          ? l.mentorChatAvailabilityReloginDetail
+          : l.mentorChatAvailabilityLoginDetail;
+    case MentorChatAvailabilityCode.consentRequired:
+      return l.mentorChatAvailabilityConsentDetail;
+  }
+}
+
+String mentorBannerLabel(AppLocalizations l, MentorBannerState banner) {
+  switch (banner.code) {
+    case 'account-loading':
+      return l.mentorBannerAccountLoading;
+    case 'ready':
+      return l.mentorBannerReady;
+    case 'offline':
+      return l.mentorBannerOffline;
+    case 'login-required':
+      return l.mentorBannerLoginRequired;
+    case 'consent-required':
+      return l.mentorBannerConsentRequired;
+    case 'onboarding_missing':
+      return l.mentorBannerOnboardingMissing;
+    case 'onboarding_malformed':
+    case 'onboarding_unavailable':
+      return l.mentorBannerOnboardingUnavailable;
+    case 'starter_seed_missing':
+    case 'practice_restore_failed':
+    case 'practice_restore_timeout':
+    case 'practice_restore_malformed':
+      return l.mentorBannerContextRestore;
+    case 'suggestion_render_fallback':
+      return l.mentorBannerSuggestionRenderFallback;
+    case 'context_fallback_used':
+      return l.mentorBannerGenericFallback;
+    case 'missing_prompt':
+      return l.mentorBannerMissingPrompt;
+    case 'prompt_too_long':
+      return l.mentorBannerPromptTooLong(banner.maxLength ?? 0);
+    case 'chat_requesting':
+      return l.mentorBannerChatRequesting;
+    case 'chat_fallback':
+      return l.mentorBannerChatFallback;
+    case 'timeout':
+      return l.mentorBannerChatTimeout;
+    case '401':
+      return l.mentorBannerChatUnauthorized;
+    case '403':
+      return l.mentorBannerChatConsentRevoked;
+    case '426':
+      return l.mentorBannerChatVersionBlocked;
+    case 'rate-limited':
+      return l.mentorBannerChatRateLimited;
+    case 'malformed':
+      return l.mentorBannerChatMalformed;
+    case 'blocked-fallback':
+      return l.mentorBannerChatBlockedFallback;
+    case 'server-error':
+      return l.mentorBannerChatServerError;
+    default:
+      return l.mentorBannerGenericError;
+  }
+}
+
+String mentorAudioStatusLabel(AppLocalizations l, String code) {
+  switch (code) {
+    case 'tts_unavailable':
+      return l.mentorAudioUnavailable;
+    case 'tts_failed':
+      return l.mentorAudioFailed;
+    default:
+      return l.mentorAudioFailed;
+  }
+}
+
 class MentorSuggestionTab extends ConsumerWidget {
   const MentorSuggestionTab({super.key});
 
@@ -24,14 +154,14 @@ class MentorSuggestionTab extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
       children: [
         AppMentorBubble(
-          message: '先给你几条现在就能说出口的建议。离线时也可以直接用，不需要等聊天连通。',
-          caption: '小禾老师',
+          message: l.mentorSuggestionIntro,
+          caption: l.mentorName,
         ),
         const SizedBox(height: 16),
-        if (notifier.bannerMessage != null)
+        if (notifier.banner != null)
           _MentorAlertBanner(
             key: const Key('mentor-panel-banner'),
-            message: notifier.bannerMessage!,
+            message: mentorBannerLabel(l, notifier.banner!),
             foregroundColor: _foregroundColorForStatus(
               notifier.panelStatus,
               colors,
@@ -42,25 +172,24 @@ class MentorSuggestionTab extends ConsumerWidget {
             ),
           ),
         if (notifier.sharedContextStatus != null) ...[
-          if (notifier.bannerMessage != null) const SizedBox(height: 12),
+          if (notifier.banner != null) const SizedBox(height: 12),
           _MentorSharedContextBanner(
             key: const Key('mentor-shared-context-banner'),
             status: notifier.sharedContextStatus!,
           ),
         ],
-        if (notifier.audioStatusMessage != null) ...[
-          if (notifier.bannerMessage != null ||
-              notifier.sharedContextStatus != null)
+        if (notifier.audioStatusCode != null) ...[
+          if (notifier.banner != null || notifier.sharedContextStatus != null)
             const SizedBox(height: 12),
           _MentorAlertBanner(
             key: const Key('mentor-audio-banner'),
-            message: notifier.audioStatusMessage!,
+            message: mentorAudioStatusLabel(l, notifier.audioStatusCode!),
             foregroundColor: colors.warning,
             backgroundColor: colors.warningSoft,
           ),
         ],
-        if (notifier.bannerMessage != null ||
-            notifier.audioStatusMessage != null ||
+        if (notifier.banner != null ||
+            notifier.audioStatusCode != null ||
             notifier.sharedContextStatus != null)
           const SizedBox(height: 16),
         Wrap(
@@ -69,15 +198,27 @@ class MentorSuggestionTab extends ConsumerWidget {
           children: [
             Chip(
               key: const Key('mentor-selected-tab-chip'),
-              label: Text(notifier.selectedTabChipLabel),
+              label: Text(
+                l.mentorCurrentTabLabel(
+                  mentorPanelTabLabel(l, notifier.selectedTab),
+                ),
+              ),
             ),
             Chip(
               key: const Key('mentor-status-chip'),
-              label: Text(notifier.statusChipLabel),
+              label: Text(
+                l.mentorStatusLabel(
+                  mentorPanelStatusLabel(l, notifier.panelStatus),
+                ),
+              ),
             ),
             Chip(
               key: const Key('mentor-chat-chip'),
-              label: Text(notifier.chatAvailability.chipLabel),
+              label: Text(
+                l.mentorChatStatusLabel(
+                  mentorChatAvailabilityTitle(l, notifier.chatAvailability),
+                ),
+              ),
             ),
           ],
         ),
@@ -214,6 +355,7 @@ class _MentorSharedContextBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
     final foregroundColor = status.adopted ? colors.info : colors.warning;
     final backgroundColor = status.adopted
@@ -249,7 +391,7 @@ class _MentorSharedContextBanner extends StatelessWidget {
           const SizedBox(height: 10),
           Chip(
             key: const Key('mentor-shared-context-chip'),
-            label: Text('shared · ${status.code}'),
+            label: Text(l.mentorStatusLabel(status.headline)),
           ),
         ],
       ),
@@ -307,7 +449,9 @@ class _SuggestionCard extends StatelessWidget {
                 key: Key('mentor-suggestion-audio-${suggestion.suggestionId}'),
                 onPressed: isSpeaking ? null : onReadAloud,
                 icon: const Icon(Icons.volume_up_outlined),
-                label: Text(isSpeaking ? '朗读中…' : l.mentorSuggestionRead),
+                label: Text(
+                  isSpeaking ? l.mentorReading : l.mentorSuggestionRead,
+                ),
               ),
               if (suggestion.reasonCode != null &&
                   suggestion.reasonCode!.trim().isNotEmpty) ...[
@@ -317,7 +461,13 @@ class _SuggestionCard extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      Chip(label: Text('reason · ${suggestion.reasonCode}')),
+                      Chip(
+                        label: Text(
+                          l.mentorSuggestionSource(
+                            _suggestionReasonLabel(l, suggestion.reasonCode!),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -327,6 +477,30 @@ class _SuggestionCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String _suggestionReasonLabel(AppLocalizations l, String reasonCode) {
+  switch (reasonCode) {
+    case 'recent_result':
+      return l.mentorSuggestionReasonRecentResult;
+    case 'stage_reinforcement':
+      return l.mentorSuggestionReasonStageReinforcement;
+    case 'stage_guide':
+      return l.mentorSuggestionReasonStageGuide;
+    case 'stage_only':
+      return l.mentorSuggestionReasonStageOnly;
+    case 'starter_phrase':
+      return l.mentorSuggestionReasonStarterPhrase;
+    case 'shared_context_adopted_newer':
+    case 'shared_context_adopted_local_gap':
+      return l.mentorSuggestionReasonSharedContext;
+    case 'fallback':
+    case 'safe_small_step':
+    case 'context_fallback_used':
+      return l.mentorSuggestionReasonSafe;
+    default:
+      return l.mentorSuggestionReasonDefault;
   }
 }
 

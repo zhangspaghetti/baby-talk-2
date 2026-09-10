@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.admin.mentor;
 
 import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
+import com.zhangspaghetti.babytalk.security.SensitiveAuthDataProtector;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -30,15 +31,18 @@ public class AdminMentorAuditService {
 
     private final AdminMentorAuditReadRepository repository;
     private final AdminMentorAuditProperties properties;
+    private final SensitiveAuthDataProtector sensitiveAuthDataProtector;
     private final Clock clock;
 
     public AdminMentorAuditService(
             AdminMentorAuditReadRepository repository,
             AdminMentorAuditProperties properties,
+            SensitiveAuthDataProtector sensitiveAuthDataProtector,
             Clock clock
     ) {
         this.repository = repository;
         this.properties = properties;
+        this.sensitiveAuthDataProtector = sensitiveAuthDataProtector;
         this.clock = clock;
     }
 
@@ -47,10 +51,15 @@ public class AdminMentorAuditService {
         var normalizedInstallationId = normalizeOptionalInstallationId(installationId);
         var normalizedFlag = normalizeFlag(flag);
         var effectiveLimit = normalizeLimit(limit);
-        return repository.listFlaggedIncidents(normalizedInstallationId, normalizedFlag, effectiveLimit).stream()
+        var installationFilter = installationFilter(normalizedInstallationId);
+        return repository.listFlaggedIncidents(
+                        installationFilter.reference(),
+                        installationFilter.legacyRaw(),
+                        normalizedFlag,
+                        effectiveLimit).stream()
                 .map(row -> new QueueIncidentView(
                         row.correlationId(),
-                        row.installationId(),
+                        sensitiveAuthDataProtector.safeInstallationReference(row.installationId()),
                         row.flagCode(),
                         row.latestPhase(),
                         row.failureCode(),
@@ -79,15 +88,18 @@ public class AdminMentorAuditService {
                         .findFirst()
                         .orElse(null));
         var now = Instant.now(clock);
+        var installationFilter = installationFilter(
+                normalizeOptionalInstallationId(snapshot.installationId()));
         var currentCount = repository.countCurrentWindowRequests(
-                snapshot.installationId(),
+                installationFilter.reference(),
+                installationFilter.legacyRaw(),
                 now.minus(properties.rateLimitWindow())
         );
         var remaining = Math.max(0, properties.rateLimitMaxRequests() - currentCount);
         return new AuditDetailView(
                 "incident_evidence",
                 snapshot.correlationId(),
-                snapshot.installationId(),
+                sensitiveAuthDataProtector.safeInstallationReference(snapshot.installationId()),
                 snapshot.flagCode(),
                 snapshot.latestPhase(),
                 snapshot.failureCode(),
@@ -134,6 +146,18 @@ public class AdminMentorAuditService {
         return installationId.trim();
     }
 
+    private InstallationFilter installationFilter(String normalizedInstallationId) {
+        if (normalizedInstallationId == null) {
+            return new InstallationFilter(null, null);
+        }
+        if (sensitiveAuthDataProtector.isInstallationReference(normalizedInstallationId)) {
+            return new InstallationFilter(normalizedInstallationId, null);
+        }
+        return new InstallationFilter(
+                sensitiveAuthDataProtector.installationLookupRef(normalizedInstallationId),
+                normalizedInstallationId);
+    }
+
     private String normalizeFlag(String flag) {
         if (!hasText(flag)) {
             return null;
@@ -174,6 +198,9 @@ public class AdminMentorAuditService {
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private record InstallationFilter(String reference, String legacyRaw) {
     }
 
     public record QueueIncidentView(

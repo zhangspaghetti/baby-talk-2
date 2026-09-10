@@ -22,6 +22,10 @@ public class AuthConsentSyncRepository {
         return Optional.ofNullable(mapper.findChallenge(challengeId));
     }
 
+    Optional<ChallengeRow> lockChallenge(String challengeId) {
+        return Optional.ofNullable(mapper.lockChallenge(challengeId));
+    }
+
     int markChallengeVerified(String challengeId, Instant verifiedAt) {
         return mapper.markChallengeVerified(challengeId, verifiedAt);
     }
@@ -30,8 +34,12 @@ public class AuthConsentSyncRepository {
         mapper.markChallengeExpired(challengeId, reason);
     }
 
-    Optional<AccountRow> findActiveAccountByPhone(String phoneNumber) {
-        return Optional.ofNullable(mapper.findActiveAccountByPhone(phoneNumber));
+    void recordChallengeVerificationFailure(String challengeId) {
+        mapper.recordChallengeVerificationFailure(challengeId);
+    }
+
+    Optional<AccountRow> findActiveAccountByPhoneLookupRef(String phoneLookupRef) {
+        return Optional.ofNullable(mapper.findActiveAccountByPhoneLookupRef(phoneLookupRef));
     }
 
     Optional<AccountRow> findAccountById(String accountId) {
@@ -92,6 +100,10 @@ public class AuthConsentSyncRepository {
         mapper.updateSessionsStatus(accountId, newStatus, changedAt);
     }
 
+    void redactConsentAuditInstallationReferences(String accountId) {
+        mapper.redactConsentAuditInstallationReferences(accountId);
+    }
+
     void insertConsentAudit(AuditRow auditRow) {
         mapper.insertConsentAudit(auditRow);
     }
@@ -104,8 +116,8 @@ public class AuthConsentSyncRepository {
         return mapper.insertInteractionEvent(accountId, sessionId, event, receivedAt) > 0;
     }
 
-    List<StoredInteractionEvent> listInteractionEvents(String accountId, String installationId, int limit) {
-        return mapper.listInteractionEvents(accountId, installationId, limit);
+    List<StoredInteractionEvent> listInteractionEventsForAccount(String accountId, int limit) {
+        return mapper.listInteractionEvents(accountId, limit);
     }
 
     int countInteractionEvents(String accountId, String installationId) {
@@ -126,19 +138,22 @@ public class AuthConsentSyncRepository {
 
     public record ChallengeRow(
             String challengeId,
-            String phoneNumber,
-            String verificationCode,
+            String phoneLookupRef,
+            String phoneMask,
+            String verificationVerifier,
             String status,
             Instant issuedAt,
             Instant expiresAt,
             Instant verifiedAt,
-            String failureReason
+            String failureReason,
+            Integer verificationAttempts
     ) {
     }
 
     public record AccountRow(
             String accountId,
-            String phoneNumber,
+            String phoneLookupRef,
+            String phoneMask,
             String status,
             String latestConsentStatus,
             Instant createdAt,
@@ -153,7 +168,6 @@ public class AuthConsentSyncRepository {
             String sessionStatus,
             Instant createdAt,
             Instant revokedAt,
-            String phoneNumber,
             String accountStatus,
             String latestConsentStatus,
             Instant accountCreatedAt,
@@ -187,9 +201,9 @@ public class AuthConsentSyncRepository {
     }
 
     public record StoredInteractionEvent(
-            String eventKey,
+            String eventKeyRef,
             String localEventId,
-            String installationId,
+            String installationRef,
             String spaceId,
             String activityId,
             String phraseId,
@@ -200,9 +214,10 @@ public class AuthConsentSyncRepository {
     }
 
     public record SyncEventRecord(
-            String eventKey,
+            String wireEventKey,
+            String eventKeyRef,
             String localEventId,
-            String installationId,
+            String installationRef,
             String spaceId,
             String activityId,
             String phraseId,

@@ -19,14 +19,17 @@ import tools.jackson.databind.json.JsonMapper;
 import com.zhangspaghetti.babytalk.kg.KgEntityRepository;
 import com.zhangspaghetti.babytalk.palace.PalaceKeywordRepository.ChunkResult;
 import com.zhangspaghetti.babytalk.palace.projection.PalaceBridgeEdgeRepository;
+import com.zhangspaghetti.babytalk.palace.projection.PalaceProjectionVersion;
 import com.zhangspaghetti.babytalk.palace.projection.PalaceProjectionVersionRepository;
 import com.zhangspaghetti.babytalk.palace.projection.PalaceQueryTraceRepository;
+import com.zhangspaghetti.babytalk.palace.projection.PalaceRoom;
 import com.zhangspaghetti.babytalk.palace.projection.PalaceRoomRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -199,6 +202,52 @@ class PalaceHybridRetrievalServiceTest {
         verify(palaceQueryTraceRepository).save(captor.capture());
         assertThat(captor.getValue().getProjectionVersionUsed()).isNull();
         assertThat(captor.getValue().getEntryRooms().toString()).contains("language_development/early_communication");
+    }
+
+    @Test
+    void currentProjectionMembershipComesFromPersistedRoomScope() {
+        var projectionRoom = new PalaceRoom(
+                UUID.fromString("00000000-0000-0000-0000-000000000101"),
+                "LANGUAGE_DEVELOPMENT",
+                "EARLY_COMMUNICATION",
+                "BABBLING_HALL",
+                Instant.parse("2026-04-27T08:00:00Z"),
+                1);
+        var projectionVersion = new PalaceProjectionVersion(
+                UUID.fromString("00000000-0000-0000-0000-000000000102"),
+                7L,
+                UUID.fromString("00000000-0000-0000-0000-000000000103"),
+                Instant.parse("2026-04-27T08:00:00Z"),
+                "current",
+                1);
+        when(palaceRoomRepository.count()).thenReturn(1L);
+        when(palaceRoomRepository.findAll()).thenReturn(List.of(projectionRoom));
+        when(palaceProjectionVersionRepository.findCurrentVersion()).thenReturn(Optional.of(projectionVersion));
+        when(palaceSearchService.search(eq("projection scope"), eq(null), eq(null), anyInt()))
+                .thenReturn(List.of(
+                        makeDocument("00000000-0000-0000-0000-000000000111", "current", 0.70d, "0-3"),
+                        new Document(
+                                "00000000-0000-0000-0000-000000000112",
+                                "stale",
+                                Map.of(
+                                        "score", 0.90d,
+                                        "wing", "parenting_skills",
+                                        "room", "overview"))));
+        when(palaceKeywordRepository.searchByKeywords(eq("projection scope"), eq(null), eq(null), anyInt()))
+                .thenReturn(List.of());
+
+        var result = service.retrieve(new RetrievalRequest("projection scope", null, null, null, 5, 2));
+
+        assertThat(result.trace().projectionVersionUsed()).isEqualTo("7");
+        assertThat(result.rankedCandidates()).extracting(HybridCandidate::content)
+                .containsExactly("current");
+        assertThat(result.rankedCandidates())
+                .filteredOn(candidate -> candidate.content().equals("current"))
+                .singleElement()
+                .extracting(HybridCandidate::currentProjectionMember)
+                .isEqualTo(true);
+        assertThat(JsonMapper.builder().build().writeValueAsString(result.rankedCandidates().get(0)))
+                .doesNotContain("currentProjectionMember");
     }
 
     @Test

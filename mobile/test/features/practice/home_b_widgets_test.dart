@@ -18,15 +18,10 @@ void main() {
         ),
       );
 
-      expect(
-        find.byKey(const Key('home-b-care-moment-title')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('home-b-care-moment-title')), findsOneWidget);
       // RichText content is not searchable with find.textContaining;
       // verify via the RichText widget's text spans
-      final richText = tester.widget<RichText>(
-        find.byType(RichText).first,
-      );
+      final richText = tester.widget<RichText>(find.byType(RichText).first);
       final plainText = richText.text.toPlainText();
       expect(plainText, contains('陪米米收个尾'));
       expect(find.text('Bedtime'), findsOneWidget);
@@ -35,15 +30,10 @@ void main() {
     testWidgets('uses default "宝宝" when child name is null', (tester) async {
       await _pumpWidget(
         tester,
-        const HomeBCareMomentTitle(
-          sceneTag: 'Bath time',
-          sceneTitle: '洗澡时间',
-        ),
+        const HomeBCareMomentTitle(sceneTag: 'Bath time', sceneTitle: '洗澡时间'),
       );
 
-      final richText = tester.widget<RichText>(
-        find.byType(RichText).first,
-      );
+      final richText = tester.widget<RichText>(find.byType(RichText).first);
       final plainText = richText.text.toPlainText();
       expect(plainText, contains('陪宝宝洗澡时间'));
     });
@@ -76,9 +66,9 @@ void main() {
       final richTextWidget = tester.widget<RichText>(
         find.byType(RichText).first,
       );
-      final plainText =
-          richTextWidget.text.toPlainText();
-      final hasTimeWord = plainText.contains('早上') ||
+      final plainText = richTextWidget.text.toPlainText();
+      final hasTimeWord =
+          plainText.contains('早上') ||
           plainText.contains('下午') ||
           plainText.contains('今晚');
       expect(hasTimeWord, isTrue);
@@ -89,20 +79,12 @@ void main() {
     testWidgets('renders mentor name and message', (tester) async {
       await _pumpWidget(
         tester,
-        const HomeBMentorBubble(
-          message: '这句适合睡前收尾，不像命令，更像邀请宝宝一起完成。',
-        ),
+        const HomeBMentorBubble(message: '这句适合睡前收尾，不像命令，更像邀请宝宝一起完成。'),
       );
 
-      expect(
-        find.byKey(const Key('home-b-mentor-bubble')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('home-b-mentor-bubble')), findsOneWidget);
       expect(find.text('小禾'), findsOneWidget);
-      expect(
-        find.text('这句适合睡前收尾，不像命令，更像邀请宝宝一起完成。'),
-        findsOneWidget,
-      );
+      expect(find.text('这句适合睡前收尾，不像命令，更像邀请宝宝一起完成。'), findsOneWidget);
     });
 
     testWidgets('shows chevron icon when onTap is provided', (tester) async {
@@ -125,10 +107,7 @@ void main() {
     });
 
     testWidgets('hides chevron icon when onTap is null', (tester) async {
-      await _pumpWidget(
-        tester,
-        const HomeBMentorBubble(message: '建议内容'),
-      );
+      await _pumpWidget(tester, const HomeBMentorBubble(message: '建议内容'));
 
       expect(find.byIcon(Icons.chevron_right), findsNothing);
     });
@@ -139,10 +118,7 @@ void main() {
           '这条消息应该被限制在两行以内，超出部分用省略号截断。'
           '这第三部分不应该被显示出来。';
 
-      await _pumpWidget(
-        tester,
-        HomeBMentorBubble(message: longMessage),
-      );
+      await _pumpWidget(tester, HomeBMentorBubble(message: longMessage));
 
       final textWidgets = tester.widgetList<Text>(
         find.descendant(
@@ -161,10 +137,7 @@ void main() {
       try {
         await _pumpWidget(
           tester,
-          HomeBMentorBubble(
-            message: '测试建议',
-            onTap: () {},
-          ),
+          HomeBMentorBubble(message: '测试建议', onTap: () {}),
         );
 
         // Find the Semantics widget that has our label
@@ -173,7 +146,8 @@ void main() {
         );
         final matchingSemantics = allSemantics.firstWhere(
           (s) => s.properties.label?.contains('小禾建议') == true,
-          orElse: () => throw StateError('No Semantics widget with label found'),
+          orElse: () =>
+              throw StateError('No Semantics widget with label found'),
         );
         expect(matchingSemantics.properties.label, contains('小禾建议'));
         expect(matchingSemantics.properties.label, contains('测试建议'));
@@ -185,46 +159,41 @@ void main() {
   });
 
   group('HomeBSceneCard', () {
-    testWidgets('renders parent action, English phrase, and Chinese translation', (
-      tester,
-    ) async {
-      await _pumpWidget(
-        tester,
-        HomeBSceneCard(
-          phrase: const PracticePhrase(
-            spaceId: 'daily_care',
-            activityId: 'bath_time',
-            phraseId: 'bath_time_warm_water',
-            step: 1,
-            english: 'Warm water.',
-            chinese: '温温的水。',
-            pronunciation: 'wɔːrm ˈwɔːtər',
-            difficulty: 'starter',
-            audioAsset: 'assets/audio/phrases/bath_time_warm_water.mp3',
+    testWidgets(
+      'renders parent action, English phrase, and Chinese translation',
+      (tester) async {
+        await _pumpWidget(
+          tester,
+          HomeBSceneCard(
+            phrase: const PracticePhrase(
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+              phraseId: 'bath_time_warm_water',
+              step: 1,
+              english: 'Warm water.',
+              chinese: '温温的水。',
+              pronunciation: 'wɔːrm ˈwɔːtər',
+              difficulty: 'starter',
+              audioAsset: 'assets/audio/phrases/bath_time_warm_water.mp3',
+            ),
+            parentAction: '把水温调好，轻轻淋在宝宝背上。',
+            sceneTag: 'Bath time',
+            onStartPractice: () {},
           ),
-          parentAction: '把水温调好，轻轻淋在宝宝背上。',
-          sceneTag: 'Bath time',
-          onStartPractice: () {},
-        ),
-      );
+        );
 
-      expect(
-        find.byKey(const Key('home-b-scene-card')),
-        findsOneWidget,
-      );
-      expect(find.text('你的动作'), findsOneWidget);
-      expect(find.text('把水温调好，轻轻淋在宝宝背上。'), findsOneWidget);
-      expect(find.text('Warm water.'), findsOneWidget);
-      expect(find.text('温温的水。'), findsOneWidget);
-    });
+        expect(find.byKey(const Key('home-b-scene-card')), findsOneWidget);
+        expect(find.text('你的动作'), findsOneWidget);
+        expect(find.text('把水温调好，轻轻淋在宝宝背上。'), findsOneWidget);
+        expect(find.text('Warm water.'), findsOneWidget);
+        expect(find.text('温温的水。'), findsOneWidget);
+      },
+    );
 
     testWidgets('renders fallback text when phrase is null', (tester) async {
       await _pumpWidget(
         tester,
-        const HomeBSceneCard(
-          phrase: null,
-          parentAction: '做某个动作。',
-        ),
+        const HomeBSceneCard(phrase: null, parentAction: '做某个动作。'),
       );
 
       // Should show default English/Chinese text
@@ -332,10 +301,7 @@ void main() {
       );
 
       // Scene card should render without errors when optional props are set
-      expect(
-        find.byKey(const Key('home-b-scene-card')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('home-b-scene-card')), findsOneWidget);
     });
   });
 }
@@ -346,10 +312,7 @@ Future<void> _pumpWidget(WidgetTester tester, Widget child) async {
       theme: AppTheme.build(),
       home: Scaffold(
         body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
+          child: Padding(padding: const EdgeInsets.all(16), child: child),
         ),
       ),
     ),

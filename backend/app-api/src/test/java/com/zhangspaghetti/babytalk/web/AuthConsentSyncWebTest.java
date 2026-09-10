@@ -12,6 +12,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
+import java.sql.Timestamp;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @SpringBootTest(properties = {
         "app.contract.min-supported-version=1.2.0",
         "app.contract.upgrade-url=https://download.example.com/babytalk.apk",
+        "app.contract.consent-version=pipl-v1",
         "app.sms.provider-mode=dev",
         "app.sms.dev-code=246810"
 })
@@ -67,6 +70,12 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.applied").value(true))
                 .andExpect(jsonPath("$.consentStatus").value("accepted"));
 
+        var storedSessionInstallationReference = jdbcTemplate.queryForObject(
+                "select installation_id from account_sessions where session_id = ?",
+                String.class,
+                session.sessionId()
+        );
+
         mockMvc.perform(post("/api/v1/sync/events")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
@@ -99,6 +108,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.installationId").value(storedSessionInstallationReference))
                 .andExpect(jsonPath("$.acceptedCount").value(2))
                 .andExpect(jsonPath("$.duplicateCount").value(0));
 
@@ -134,17 +144,69 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.installationId").value(storedSessionInstallationReference))
                 .andExpect(jsonPath("$.acceptedCount").value(0))
                 .andExpect(jsonPath("$.duplicateCount").value(2));
 
+        var storedInstallationReference = jdbcTemplate.queryForObject(
+                "select installation_id from interaction_events where account_id = ? and local_event_id = ?",
+                String.class,
+                session.accountId(),
+                "evt_1"
+        );
         mockMvc.perform(get("/api/v1/bootstrap")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
                         .param("installationId", "install-alpha"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.eventCount").value(2))
-                .andExpect(jsonPath("$.events[0].eventKey").value("install-alpha:evt_1"))
+                .andExpect(jsonPath("$.installationId").value(storedInstallationReference))
+                .andExpect(jsonPath("$.events[0].eventKey").value(storedInstallationReference + ":evt_1"))
+                .andExpect(jsonPath("$.events[0].installationId").value(storedInstallationReference))
                 .andExpect(jsonPath("$.events[1].phraseId").value("bath_time_splash_splash"));
+    }
+
+    @Test
+    void bootstrapFindsLegacyDisposedRowButNeverReturnsItsStoredIdentity() throws Exception {
+        var challengeId = createChallenge("13800138000");
+        var session = verifyChallenge(challengeId, "install-alpha");
+        acceptConsent(session.accessToken());
+
+        var legacyEventKey = "legacy-disposed:00000000-0000-0000-0000-000000000011";
+        var legacyInstallationReference = "legacy-disposed:00000000-0000-0000-0000-000000000012";
+        var timestamp = Timestamp.from(Instant.parse("2026-08-20T03:00:00Z"));
+        jdbcTemplate.update(
+                """
+                insert into interaction_events (
+                    event_key, account_id, session_id, installation_id, local_event_id,
+                    space_id, activity_id, phrase_id, reaction_type, client_timestamp, received_at
+                ) values (?, ?, ?, ?, ?, 'daily_care', 'bath_time', 'bath_time_warm_water', 'cooperating', ?, ?)
+                """,
+                legacyEventKey,
+                session.accountId(),
+                session.sessionId(),
+                legacyInstallationReference,
+                "legacy-event",
+                timestamp,
+                timestamp
+        );
+
+        var response = mockMvc.perform(get("/api/v1/bootstrap")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .param("installationId", "install-alpha"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eventCount").value(1))
+                .andReturn();
+        var body = response.getResponse().getContentAsString();
+        assertThat(body).doesNotContain(legacyEventKey, legacyInstallationReference);
+        var event = readJson(body).get("events").get(0);
+        assertThat(event.get("eventKey").asText())
+                .startsWith("v1:")
+                .endsWith(":legacy-event");
+        assertThat(event.get("installationId").asText())
+                .startsWith("v1:")
+                .doesNotContain("legacy-disposed");
     }
 
     @Test
@@ -156,7 +218,8 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 {"phoneNumber":"12345"}
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("invalid_phone_number"));
+                .andExpect(jsonPath("$.code").value("invalid_phone_number"))
+                .andExpect(jsonPath("$.correlationId").isNotEmpty());
 
         var challengeId = createChallenge("13800138000");
         mockMvc.perform(post("/api/v1/auth/verify")
@@ -201,7 +264,8 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("consumer_authentication_required"))
-                .andExpect(jsonPath("$.details.reason").value("missing"));
+                .andExpect(jsonPath("$.details.reason").value("missing"))
+                .andExpect(jsonPath("$.correlationId").isNotEmpty());
 
         mockMvc.perform(post("/api/v1/consent/accept")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
@@ -226,6 +290,33 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
 
         var count = jdbcTemplate.queryForObject("select count(*) from interaction_events", Integer.class);
         assertThat(count).isZero();
+    }
+
+    @Test
+    void unpublishedConsentVersionReturnsStable4xxWithoutWritingConsentOrAudit() throws Exception {
+        var challengeId = createChallenge("13800138000");
+        var session = verifyChallenge(challengeId, "install-alpha");
+
+        mockMvc.perform(post("/api/v1/consent/accept")
+                        .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(session.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"consentVersion":"pipl-v2"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("unsupported_consent_version"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select latest_consent_status from accounts where account_id = ?",
+                String.class,
+                session.accountId()
+        )).isNotEqualTo("accepted");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from consent_audit_logs where account_id = ?",
+                Integer.class,
+                session.accountId()
+        )).isZero();
     }
 
     @Test
@@ -288,16 +379,16 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                                 {"reason":"forget_me_again"}
                                 """))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("account_deleted"))
-                .andExpect(jsonPath("$.details.reason").value("account_deleted"));
+                .andExpect(jsonPath("$.code").value("access_token_revoked"))
+                .andExpect(jsonPath("$.details.reason").value("revoked"));
 
         mockMvc.perform(get("/api/v1/bootstrap")
                         .header(ApiVersionInterceptor.VERSION_HEADER, "1.2.0")
                         .header(HttpHeaders.AUTHORIZATION, bearer(reloginSession.accessToken()))
                         .param("installationId", "install-alpha"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("account_deleted"))
-                .andExpect(jsonPath("$.details.reason").value("account_deleted"));
+                .andExpect(jsonPath("$.code").value("access_token_revoked"))
+                .andExpect(jsonPath("$.details.reason").value("revoked"));
 
         var auditRows = jdbcTemplate.queryForList(
                 "select action, result from consent_audit_logs order by audit_id asc"
@@ -426,16 +517,24 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                             space_title_zh,
                             activity_title_zh,
                             scene_tag_en,
-                            coach_tip_zh,
+                            tpr_action_zh,
+                            delivery_guidance_zh,
                             english_text,
                             chinese_text,
                             pronunciation_hint,
                             difficulty,
                             generation_source,
                             status,
-                            prompt_version,
-                            strategy_version,
-                            policy_version,
+                            generation_profile_version,
+                            generation_profile_hash,
+                            rubric_version,
+                            rubric_content_hash,
+                            evidence_policy_version,
+                            evidence_policy_content_hash,
+                            provider_routing_policy_version,
+                            provider_routing_policy_hash,
+                            generation_attempt_limit,
+                            content_refresh_epoch,
                             content_version,
                             generation_started_at,
                             generation_expires_at,
@@ -445,9 +544,12 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                             ?, ?, ?, 'v1', ?, null, ?, 'onboarding', 'custom_scene', ?,
                             case when ? = 'draft' then '刷牙洗脸' else null end, 'm7_11',
                             'calmer_care', 'zh-CN', ?, ?, ?, '日常照护', '洗漱', 'wash up',
-                            '慢一点说，配合动作。', 'Let us wash your face.', '我们来洗脸。', 'let-us-wash',
-                            'easy', ?, ?, 'practice-discovery-custom-scene-v1', 'fake-custom-scene-v1', 'policy-v2',
-                            1, now(), case when ? = 'draft' then now() + interval '5 minutes' else null end, now(), now()
+                            '轻轻擦宝宝的脸。', '慢一点说，配合动作。',
+                            'Let us wash your face.', '我们来洗脸。', 'let-us-wash', 'easy', ?, ?,
+                            'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
+                            'evidence-policy-v1', repeat('c', 64), 'routing-policy-v1', repeat('d', 64),
+                            3, 1, 1, case when ? = 'active' then now() else null end,
+                            case when ? = 'draft' then now() + interval '5 minutes' else null end, now(), now()
                         )
                         """,
                 generatedContentId,
@@ -461,6 +563,7 @@ class AuthConsentSyncWebTest extends AbstractIntegrationTest {
                 "activity_" + suffix,
                 "phrase_" + suffix,
                 "agentic_search",
+                status,
                 status,
                 status
         );

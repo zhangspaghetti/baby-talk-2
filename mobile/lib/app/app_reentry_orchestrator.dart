@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/features/household/presentation/household_notifier.dart';
-import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 
@@ -19,13 +19,13 @@ typedef MountedCheck = bool Function();
 /// 回调类型：获取启动目标（是否已进入 shell）
 typedef LaunchDestinationProvider = AppLaunchDestination? Function();
 
-/// 回调类型：获取种子内容包（用于练习支持性检查）
-typedef SeedContentProvider = SeedContentBundle? Function();
-
 /// 回调类型：按需查找 Notifier
 typedef HouseholdNotifierLookup = HouseholdNotifier? Function();
 typedef ContinuityNotifierLookup = PracticeContinuityNotifier? Function();
 typedef GardenGrowthNotifierLookup = GardenGrowthNotifier? Function();
+typedef InitialUriLoader = Future<Uri?> Function();
+typedef InviteAuthenticationReady = bool Function();
+typedef InviteAuthenticationNotifierLookup = Listenable? Function();
 
 /// 重入状态机所用的启动目标枚举（与 app.dart 中 AppLaunchDestination 对齐）
 enum AppLaunchDestination { onboarding, shell }
@@ -41,37 +41,79 @@ class AppReentryOrchestrator {
     required GoRouterProvider goRouterProvider,
     required MountedCheck mountedCheck,
     required LaunchDestinationProvider launchDestinationProvider,
-    required SeedContentProvider seedContentProvider,
     required HouseholdNotifierLookup householdNotifierLookup,
     required ContinuityNotifierLookup continuityNotifierLookup,
     required GardenGrowthNotifierLookup gardenGrowthNotifierLookup,
+    InitialUriLoader? initialUriLoader,
+    InviteAuthenticationReady? isInviteAuthenticationReady,
+    InviteAuthenticationNotifierLookup? inviteAuthenticationNotifierLookup,
   }) : _shareReentryCoordinator = shareReentryCoordinator,
        _inviteReentryCoordinator = inviteReentryCoordinator,
        _goRouterProvider = goRouterProvider,
        _mountedCheck = mountedCheck,
        _launchDestinationProvider = launchDestinationProvider,
-       _seedContentProvider = seedContentProvider,
        _householdNotifierLookup = householdNotifierLookup,
        _continuityNotifierLookup = continuityNotifierLookup,
-       _gardenGrowthNotifierLookup = gardenGrowthNotifierLookup;
+       _gardenGrowthNotifierLookup = gardenGrowthNotifierLookup,
+       _initialUriLoader = initialUriLoader,
+       _isInviteAuthenticationReady =
+           isInviteAuthenticationReady ?? _alwaysInviteAuthenticationReady,
+       _inviteAuthenticationNotifierLookup = inviteAuthenticationNotifierLookup;
 
   final ShareReentryCoordinator _shareReentryCoordinator;
   final InviteReentryCoordinator _inviteReentryCoordinator;
   final GoRouterProvider _goRouterProvider;
   final MountedCheck _mountedCheck;
   final LaunchDestinationProvider _launchDestinationProvider;
-  final SeedContentProvider _seedContentProvider;
   final HouseholdNotifierLookup _householdNotifierLookup;
   final ContinuityNotifierLookup _continuityNotifierLookup;
   final GardenGrowthNotifierLookup _gardenGrowthNotifierLookup;
+  final InitialUriLoader? _initialUriLoader;
+  final InviteAuthenticationReady _isInviteAuthenticationReady;
+  final InviteAuthenticationNotifierLookup? _inviteAuthenticationNotifierLookup;
 
   StreamSubscription<Uri>? _shareUriSubscription;
+  int _shareUriConfigurationGeneration = 0;
+  bool _disposed = false;
   Future<void>? _inviteDrainFuture;
   bool _inviteDrainQueued = false;
+  Listenable? _inviteAuthenticationNotifier;
+
+  static bool _alwaysInviteAuthenticationReady() => true;
 
   /// 配置 share URI 监听流。重新调用时会取消前一次订阅。
   Future<void> configureShareUriSubscription([Stream<Uri>? stream]) async {
-    await _shareUriSubscription?.cancel();
+    final configurationGeneration = ++_shareUriConfigurationGeneration;
+    final previousSubscription = _shareUriSubscription;
+    _shareUriSubscription = null;
+    await previousSubscription?.cancel();
+    if (_disposed ||
+        configurationGeneration != _shareUriConfigurationGeneration) {
+      return;
+    }
+    if (stream == null || _initialUriLoader != null) {
+      try {
+        final initialUri =
+            await (_initialUriLoader ?? AppLinks().getInitialLink)();
+        if (_disposed ||
+            configurationGeneration != _shareUriConfigurationGeneration) {
+          return;
+        }
+        if (initialUri != null) {
+          handleIncomingUri(initialUri);
+        }
+      } on Object {
+        if (_disposed ||
+            configurationGeneration != _shareUriConfigurationGeneration) {
+          return;
+        }
+        _inviteReentryCoordinator.markFallback(message: '邀请回流启动异常，已停留在首页安全入口。');
+      }
+    }
+    if (_disposed ||
+        configurationGeneration != _shareUriConfigurationGeneration) {
+      return;
+    }
     final effectiveStream = stream ?? AppLinks().uriLinkStream;
     _shareUriSubscription = effectiveStream.listen(
       handleIncomingUri,
@@ -138,15 +180,9 @@ class AppReentryOrchestrator {
       return;
     }
 
-    final content = _seedContentProvider();
-    if (content == null || !practiceArgs.isSupportedBy(content)) {
-      router.go(AppRouteNames.shell);
-      _shareReentryCoordinator.markFallback(
-        message: '分享链接里的 activity 不受支持，已停留在首页安全入口。',
-      );
-      return;
-    }
-
+    // A valid route identity may refer to a newly published remote-only
+    // preset. The central practice route owns catalog/generation validation;
+    // bundled seed membership must not reject it before that gate runs.
     router.push(AppRouteNames.practice, extra: practiceArgs.normalized());
     _shareReentryCoordinator.markHandled(args: practiceArgs);
   }
@@ -173,6 +209,13 @@ class AppReentryOrchestrator {
   }
 
   Future<void> _drainPendingInviteReentryInternal() async {
+    _observeInviteAuthentication();
+    if (_inviteReentryCoordinator.pendingTarget ==
+            InviteReentryDispatchTarget.acceptInvite &&
+        !_isInviteAuthenticationReady()) {
+      _inviteReentryCoordinator.markAwaitingAuthentication();
+      return;
+    }
     final destination = _launchDestinationProvider();
     final router = _goRouterProvider();
     if (!_mountedCheck() || destination == null || router == null) {
@@ -224,15 +267,9 @@ class AppReentryOrchestrator {
       return;
     }
 
-    final content = _seedContentProvider();
-    if (content == null || !practiceArgs.isSupportedBy(content)) {
-      router.go(AppRouteNames.shell);
-      _inviteReentryCoordinator.markFallback(
-        message: '邀请返回的 activity 不受支持，已停留在首页安全入口。',
-      );
-      return;
-    }
-
+    // Household responses can point at a published scene absent from the
+    // bundled seed. Let central practice routing decide whether generation or
+    // a local fallback is possible.
     final continuityNotifier = _continuityNotifierLookup();
     if (continuityNotifier != null) {
       await continuityNotifier.configureStarterArgs(
@@ -249,8 +286,35 @@ class AppReentryOrchestrator {
     _inviteReentryCoordinator.markHandled(args: practiceArgs);
   }
 
+  void _observeInviteAuthentication() {
+    final next = _inviteAuthenticationNotifierLookup?.call();
+    if (identical(next, _inviteAuthenticationNotifier)) {
+      return;
+    }
+    _inviteAuthenticationNotifier?.removeListener(
+      _onInviteAuthenticationChanged,
+    );
+    _inviteAuthenticationNotifier = next;
+    next?.addListener(_onInviteAuthenticationChanged);
+  }
+
+  void _onInviteAuthenticationChanged() {
+    if (_isInviteAuthenticationReady() &&
+        _inviteReentryCoordinator.pendingTarget ==
+            InviteReentryDispatchTarget.acceptInvite) {
+      unawaited(drainPendingInviteReentry());
+    }
+  }
+
   /// 释放 URI 订阅资源。
   void dispose() {
+    _disposed = true;
+    _shareUriConfigurationGeneration++;
     unawaited(_shareUriSubscription?.cancel() ?? Future<void>.value());
+    _shareUriSubscription = null;
+    _inviteAuthenticationNotifier?.removeListener(
+      _onInviteAuthenticationChanged,
+    );
+    _inviteAuthenticationNotifier = null;
   }
 }

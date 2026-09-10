@@ -38,9 +38,7 @@ class _AppScaleButtonState extends State<AppScaleButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: widget.scaleDown,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override

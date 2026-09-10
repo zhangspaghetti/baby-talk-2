@@ -105,12 +105,27 @@ class _GardenFertilizerPanelState extends ConsumerState<GardenFertilizerPanel> {
               notifier.apply();
             },
           ),
+          if (view.errorMessage != null) ...[
+            const SizedBox(height: AppLayoutConstants.spacingSm),
+            Text(
+              view.errorMessage!,
+              key: const Key('garden-fertilizer-error'),
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+            ),
+            if (view.canRetry)
+              TextButton(
+                key: const Key('garden-fertilizer-retry-button'),
+                onPressed: () {
+                  AppHaptics.lightTap();
+                  notifier.retryLastOperation();
+                },
+                child: const Text('重试'),
+              ),
+          ],
           if (view.isEmpty)
             Padding(
               key: const Key('garden-fertilizer-empty'),
-              padding: const EdgeInsets.only(
-                top: AppLayoutConstants.spacingMd,
-              ),
+              padding: const EdgeInsets.only(top: AppLayoutConstants.spacingMd),
               child: Text(
                 '还没有肥料，去说一句英文吧。',
                 style: TextStyle(color: colors.textMuted, fontSize: 14),

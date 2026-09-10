@@ -15,7 +15,12 @@ void main() {
       'REFACTOR-006: authenticated chat 写入 Bearer Authorization header',
       () async {
         final adapter = _RecordingDioAdapter();
-        final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080'));
+        final dio = Dio(
+          BaseOptions(
+            baseUrl: 'http://localhost:8080',
+            validateStatus: (status) => true,
+          ),
+        );
         dio.httpClientAdapter = adapter;
         final accountApiService = _NoRefreshAccountApiService();
         final service = MentorApiService(
@@ -49,6 +54,53 @@ void main() {
         );
       },
     );
+
+    test(
+      '401 refreshes once, persists session, then retries authenticated chat',
+      () async {
+        final adapter = _UnauthorizedThenSuccessDioAdapter();
+        final dio = Dio(
+          BaseOptions(
+            baseUrl: 'http://localhost:8080',
+            validateStatus: (status) => true,
+          ),
+        );
+        dio.httpClientAdapter = adapter;
+        final accountApiService = _RefreshingAccountApiService();
+        final service = MentorApiService(
+          dio: dio,
+          authenticatedApiClient: AuthenticatedApiClient(
+            apiService: accountApiService,
+          ),
+        );
+        AccountSession? persisted;
+
+        await service.sendChat(
+          installationId: 'install_test',
+          prompt: '宝宝一直哭，我现在该怎么说？',
+          surface: 'home',
+          mode: 'single_turn',
+          correlationId: 'corr_refresh',
+          session: _jwtSession(),
+          persistRefreshedSession: (session) async {
+            persisted = session;
+            return session;
+          },
+        );
+
+        expect(accountApiService.refreshCallCount, 1);
+        expect(persisted?.accessToken, 'access-refreshed');
+        expect(adapter.requests, hasLength(2));
+        expect(
+          adapter.requests[0].headers[authorizationHeaderName],
+          'Bearer access-live',
+        );
+        expect(
+          adapter.requests[1].headers[authorizationHeaderName],
+          'Bearer access-refreshed',
+        );
+      },
+    );
   });
 }
 
@@ -77,6 +129,34 @@ class _NoRefreshAccountApiService extends AccountApiService {
   }) async {
     refreshCallCount += 1;
     throw StateError('refresh should not be called by this characterization');
+  }
+
+  @override
+  Future<void> close() async {}
+}
+
+class _RefreshingAccountApiService extends AccountApiService {
+  _RefreshingAccountApiService() : super();
+
+  int refreshCallCount = 0;
+
+  @override
+  Future<AccountSessionResponse> refreshSession({
+    required String refreshToken,
+  }) async {
+    refreshCallCount += 1;
+    return AccountSessionResponse(
+      accountId: 'account_auth',
+      sessionId: 'session_auth',
+      maskedPhoneNumber: '138****1234',
+      createdAt: DateTime.utc(2026, 4, 10, 8),
+      consentStatus: 'accepted',
+      accessToken: 'access-refreshed',
+      refreshToken: 'refresh-refreshed',
+      tokenType: 'Bearer',
+      accessTokenExpiresAt: DateTime.utc(2026, 4, 10, 9),
+      refreshTokenExpiresAt: DateTime.utc(2026, 4, 17, 8),
+    );
   }
 
   @override
@@ -124,6 +204,56 @@ class _RecordingDioAdapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+class _UnauthorizedThenSuccessDioAdapter extends _RecordingDioAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(
+      _RecordedDioRequest(
+        path: options.path,
+        headers: Map<String, Object?>.from(options.headers),
+      ),
+    );
+    if (requests.length == 1) {
+      return ResponseBody.fromString(
+        jsonEncode(<String, Object?>{
+          'code': 'invalid_session',
+          'message': 'access token expired',
+        }),
+        401,
+        headers: <String, List<String>>{
+          Headers.contentTypeHeader: <String>[Headers.jsonContentType],
+        },
+      );
+    }
+    return ResponseBody.fromString(
+      jsonEncode(<String, Object?>{
+        'correlationId': 'corr_refresh',
+        'responseText': '先抱近一点。',
+        'code': 'ok',
+        'phase': 'response_delivered',
+        'retryable': false,
+        'fallbackUsed': false,
+        'authenticated': true,
+        'rateLimit': <String, Object?>{
+          'limited': false,
+          'limit': 3,
+          'remaining': 2,
+          'windowSeconds': 600,
+        },
+        'respondedAt': DateTime.utc(2026, 4, 10, 0).toIso8601String(),
+      }),
+      200,
+      headers: <String, List<String>>{
+        Headers.contentTypeHeader: <String>[Headers.jsonContentType],
+      },
+    );
+  }
 }
 
 class _RecordedDioRequest {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/growth/data/models/growth_insights_payload.dart';
 import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
@@ -81,6 +82,7 @@ void main() {
         apiService: _FakeApiService(),
         prefs: _FakePrefs(),
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -97,6 +99,7 @@ void main() {
         apiService: api,
         prefs: _FakePrefs(),
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -132,6 +135,7 @@ void main() {
         apiService: api,
         prefs: _FakePrefs(),
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -158,6 +162,7 @@ void main() {
         apiService: api,
         prefs: _FakePrefs(),
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -177,18 +182,19 @@ void main() {
         apiService: api,
         prefs: prefs,
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
       await notifier.initialize();
 
       // Verify cache keys exist.
-      expect(prefs.getString('growth_insights_reaction_v2_week'), isNotNull);
-      expect(prefs.getString('growth_insights_reaction_v2_month'), isNotNull);
-      expect(prefs.getString('growth_insights_reaction_v2_year'), isNotNull);
+      expect(prefs.getString(_scopedCacheKey('week')), isNotNull);
+      expect(prefs.getString(_scopedCacheKey('month')), isNotNull);
+      expect(prefs.getString(_scopedCacheKey('year')), isNotNull);
 
       // Verify cache contains valid JSON with cachedAt.
-      final raw = prefs.getString('growth_insights_reaction_v2_week')!;
+      final raw = prefs.getString(_scopedCacheKey('week'))!;
       final json = jsonDecode(raw) as Map<String, dynamic>;
       expect(json['cachedAt'], isNotNull);
       expect(json['payload'], isA<Map<String, dynamic>>());
@@ -198,7 +204,7 @@ void main() {
       final prefs = _FakePrefs();
       // Pre-populate cache.
       await prefs.setString(
-        'growth_insights_reaction_v2_week',
+        _scopedCacheKey('week'),
         jsonEncode({
           'cachedAt': DateTime.now().toUtc().toIso8601String(),
           'payload': {
@@ -230,6 +236,7 @@ void main() {
         apiService: api,
         prefs: prefs,
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -248,7 +255,7 @@ void main() {
       final prefs = _FakePrefs();
       // Pre-populate cache.
       await prefs.setString(
-        'growth_insights_reaction_v2_week',
+        _scopedCacheKey('week'),
         jsonEncode({
           'cachedAt': DateTime.now().toUtc().toIso8601String(),
           'payload': {
@@ -280,6 +287,7 @@ void main() {
         apiService: api,
         prefs: prefs,
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -297,6 +305,7 @@ void main() {
         apiService: api,
         prefs: _FakePrefs(),
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -313,6 +322,7 @@ void main() {
         apiService: _FakeApiService(),
         prefs: _FakePrefs(),
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -328,6 +338,7 @@ void main() {
         apiService: _FakeApiService(),
         prefs: _FakePrefs(),
         now: fixedNow,
+        accountContext: 'test-account',
       );
       addTearDown(notifier.dispose);
 
@@ -345,6 +356,11 @@ void main() {
       expect(year.bars[0].label, '5'); // May
     });
   });
+}
+
+String _scopedCacheKey(String period) {
+  final fingerprint = sha256.convert(utf8.encode('test-account'));
+  return 'growth_insights_reaction_v2_${fingerprint}_$period';
 }
 
 class _FakeApiService implements GrowthInsightsApiService {

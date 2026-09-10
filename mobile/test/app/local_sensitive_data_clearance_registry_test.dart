@@ -9,7 +9,14 @@ import 'package:mobile/app/local_sensitive_data_clearance_registry.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
+import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
+import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/household/data/local/household_local_store.dart';
 import 'package:mobile/features/household/data/repositories/household_repository.dart';
 import 'package:mobile/features/household/data/services/household_api_service.dart';
@@ -22,9 +29,16 @@ import 'package:mobile/features/onboarding/data/repositories/onboarding_reposito
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
+import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
+import 'package:mobile/features/settings/data/local/settings_local_data_source.dart';
 import '../support/isar_test_library.dart';
 
 void main() {
@@ -57,6 +71,16 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
+          customSceneDraftContinuationCoordinator:
+              harness.customSceneDraftContinuationCoordinator,
+          generatedPracticeContentRegistry:
+              harness.generatedPracticeContentRegistry,
+          presetSceneCatalogStore: harness.presetSceneCatalogStore,
+          generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          settingsLocalDataSource: harness.settingsLocalDataSource,
+          onboardingCareTurnContinuationClearance:
+              harness.clearOnboardingCareTurnContinuation,
         );
 
         expect(
@@ -79,6 +103,16 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
+          customSceneDraftContinuationCoordinator:
+              harness.customSceneDraftContinuationCoordinator,
+          generatedPracticeContentRegistry:
+              harness.generatedPracticeContentRegistry,
+          presetSceneCatalogStore: harness.presetSceneCatalogStore,
+          generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          settingsLocalDataSource: harness.settingsLocalDataSource,
+          onboardingCareTurnContinuationClearance:
+              harness.clearOnboardingCareTurnContinuation,
         );
 
         final report = await orchestrator.clear(
@@ -98,7 +132,18 @@ void main() {
           LocalSensitiveDataClearanceOverallStatus.rejectedByGovernance,
         );
         expect(await harness.accountSnapshotIsStored(), isTrue);
+        expect(
+          await harness.settingsLocalDataSource.readSnapshotJson(),
+          isNotNull,
+        );
         expect(await harness.onboardingSnapshotStore.read(), isNotNull);
+        expect(await harness.legacyOnboardingFlowFile.exists(), isTrue);
+        expect(
+          File(
+            '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
+          ).existsSync(),
+          isTrue,
+        );
         expect((await harness.householdLocalStore.read()).householdId, 'hh_1');
         expect(
           (await harness.practiceRepository.inspectEventLog()).storedEventCount,
@@ -112,6 +157,26 @@ void main() {
           await harness.installationIdService.readExisting(),
           'install_lifecycle',
         );
+        expect(
+          await harness.customSceneDraftStore.read(
+            now: DateTime.utc(2026, 5, 20, 10),
+          ),
+          isNotNull,
+        );
+        expect(
+          await harness.generatedPracticeContentRegistry
+              .resolveGeneratedContent(
+                generatedContentId: 'lifecycle_generated_content',
+              ),
+          isNotNull,
+        );
+        expect(
+          await harness.generatedCareTurnResumeMarkerStore.readForAccount(
+            'lifecycle_account',
+          ),
+          isNotNull,
+        );
+        expect(harness.generatedAudioMemoryCache.entryCount, 1);
       },
     );
 
@@ -124,6 +189,16 @@ void main() {
           householdRepository: harness.householdRepository,
           practiceRepository: harness.practiceRepository,
           mentorRepository: harness.mentorRepository,
+          authContinuationCoordinator: harness.authContinuationCoordinator,
+          customSceneDraftContinuationCoordinator:
+              harness.customSceneDraftContinuationCoordinator,
+          generatedPracticeContentRegistry:
+              harness.generatedPracticeContentRegistry,
+          presetSceneCatalogStore: harness.presetSceneCatalogStore,
+          generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+          settingsLocalDataSource: harness.settingsLocalDataSource,
+          onboardingCareTurnContinuationClearance:
+              harness.clearOnboardingCareTurnContinuation,
         );
 
         final report = await orchestrator.clear(
@@ -151,8 +226,52 @@ void main() {
             LocalSensitiveDataTargetStatus.attemptedAndSucceeded,
           },
         );
+        expect(harness.onboardingCareTurnContinuationClearCount, 1);
         expect(await harness.accountSnapshotIsStored(), isFalse);
+        expect(
+          await harness.settingsLocalDataSource.readSnapshotJson(),
+          isNull,
+        );
         expect(await harness.onboardingSnapshotStore.read(), isNull);
+        expect(await harness.legacyOnboardingFlowFile.exists(), isFalse);
+        expect(
+          File('${harness.tempDir.path}/auth_continuation.json').existsSync(),
+          isFalse,
+        );
+        expect(
+          await harness.customSceneDraftStore.read(
+            now: DateTime.utc(2026, 5, 20, 10),
+          ),
+          isNull,
+        );
+        expect(
+          await harness.generatedPracticeContentRegistry
+              .resolveGeneratedContent(
+                generatedContentId: 'lifecycle_generated_content',
+              ),
+          isNull,
+        );
+        expect(
+          await harness.generatedCareTurnResumeMarkerStore.readForAccount(
+            'lifecycle_account',
+          ),
+          isNull,
+        );
+        expect(
+          await harness.presetSceneCatalogStore.readResult(),
+          isA<PresetSceneCatalogStoreReadResult>().having(
+            (result) => result.status,
+            'status',
+            PresetSceneCatalogStoreReadStatus.notFound,
+          ),
+        );
+        expect(harness.generatedAudioMemoryCache.entryCount, 0);
+        expect(
+          File(
+            '${harness.tempDir.path}/onboarding_flow_snapshot.json.tmp',
+          ).existsSync(),
+          isFalse,
+        );
         expect(
           await harness.householdLocalStore.read(),
           HouseholdLocalSnapshot.empty,
@@ -162,6 +281,94 @@ void main() {
         expect(await harness.installationIdService.readExisting(), isNull);
       },
     );
+
+    test('logout clears every account-scoped policy target', () async {
+      final orchestrator = createLocalSensitiveDataClearanceOrchestrator(
+        accountRepository: harness.accountRepository,
+        onboardingRepository: harness.onboardingRepository,
+        householdRepository: harness.householdRepository,
+        practiceRepository: harness.practiceRepository,
+        mentorRepository: harness.mentorRepository,
+        authContinuationCoordinator: harness.authContinuationCoordinator,
+        customSceneDraftContinuationCoordinator:
+            harness.customSceneDraftContinuationCoordinator,
+        generatedPracticeContentRegistry:
+            harness.generatedPracticeContentRegistry,
+        presetSceneCatalogStore: harness.presetSceneCatalogStore,
+        generatedAudioMemoryCache: harness.generatedAudioMemoryCache,
+        settingsLocalDataSource: harness.settingsLocalDataSource,
+        onboardingCareTurnContinuationClearance:
+            harness.clearOnboardingCareTurnContinuation,
+      );
+
+      final report = await orchestrator.clear(
+        LocalSensitiveDataClearanceRequest(
+          trigger: LocalSensitiveDataClearanceTrigger.logoutSessionOnly,
+          authorization: const ReportOnlyAuthorization(
+            reason: 'synthetic logout test',
+          ),
+          correlationId: 'synthetic-logout-clearance',
+          requestedAt: DateTime.utc(2026, 5, 20, 10),
+        ),
+      );
+
+      const clearedTargets = <LocalSensitiveDataTarget>{
+        LocalSensitiveDataTarget.accountLocalSnapshot,
+        LocalSensitiveDataTarget.authContinuation,
+        LocalSensitiveDataTarget.customSceneDraft,
+        LocalSensitiveDataTarget.generatedCareMoments,
+        LocalSensitiveDataTarget.generatedAudioMemory,
+      };
+      expect(
+        report.overallStatus,
+        LocalSensitiveDataClearanceOverallStatus.completed,
+      );
+      expect(
+        report.results
+            .where(
+              (result) =>
+                  result.status ==
+                  LocalSensitiveDataTargetStatus.attemptedAndSucceeded,
+            )
+            .map((result) => result.target)
+            .toSet(),
+        clearedTargets,
+      );
+      expect(await harness.accountSnapshotIsStored(), isFalse);
+      // Session-only logout deliberately retains the local profile and
+      // reminder preferences; device erase/account deletion clear them.
+      expect(
+        await harness.settingsLocalDataSource.readSnapshotJson(),
+        isNotNull,
+      );
+      expect(
+        File('${harness.tempDir.path}/auth_continuation.json').existsSync(),
+        isFalse,
+      );
+      expect(
+        await harness.customSceneDraftStore.read(
+          now: DateTime.utc(2026, 5, 20, 10),
+        ),
+        isNull,
+      );
+      expect(
+        await harness.generatedPracticeContentRegistry.resolveGeneratedContent(
+          generatedContentId: 'lifecycle_generated_content',
+        ),
+        isNull,
+      );
+      expect(harness.generatedAudioMemoryCache.entryCount, 0);
+      expect(
+        await harness.generatedCareTurnResumeMarkerStore.readForAccount(
+          'lifecycle_account',
+        ),
+        isNull,
+      );
+      expect(
+        (await harness.presetSceneCatalogStore.readResult()).status,
+        PresetSceneCatalogStoreReadStatus.available,
+      );
+    });
   });
 }
 
@@ -170,9 +377,18 @@ class _LifecycleHarness {
     required this.tempDir,
     required this.practiceDbName,
     required this.mentorDbName,
+    required this.settingsDbName,
     required this.secureStorage,
     required this.accountLocalStore,
     required this.onboardingSnapshotStore,
+    required this.legacyOnboardingFlowFile,
+    required this.authContinuationCoordinator,
+    required this.customSceneDraftStore,
+    required this.customSceneDraftContinuationCoordinator,
+    required this.generatedPracticeContentRegistry,
+    required this.generatedCareTurnResumeMarkerStore,
+    required this.presetSceneCatalogStore,
+    required this.generatedAudioMemoryCache,
     required this.householdLocalStore,
     required this.installationIdService,
     required this.practiceRepository,
@@ -180,14 +396,25 @@ class _LifecycleHarness {
     required this.accountRepository,
     required this.householdRepository,
     required this.mentorRepository,
+    required this.settingsLocalDataSource,
   });
 
   final Directory tempDir;
   final String practiceDbName;
   final String mentorDbName;
+  final String settingsDbName;
   final _InMemorySecureStorage secureStorage;
   final AccountLocalStore accountLocalStore;
   final OnboardingSnapshotStore onboardingSnapshotStore;
+  final File legacyOnboardingFlowFile;
+  final AuthContinuationCoordinator authContinuationCoordinator;
+  final CustomSceneDraftStore customSceneDraftStore;
+  final CustomSceneDraftContinuationCoordinator
+  customSceneDraftContinuationCoordinator;
+  final GeneratedPracticeContentRegistry generatedPracticeContentRegistry;
+  final GeneratedCareTurnResumeMarkerStore generatedCareTurnResumeMarkerStore;
+  final PresetSceneCatalogStore presetSceneCatalogStore;
+  final GeneratedAudioMemoryCache generatedAudioMemoryCache;
   final HouseholdLocalStore householdLocalStore;
   final InstallationIdService installationIdService;
   final PracticeRepository practiceRepository;
@@ -195,6 +422,12 @@ class _LifecycleHarness {
   final AccountRepository accountRepository;
   final HouseholdRepository householdRepository;
   final MentorRepository mentorRepository;
+  final SettingsLocalDataSource settingsLocalDataSource;
+  int onboardingCareTurnContinuationClearCount = 0;
+
+  Future<void> clearOnboardingCareTurnContinuation() async {
+    onboardingCareTurnContinuationClearCount += 1;
+  }
 
   static Future<_LifecycleHarness> create() async {
     final tempDir = await Directory.systemTemp.createTemp(
@@ -202,6 +435,7 @@ class _LifecycleHarness {
     );
     final practiceDbName = 'practice_${DateTime.now().microsecondsSinceEpoch}';
     final mentorDbName = 'mentor_${DateTime.now().microsecondsSinceEpoch}';
+    final settingsDbName = 'settings_${DateTime.now().microsecondsSinceEpoch}';
     final installationIdService = InstallationIdService(
       directoryResolver: () async => tempDir,
       idGenerator: () => 'install_lifecycle',
@@ -217,11 +451,48 @@ class _LifecycleHarness {
     final onboardingSnapshotStore = OnboardingSnapshotStore(
       directoryResolver: () async => tempDir,
     );
+    final legacyOnboardingFlowFile = File(
+      '${tempDir.path}${Platform.pathSeparator}onboarding_flow_snapshot.json',
+    );
+    final authContinuationStore = AuthContinuationStore(
+      directoryResolver: () async => tempDir,
+    );
+    final authContinuationCoordinator = AuthContinuationCoordinator(
+      store: authContinuationStore,
+      clock: () => DateTime.utc(2026, 5, 20, 10),
+      correlationIdGenerator: () => 'lifecycle_auth_continuation',
+    );
+    final customSceneDraftStore = CustomSceneDraftStore(
+      directoryResolver: () async => tempDir,
+    );
+    final customSceneDraftContinuationCoordinator =
+        CustomSceneDraftContinuationCoordinator(
+          draftStore: customSceneDraftStore,
+          authContinuationCoordinator: authContinuationCoordinator,
+          clock: () => DateTime.utc(2026, 5, 20, 10),
+          draftIdGenerator: () => 'lifecycle_custom_scene_draft',
+        );
+    final generatedCareTurnResumeMarkerStore =
+        GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        );
+    final presetSceneCatalogStore = PresetSceneCatalogStore(
+      directoryResolver: () async => tempDir,
+    );
+    final generatedPracticeContentRegistry = GeneratedPracticeContentRegistry(
+      store: GeneratedCareMomentLocalStore(
+        directoryResolver: () async => tempDir,
+      ),
+      resumeStore: generatedCareTurnResumeMarkerStore,
+      accountContextLoader: () async => 'lifecycle_account',
+    );
+    final generatedAudioMemoryCache = GeneratedAudioMemoryCache();
     final onboardingRepository = OnboardingRepository(
       snapshotStore: onboardingSnapshotStore,
-      practiceRepository: practiceRepository,
-      starterSpaceId: 'daily_care',
-      starterActivityId: 'bath_time',
+    );
+    final settingsLocalDataSource = await SettingsLocalDataSource.open(
+      directory: tempDir.path,
+      name: settingsDbName,
     );
     final secureStorage = _InMemorySecureStorage();
     final accountLocalStore = AccountLocalStore(
@@ -254,9 +525,19 @@ class _LifecycleHarness {
       tempDir: tempDir,
       practiceDbName: practiceDbName,
       mentorDbName: mentorDbName,
+      settingsDbName: settingsDbName,
       secureStorage: secureStorage,
       accountLocalStore: accountLocalStore,
       onboardingSnapshotStore: onboardingSnapshotStore,
+      legacyOnboardingFlowFile: legacyOnboardingFlowFile,
+      authContinuationCoordinator: authContinuationCoordinator,
+      customSceneDraftStore: customSceneDraftStore,
+      customSceneDraftContinuationCoordinator:
+          customSceneDraftContinuationCoordinator,
+      generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+      generatedCareTurnResumeMarkerStore: generatedCareTurnResumeMarkerStore,
+      presetSceneCatalogStore: presetSceneCatalogStore,
+      generatedAudioMemoryCache: generatedAudioMemoryCache,
       householdLocalStore: householdLocalStore,
       installationIdService: installationIdService,
       practiceRepository: practiceRepository,
@@ -264,12 +545,67 @@ class _LifecycleHarness {
       accountRepository: accountRepository,
       householdRepository: householdRepository,
       mentorRepository: mentorRepository,
+      settingsLocalDataSource: settingsLocalDataSource,
     );
   }
 
   Future<void> seedSensitiveData() async {
     await accountLocalStore.write(AccountLocalSnapshot.localOnly);
+    await settingsLocalDataSource.writeSnapshotJson(
+      '{"childName":"米米","childAgeMonths":15,"reminderEnabled":true,"reminderHour":8,"reminderMinute":30}',
+      version: 1,
+    );
     await onboardingSnapshotStore.write(_completedSnapshot());
+    await legacyOnboardingFlowFile.writeAsString(
+      '{"schemaVersion":1,"step":"age"}',
+      flush: true,
+    );
+    await authContinuationCoordinator.beginSaveOnboardingMemory();
+    await customSceneDraftStore.write(
+      CustomSceneStoredDraft(
+        draftId: 'lifecycle_custom_scene_draft',
+        text: '晚饭后读绘本',
+        entrySource: CustomSceneEntrySource.today,
+        requestIdentity: CustomSceneRequestIdentity(
+          clientRequestId: 'lifecycle_custom_scene_request',
+        ),
+        state: CustomSceneStoredDraftState.editing,
+        createdAt: DateTime.utc(2026, 5, 20, 10),
+        expiresAt: DateTime.utc(2026, 5, 20, 10, 15),
+      ),
+    );
+    await generatedPracticeContentRegistry.register(
+      accountContext: 'lifecycle_account',
+      moment: _generatedLifecycleMoment(),
+    );
+    await generatedCareTurnResumeMarkerStore.write(
+      accountContext: 'lifecycle_account',
+      generatedContentId: 'lifecycle_generated_content',
+      confirmedAt: DateTime.utc(2026, 5, 20, 10),
+    );
+    await presetSceneCatalogStore.write(
+      PresetSceneCatalogSnapshot(
+        source: PresetSceneCatalogSource.remote,
+        scenes: <PresetSceneDefinition>[],
+      ),
+    );
+    await generatedAudioMemoryCache.getOrLoad(
+      GeneratedAudioCacheKey(
+        accountId: 'lifecycle_account',
+        generatedContentId: 'lifecycle_generated_content',
+        utteranceId: 'lifecycle_utterance_starter',
+        voiceVersion: 'generated-tts-v1',
+        format: 'mp3',
+      ),
+      () async => GeneratedAudioPayload(
+        bytes: Uint8List.fromList(<int>[1]),
+        mimeType: 'audio/mpeg',
+        voiceVersion: 'generated-tts-v1',
+      ),
+    );
+    await File(
+      '${tempDir.path}/onboarding_flow_snapshot.json.tmp',
+    ).writeAsString('orphan');
     await householdLocalStore.write(
       const HouseholdLocalSnapshot(
         householdId: 'hh_1',
@@ -322,6 +658,7 @@ class _LifecycleHarness {
   }
 
   Future<void> dispose() async {
+    await settingsLocalDataSource.close(deleteFromDisk: true);
     await accountRepository.close();
     await householdRepository.close();
     await mentorRepository.close(deleteFromDisk: true);
@@ -332,10 +669,68 @@ class _LifecycleHarness {
   }
 }
 
+GeneratedCareMoment _generatedLifecycleMoment() {
+  GeneratedCareUtterance utterance(
+    String suffix, {
+    required GeneratedCareUtteranceRole role,
+    required BabyReactionType? reaction,
+    required int displayOrder,
+  }) => GeneratedCareUtterance(
+    utteranceId: 'lifecycle_utterance_$suffix',
+    phraseId: 'lifecycle_phrase_$suffix',
+    english: 'Warm water',
+    chinese: '温水来了',
+    pronunciation: 'wɔːm',
+    tprActionZh: '靠近宝宝',
+    deliveryGuidanceZh: '慢慢说',
+    difficulty: 'starter',
+    source: 'generated',
+    role: role,
+    reaction: reaction,
+    displayOrder: displayOrder,
+    providerProvenance: GeneratedCareProviderProvenance(
+      origin: GeneratedCareProviderOrigin.providerGenerated,
+      providerName: 'provider',
+      modelName: 'model',
+      attemptNumber: 1,
+    ),
+  );
+
+  return GeneratedCareMoment(
+    schemaVersion: generatedCareMomentSchemaVersion,
+    generatedContentId: 'lifecycle_generated_content',
+    sceneId: 'lifecycle_scene',
+    spaceId: 'lifecycle_space',
+    momentId: 'lifecycle_moment',
+    activityId: 'lifecycle_activity',
+    title: '洗澡',
+    sceneTag: 'bath',
+    coachTip: '慢慢来',
+    source: 'generated',
+    inputSource: SceneGenerationSourceType.custom,
+    starter: utterance(
+      'starter',
+      role: GeneratedCareUtteranceRole.starter,
+      reaction: null,
+      displayOrder: 1,
+    ),
+    reactionSupports:
+        GeneratedReactionSupportMap(<BabyReactionType, GeneratedCareUtterance>{
+          for (final reaction in BabyReactionType.values)
+            reaction: utterance(
+              reaction.name,
+              role: GeneratedCareUtteranceRole.reactionSupport,
+              reaction: reaction,
+              displayOrder: BabyReactionType.values.indexOf(reaction) + 2,
+            ),
+        }),
+  );
+}
+
 OnboardingSnapshot _completedSnapshot() {
   return OnboardingSnapshot(
     childDisplayName: '米米',
-    ageBucket: OnboardingAgeBucket.twelveToEighteen,
+    ageBucket: OnboardingAgeBucket.oneToTwo,
     approxMonths: 15,
     currentStage: 'gesture_plus_words',
     starterSpaceId: 'daily_care',
@@ -345,7 +740,6 @@ OnboardingSnapshot _completedSnapshot() {
     completedAt: DateTime.utc(2026, 5, 20, 10),
   );
 }
-
 
 class _InMemorySecureStorage extends FlutterSecureStorage {
   _InMemorySecureStorage();

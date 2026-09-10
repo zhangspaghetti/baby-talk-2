@@ -1,42 +1,11 @@
 import 'package:mobile/features/onboarding/data/local/onboarding_snapshot_store.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
-import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
-import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
-
-class OnboardingStarterSeed {
-  const OnboardingStarterSeed({
-    required this.spaceId,
-    required this.activityId,
-    required this.phraseId,
-    required this.phraseEnglish,
-    required this.phraseChinese,
-    required this.audioAsset,
-  });
-
-  final String spaceId;
-  final String activityId;
-  final String phraseId;
-  final String phraseEnglish;
-  final String phraseChinese;
-  final String audioAsset;
-
-  String get audioAssetSource =>
-      audioAsset.startsWith('assets/') ? audioAsset.substring(7) : audioAsset;
-}
 
 class OnboardingRepository {
-  OnboardingRepository({
-    required OnboardingSnapshotStore snapshotStore,
-    required PracticeRepository practiceRepository,
-    required this.starterSpaceId,
-    required this.starterActivityId,
-  }) : _snapshotStore = snapshotStore,
-       _practiceRepository = practiceRepository;
+  OnboardingRepository({required OnboardingSnapshotStore snapshotStore})
+    : _snapshotStore = snapshotStore;
 
   final OnboardingSnapshotStore _snapshotStore;
-  final PracticeRepository _practiceRepository;
-  final String starterSpaceId;
-  final String starterActivityId;
 
   Future<OnboardingSnapshot?> readSnapshot() async {
     try {
@@ -55,62 +24,9 @@ class OnboardingRepository {
     return snapshot;
   }
 
-  Future<OnboardingStarterSeed> resolveStarterSeed() async {
-    final activitySnapshot = await _practiceRepository.getActivitySnapshot(
-      spaceId: starterSpaceId,
-      activityId: starterActivityId,
-    );
-    if (activitySnapshot.phrases.isEmpty) {
-      throw const FormatException('第一句内容不可用：活动缺少可用短语。');
-    }
-
-    final starterPhrase = activitySnapshot.phrases.first;
-    if (starterPhrase.phraseId.trim().isEmpty ||
-        starterPhrase.english.trim().isEmpty) {
-      throw const FormatException('第一句内容不可用：短语缺失关键字段。');
-    }
-
-    return OnboardingStarterSeed(
-      spaceId: activitySnapshot.spaceId,
-      activityId: activitySnapshot.activityId,
-      phraseId: starterPhrase.phraseId,
-      phraseEnglish: starterPhrase.english,
-      phraseChinese: starterPhrase.chinese,
-      audioAsset: starterPhrase.audioAsset,
-    );
-  }
+  Future<void> clearAllLocalState() => _snapshotStore.deleteAllArtifacts();
 
   Future<OnboardingSnapshot> saveSnapshot(OnboardingSnapshot snapshot) async {
-    await _snapshotStore.write(snapshot);
-    return snapshot;
-  }
-
-  Future<OnboardingSnapshot> completeOnboarding({
-    required String childDisplayName,
-    required OnboardingAgeBucket ageBucket,
-    OnboardingConsentState consentState = OnboardingConsentState.localOnly,
-    DateTime? birthDate,
-    DateTime? completedAt,
-  }) async {
-    final trimmedDisplayName = childDisplayName.trim();
-    if (trimmedDisplayName.isEmpty) {
-      throw const FormatException('宝宝昵称不能为空。');
-    }
-
-    final stageMatch = StageMatchCatalog.forAgeBucket(ageBucket);
-    final starterSeed = await resolveStarterSeed();
-    final snapshot = OnboardingSnapshot(
-      childDisplayName: trimmedDisplayName,
-      ageBucket: ageBucket,
-      approxMonths: stageMatch.approxMonths,
-      currentStage: stageMatch.stageId,
-      starterSpaceId: starterSeed.spaceId,
-      starterActivityId: starterSeed.activityId,
-      starterPhraseId: starterSeed.phraseId,
-      completedAt: (completedAt ?? DateTime.now()).toUtc(),
-      consentState: consentState,
-      birthDate: birthDate?.toUtc(),
-    );
     await _snapshotStore.write(snapshot);
     return snapshot;
   }

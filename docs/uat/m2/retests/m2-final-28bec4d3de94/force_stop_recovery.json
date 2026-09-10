@@ -1,0 +1,39 @@
+{
+  "schema_version": "m2_android_uat_v1",
+  "record_id": "uat_force_stop_recovery_28bec4d3_20260802",
+  "case_id": "force_stop_recovery",
+  "canonical_scene": "bath",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-08-02T09:29:45+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate": {
+    "mobile_source_sha": "28bec4d3de94e04f1cbcba1a792bf0541069acd3",
+    "mobile_apk_sha256": "02e36b11b50128589127d5b38afdf737f20baabd20800449e45b0043a27a121a",
+    "backend_source_sha": "28bec4d3de94e04f1cbcba1a792bf0541069acd3",
+    "backend_artifact_identity": "image_sha256:19b56bf40b3ce5f9e907171f4f41a31a1e7835110b645c7d221d6761893e4cf6",
+    "environment_identity": "sanitized-qa-kind-rev39",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:cc7090d9aea273746c3cc6656434891482bf1cf1464e663bc6d222b4d7dcfae3",
+    "configuration_fingerprint": "sha256:ce0f7d8ebc5d7d2219a6b74f9c0fadd83c1da7f0b7c56ba0f67bbc3d9cbe62b3"
+  },
+  "device": {"device_class": "pixel_9_pro_emulator", "android_version": "15", "talkback_version": "15.0.0"},
+  "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "authenticated_account_ready", "status": "PASS"},
+    {"id": "recoverable_generated_state_visible", "status": "BLOCKED"}
+  ],
+  "steps": [
+    {"index": 1, "action": "reach_recoverable_generated_state", "expected": "generated_state_visible", "actual": "reconciliation_failed_before_visible_state", "status": "BLOCKED"},
+    {"index": 2, "action": "force_stop_application", "expected": "application_stopped", "actual": "not_run", "status": "NOT_RUN"},
+    {"index": 3, "action": "restart_and_recover_state", "expected": "same_bundle_restored", "actual": "not_run", "status": "NOT_RUN"}
+  ],
+  "status": "FINAL",
+  "verdict": "BLOCKED",
+  "evidence_location": "reviewed://m2_40/m2_final_28bec4d3de94/force_stop_recovery",
+  "defects": [],
+  "retest_outcome": "NOT_REQUIRED",
+  "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+  "branch_reviews": []
+}

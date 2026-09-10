@@ -1,0 +1,40 @@
+{
+  "schema_version": "m2_android_uat_v1",
+  "record_id": "uat_all_reaction_audio_branches_4b856f22_20260802",
+  "case_id": "all_reaction_audio_branches",
+  "canonical_scene": "bath",
+  "executor": "role:codex_qa_operator",
+  "executed_at": "2026-08-02T13:08:11+08:00",
+  "timezone": "Asia/Shanghai",
+  "candidate": {
+    "mobile_source_sha": "4b856f22cefa9272da5646e4493950a5b3bd2aa7",
+    "mobile_apk_sha256": "479f1c74af500244cbec1d593dc23de289e31cfeb6806b1eef538fa8a211d188",
+    "backend_source_sha": "4b856f22cefa9272da5646e4493950a5b3bd2aa7",
+    "backend_artifact_identity": "image_sha256:941f6ebf8a78025ec4206346f49d9f05f4da153b7f91e9204bb4f60f49c940d5",
+    "environment_identity": "sanitized-qa-kind-rev42",
+    "provider_mode": "REAL",
+    "provider_profile": "qa-dashscope-qwen",
+    "provider_model_identity": "model_sha256:bb43a640f04c8e5504a8fbc8c6980455029f3e8fc1dedff10bcd04f94c4f4319",
+    "configuration_fingerprint": "sha256:9eae690e594a7e72a737aa647adad2b85f7da960bf67f105bbc8f1c29e82553f"
+  },
+  "device": {"device_class": "pixel_9_pro_emulator", "android_version": "15", "talkback_version": "15.0.0"},
+  "authenticity": {"execution": "HUMAN_ANDROID", "provider_path": "FORMAL_PRODUCTION", "llm_provider": "REAL", "tts_provider": "REAL"},
+  "prerequisites": [
+    {"id": "candidate_installed", "status": "PASS"},
+    {"id": "single_new_request_confirmed", "status": "PASS"},
+    {"id": "mobile_complete_bundle_visible", "status": "BLOCKED"}
+  ],
+  "steps": [
+    {"index": 1, "action": "open_complete_typed_bundle", "expected": "starter_and_five_reactions_visible", "actual": "database_overflow_terminal_prevented_bundle", "status": "BLOCKED"},
+    {"index": 2, "action": "review_all_six_branches", "expected": "all_branch_labels_and_content_reviewed", "actual": "not_run", "status": "NOT_RUN"},
+    {"index": 3, "action": "exercise_all_audio_controls", "expected": "real_audio_matches_each_branch", "actual": "not_run", "status": "NOT_RUN"},
+    {"index": 4, "action": "verify_garden_and_today_continuity", "expected": "new_bundle_continuity_visible", "actual": "new_bundle_not_created", "status": "BLOCKED"}
+  ],
+  "status": "FINAL",
+  "verdict": "BLOCKED",
+  "evidence_location": "reviewed://m2_40/m2_final_4b856f22cefa/all_reaction_audio_branches",
+  "defects": [],
+  "retest_outcome": "NOT_REQUIRED",
+  "privacy": {"raw_content_stored": false, "raw_evidence_stored": false, "sensitive_identifiers_stored": false, "sanitized": true},
+  "branch_reviews": []
+}

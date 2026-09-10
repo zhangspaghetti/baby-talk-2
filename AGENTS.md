@@ -124,7 +124,7 @@ helm upgrade --install babytalk-app deploy/helm/babytalk-app -n babytalk -f depl
 
 ## NOTES
 
-1. **部署环境**：prod ns `babytalk` (gateway 8090 / admin-web 3000)；QA ns `babytalk-qa` (8091/3001)
+1. **部署环境**：prod ns `babytalk` (gateway 8090 / admin-web 3000)；QA ns `babytalk-qa` (19091/3001)
 2. **数据库**：PostgreSQL + Flyway 迁移
 3. **缓存**：Redis
 4. **对象存储**：MinIO

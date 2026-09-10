@@ -1,8 +1,12 @@
 package com.zhangspaghetti.babytalk.admin.users;
 
+import com.zhangspaghetti.babytalk.account.AccountDataPurgeService;
 import com.zhangspaghetti.babytalk.admin.auth.AdminApiContractException;
+import com.zhangspaghetti.babytalk.security.SensitiveAuthDataProtector;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,10 +47,19 @@ public class AdminUsersService {
     private static final Set<String> ALLOWED_AUDIT_RESULTS = Set.of(AUDIT_RESULT_APPLIED, AUDIT_RESULT_DUPLICATE);
 
     private final AdminUserReadRepository adminUserReadRepository;
+    private final AccountDataPurgeService accountDataPurgeService;
+    private final SensitiveAuthDataProtector sensitiveAuthDataProtector;
     private final Clock clock;
 
-    public AdminUsersService(AdminUserReadRepository adminUserReadRepository, Clock clock) {
+    public AdminUsersService(
+            AdminUserReadRepository adminUserReadRepository,
+            AccountDataPurgeService accountDataPurgeService,
+            SensitiveAuthDataProtector sensitiveAuthDataProtector,
+            Clock clock
+    ) {
         this.adminUserReadRepository = adminUserReadRepository;
+        this.accountDataPurgeService = accountDataPurgeService;
+        this.sensitiveAuthDataProtector = sensitiveAuthDataProtector;
         this.clock = clock;
     }
 
@@ -113,7 +126,7 @@ public class AdminUsersService {
                 adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                         normalizedAccountId,
                         auditContext.sessionId(),
-                        auditContext.installationId(),
+                        sensitiveAuthDataProtector.safeInstallationReference(auditContext.installationId()),
                         AUDIT_ACTION_DELETE,
                         AUDIT_RESULT_DUPLICATE,
                         normalizedReason,
@@ -131,13 +144,34 @@ public class AdminUsersService {
                 );
             }
 
-            var deletedEventCount = adminUserReadRepository.deleteInteractionEvents(normalizedAccountId);
-            var revokedSessionCount = adminUserReadRepository.updateSessionsStatus(normalizedAccountId, STATUS_DELETED, now);
-            adminUserReadRepository.tombstoneAccount(normalizedAccountId, "deleted:" + normalizedAccountId, now);
+            var purge = accountDataPurgeService.purge(
+                    normalizedAccountId,
+                    OffsetDateTime.ofInstant(now, ZoneOffset.UTC)
+            );
+            if (!purge.applied()) {
+                adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
+                        normalizedAccountId,
+                        auditContext.sessionId(),
+                        sensitiveAuthDataProtector.safeInstallationReference(auditContext.installationId()),
+                        AUDIT_ACTION_DELETE,
+                        AUDIT_RESULT_DUPLICATE,
+                        normalizedReason,
+                        now
+                ));
+                return new DisableUserView(
+                        normalizedAccountId,
+                        STATUS_DELETED,
+                        false,
+                        AUDIT_RESULT_DUPLICATE,
+                        now,
+                        0,
+                        0
+                );
+            }
             adminUserReadRepository.insertConsentAudit(new AdminUserReadRepository.AuditWriteRow(
                     normalizedAccountId,
                     auditContext.sessionId(),
-                    auditContext.installationId(),
+                    sensitiveAuthDataProtector.safeInstallationReference(auditContext.installationId()),
                     AUDIT_ACTION_DELETE,
                     AUDIT_RESULT_APPLIED,
                     normalizedReason,
@@ -146,8 +180,8 @@ public class AdminUsersService {
             log.info(
                     "admin-users disable applied. accountId={} revokedSessions={} deletedEvents={}",
                     normalizedAccountId,
-                    revokedSessionCount,
-                    deletedEventCount
+                    purge.deletedSessionCount(),
+                    purge.deletedInteractionEventCount()
             );
             return new DisableUserView(
                     normalizedAccountId,
@@ -155,8 +189,8 @@ public class AdminUsersService {
                     true,
                     AUDIT_RESULT_APPLIED,
                     now,
-                    revokedSessionCount,
-                    deletedEventCount
+                    purge.deletedSessionCount(),
+                    purge.deletedInteractionEventCount()
             );
         } catch (DataAccessException exception) {
             throw storageFailure("disable_user", exception);
@@ -166,7 +200,7 @@ public class AdminUsersService {
     private UserSummaryView toUserSummary(AdminUserReadRepository.AdminUserRow row) {
         return new UserSummaryView(
                 row.accountId(),
-                row.phoneNumber(),
+                row.phoneMask(),
                 requireAllowed(row.status(), ALLOWED_ACCOUNT_STATUSES, "account.status"),
                 requireAllowed(row.latestConsentStatus(), ALLOWED_CONSENT_STATUSES, "account.latestConsentStatus"),
                 row.createdAt(),
@@ -177,7 +211,7 @@ public class AdminUsersService {
     private UserSessionView toSessionView(AdminUserReadRepository.UserSessionRow row) {
         return new UserSessionView(
                 row.sessionId(),
-                row.installationId(),
+                sensitiveAuthDataProtector.safeInstallationReference(row.installationId()),
                 requireAllowed(row.status(), ALLOWED_SESSION_STATUSES, "session.status"),
                 row.createdAt(),
                 row.revokedAt()
@@ -188,7 +222,7 @@ public class AdminUsersService {
         return new UserConsentAuditView(
                 row.auditId(),
                 row.sessionId(),
-                row.installationId(),
+                sensitiveAuthDataProtector.safeInstallationReference(row.installationId()),
                 requireAllowed(row.action(), ALLOWED_AUDIT_ACTIONS, "consentAudit.action"),
                 requireAllowed(row.result(), ALLOWED_AUDIT_RESULTS, "consentAudit.result"),
                 row.reason(),

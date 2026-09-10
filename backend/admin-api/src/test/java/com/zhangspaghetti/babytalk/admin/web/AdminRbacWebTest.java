@@ -90,15 +90,18 @@ class AdminRbacWebTest {
 
     @Test
     void superAdminCanCreateRoleAndAdminAndLimitedAdminCanOnlyReadUsers() throws Exception {
-        seedAccount("acct_001", "13900000001", "active", "accepted", Instant.parse("2026-04-01T00:00:00Z"));
-        seedAccount("acct_002", "13900000002", "deleted", "revoked", Instant.parse("2026-04-02T00:00:00Z"));
+        seedAccount("acct_001", "139****0001", "active", "accepted", Instant.parse("2026-04-01T00:00:00Z"));
+        seedAccount("acct_002", "账号已删除", "deleted", "revoked", Instant.parse("2026-04-02T00:00:00Z"));
 
         var superAdmin = login("super_admin", "SuperAdmin123!");
 
         mockMvc.perform(get("/api/admin/permissions")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.USERS_READ)));
+                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.USERS_READ)))
+                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.PRACTICE_READ)))
+                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.PRACTICE_WRITE)))
+                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.PRACTICE_PUBLISH)));
 
         mockMvc.perform(post("/api/admin/roles")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))
@@ -139,7 +142,7 @@ class AdminRbacWebTest {
                 .andExpect(jsonPath("$.filters.query").isEmpty())
                 .andExpect(jsonPath("$.items", hasSize(2)))
                 .andExpect(jsonPath("$.items[0].accountId").value("acct_001"))
-                .andExpect(jsonPath("$.items[0].phoneNumber").value("13900000001"))
+                .andExpect(jsonPath("$.items[0].phoneNumber").value("139****0001"))
                 .andExpect(jsonPath("$.items[0].status").value("active"))
                 .andExpect(jsonPath("$.items[0].latestConsentStatus").value("accepted"))
                 .andExpect(jsonPath("$.items[0].createdAt").value("2026-04-01T00:00:00Z"))
@@ -175,7 +178,7 @@ class AdminRbacWebTest {
 
     @Test
     void sameAccessTokenImmediatelyLosesUsersReadAfterRoleRemoval() throws Exception {
-        seedAccount("acct_101", "13900000101", "active", "accepted", Instant.parse("2026-04-10T00:00:00Z"));
+        seedAccount("acct_101", "139****0101", "active", "accepted", Instant.parse("2026-04-10T00:00:00Z"));
 
         var superAdmin = login("super_admin", "SuperAdmin123!");
         createUsersReaderRole(superAdmin.accessToken());
@@ -197,7 +200,7 @@ class AdminRbacWebTest {
 
     @Test
     void sameAccessTokenImmediatelyFailsAfterDisableAndDisableEndpointIsIdempotent() throws Exception {
-        seedAccount("acct_201", "13900000201", "active", "accepted", Instant.parse("2026-04-20T00:00:00Z"));
+        seedAccount("acct_201", "139****0201", "active", "accepted", Instant.parse("2026-04-20T00:00:00Z"));
 
         var superAdmin = login("super_admin", "SuperAdmin123!");
         createUsersReaderRole(superAdmin.accessToken());
@@ -359,14 +362,15 @@ class AdminRbacWebTest {
                 json.get("admin").get("username").asText());
     }
 
-    private void seedAccount(String accountId, String phoneNumber, String status, String consentStatus, Instant createdAt) {
+    private void seedAccount(String accountId, String phoneMask, String status, String consentStatus, Instant createdAt) {
         jdbcTemplate.update(
                 """
-                insert into accounts (account_id, phone_number, status, latest_consent_status, created_at, deleted_at)
-                values (?, ?, ?, ?, ?, null)
+                insert into accounts (account_id, phone_lookup_ref, phone_mask, status, latest_consent_status, created_at, deleted_at)
+                values (?, ?, ?, ?, ?, ?, null)
                 """,
                 accountId,
-                phoneNumber,
+                "v1:test-" + accountId,
+                phoneMask,
                 status,
                 consentStatus,
                 Timestamp.from(createdAt)

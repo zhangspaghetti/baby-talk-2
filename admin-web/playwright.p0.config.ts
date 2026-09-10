@@ -17,7 +17,7 @@ export default defineConfig({
     screenshot: 'on',
   },
   webServer: {
-    command: 'pnpm run dev',
+    command: 'pnpm run preview',
     url: 'http://127.0.0.1:3000/login',
     reuseExistingServer: true,
     timeout: 30_000,
