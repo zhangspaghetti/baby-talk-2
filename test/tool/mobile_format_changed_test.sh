@@ -4,6 +4,19 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 temporary_root=''
 
+git_local_env_vars="$(git -C "$repo_root" rev-parse --local-env-vars)"
+while IFS= read -r git_local_env_var; do
+  if [[ -n "$git_local_env_var" ]]; then
+    unset "$git_local_env_var"
+  fi
+done <<<"$git_local_env_vars"
+
+parent_head_before="$(git -C "$repo_root" rev-parse HEAD)"
+parent_config_before="$(git -C "$repo_root" config --local --list | sha256sum | awk '{print $1}')"
+parent_index_path="$(git -C "$repo_root" rev-parse --git-path index)"
+parent_index_before="$(git -C "$repo_root" hash-object -- "$parent_index_path")"
+parent_status_before="$(git -C "$repo_root" status --porcelain=v1 --untracked-files=all)"
+
 fail() {
   printf 'mobile-format-test: %s\n' "$*" >&2
   exit 1
@@ -73,6 +86,37 @@ expect_failure() {
   ); then
     fail "expected formatter gate failure in $fixture"
   fi
+}
+
+assert_parent_repository_unchanged() {
+  local parent_head_after
+  local parent_config_after
+  local parent_index_after
+  local parent_status_after
+  parent_head_after="$(git -C "$repo_root" rev-parse HEAD)"
+  parent_config_after="$(git -C "$repo_root" config --local --list | sha256sum | awk '{print $1}')"
+  parent_index_after="$(git -C "$repo_root" hash-object -- "$parent_index_path")"
+  parent_status_after="$(git -C "$repo_root" status --porcelain=v1 --untracked-files=all)"
+  [[ "$parent_head_after" == "$parent_head_before" ]] \
+    || fail "parent HEAD changed: before=$parent_head_before after=$parent_head_after"
+  [[ "$parent_config_after" == "$parent_config_before" ]] \
+    || fail 'parent Git config changed during fixture setup'
+  [[ "$parent_index_after" == "$parent_index_before" ]] \
+    || fail 'parent Git index changed during fixture setup'
+  [[ "$parent_status_after" == "$parent_status_before" ]] \
+    || fail 'parent worktree status changed during fixture setup'
+}
+
+test_fixture_git_operations_preserve_parent_repository() {
+  local fixture
+  fixture="$(make_fixture inherited_git_env)"
+  : >"$fixture/ci/mobile-format-baseline.txt"
+  (
+    cd "$fixture"
+    git add .
+    git commit -qm 'fixture setup under inherited Git environment'
+  ) || true
+  assert_parent_repository_unchanged
 }
 
 test_baseline_must_equal_actual_debt() {
@@ -193,6 +237,7 @@ test_many_changed_dart_files_still_reject_unformatted_source() {
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/babytalk-mobile-format-test.XXXXXX")"
 trap cleanup EXIT
 
+test_fixture_git_operations_preserve_parent_repository
 test_baseline_must_equal_actual_debt
 test_baseline_cannot_expand_after_base
 test_many_changed_dart_files_are_checked_in_bounded_batches
