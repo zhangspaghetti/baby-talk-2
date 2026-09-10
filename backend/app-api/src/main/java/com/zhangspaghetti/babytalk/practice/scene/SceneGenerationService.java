@@ -345,7 +345,7 @@ public class SceneGenerationService {
                     && REACTIONS.contains(value.reactionType())
                     && value.displayOrder() == reactionOrder(value.reactionType())
                     && reactions.add(value.reactionType())) {
-                // Canonical support accepted.
+                continue;
             } else {
                 throw invalidGeneratedOutput();
             }
