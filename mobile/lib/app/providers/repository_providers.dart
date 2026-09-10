@@ -549,6 +549,7 @@ final householdRepositoryProvider = FutureProvider<HouseholdRepository>((
     localStore: ref.watch(householdLocalStoreProvider),
     apiService: householdApiService,
     accountSnapshotLoader: accountRepository.loadSnapshot,
+    accountSnapshotReadResultLoader: accountRepository.loadSnapshotWithStatus,
     persistRefreshedSession: accountRepository.persistRefreshedSession,
     clearGeneratedContentForHouseholdScope: ref
         .watch(generatedPracticeContentRegistryProvider)

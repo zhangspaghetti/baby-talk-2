@@ -994,6 +994,30 @@ class AccountRepository implements AccountRepositoryContract {
   }
 }
 
+/// Account read status kept as an extension so test doubles that
+/// implement [AccountRepository] do not gain a new mandatory method.
+extension AccountRepositorySnapshotReadStatus on AccountRepository {
+  /// Reads account state without collapsing local-storage failures into the
+  /// valid signed-out state. Household privacy gates use this distinction to
+  /// hide stale UI in memory while preserving durable household data for a
+  /// later successful account read.
+  Future<AccountLocalSnapshotReadResult> loadSnapshotWithStatus() async {
+    try {
+      final snapshot = await _localStore.read();
+      final syncSummary = await _readSyncSummarySafely();
+      return AccountLocalSnapshotReadResult.available(
+        _mergeSyncSummary(snapshot, syncSummary),
+      );
+    } on FormatException {
+      return AccountLocalSnapshotReadResult.unavailable();
+    } on AccountLocalStoreException {
+      return AccountLocalSnapshotReadResult.unavailable();
+    } on Object {
+      return AccountLocalSnapshotReadResult.unavailable();
+    }
+  }
+}
+
 /// Explicit consent operation kept as an extension so test doubles that
 /// implement [AccountRepository] do not gain a new mandatory method.
 /// Production code obtains this method from the concrete repository instance

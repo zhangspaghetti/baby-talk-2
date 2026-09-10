@@ -124,6 +124,39 @@ void main() {
       expect(restore.homeSummary.recentResult?.phraseEnglish, 'Warm water.');
     });
 
+    test(
+      'loadSnapshotWithStatus distinguishes explicit signed-out from read failures',
+      () async {
+        final repository = harness.buildLocalOnlyRepository();
+        await harness.accountLocalStore.write(AccountLocalSnapshot.signedOut);
+
+        final explicitSignedOut = await repository.loadSnapshotWithStatus();
+
+        expect(explicitSignedOut.wasReadSuccessfully, isTrue);
+        expect(
+          explicitSignedOut.snapshot.consentState,
+          AccountConsentState.signedOut,
+        );
+
+        for (final failure in <Object>[
+          const FormatException('malformed account snapshot'),
+          const AccountLocalStoreException('secure storage unavailable'),
+          StateError('secure storage platform failure'),
+        ]) {
+          harness._inMemoryStorage.readError = failure;
+
+          final unavailable = await repository.loadSnapshotWithStatus();
+
+          expect(unavailable.wasReadSuccessfully, isFalse);
+          expect(
+            unavailable.snapshot.consentState,
+            AccountConsentState.signedOut,
+          );
+          harness._inMemoryStorage.readError = null;
+        }
+      },
+    );
+
     test('离线重试会保留 pending 并暴露可见错误', () async {
       await harness.practiceRepository.recordReaction(
         spaceId: 'daily_care',
@@ -1093,6 +1126,7 @@ class _InMemorySecureStorage extends FlutterSecureStorage {
 
   final Map<String, String> _store = {};
   int writeFailuresRemaining = 0;
+  Object? readError;
 
   @override
   Future<String?> read({
@@ -1103,7 +1137,13 @@ class _InMemorySecureStorage extends FlutterSecureStorage {
     WebOptions? webOptions,
     MacOsOptions? mOptions,
     WindowsOptions? wOptions,
-  }) async => _store[key];
+  }) async {
+    final error = readError;
+    if (error != null) {
+      throw error;
+    }
+    return _store[key];
+  }
 
   @override
   Future<void> write({

@@ -14,6 +14,8 @@ import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 typedef HouseholdAccountSnapshotLoader =
     Future<AccountLocalSnapshot> Function();
+typedef HouseholdAccountSnapshotReadResultLoader =
+    Future<AccountLocalSnapshotReadResult> Function();
 typedef HouseholdGeneratedContentScopeClearance =
     Future<void> Function(String householdScope);
 typedef HouseholdGeneratedContentScopeFingerprintClearance =
@@ -66,6 +68,7 @@ class HouseholdRepository {
     required HouseholdLocalStore localStore,
     required HouseholdApiService apiService,
     required HouseholdAccountSnapshotLoader accountSnapshotLoader,
+    HouseholdAccountSnapshotReadResultLoader? accountSnapshotReadResultLoader,
     required PersistRefreshedSession persistRefreshedSession,
     HouseholdGeneratedContentScopeClearance?
     clearGeneratedContentForHouseholdScope,
@@ -74,6 +77,7 @@ class HouseholdRepository {
   }) : _localStore = localStore,
        _apiService = apiService,
        _accountSnapshotLoader = accountSnapshotLoader,
+       _accountSnapshotReadResultLoader = accountSnapshotReadResultLoader,
        _persistRefreshedSession = persistRefreshedSession,
        _clearGeneratedContentForHouseholdScope =
            clearGeneratedContentForHouseholdScope ??
@@ -89,6 +93,8 @@ class HouseholdRepository {
   final HouseholdLocalStore _localStore;
   final HouseholdApiService _apiService;
   final HouseholdAccountSnapshotLoader _accountSnapshotLoader;
+  final HouseholdAccountSnapshotReadResultLoader?
+  _accountSnapshotReadResultLoader;
   final PersistRefreshedSession _persistRefreshedSession;
   final HouseholdGeneratedContentScopeClearance
   _clearGeneratedContentForHouseholdScope;
@@ -106,13 +112,17 @@ class HouseholdRepository {
     final sessionGate = await _resolveSessionGate(action: 'household_boot');
     if (!readResult.wasReadSuccessfully) {
       if (!sessionGate.canProceed &&
-          sessionGate.privacyPolicy ==
-              _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
+          _shouldHideHouseholdContext(sessionGate.privacyPolicy)) {
         // A failed durable read must not authorize a write or content clear;
         // still hide any cached private context from the current UI.
         return _mergeSessionGateSnapshot(readResult.snapshot, sessionGate);
       }
       return readResult.snapshot;
+    }
+    if (!sessionGate.canProceed &&
+        sessionGate.privacyPolicy ==
+            _HouseholdSessionGatePrivacyPolicy.accountReadUnavailable) {
+      return _mergeSessionGateSnapshot(readResult.snapshot, sessionGate);
     }
     if (!sessionGate.canProceed &&
         sessionGate.privacyPolicy ==
@@ -495,8 +505,7 @@ class HouseholdRepository {
     if (!readResult.wasReadSuccessfully) {
       final sessionGate = await _resolveSessionGate(action: action);
       if (!sessionGate.canProceed &&
-          sessionGate.privacyPolicy ==
-              _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
+          _shouldHideHouseholdContext(sessionGate.privacyPolicy)) {
         return _HouseholdCommandPreflight.blocked(
           _mergeSessionGateSnapshot(readResult.snapshot, sessionGate),
           sessionGate: sessionGate,
@@ -505,6 +514,14 @@ class HouseholdRepository {
       return _HouseholdCommandPreflight.blocked(readResult.snapshot);
     }
     final sessionGate = await _resolveSessionGate(action: action);
+    if (!sessionGate.canProceed &&
+        sessionGate.privacyPolicy ==
+            _HouseholdSessionGatePrivacyPolicy.accountReadUnavailable) {
+      return _HouseholdCommandPreflight.blocked(
+        _mergeSessionGateSnapshot(readResult.snapshot, sessionGate),
+        sessionGate: sessionGate,
+      );
+    }
     if (!sessionGate.canProceed &&
         sessionGate.privacyPolicy ==
             _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
@@ -544,7 +561,11 @@ class HouseholdRepository {
   Future<_SessionGateResult> _resolveSessionGate({
     required String action,
   }) async {
-    final accountSnapshot = await _readAccountSnapshotSafely();
+    final accountRead = await _readAccountSnapshotSafely();
+    if (!accountRead.wasReadSuccessfully) {
+      return _SessionGateResult.accountReadUnavailable(action: action);
+    }
+    final accountSnapshot = accountRead.snapshot;
     final consentState = accountSnapshot.consentState;
     final session = accountSnapshot.session;
     if (consentState == AccountConsentState.revoked) {
@@ -588,6 +609,15 @@ class HouseholdRepository {
     return _SessionGateResult.ready(session);
   }
 
+  bool _shouldHideHouseholdContext(
+    _HouseholdSessionGatePrivacyPolicy privacyPolicy,
+  ) {
+    return privacyPolicy ==
+            _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext ||
+        privacyPolicy ==
+            _HouseholdSessionGatePrivacyPolicy.accountReadUnavailable;
+  }
+
   HouseholdLocalSnapshot _mergeSessionGateSnapshot(
     HouseholdLocalSnapshot current,
     _SessionGateResult sessionGate,
@@ -606,8 +636,7 @@ class HouseholdRepository {
       clearLastVisibleError: gateSnapshot.lastVisibleError == null,
       pendingClearHouseholdScopeFingerprint: pendingScopeFingerprint,
     );
-    if (sessionGate.privacyPolicy ==
-        _HouseholdSessionGatePrivacyPolicy.clearHouseholdContext) {
+    if (_shouldHideHouseholdContext(sessionGate.privacyPolicy)) {
       return merged.copyWith(clearHouseholdId: true);
     }
     return merged;
@@ -617,6 +646,12 @@ class HouseholdRepository {
     required HouseholdLocalSnapshot current,
     required _SessionGateResult sessionGate,
   }) async {
+    if (sessionGate.privacyPolicy ==
+        _HouseholdSessionGatePrivacyPolicy.accountReadUnavailable) {
+      // Account state is unknown: hide cached private context in memory, but
+      // do not persist a guessed signed-out state or authorize cleanup.
+      return _mergeSessionGateSnapshot(current, sessionGate);
+    }
     final merged = _mergeSessionGateSnapshot(current, sessionGate);
     final persisted = await _persistSnapshotWithResult(
       merged,
@@ -639,13 +674,21 @@ class HouseholdRepository {
     return _clearPendingHouseholdScopeIntent(persisted.snapshot);
   }
 
-  Future<AccountLocalSnapshot> _readAccountSnapshotSafely() async {
+  Future<AccountLocalSnapshotReadResult> _readAccountSnapshotSafely() async {
     try {
-      return await _accountSnapshotLoader();
+      final loader = _accountSnapshotReadResultLoader;
+      if (loader != null) {
+        return await loader();
+      }
+      return AccountLocalSnapshotReadResult.available(
+        await _accountSnapshotLoader(),
+      );
     } on FormatException {
-      return AccountLocalSnapshot.signedOut;
-    } catch (_) {
-      return AccountLocalSnapshot.signedOut;
+      return AccountLocalSnapshotReadResult.unavailable();
+    } on AccountLocalStoreException {
+      return AccountLocalSnapshotReadResult.unavailable();
+    } on Object {
+      return AccountLocalSnapshotReadResult.unavailable();
     }
   }
 
@@ -958,6 +1001,7 @@ class _HouseholdCommandPreflight {
 enum _HouseholdSessionGatePrivacyPolicy {
   preserveStableHousehold,
   clearHouseholdContext,
+  accountReadUnavailable,
 }
 
 class _SessionGateResult {
@@ -978,6 +1022,16 @@ class _SessionGateResult {
     HouseholdLocalSnapshot snapshot, {
     required _HouseholdSessionGatePrivacyPolicy privacyPolicy,
   }) : this._(snapshot: snapshot, privacyPolicy: privacyPolicy);
+
+  _SessionGateResult.accountReadUnavailable({required String action})
+    : this.blocked(
+        HouseholdLocalSnapshot(
+          lastPhase: '${action}_account_read_unavailable',
+          lastVisibleError: '账号状态暂不可用，为保护隐私已隐藏共享家庭信息，请稍后重试。',
+        ),
+        privacyPolicy:
+            _HouseholdSessionGatePrivacyPolicy.accountReadUnavailable,
+      );
 
   final AccountSession? session;
   final HouseholdLocalSnapshot? snapshot;

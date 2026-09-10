@@ -866,6 +866,113 @@ void main() {
     );
 
     test(
+      'account read failure at boot hides A without persistence or cleanup, then active read restores A',
+      () async {
+        await harness.localStore.write(
+          _connectedHouseholdSnapshot(householdId: 'household_a'),
+        );
+        final failures = <Object>[
+          const AccountLocalStoreException('secure storage unavailable'),
+          const FormatException('malformed account snapshot'),
+          StateError('secure storage platform failure'),
+        ];
+
+        for (final failure in failures) {
+          harness.accountReadFailure = failure;
+
+          final unavailable = await harness.repository.loadSnapshot();
+
+          expect(unavailable.householdId, isNull);
+          expect(unavailable.role, isNull);
+          expect(unavailable.sharedContext, isNull);
+          expect(unavailable.lastAcceptedAt, isNull);
+          expect(unavailable.pendingClearHouseholdScopeFingerprint, isNull);
+          expect(
+            unavailable.lastPhase,
+            'household_boot_account_read_unavailable',
+          );
+          expect(unavailable.lastVisibleError, contains('账号状态暂不可用'));
+          expect(harness.clearedScopes, isEmpty);
+          expect(harness.clearedScopeFingerprints, isEmpty);
+          expect((await harness.localStore.read()).householdId, 'household_a');
+
+          harness.accountReadFailure = null;
+          final active = await harness.repository.loadSnapshot();
+
+          expect(active.householdId, 'household_a');
+          expect(active.role, HouseholdRole.caregiver);
+          expect(active.sharedContext, isNotNull);
+          expect(active.pendingClearHouseholdScopeFingerprint, isNull);
+          expect(harness.clearedScopes, isEmpty);
+          expect(harness.clearedScopeFingerprints, isEmpty);
+        }
+      },
+    );
+
+    test(
+      'account read failure blocks every household API without destructive cleanup',
+      () async {
+        const commands = <_HouseholdCommand>[
+          _HouseholdCommand.create,
+          _HouseholdCommand.accept,
+          _HouseholdCommand.revoke,
+          _HouseholdCommand.refresh,
+        ];
+        final failures = <Object>[
+          const AccountLocalStoreException('secure storage unavailable'),
+          const FormatException('malformed account snapshot'),
+          StateError('secure storage platform failure'),
+        ];
+
+        for (final command in commands) {
+          for (final failure in failures) {
+            await harness.localStore.write(
+              _connectedHouseholdSnapshot(householdId: 'household_a'),
+            );
+            harness.accountSnapshot = AccountLocalSnapshot(
+              consentState: AccountConsentState.acceptedPendingSync,
+              session: _jwtSession(),
+              lastSyncPhase: 'batch_ack_applied',
+            );
+            harness.accountReadFailure = failure;
+            final createCalls = harness.api.createCallCount;
+            final acceptCalls = harness.api.acceptCallCount;
+            final revokeCalls = harness.api.revokeCallCount;
+            final fetchCalls = harness.api.fetchCallCount;
+
+            final result = await _runHouseholdCommand(harness, command);
+
+            expect(result.householdId, isNull);
+            expect(result.role, isNull);
+            expect(result.sharedContext, isNull);
+            expect(result.lastAcceptedAt, isNull);
+            expect(result.pendingClearHouseholdScopeFingerprint, isNull);
+            expect(
+              result.lastPhase,
+              '${_householdCommandAction(command)}_account_read_unavailable',
+            );
+            expect(result.lastVisibleError, contains('账号状态暂不可用'));
+            expect(harness.api.createCallCount, createCalls);
+            expect(harness.api.acceptCallCount, acceptCalls);
+            expect(harness.api.revokeCallCount, revokeCalls);
+            expect(harness.api.fetchCallCount, fetchCalls);
+            expect(harness.clearedScopes, isEmpty);
+            expect(harness.clearedScopeFingerprints, isEmpty);
+            expect(
+              (await harness.localStore.read()).householdId,
+              'household_a',
+            );
+
+            harness.accountReadFailure = null;
+            final active = await harness.repository.loadSnapshot();
+            expect(active.householdId, 'household_a');
+            expect(active.pendingClearHouseholdScopeFingerprint, isNull);
+          }
+        }
+      },
+    );
+
+    test(
       'pending household cleanup blocks accept and preserves its durable intent',
       () async {
         final pendingFingerprint = householdScopeFingerprint('household_a');
@@ -1290,6 +1397,7 @@ class _HouseholdRepositoryHarness {
   final List<String> clearedScopes;
   final List<String> clearedScopeFingerprints;
   bool clearCleanupFailures = false;
+  Object? accountReadFailure;
 
   static Future<_HouseholdRepositoryHarness> create() async {
     final tempDir = await Directory.systemTemp.createTemp(
@@ -1305,7 +1413,13 @@ class _HouseholdRepositoryHarness {
     final repository = HouseholdRepository(
       localStore: localStore,
       apiService: api,
-      accountSnapshotLoader: () async => harness.accountSnapshot,
+      accountSnapshotLoader: () async {
+        final failure = harness.accountReadFailure;
+        if (failure != null) {
+          throw failure;
+        }
+        return harness.accountSnapshot;
+      },
       persistRefreshedSession: (refreshedSession) async {
         harness.accountSnapshot = harness.accountSnapshot.copyWith(
           session: refreshedSession,
@@ -1412,6 +1526,19 @@ class _FailFirstHouseholdLocalStore extends HouseholdLocalStore {
 }
 
 enum _HouseholdCommand { create, accept, revoke, refresh }
+
+String _householdCommandAction(_HouseholdCommand command) {
+  switch (command) {
+    case _HouseholdCommand.create:
+      return 'create_invite';
+    case _HouseholdCommand.accept:
+      return 'accept_invite';
+    case _HouseholdCommand.revoke:
+      return 'revoke_invite';
+    case _HouseholdCommand.refresh:
+      return 'shared_context';
+  }
+}
 
 Future<HouseholdLocalSnapshot> _runHouseholdCommand(
   _HouseholdRepositoryHarness harness,
