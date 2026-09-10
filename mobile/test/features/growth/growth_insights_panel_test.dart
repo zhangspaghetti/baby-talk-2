@@ -396,7 +396,10 @@ void main() {
     });
     await pump(tester, stub);
 
-    expect(find.byKey(const Key('growth-insights-cached-notice')), findsOneWidget);
+    expect(
+      find.byKey(const Key('growth-insights-cached-notice')),
+      findsOneWidget,
+    );
     expect(find.text('显示的是最近缓存的数据。'), findsOneWidget);
   });
 

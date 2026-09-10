@@ -144,7 +144,8 @@ class HouseholdInviteCard extends StatelessWidget {
                       ),
                       OutlinedButton.icon(
                         key: Key('$surfaceKeyPrefix-household-invite-share'),
-                        onPressed: () => _shareInvite(context, invite.inviteUrl),
+                        onPressed: () =>
+                            _shareInvite(context, invite.inviteUrl),
                         icon: const Icon(Icons.ios_share_rounded),
                         label: const Text('系统分享'),
                       ),
@@ -248,15 +249,15 @@ class HouseholdInviteCard extends StatelessWidget {
     try {
       await inviteLinkActions.copy(inviteUrl);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('邀请链接已复制。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('邀请链接已复制。')));
       }
     } on Object {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('暂时无法复制邀请链接，请稍后重试。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂时无法复制邀请链接，请稍后重试。')));
       }
     }
   }
@@ -266,9 +267,9 @@ class HouseholdInviteCard extends StatelessWidget {
       await inviteLinkActions.share(inviteUrl);
     } on Object {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('暂时无法打开系统分享，请稍后重试。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂时无法打开系统分享，请稍后重试。')));
       }
     }
   }

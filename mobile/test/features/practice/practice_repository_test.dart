@@ -1144,11 +1144,9 @@ void main() {
           lastSyncAt: DateTime.utc(2026, 4, 7, 12, 6),
         ),
         InteractionEventPayload.fromWire(
-          eventKey:
-              'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:evt_remote',
+          eventKey: 'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:evt_remote',
           localEventId: 'evt_remote',
-          installationId:
-              'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+          installationId: 'v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_all_clean',
@@ -1204,43 +1202,40 @@ void main() {
       );
     });
 
-    test(
-      'bootstrap 同 localEventId 同事实保留本地 raw identity 并标记 synced',
-      () async {
-        final local = await repository.recordReaction(
+    test('bootstrap 同 localEventId 同事实保留本地 raw identity 并标记 synced', () async {
+      final local = await repository.recordReaction(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+        phraseId: 'bath_time_warm_water',
+        reactionType: BabyReactionType.cooperating,
+        clientTimestamp: DateTime.utc(2026, 4, 7, 13),
+        localEventId: 'evt_bootstrap_reconcile',
+      );
+      final opaqueInstallation = 'v1:${'A' * 43}';
+
+      await repository.importServerEvents([
+        InteractionEventPayload.fromWire(
+          eventKey: '$opaqueInstallation:evt_bootstrap_reconcile',
+          localEventId: 'evt_bootstrap_reconcile',
+          installationId: opaqueInstallation,
           spaceId: 'daily_care',
           activityId: 'bath_time',
           phraseId: 'bath_time_warm_water',
-          reactionType: BabyReactionType.cooperating,
+          reactionType: 'cooperating',
           clientTimestamp: DateTime.utc(2026, 4, 7, 13),
-          localEventId: 'evt_bootstrap_reconcile',
-        );
-        final opaqueInstallation = 'v1:${'A' * 43}';
+          syncState: 'synced',
+          lastSyncPhase: 'bootstrap_import',
+          lastSyncAt: DateTime.utc(2026, 4, 7, 13, 1),
+        ),
+      ]);
 
-        await repository.importServerEvents([
-          InteractionEventPayload.fromWire(
-            eventKey: '$opaqueInstallation:evt_bootstrap_reconcile',
-            localEventId: 'evt_bootstrap_reconcile',
-            installationId: opaqueInstallation,
-            spaceId: 'daily_care',
-            activityId: 'bath_time',
-            phraseId: 'bath_time_warm_water',
-            reactionType: 'cooperating',
-            clientTimestamp: DateTime.utc(2026, 4, 7, 13),
-            syncState: 'synced',
-            lastSyncPhase: 'bootstrap_import',
-            lastSyncAt: DateTime.utc(2026, 4, 7, 13, 1),
-          ),
-        ]);
-
-        final events = await repository.listEventHistory(activityId: 'bath_time');
-        expect(events, hasLength(1));
-        expect(events.single.eventKey, local.eventKey);
-        expect(events.single.installationId, local.installationId);
-        expect(events.single.syncState, InteractionSyncState.synced);
-        expect(events.single.lastSyncPhase, 'bootstrap_import');
-      },
-    );
+      final events = await repository.listEventHistory(activityId: 'bath_time');
+      expect(events, hasLength(1));
+      expect(events.single.eventKey, local.eventKey);
+      expect(events.single.installationId, local.installationId);
+      expect(events.single.syncState, InteractionSyncState.synced);
+      expect(events.single.lastSyncPhase, 'bootstrap_import');
+    });
 
     test('bootstrap 远端新设备导入 opaque identity', () async {
       final opaqueInstallation = 'v1:${'C' * 43}';

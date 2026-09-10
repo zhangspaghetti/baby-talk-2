@@ -284,8 +284,12 @@ void main() {
         find.byKey(const Key('invite-actions-household-invite-share')),
       );
       await tester.pump();
-      expect(inviteActions.copiedUrls, ['https://invite.example.com/invite/invite_token_123']);
-      expect(inviteActions.sharedUrls, ['https://invite.example.com/invite/invite_token_123']);
+      expect(inviteActions.copiedUrls, [
+        'https://invite.example.com/invite/invite_token_123',
+      ]);
+      expect(inviteActions.sharedUrls, [
+        'https://invite.example.com/invite/invite_token_123',
+      ]);
 
       await _pumpApp(
         tester,
