@@ -18,7 +18,9 @@ flutter pub get
 flutter test \
   test/generated/generated_code_location_gate_test.dart \
   test/tool/r4_release_gate_policy_test.dart \
-  test/features/account/account_entry_screen_test.dart \
+  test/app/app_route_contract_test.dart \
+  test/features/auth/auth_screen_test.dart \
+  test/features/account/account_repository_contract_test.dart \
   test/core/local_data_lifecycle/local_sensitive_data_backup_posture_test.dart \
   test/core/local_data_lifecycle/local_sensitive_data_backup_protection_test.dart \
   test/app/local_sensitive_data_clearance_registry_test.dart
