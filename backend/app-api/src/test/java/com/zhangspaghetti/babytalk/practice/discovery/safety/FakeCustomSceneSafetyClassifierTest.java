@@ -50,6 +50,15 @@ class FakeCustomSceneSafetyClassifierTest {
     }
 
     @Test
+    void laterHealthSignalWinsAfterEarlierNoConcernClause() {
+        var result = new FakeCustomSceneSafetyClassifier().classify(
+                request("宝宝没有身体不适，但宝宝拉肚子"));
+
+        assertThat(result.intent()).isEqualTo(REAL_HEALTH_CONCERN);
+        assertThat(result.signals()).containsExactly(HEALTH_CONCERN);
+    }
+
+    @Test
     void disabledAndUnavailableFixturesFailClosedWithoutAdvice() {
         var request = request("宝宝洗澡一直躲水");
 

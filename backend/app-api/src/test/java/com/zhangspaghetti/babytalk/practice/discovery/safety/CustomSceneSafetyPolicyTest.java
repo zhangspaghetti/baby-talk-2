@@ -23,9 +23,11 @@ import com.zhangspaghetti.babytalk.practice.discovery.SceneTextForms;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.mockito.ArgumentCaptor;
@@ -42,6 +44,11 @@ class CustomSceneSafetyPolicyTest {
     private final CustomSceneSafetyClassifier classifier = Mockito.mock(CustomSceneSafetyClassifier.class);
     private final ThreadPoolTaskExecutor executor = new CustomSceneSafetyExecutorConfiguration()
             .customSceneSafetyExecutor();
+
+    @BeforeEach
+    void defaultEmergencyRuleResultIsEmpty() {
+        when(emergencyRules.classify(any(SceneTextForms.class))).thenReturn(java.util.Optional.empty());
+    }
 
     @AfterEach
     void stopExecutor() {
@@ -124,6 +131,19 @@ class CustomSceneSafetyPolicyTest {
 
         assertThat(decision.resultType()).isEqualTo(HEALTH_SAFETY);
         assertThat(decision.assessment()).isEqualTo(urgent);
+        assertThat(decision.template()).isEqualTo(templates.template("health-emergency-v1"));
+        verify(classifier, never()).classify(any());
+    }
+
+    @Test
+    void nullEmergencyRuleResultClosesGenerationBeforeSemanticClassification() {
+        when(emergencyRules.classify(any(SceneTextForms.class))).thenReturn(null);
+        when(classifier.classify(any())).thenReturn(new CustomSceneSafetyClassifier.SemanticResult(
+                ORDINARY_SCENE, List.of()));
+
+        var decision = policy().assess(canonicalizer.derive("宝宝洗澡一直躲水"), "m7_11");
+
+        assertThat(decision.resultType()).isEqualTo(ASSESSMENT_UNAVAILABLE);
         verify(classifier, never()).classify(any());
     }
 
@@ -139,6 +159,27 @@ class CustomSceneSafetyPolicyTest {
         assertThat(decision.admission()).isNotNull();
         assertThat(decision.admission().toString()).doesNotContain(raw, "秘密编号", "123");
         assertThat(decision.toString()).doesNotContain(raw, "秘密编号", "123");
+    }
+
+    @Test
+    void admissionCanBeReboundToServerOwnerAndProfileContext() {
+        when(classifier.classify(any())).thenReturn(new CustomSceneSafetyClassifier.SemanticResult(
+                ORDINARY_SCENE, List.of()));
+        var forms = canonicalizer.derive("宝宝洗澡一直躲水");
+        var admission = policy().assess(forms, "m7_11").admission();
+
+        var bound = admission.bindContext("installation", "owner-hash", "profile-1");
+
+        assertThat(bound).isNotEqualTo(admission);
+        assertThat(bound.matches(
+                forms.securityText(), "m7_11", "zh-CN",
+                "installation", "owner-hash", "profile-1", "health-safety-v1")).isTrue();
+        assertThat(bound.matches(
+                forms.securityText(), "m7_11", "zh-CN",
+                "installation", "other-owner", "profile-1", "health-safety-v1")).isFalse();
+        assertThat(admission.matches(
+                forms.securityText(), "m7_11", "zh-CN",
+                "installation", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
     }
 
     @Test
@@ -179,6 +220,39 @@ class CustomSceneSafetyPolicyTest {
     }
 
     @Test
+    @Timeout(value = 3500, unit = TimeUnit.MILLISECONDS)
+    void timeoutCancelsSubmittedFutureAndInterruptsProvider() throws Exception {
+        var trackingExecutor = new TrackingExecutor();
+        trackingExecutor.initialize();
+        try {
+            var started = new CountDownLatch(1);
+            var interrupted = new CountDownLatch(1);
+            when(classifier.classify(any())).thenAnswer(invocation -> {
+                started.countDown();
+                try {
+                    Thread.sleep(Duration.ofSeconds(30).toMillis());
+                } catch (InterruptedException exception) {
+                    interrupted.countDown();
+                    throw new CustomSceneSafetyClassifier.UnavailableException();
+                }
+                return new CustomSceneSafetyClassifier.SemanticResult(ORDINARY_SCENE, List.of());
+            });
+
+            var decision = new CustomSceneSafetyPolicy(
+                    emergencyRules, classifier, templates, trackingExecutor, properties)
+                    .assess(canonicalizer.derive("宝宝洗澡一直躲水"), "m7_11");
+
+            assertThat(started.await(100, TimeUnit.MILLISECONDS)).isTrue();
+            assertThat(decision.resultType()).isEqualTo(ASSESSMENT_UNAVAILABLE);
+            assertThat(trackingExecutor.submitted()).isNotNull();
+            assertThat(trackingExecutor.submitted().isCancelled()).isTrue();
+            assertThat(interrupted.await(500, TimeUnit.MILLISECONDS)).isTrue();
+        } finally {
+            trackingExecutor.shutdown();
+        }
+    }
+
+    @Test
     void saturatedExecutorRejectsWithoutRunningClassifierOnRequestThread() throws Exception {
         var release = new CountDownLatch(1);
         var workerThreads = java.util.concurrent.ConcurrentHashMap.<String>newKeySet();
@@ -216,5 +290,21 @@ class CustomSceneSafetyPolicyTest {
 
     private CustomSceneSafetyPolicy policy() {
         return new CustomSceneSafetyPolicy(emergencyRules, classifier, templates, executor, properties);
+    }
+
+    private static final class TrackingExecutor extends ThreadPoolTaskExecutor {
+
+        private final AtomicReference<Future<?>> submitted = new AtomicReference<>();
+
+        @Override
+        public Future<?> submit(Runnable task) {
+            var future = super.submit(task);
+            submitted.set(future);
+            return future;
+        }
+
+        private Future<?> submitted() {
+            return submitted.get();
+        }
     }
 }

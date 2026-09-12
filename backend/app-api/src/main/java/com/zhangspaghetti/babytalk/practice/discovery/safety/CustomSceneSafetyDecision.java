@@ -131,9 +131,11 @@ public final class CustomSceneSafetyDecision {
     public static final class Admission {
 
         private final String digest;
+        private final boolean contextBound;
 
-        private Admission(String digest) {
+        private Admission(String digest, boolean contextBound) {
             this.digest = Objects.requireNonNull(digest, "digest");
+            this.contextBound = contextBound;
         }
 
         static Admission forPolicy(
@@ -151,7 +153,22 @@ public final class CustomSceneSafetyDecision {
                     locale,
                     ownerContext,
                     profileContext,
-                    policyVersion));
+                    policyVersion), false);
+        }
+
+        /**
+         * Binds this policy admission to server-resolved owner and profile context. The original
+         * placeholder token stays unbound and cannot be used as a context-bound token.
+         */
+        public Admission bindContext(String ownerScope, String ownerKey, String profileId) {
+            if (contextBound) {
+                throw new IllegalStateException("admission context already bound");
+            }
+            var normalizedOwnerScope = requiredContext(ownerScope, "owner scope");
+            var normalizedOwnerKey = requiredContext(ownerKey, "owner key");
+            var normalizedProfileId = optionalContext(profileId);
+            return new Admission(boundDigest(
+                    digest, normalizedOwnerScope, normalizedOwnerKey, normalizedProfileId), true);
         }
 
         /**
@@ -173,6 +190,41 @@ public final class CustomSceneSafetyDecision {
                     digest.getBytes(StandardCharsets.US_ASCII),
                     digest(securityText, ageRange, locale, ownerContext, profileContext, policyVersion)
                             .getBytes(StandardCharsets.US_ASCII));
+        }
+
+        /** Validates a context-bound token against server-resolved owner and profile values. */
+        public boolean matches(
+                String securityText,
+                String ageRange,
+                String locale,
+                String ownerScope,
+                String ownerKey,
+                String profileId,
+                String policyVersion
+        ) {
+            if (!contextBound || securityText == null || securityText.isBlank()) {
+                return false;
+            }
+            var expectedBase = digest(
+                    securityText,
+                    ageRange,
+                    locale,
+                    OWNER_CONTEXT_PLACEHOLDER,
+                    PROFILE_CONTEXT_PLACEHOLDER,
+                    policyVersion);
+            final String expected;
+            try {
+                expected = boundDigest(
+                        expectedBase,
+                        requiredContext(ownerScope, "owner scope"),
+                        requiredContext(ownerKey, "owner key"),
+                        optionalContext(profileId));
+            } catch (RuntimeException failure) {
+                return false;
+            }
+            return MessageDigest.isEqual(
+                    digest.getBytes(StandardCharsets.US_ASCII),
+                    expected.getBytes(StandardCharsets.US_ASCII));
         }
 
         @Override
@@ -221,6 +273,32 @@ public final class CustomSceneSafetyDecision {
             } catch (NoSuchAlgorithmException exception) {
                 throw new IllegalStateException("SHA-256 digest unavailable");
             }
+        }
+
+        private static String boundDigest(
+                String baseDigest,
+                String ownerScope,
+                String ownerKey,
+                String profileId
+        ) {
+            return digest(
+                    baseDigest,
+                    ownerScope,
+                    ownerKey,
+                    profileId,
+                    HEALTH_SAFETY_POLICY_VERSION,
+                    "admission-context-v1");
+        }
+
+        private static String requiredContext(String value, String field) {
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("admission " + field + " must not be blank");
+            }
+            return value.trim();
+        }
+
+        private static String optionalContext(String value) {
+            return value == null ? "" : value.trim();
         }
 
         private static String lengthPrefix(String value) {

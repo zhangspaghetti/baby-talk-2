@@ -90,16 +90,6 @@ public final class CustomSceneSafetyPolicy {
                 classifierTimeout, HEALTH_SAFETY_POLICY_VERSION);
     }
 
-    public CustomSceneSafetyPolicy(
-            CustomSceneEmergencyRuleClassifier emergencyRules,
-            CustomSceneSafetyClassifier classifier,
-            HealthSafetyTemplateRegistry templates,
-            CustomSceneSafetyProperties properties
-    ) {
-        this(emergencyRules, classifier, templates,
-                new CustomSceneSafetyExecutorConfiguration().customSceneSafetyExecutor(), properties);
-    }
-
     public CustomSceneSafetyDecision assess(SceneTextForms forms, String ageRange) {
         Optional<CustomSceneSafetyAssessment> urgent;
         try {
@@ -107,10 +97,14 @@ public final class CustomSceneSafetyPolicy {
         } catch (RuntimeException failure) {
             return unavailable();
         }
-        if (urgent != null && urgent.isPresent()) {
+        if (urgent == null) {
+            return unavailable();
+        }
+        if (urgent.isPresent()) {
             var assessment = urgent.orElse(null);
             if (isEmergencyAssessment(assessment)) {
-                return CustomSceneSafetyDecision.health(assessment);
+                return CustomSceneSafetyDecision.health(
+                        assessment, templates.template("health-emergency-v1"));
             }
             return unavailable();
         }

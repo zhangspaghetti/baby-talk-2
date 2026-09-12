@@ -75,18 +75,23 @@ public final class FakeCustomSceneSafetyClassifier implements CustomSceneSafetyC
                     CustomSceneSafetyAssessment.Intent.UNCERTAIN,
                     List.of(Signal.AMBIGUOUS_CONCERN));
         }
-        if (containsAny(normalized, "没有身体不适", "无身体不适", "没有不舒服", "无不舒服")) {
-            return new SemanticResult(
-                    CustomSceneSafetyAssessment.Intent.ORDINARY_SCENE, List.of());
-        }
         if (containsAny(
                 normalized,
                 "拉肚子", "拉稀", "腹泻", "不喝奶", "尿明显少", "尿少", "发烧",
-                "呕吐", "没精神", "身体不适", "肚子疼", "咳嗽", "疼痛")) {
+                "呕吐", "没精神", "肚子疼", "咳嗽", "疼痛")) {
             var signals = containsAny(normalized, "需要评估", "请联系医生", "儿科医生", "及时就医")
                     ? List.of(Signal.HEALTH_CONCERN, Signal.PROMPT_ASSESSMENT)
                     : List.of(Signal.HEALTH_CONCERN);
             return new SemanticResult(CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN, signals);
+        }
+        if (containsAny(normalized, "没有身体不适", "无身体不适", "没有不舒服", "无不舒服")) {
+            return new SemanticResult(
+                    CustomSceneSafetyAssessment.Intent.ORDINARY_SCENE, List.of());
+        }
+        if (containsAny(normalized, "身体不适", "不舒服")) {
+            return new SemanticResult(
+                    CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
+                    List.of(Signal.HEALTH_CONCERN));
         }
         if (containsAny(normalized, "康复", "恢复", "好了", "没事了")) {
             return new SemanticResult(
