@@ -82,10 +82,26 @@ class PracticeDiscoveryV2ControllerTest extends AbstractIntegrationTest {
                 "policyVersion", "scene");
     }
 
+    @Test
+    void catalogModeWithCustomTextReturnsUnsupportedModeBeforeBodyValidation() throws Exception {
+        var session = createAcceptedSession("13800139003", "install-v2-catalog");
+        mockMvc.perform(post("/api/v2/practice/discovery")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + session.accessToken())
+                        .header("X-App-Version", "1.2.0")
+                        .content(requestJson("catalog", "洗澡后哄睡")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("unsupported_surface_mode"));
+    }
+
     private String requestJson(String customSceneText) throws Exception {
+        return requestJson("custom_scene", customSceneText);
+    }
+
+    private String requestJson(String mode, String customSceneText) throws Exception {
         var request = objectMapper.createObjectNode();
         request.put("surface", "onboarding");
-        request.put("mode", "custom_scene");
+        request.put("mode", mode);
         request.put("installationId", "install_v2_test");
         request.put("ageRange", "m7_11");
         request.put("parentGoal", "calmer_care");

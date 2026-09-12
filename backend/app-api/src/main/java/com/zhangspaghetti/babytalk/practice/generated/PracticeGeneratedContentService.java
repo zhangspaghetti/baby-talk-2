@@ -10,6 +10,7 @@ import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyPro
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfiguration;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
+import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneTextValidator;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
@@ -44,16 +45,10 @@ public class PracticeGeneratedContentService {
     private static final String ERROR_GENERATED_CONTENT_REJECTED = "generated_content_rejected";
     private static final String ERROR_GENERATION_INVALID_OUTPUT = "generation_invalid_output";
     private static final String ERROR_LEGACY_ACTIVE_BUNDLE_UNSUPPORTED = "legacy_active_bundle_unsupported";
-    private static final String ERROR_INVALID_CUSTOM_SCENE_TEXT = "invalid_custom_scene_text";
-    private static final String ERROR_UNSAFE_CUSTOM_SCENE_TEXT = "unsafe_custom_scene_text";
-    private static final String ERROR_UNSUPPORTED_CUSTOM_SCENE_TEXT = "unsupported_custom_scene_text";
     private static final String ERROR_CUSTOM_SCENE_RATE_LIMITED = "custom_scene_rate_limited";
     private static final String ERROR_INVALID_CLIENT_REQUEST_ID = "invalid_client_request_id";
     private static final String ERROR_CLIENT_REQUEST_ID_CONFLICT = "client_request_id_conflict";
     private static final String ERROR_CLIENT_REQUEST_TERMINAL = "client_request_terminal";
-    private static final int MIN_CUSTOM_SCENE_CHARS = 4;
-    private static final int MAX_CUSTOM_SCENE_CHARS = 80;
-    private static final int MAX_NORMALIZED_SCENE_TEXT_CODE_POINTS = 160;
     private static final int MAX_CLIENT_REQUEST_ID_CHARS = 96;
     private static final int MAX_DRAFT_RESERVATION_ATTEMPTS = 5;
     private static final int CONTENT_REFRESH_EPOCH = 1;
@@ -72,6 +67,7 @@ public class PracticeGeneratedContentService {
     private final PracticeGeneratedContentKeyFactory keyFactory;
     private final SceneTextCanonicalizer sceneTextCanonicalizer;
     private final SceneTextSecurityPolicy sceneTextSecurityPolicy;
+    private final CustomSceneTextValidator customSceneTextValidator;
     private final PolicyTextMatcher policyTextMatcher;
     private final Clock clock;
     private final PracticeGeneratedContentCommands commands;
@@ -157,6 +153,8 @@ public class PracticeGeneratedContentService {
                 sceneTextSecurityPolicy, "scene text security policy is required");
         this.policyTextMatcher = java.util.Objects.requireNonNull(
                 policyTextMatcher, "policy text matcher is required");
+        this.customSceneTextValidator = new CustomSceneTextValidator(
+                this.sceneTextCanonicalizer, this.policyTextMatcher, this.policyProperties);
         this.clock = clock;
         var normalizedSecret = ownerProperties.keySecret();
         if (customSceneProperties.enabled()
@@ -326,7 +324,7 @@ public class PracticeGeneratedContentService {
     ) {
         var forms = sceneTextCanonicalizer.derive(request.customSceneText());
         sceneTextSecurityPolicy.requireSafe(forms);
-        var normalizedSceneText = validateDisplayLength(forms.displayText());
+        var normalizedSceneText = customSceneTextValidator.requireValid(forms);
         var requestFingerprint = fingerprint(request, owner, forms.securityText());
         var clientRequestId = validateClientRequestId(request);
         var clientRequestFingerprint = clientRequestId == null
@@ -853,23 +851,6 @@ public class PracticeGeneratedContentService {
         return ownerProperties.keyVersion();
     }
 
-    private String validateDisplayLength(String displayText) {
-        if (displayText == null) {
-            throw invalidCustomSceneText();
-        }
-        var length = sceneTextCanonicalizer.graphemeLength(displayText);
-        if (length < MIN_CUSTOM_SCENE_CHARS || length > MAX_CUSTOM_SCENE_CHARS) {
-            throw invalidCustomSceneText();
-        }
-        if (sceneTextCanonicalizer.codePointLength(displayText) > MAX_NORMALIZED_SCENE_TEXT_CODE_POINTS) {
-            throw invalidCustomSceneText();
-        }
-        if (policyTextMatcher.containsAny(displayText, policyProperties.unsupportedIntents())) {
-            throw unsupportedCustomSceneText("unsupported_intent");
-        }
-        return displayText;
-    }
-
     private String clientRequestFingerprint(
             CustomSceneDiscoveryRequest request,
             OwnerContext owner,
@@ -910,24 +891,6 @@ public class PracticeGeneratedContentService {
                 ERROR_INVALID_CLIENT_REQUEST_ID,
                 "clientRequestId 不合法。",
                 Map.of("field", "clientRequestId")
-        );
-    }
-
-    private ContractException invalidCustomSceneText() {
-        return new ContractException(
-                HttpStatus.BAD_REQUEST,
-                ERROR_INVALID_CUSTOM_SCENE_TEXT,
-                "customSceneText 长度不合法。",
-                Map.of("min", MIN_CUSTOM_SCENE_CHARS, "max", MAX_CUSTOM_SCENE_CHARS)
-        );
-    }
-
-    private ContractException unsupportedCustomSceneText(String reason) {
-        return new ContractException(
-                HttpStatus.BAD_REQUEST,
-                ERROR_UNSUPPORTED_CUSTOM_SCENE_TEXT,
-                "customSceneText 需要是照护场景。",
-                Map.of("reason", reason)
         );
     }
 

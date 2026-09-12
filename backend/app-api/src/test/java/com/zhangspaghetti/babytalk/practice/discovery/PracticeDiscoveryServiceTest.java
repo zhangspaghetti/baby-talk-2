@@ -531,6 +531,121 @@ class PracticeDiscoveryServiceTest {
         verify(generatedContentService, never()).generateCustomScene(any());
     }
 
+    @Test
+    void assessmentUnavailableReturnsV2EnvelopeAndV1503WithoutGeneration() {
+        var forms = new SceneTextForms(
+                "洗澡后哄睡",
+                "洗澡后哄睡",
+                new SceneTextRiskSignals(false, false, false, false));
+        when(sceneTextCanonicalizer.derive("洗澡后哄睡")).thenReturn(forms);
+        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
+        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.ASSESSMENT_UNAVAILABLE);
+        when(decision.assessment()).thenReturn(new CustomSceneSafetyAssessment(
+                CustomSceneSafetyAssessment.Intent.UNCERTAIN,
+                CustomSceneSafetyAssessment.Action.UNCERTAIN,
+                "health-assessment-unavailable-v1",
+                "health-safety-v1"));
+        when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
+                "uncertain", "zh-CN", "暂时无法判断这段描述", "暂时无法完成判断。"));
+        when(customSceneSafetyPolicy.assess(forms, "m7_11")).thenReturn(decision);
+        var request = new PracticeDiscoveryRequest(
+                "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
+                "zh-CN", 6, null, "洗澡后哄睡");
+
+        var v2 = safetyAwareService().discoverCustomSceneV2(request, null);
+
+        assertThat(v2.resultType()).isEqualTo("assessment_unavailable");
+        assertThat(v2.policyVersion()).isNull();
+        assertThat(v2.scene()).isNull();
+        assertThat(v2.safety().templateId()).isEqualTo("health-assessment-unavailable-v1");
+
+        assertThatThrownBy(() -> safetyAwareService().discover(request, null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                    assertThat(contract.code()).isEqualTo("health_assessment_unavailable");
+                });
+        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
+        verify(generatedContentService, never()).generateCustomScene(any());
+    }
+
+    @Test
+    void v2CatalogModeRejectsBeforeModeSpecificFields() {
+        assertThatThrownBy(() -> safetyAwareService().discoverCustomSceneV2(
+                new PracticeDiscoveryRequest(
+                        "onboarding", "catalog", "install_1", null, "m7_11", "calmer_care",
+                        "zh-CN", 6, null, "洗澡后哄睡"),
+                null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(contract.code()).isEqualTo("unsupported_surface_mode");
+                });
+        verifyNoInteractions(authConsentSyncService, babyProfileMapper, customSceneSafetyPolicy);
+        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
+        verify(generatedContentService, never()).generateCustomScene(any());
+    }
+
+    @Test
+    void inconsistentSafetyTemplateFailsClosedBeforeGeneration() {
+        var forms = new SceneTextForms(
+                "洗澡后哄睡",
+                "洗澡后哄睡",
+                new SceneTextRiskSignals(false, false, false, false));
+        when(sceneTextCanonicalizer.derive("洗澡后哄睡")).thenReturn(forms);
+        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
+        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.HEALTH_SAFETY);
+        when(decision.assessment()).thenReturn(new CustomSceneSafetyAssessment(
+                CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
+                CustomSceneSafetyAssessment.Action.SEEK_MEDICAL_HELP,
+                "health-concern-v1",
+                "health-safety-v1"));
+        when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
+                "uncertain", "zh-CN", "模板不一致", "模板不一致。"));
+        when(customSceneSafetyPolicy.assess(forms, "m7_11")).thenReturn(decision);
+
+        assertThatThrownBy(() -> safetyAwareService().discoverCustomSceneV2(
+                new PracticeDiscoveryRequest(
+                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
+                        "zh-CN", 6, null, "洗澡后哄睡"),
+                null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                    assertThat(contract.code()).isEqualTo("health_assessment_unavailable");
+                });
+        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
+        verify(generatedContentService, never()).generateCustomScene(any());
+    }
+
+    @Test
+    void invalidCustomSceneTextFailsBeforeSafetyAssessment() {
+        assertInvalidCustomSceneText(null);
+        assertInvalidCustomSceneText("abc");
+        assertInvalidCustomSceneText("澡".repeat(81));
+        assertInvalidCustomSceneText("👨‍👩‍👧‍👦".repeat(23));
+    }
+
+    private void assertInvalidCustomSceneText(String text) {
+        assertThatThrownBy(() -> realSafetyAwareService().discoverCustomSceneV2(
+                new PracticeDiscoveryRequest(
+                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
+                        "zh-CN", 6, null, text),
+                null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(contract.code()).isEqualTo("invalid_custom_scene_text");
+                });
+        verify(customSceneSafetyPolicy, never()).assess(any(), any());
+        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
+        verify(generatedContentService, never()).generateCustomScene(any());
+    }
+
     private PracticeDiscoveryService safetyAwareService() {
         return new PracticeDiscoveryService(
                 catalogMapper,
@@ -539,6 +654,22 @@ class PracticeDiscoveryServiceTest {
                 generatedContentService,
                 sceneTextCanonicalizer,
                 sceneTextSecurityPolicy,
+                customSceneSafetyPolicy);
+    }
+
+    private PracticeDiscoveryService realSafetyAwareService() {
+        var canonicalizer = new SceneTextCanonicalizer();
+        var matcher = new PolicyTextMatcher(canonicalizer);
+        var properties = PracticeDiscoveryPolicyTestFixture.properties();
+        return new PracticeDiscoveryService(
+                catalogMapper,
+                authConsentSyncService,
+                babyProfileMapper,
+                generatedContentService,
+                canonicalizer,
+                new SceneTextSecurityPolicy(
+                        properties, matcher, SceneTextSecurityConfiguration.configuredSpoofChecker()),
+                new CustomSceneTextValidator(canonicalizer, matcher, properties),
                 customSceneSafetyPolicy);
     }
 
