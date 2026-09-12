@@ -22,6 +22,10 @@ class CustomSceneSafetyPropertiesTest {
 
         assertThat(properties.policyVersion()).isEqualTo("health-safety-v1");
         assertThat(properties.classifierTimeout()).isEqualTo(Duration.ofSeconds(3));
+        assertThat(properties.classifierPrompt()).isEqualTo(new CustomSceneSafetyProperties.PromptRef(
+                "custom-scene-safety-classifier-v1",
+                "config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt"));
+        assertThat(properties.contentHash()).matches("[0-9a-f]{64}");
         assertThat(properties.templates()).hasSize(5);
         assertThat(properties.emergencySignals()).containsKeys(
                 "breathing-difficulty",

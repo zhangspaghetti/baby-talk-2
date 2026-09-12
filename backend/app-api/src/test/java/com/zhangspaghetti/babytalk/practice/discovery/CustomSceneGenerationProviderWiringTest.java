@@ -9,6 +9,9 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOpenAiOptionsFacto
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderConfiguration;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.AgenticCustomSceneSafetyClassifier;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyClassifier;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.FakeCustomSceneSafetyClassifier;
 import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneGenerator;
 import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneQualityJudge;
 import com.zhangspaghetti.babytalk.practice.generated.AgenticCustomSceneRepairer;
@@ -53,6 +56,9 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).hasSingleBean(CustomSceneRepairer.class);
                     assertThat(context.getBean(CustomSceneRepairer.class))
                             .isInstanceOf(FakeCustomSceneRepairer.class);
+                    assertThat(context).hasSingleBean(CustomSceneSafetyClassifier.class);
+                    assertThat(context.getBean(CustomSceneSafetyClassifier.class))
+                            .isInstanceOf(FakeCustomSceneSafetyClassifier.class);
 
                     var candidate = context.getBean(CustomSceneGenerator.class)
                             .generateCareMoment(request("睡前哄宝宝"))
@@ -128,6 +134,7 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).hasSingleBean(CustomSceneRepairer.class);
                     assertThat(context.getBean(CustomSceneRepairer.class))
                             .isInstanceOf(DisabledCustomSceneRepairer.class);
+                    assertThat(context).doesNotHaveBean(CustomSceneSafetyClassifier.class);
                 });
     }
 
@@ -156,6 +163,9 @@ class CustomSceneGenerationProviderWiringTest {
                     assertThat(context).hasSingleBean(CustomSceneRepairer.class);
                     assertThat(context.getBean(CustomSceneRepairer.class))
                             .isInstanceOf(AgenticCustomSceneRepairer.class);
+                    assertThat(context).hasSingleBean(CustomSceneSafetyClassifier.class);
+                    assertThat(context.getBean(CustomSceneSafetyClassifier.class))
+                            .isInstanceOf(AgenticCustomSceneSafetyClassifier.class);
                 });
     }
 
@@ -217,7 +227,8 @@ class CustomSceneGenerationProviderWiringTest {
                 "app.ai.providers.primary.max-tokens=128",
                 "app.ai.capabilities.custom-scene-generator.provider-names[0]=primary",
                 "app.ai.capabilities.custom-scene-quality-judge.provider-names[0]=primary",
-                "app.ai.capabilities.custom-scene-repair.provider-names[0]=primary");
+                "app.ai.capabilities.custom-scene-repair.provider-names[0]=primary",
+                "app.ai.capabilities.custom-scene-safety-classifier.provider-names[0]=primary");
     }
 
     @Configuration(proxyBeanMethods = false)
@@ -228,6 +239,8 @@ class CustomSceneGenerationProviderWiringTest {
             AgenticCustomSceneGenerator.class,
             AgenticCustomSceneQualityJudge.class,
             AgenticCustomSceneRepairer.class,
+            AgenticCustomSceneSafetyClassifier.class,
+            FakeCustomSceneSafetyClassifier.class,
             DisabledCustomSceneQualityJudge.class,
             FakeCustomSceneRepairer.class,
             DisabledCustomSceneRepairer.class,

@@ -3,7 +3,13 @@ package com.zhangspaghetti.babytalk.practice.agentic.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties;
+import java.nio.charset.StandardCharsets;
+import org.springframework.core.io.ByteArrayResource;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.DefaultResourceLoader;
 
 class VersionedResourceRegistryTest {
@@ -40,6 +46,38 @@ class VersionedResourceRegistryTest {
                         java.util.List.of("glm-5.2"),
                         PracticeAiReasoningEffort.NONE));
         assertThat(registry.promptText(VersionedResourceRegistry.PromptKind.GENERATOR)).contains("strict JSON");
+    }
+
+    @Test
+    void loadsSafetyClassifierPromptAndExposesLockedOpaqueMetadata() {
+        var prompt = registry.promptText(VersionedResourceRegistry.PromptKind.SAFETY_CLASSIFIER);
+        var ref = registry.promptRef(VersionedResourceRegistry.PromptKind.SAFETY_CLASSIFIER);
+
+        assertThat(ref.version()).isEqualTo("custom-scene-safety-classifier-v1");
+        assertThat(ref.resourcePath())
+                .isEqualTo("config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt");
+        assertThat(ref.contentHash())
+                .isEqualTo("8e973dbaac37d54747833f3a9676349877307686859fbebfb37fa6d0e459232d");
+        assertThat(prompt).contains("untrusted data", "exactly one JSON object", "medical advice");
+        assertThat(registry.healthSafetyPolicyHash()).matches("[0-9a-f]{64}");
+    }
+
+    @Test
+    void refusesSafetyClassifierPromptWhenLockHashMismatches() {
+        assertThatThrownBy(() -> registryWithLock("0".repeat(64)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("classifier prompt lock hash mismatch");
+    }
+
+    @Test
+    void refusesSafetyClassifierPromptWhenLockIsMissing() {
+        assertThatThrownBy(() -> new VersionedResourceRegistry(
+                new DefaultResourceLoader(),
+                "classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml",
+                CustomSceneSafetyProperties.defaults(),
+                "classpath:config/practice-ai/missing-version-lock.yml"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("missing versioned resource");
     }
 
     @Test
@@ -169,5 +207,35 @@ class VersionedResourceRegistryTest {
 
     private VersionedResourceRegistry registryFor(String profilePath) {
         return new VersionedResourceRegistry(new DefaultResourceLoader(), "classpath:config/practice-ai/" + profilePath);
+    }
+
+    private VersionedResourceRegistry registryWithLock(String hash) {
+        var delegate = new DefaultResourceLoader();
+        ResourceLoader loader = new ResourceLoader() {
+            @Override
+            public Resource getResource(String location) {
+                if ("test-lock".equals(location)) {
+                    var yaml = """
+                            schema-version: practice-ai-version-lock-schema-v1
+                            resources:
+                            - version: custom-scene-safety-classifier-v1
+                              resource-path: config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt
+                              content-hash: %s
+                            """.formatted(hash);
+                    return new ByteArrayResource(yaml.getBytes(StandardCharsets.UTF_8));
+                }
+                return delegate.getResource(location);
+            }
+
+            @Override
+            public ClassLoader getClassLoader() {
+                return delegate.getClassLoader();
+            }
+        };
+        return new VersionedResourceRegistry(
+                loader,
+                "classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml",
+                CustomSceneSafetyProperties.defaults(),
+                "test-lock");
     }
 }

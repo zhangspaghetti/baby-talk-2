@@ -64,7 +64,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
         "app.ai.providers.primary.max-tokens=128",
         "app.ai.capabilities.custom-scene-generator.provider-names[0]=primary",
         "app.ai.capabilities.custom-scene-quality-judge.provider-names[0]=primary",
-        "app.ai.capabilities.custom-scene-repair.provider-names[0]=primary"
+        "app.ai.capabilities.custom-scene-repair.provider-names[0]=primary",
+        "app.ai.capabilities.custom-scene-safety-classifier.provider-names[0]=primary"
 })
 @AutoConfigureMockMvc
 @Import(CustomSceneAgenticGenerationIntegrationTest.StubProviderConfiguration.class)

@@ -3,8 +3,18 @@ package com.zhangspaghetti.babytalk.practice.discovery.safety;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
 
 /** Deterministic fixture classifier for local development and tests. */
+@Component
+@Profile({"dev", "test"})
+@ConditionalOnProperty(
+        prefix = "babytalk.practice.discovery.custom-scene",
+        name = "provider-mode",
+        havingValue = "fake"
+)
 public final class FakeCustomSceneSafetyClassifier implements CustomSceneSafetyClassifier {
 
     private static final String POLICY_VERSION = "health-safety-v1";

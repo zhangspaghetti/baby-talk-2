@@ -3,7 +3,8 @@ package com.zhangspaghetti.babytalk.practice.agentic;
 public enum PracticeAiCapability {
     CUSTOM_SCENE_GENERATOR("custom-scene-generator"),
     CUSTOM_SCENE_QUALITY_JUDGE("custom-scene-quality-judge"),
-    CUSTOM_SCENE_REPAIR("custom-scene-repair");
+    CUSTOM_SCENE_REPAIR("custom-scene-repair"),
+    CUSTOM_SCENE_SAFETY_CLASSIFIER("custom-scene-safety-classifier");
 
     private final String propertyKey;
 

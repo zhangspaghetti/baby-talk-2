@@ -3,6 +3,9 @@ babytalk:
     health-safety:
       policy-version: health-safety-v1
       classifier-timeout: 3s
+      classifier-prompt:
+        version: custom-scene-safety-classifier-v1
+        resource-path: config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt
       templates:
         health-emergency-v1:
           action: emergency

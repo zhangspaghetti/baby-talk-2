@@ -25,6 +25,8 @@ class PracticeAiProviderManagerTest {
                 "custom-scene-quality-judge",
                 new PracticeAiProperties.CapabilityRoute(List.of("secondary")),
                 "custom-scene-repair",
+                new PracticeAiProperties.CapabilityRoute(List.of("primary")),
+                "custom-scene-safety-classifier",
                 new PracticeAiProperties.CapabilityRoute(List.of("primary")));
         var properties = new PracticeAiProperties(
                 new PracticeAiProperties.RoutingPolicy("custom-scene-routing-v1"), definitions, routes);

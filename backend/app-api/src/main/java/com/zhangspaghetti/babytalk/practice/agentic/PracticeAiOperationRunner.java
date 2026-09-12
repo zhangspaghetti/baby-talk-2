@@ -189,6 +189,7 @@ public class PracticeAiOperationRunner {
             case CUSTOM_SCENE_GENERATOR -> "generator";
             case CUSTOM_SCENE_QUALITY_JUDGE -> "quality_judge";
             case CUSTOM_SCENE_REPAIR -> "repair";
+            case CUSTOM_SCENE_SAFETY_CLASSIFIER -> "safety_classifier";
         };
     }
 
