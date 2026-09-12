@@ -26,6 +26,9 @@ class CustomSceneEmergencyRuleClassifierTest {
     @ValueSource(strings = {
             "宝宝现在呼吸困难",
             "宝宝喘不过气",
+            "宝宝打完预防针后喘不过气",
+            "什么是呼吸困难（宝宝现在喘不过气）",
+            "没想到宝宝喘不过气",
             "玩医生游戏但宝宝现在喘不过气",
             "故事里宝宝抽搐但现在又抽搐",
             "宝宝嘴唇发青",
@@ -47,6 +50,14 @@ class CustomSceneEmergencyRuleClassifierTest {
     @Test
     void currentSymptomAfterNegatedEarlierSymptomStillWins() {
         assertThat(classifier.classify(canonicalizer.derive("宝宝没有呼吸困难，但现在又喘不过气")))
+                .contains(new CustomSceneSafetyAssessment(
+                        REAL_HEALTH_CONCERN, EMERGENCY,
+                        "health-emergency-v1", "health-safety-v1"));
+    }
+
+    @Test
+    void currentSymptomAfterNegatedSymptomWithContrastStillWins() {
+        assertThat(classifier.classify(canonicalizer.derive("宝宝没有呼吸困难却喘不过气")))
                 .contains(new CustomSceneSafetyAssessment(
                         REAL_HEALTH_CONCERN, EMERGENCY,
                         "health-emergency-v1", "health-safety-v1"));

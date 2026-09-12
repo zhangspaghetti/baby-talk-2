@@ -16,8 +16,11 @@ import static com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneS
 public final class CustomSceneEmergencyRuleClassifier {
 
     private static final Pattern CLAUSE_BOUNDARY = Pattern.compile("[，。！？；\\n\\r,.!?;:]");
-    private static final Pattern NEGATION_MARKER = Pattern.compile(
-            "没|没有|并没有|不是|不|无|未|未见|不再|不曾|从未|否认|并未|未曾|没有出现");
+    private static final Pattern DIRECT_NEGATION_BEFORE = Pattern.compile(
+            "(?:没有出现|没(?:有|出现)?|并没有|不是|不|无|未|未见|不再|不曾|从未|否认|并未|未曾)\\s*$");
+    private static final Pattern PARALLEL_NEGATION_BEFORE = Pattern.compile(
+            "(?:没有出现|没(?:有|出现)?|并没有|不是|不|无|未|未见|不再|不曾|从未|否认|并未|未曾)"
+                    + "[^，。！？；\\n\\r]*、\\s*$");
     private static final Pattern UNCERTAINTY_MARKER = Pattern.compile(
             "不知道是不是|不知道有没有|不知道有沒有|不确定是否|不确定有没有|会不会|可能是");
     private static final Pattern HISTORICAL_MARKER = Pattern.compile("曾经|曾經|以前|之前|过去|過去");
@@ -26,10 +29,12 @@ public final class CustomSceneEmergencyRuleClassifier {
                     + "假设|假設|假装|假裝|游戏里|遊戲裡|游戏中|遊戲中|只是游戏|只是遊戲|玩医生游戏");
     private static final Pattern CURRENT_CUE = Pattern.compile(
             "现在|目前|此刻|正在|刚刚|剛剛|刚才|剛才|现实|現實|真实|真實|真的|实际|實際|事实上|事實上");
-    private static final Pattern CONTRAST_MARKER = Pattern.compile("但|但是|可是|不过|不過|然而|而");
-    private static final Pattern KNOWLEDGE_QUERY = Pattern.compile(
-            "什么是|什么叫|如何预防|怎么预防|怎样预防|如何避免|怎么避免|怎样避免|"
-                    + "如何判断|怎么判断|怎样判断|预防|預防");
+    private static final Pattern CONTRAST_MARKER = Pattern.compile("但|但是|可是|不过|不過|然而|而|却");
+    private static final Pattern KNOWLEDGE_QUERY_PREFIX = Pattern.compile(
+            "(?:什么是|什么叫|如何预防|怎么预防|怎样预防|如何避免|怎么避免|怎样避免|"
+                    + "如何判断|怎么判断|怎样判断)\\s*$");
+    private static final Pattern KNOWLEDGE_QUERY_SUFFIX = Pattern.compile(
+            "^\\s*(?:是什么|是怎么回事|怎么回事)\\s*$");
     private static final Pattern RECOVERY_AFTER = Pattern.compile(
             "^(?:(?:但|但是|可是|不过|而)\\s*)?(?:(?:现在|目前|后来|之后|随后)\\s*)?"
                     + "(?:(?:已经|已)\\s*)?(?:好了|恢复了?|康复了?|没事了?|正常了?|消失了?|缓解了?|不再了?)");
@@ -78,7 +83,7 @@ public final class CustomSceneEmergencyRuleClassifier {
     private boolean hasActiveMarker(String text, List<String> markers) {
         for (var marker : markers) {
             for (var start = text.indexOf(marker); start >= 0; start = text.indexOf(marker, start + marker.length())) {
-                if (isActiveOccurrence(text, start, marker.length())) {
+                if (isActiveOccurrence(text, start, marker.length(), markers)) {
                     return true;
                 }
             }
@@ -86,15 +91,15 @@ public final class CustomSceneEmergencyRuleClassifier {
         return false;
     }
 
-    private boolean isActiveOccurrence(String text, int start, int markerLength) {
+    private boolean isActiveOccurrence(String text, int start, int markerLength, List<String> markers) {
         var end = start + markerLength;
         var clauseStart = clauseStart(text, start);
         var clauseEnd = clauseEnd(text, end);
         var before = text.substring(clauseStart, start);
         var after = text.substring(end, clauseEnd);
-        var scope = text.substring(clauseStart, clauseEnd);
-        if (KNOWLEDGE_QUERY.matcher(scope).find()
-                || negatedBefore(before)
+        if (KNOWLEDGE_QUERY_PREFIX.matcher(before).find()
+                || KNOWLEDGE_QUERY_SUFFIX.matcher(after).matches()
+                || negatedBefore(before, markers)
                 || uncertainBefore(before)
                 || scopedMarkerBefore(before, HISTORICAL_MARKER)) {
             return false;
@@ -110,8 +115,19 @@ public final class CustomSceneEmergencyRuleClassifier {
         return !RECOVERY_CONTINUATION.matcher(text.substring(clauseEnd, continuationEnd)).find();
     }
 
-    private boolean negatedBefore(String before) {
-        return scopedMarkerBefore(before, NEGATION_MARKER);
+    private boolean negatedBefore(String before, List<String> markers) {
+        if (DIRECT_NEGATION_BEFORE.matcher(before).find()) {
+            return true;
+        }
+        if (!PARALLEL_NEGATION_BEFORE.matcher(before).find()) {
+            return false;
+        }
+        var separator = before.lastIndexOf('、');
+        if (separator < 0) {
+            return false;
+        }
+        var previousItems = before.substring(0, separator);
+        return markers.stream().anyMatch(previousItems::endsWith);
     }
 
     private boolean uncertainBefore(String before) {
