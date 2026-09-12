@@ -126,7 +126,8 @@ public class PracticeDiscoveryService {
         this.generatedContentService = generatedContentService;
         this.sceneTextCanonicalizer = Objects.requireNonNull(sceneTextCanonicalizer, "scene text canonicalizer");
         this.sceneTextSecurityPolicy = Objects.requireNonNull(sceneTextSecurityPolicy, "scene text security policy");
-        this.customSceneTextValidator = customSceneTextValidator;
+        this.customSceneTextValidator = Objects.requireNonNull(
+                customSceneTextValidator, "custom scene text validator");
         this.customSceneSafetyPolicy = Objects.requireNonNull(customSceneSafetyPolicy, "custom scene safety policy");
     }
 
@@ -141,7 +142,8 @@ public class PracticeDiscoveryService {
             CustomSceneSafetyPolicy customSceneSafetyPolicy
     ) {
         this(catalogService, authConsentSyncService, babyProfileMapper, generatedContentService,
-                sceneTextCanonicalizer, sceneTextSecurityPolicy, null, customSceneSafetyPolicy);
+                sceneTextCanonicalizer, sceneTextSecurityPolicy,
+                new CustomSceneTextValidator(new SceneTextCanonicalizer()), customSceneSafetyPolicy);
     }
 
     /** Compatibility constructor for focused legacy unit tests; Spring uses the safety-aware constructor. */
@@ -155,9 +157,9 @@ public class PracticeDiscoveryService {
         this.authConsentSyncService = authConsentSyncService;
         this.babyProfileMapper = babyProfileMapper;
         this.generatedContentService = generatedContentService;
-        this.sceneTextCanonicalizer = null;
+        this.sceneTextCanonicalizer = new SceneTextCanonicalizer();
         this.sceneTextSecurityPolicy = null;
-        this.customSceneTextValidator = null;
+        this.customSceneTextValidator = new CustomSceneTextValidator(this.sceneTextCanonicalizer);
         this.customSceneSafetyPolicy = null;
     }
 
@@ -256,9 +258,7 @@ public class PracticeDiscoveryService {
         if (sceneTextSecurityPolicy != null) {
             sceneTextSecurityPolicy.requireSafe(forms);
         }
-        if (customSceneTextValidator != null) {
-            customSceneTextValidator.requireValid(forms);
-        }
+        customSceneTextValidator.requireValid(forms);
         var safetyDecision = customSceneSafetyPolicy == null
                 ? null
                 : customSceneSafetyPolicy.assess(forms, generatedContext.ageRange());

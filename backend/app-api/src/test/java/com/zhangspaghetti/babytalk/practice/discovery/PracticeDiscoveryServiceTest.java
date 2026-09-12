@@ -629,6 +629,35 @@ class PracticeDiscoveryServiceTest {
         assertInvalidCustomSceneText("👨‍👩‍👧‍👦".repeat(23));
     }
 
+    @Test
+    void compatibilityConstructorRejectsOverlongTextBeforeSafetyAssessment() {
+        var canonicalizer = new SceneTextCanonicalizer();
+        var properties = PracticeDiscoveryPolicyTestFixture.properties();
+        var compatibilityService = new PracticeDiscoveryService(
+                catalogMapper,
+                authConsentSyncService,
+                babyProfileMapper,
+                generatedContentService,
+                canonicalizer,
+                new SceneTextSecurityPolicy(
+                        properties,
+                        new PolicyTextMatcher(canonicalizer),
+                        SceneTextSecurityConfiguration.configuredSpoofChecker()),
+                customSceneSafetyPolicy);
+
+        assertThatThrownBy(() -> compatibilityService.discoverCustomSceneV2(
+                new PracticeDiscoveryRequest(
+                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
+                        "zh-CN", 6, null, "澡".repeat(81)),
+                null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> assertThat(((ContractException) error).code())
+                        .isEqualTo("invalid_custom_scene_text"));
+        verify(customSceneSafetyPolicy, never()).assess(any(), any());
+        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
+        verify(generatedContentService, never()).generateCustomScene(any());
+    }
+
     private void assertInvalidCustomSceneText(String text) {
         assertThatThrownBy(() -> realSafetyAwareService().discoverCustomSceneV2(
                 new PracticeDiscoveryRequest(

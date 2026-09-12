@@ -2,10 +2,13 @@ package com.zhangspaghetti.babytalk.practice.discovery;
 
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Predicate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
-/** Shared custom-scene input length and intent validation. */
+/** Shared custom-scene input validation. */
 @Component
 public final class CustomSceneTextValidator {
 
@@ -14,17 +17,40 @@ public final class CustomSceneTextValidator {
     public static final int MAX_CUSTOM_SCENE_CODE_POINTS = 160;
 
     private final SceneTextCanonicalizer canonicalizer;
-    private final PolicyTextMatcher policyTextMatcher;
-    private final PracticeDiscoveryPolicyProperties policyProperties;
+    private final Predicate<String> unsupportedIntentMatcher;
 
+    /** Compatibility constructor that retains the shared length validation. */
+    public CustomSceneTextValidator(SceneTextCanonicalizer canonicalizer) {
+        this(canonicalizer, ignored -> false);
+    }
+
+    @Autowired
     public CustomSceneTextValidator(
             SceneTextCanonicalizer canonicalizer,
             PolicyTextMatcher policyTextMatcher,
             PracticeDiscoveryPolicyProperties policyProperties
     ) {
-        this.canonicalizer = canonicalizer;
-        this.policyTextMatcher = policyTextMatcher;
-        this.policyProperties = policyProperties;
+        this(
+                canonicalizer,
+                configuredUnsupportedIntentMatcher(policyTextMatcher, policyProperties));
+    }
+
+    private CustomSceneTextValidator(
+            SceneTextCanonicalizer canonicalizer,
+            Predicate<String> unsupportedIntentMatcher
+    ) {
+        this.canonicalizer = Objects.requireNonNull(canonicalizer, "scene text canonicalizer");
+        this.unsupportedIntentMatcher = Objects.requireNonNull(
+                unsupportedIntentMatcher, "unsupported intent matcher");
+    }
+
+    private static Predicate<String> configuredUnsupportedIntentMatcher(
+            PolicyTextMatcher policyTextMatcher,
+            PracticeDiscoveryPolicyProperties policyProperties
+    ) {
+        var matcher = Objects.requireNonNull(policyTextMatcher, "policy text matcher");
+        var properties = Objects.requireNonNull(policyProperties, "practice discovery policy properties");
+        return text -> matcher.containsAny(text, properties.unsupportedIntents());
     }
 
     public String requireValid(SceneTextForms forms) {
@@ -35,7 +61,7 @@ public final class CustomSceneTextValidator {
                 || canonicalizer.codePointLength(displayText) > MAX_CUSTOM_SCENE_CODE_POINTS) {
             throw invalidCustomSceneText();
         }
-        if (policyTextMatcher.containsAny(displayText, policyProperties.unsupportedIntents())) {
+        if (unsupportedIntentMatcher.test(displayText)) {
             throw new ContractException(
                     HttpStatus.BAD_REQUEST,
                     "unsupported_custom_scene_text",
