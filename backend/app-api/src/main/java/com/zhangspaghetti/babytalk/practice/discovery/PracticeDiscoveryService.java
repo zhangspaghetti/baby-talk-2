@@ -4,11 +4,16 @@ import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentSe
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryRequest;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse;
+import com.zhangspaghetti.babytalk.practice.discovery.dto.CustomSceneDiscoveryV2Response;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.MomentResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.SceneResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.StarterResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.StarterUtteranceResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.TraceResponse;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyAssessment;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyPolicy;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties;
 import com.zhangspaghetti.babytalk.practice.catalog.PracticeCatalogService;
 import com.zhangspaghetti.babytalk.practice.catalog.model.PracticeActivityRow;
 import com.zhangspaghetti.babytalk.practice.catalog.model.PracticePhraseRow;
@@ -26,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -68,20 +74,54 @@ public class PracticeDiscoveryService {
     private static final String ERROR_CONSUMER_AUTHENTICATION_REQUIRED = "consumer_authentication_required";
     private static final String ERROR_CATALOG_UNAVAILABLE = "catalog_unavailable";
     private static final String ERROR_ONBOARDING_PROFILE_NOT_FOUND = "onboarding_profile_not_found";
+    private static final String ERROR_HEALTH_SAFETY_REDIRECT = "health_safety_redirect";
+    private static final String ERROR_HEALTH_ASSESSMENT_UNAVAILABLE = "health_assessment_unavailable";
+    private static final String SCHEMA_CUSTOM_SCENE_RESULT_V2 = "custom-scene-result-v2";
+    private static final String SAFETY_POLICY_VERSION = "health-safety-v1";
+    private static final String SAFETY_LOCALE = "zh-CN";
+    private static final String HEALTH_REDIRECT_MESSAGE =
+            "你描述的是宝宝的健康问题。仅凭这段描述，无法判断原因或严重程度，请联系儿科医生进行评估。"
+                    + "如果宝宝出现呼吸困难、叫不醒或抽搐，请立即联系当地急救服务。";
+    private static final String HEALTH_ASSESSMENT_UNAVAILABLE_MESSAGE =
+            "暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。";
     private static final String DEFAULT_SPACE_ID = "daily_care";
     private static final String DEFAULT_ACTIVITY_ID = "bath_time";
     private static final int DEFAULT_LIMIT = 6;
     private static final int CATALOG_SCAN_LIMIT = 50;
     private static final Pattern SAFE_CLIENT_ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$");
     private static final Pattern SAFE_INSTALLATION_ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$");
+    private static final Pattern SAFE_CLIENT_REQUEST_ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$");
     private static final Pattern PHONE_LIKE_PATTERN = Pattern.compile("\\d{11,}");
+    private static final int MAX_CLIENT_REQUEST_ID_CHARS = 96;
 
     private final PracticeCatalogService catalogService;
     private final AuthConsentSyncService authConsentSyncService;
     private final BabyProfileMapper babyProfileMapper;
     private final PracticeGeneratedContentService generatedContentService;
+    private final SceneTextCanonicalizer sceneTextCanonicalizer;
+    private final SceneTextSecurityPolicy sceneTextSecurityPolicy;
+    private final CustomSceneSafetyPolicy customSceneSafetyPolicy;
 
     @Autowired
+    public PracticeDiscoveryService(
+            PracticeCatalogService catalogService,
+            AuthConsentSyncService authConsentSyncService,
+            BabyProfileMapper babyProfileMapper,
+            PracticeGeneratedContentService generatedContentService,
+            SceneTextCanonicalizer sceneTextCanonicalizer,
+            SceneTextSecurityPolicy sceneTextSecurityPolicy,
+            CustomSceneSafetyPolicy customSceneSafetyPolicy
+    ) {
+        this.catalogService = catalogService;
+        this.authConsentSyncService = authConsentSyncService;
+        this.babyProfileMapper = babyProfileMapper;
+        this.generatedContentService = generatedContentService;
+        this.sceneTextCanonicalizer = Objects.requireNonNull(sceneTextCanonicalizer, "scene text canonicalizer");
+        this.sceneTextSecurityPolicy = Objects.requireNonNull(sceneTextSecurityPolicy, "scene text security policy");
+        this.customSceneSafetyPolicy = Objects.requireNonNull(customSceneSafetyPolicy, "custom scene safety policy");
+    }
+
+    /** Compatibility constructor for focused legacy unit tests; Spring uses the safety-aware constructor. */
     public PracticeDiscoveryService(
             PracticeCatalogService catalogService,
             AuthConsentSyncService authConsentSyncService,
@@ -92,6 +132,9 @@ public class PracticeDiscoveryService {
         this.authConsentSyncService = authConsentSyncService;
         this.babyProfileMapper = babyProfileMapper;
         this.generatedContentService = generatedContentService;
+        this.sceneTextCanonicalizer = null;
+        this.sceneTextSecurityPolicy = null;
+        this.customSceneSafetyPolicy = null;
     }
 
     public PracticeDiscoveryResponse discover(PracticeDiscoveryRequest request, String sessionId) {
@@ -100,33 +143,22 @@ public class PracticeDiscoveryService {
         }
         var surface = validateSurface(request.surface());
         var mode = validateMode(request.mode());
-        if (mode == PracticeDiscoveryMode.CUSTOM_SCENE) {
-            generatedContentService.requireCustomSceneGenerationAvailable();
-        }
         validateModeSpecificFields(request, surface, mode);
         validateLocale(request.locale());
         var limit = normalizeLimit(request.limit());
         validateClientTraceId(request.clientTraceId());
+        validateClientRequestId(request);
 
+        if (mode == PracticeDiscoveryMode.CUSTOM_SCENE && customSceneSafetyPolicy == null) {
+            generatedContentService.requireCustomSceneGenerationAvailable();
+        }
         var context = resolveContext(request, sessionId);
         if (mode == PracticeDiscoveryMode.CUSTOM_SCENE) {
-            var generatedContext = resolveGeneratedContentContext(context, sessionId);
-            validateInstallationId(
-                    request.installationId(),
-                    generatedContext.accountId() == null && generatedContext.profileId() == null);
-            var generated = generatedContentService.generateCustomScene(new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
-                    surface.wireValue(),
-                    mode.wireValue(),
-                    StrUtil.trimToNull(request.installationId()),
-                    generatedContext.accountId(),
-                    generatedContext.profileId(),
-                    generatedContext.ageRange(),
-                    generatedContext.parentGoal(),
-                    SUPPORTED_LOCALE,
-                    request.customSceneText(),
-                    request.clientRequestId()
-            ));
-            return toGeneratedResponse(generatedContext, generated, surface, mode);
+            var route = prepareCustomScene(request, sessionId, context, surface, mode);
+            requireGeneratedScene(route.safetyDecision());
+            generatedContentService.requireCustomSceneGenerationAvailable();
+            var generated = generatedContentService.generateCustomScene(route.generatedRequest());
+            return toGeneratedResponse(route.context(), generated, surface, mode);
         }
 
         validateInstallationId(request.installationId(), context.profileId() == null);
@@ -144,6 +176,193 @@ public class PracticeDiscoveryService {
         }
 
         return toResponse(context, ranked, candidates.size(), surface, mode);
+    }
+
+    public CustomSceneDiscoveryV2Response discoverCustomSceneV2(
+            PracticeDiscoveryRequest request,
+            String sessionId
+    ) {
+        if (request == null) {
+            throw invalidDiscoverySurface();
+        }
+        var surface = validateSurface(request.surface());
+        var mode = validateMode(request.mode());
+        validateModeSpecificFields(request, surface, mode);
+        validateLocale(request.locale());
+        normalizeLimit(request.limit());
+        validateClientTraceId(request.clientTraceId());
+        validateClientRequestId(request);
+        if (mode != PracticeDiscoveryMode.CUSTOM_SCENE) {
+            throw unsupportedSurfaceMode();
+        }
+
+        var context = resolveContext(request, sessionId);
+        var route = prepareCustomScene(request, sessionId, context, surface, mode);
+        var decision = requireSafetyDecision(route.safetyDecision());
+        return switch (decision.resultType()) {
+            case GENERATED_SCENE -> {
+                generatedContentService.requireCustomSceneGenerationAvailable();
+                var generated = generatedContentService.generateCustomScene(route.generatedRequest());
+                var scene = toGeneratedResponse(route.context(), generated, surface, mode);
+                yield new CustomSceneDiscoveryV2Response(
+                        SCHEMA_CUSTOM_SCENE_RESULT_V2,
+                        scene.discoveryTraceId(),
+                        "generated_scene",
+                        SAFETY_POLICY_VERSION,
+                        scene,
+                        null);
+            }
+            case HEALTH_SAFETY, ASSESSMENT_UNAVAILABLE -> safetyResponse(decision);
+        };
+    }
+
+    private CustomSceneRoute prepareCustomScene(
+            PracticeDiscoveryRequest request,
+            String sessionId,
+            DiscoveryContext context,
+            PracticeDiscoverySurface surface,
+            PracticeDiscoveryMode mode
+    ) {
+        var generatedContext = resolveGeneratedContentContext(context, sessionId);
+        validateInstallationId(
+                request.installationId(),
+                generatedContext.accountId() == null && generatedContext.profileId() == null);
+        var forms = sceneTextCanonicalizer == null
+                ? null
+                : sceneTextCanonicalizer.derive(request.customSceneText());
+        if (sceneTextSecurityPolicy != null) {
+            sceneTextSecurityPolicy.requireSafe(forms);
+        }
+        var safetyDecision = customSceneSafetyPolicy == null
+                ? null
+                : customSceneSafetyPolicy.assess(forms, generatedContext.ageRange());
+        return new CustomSceneRoute(
+                generatedContext,
+                safetyDecision,
+                new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
+                        surface.wireValue(),
+                        mode.wireValue(),
+                        StrUtil.trimToNull(request.installationId()),
+                        generatedContext.accountId(),
+                        generatedContext.profileId(),
+                        generatedContext.ageRange(),
+                        generatedContext.parentGoal(),
+                        SUPPORTED_LOCALE,
+                        request.customSceneText(),
+                        request.clientRequestId()));
+    }
+
+    private void requireGeneratedScene(CustomSceneSafetyDecision decision) {
+        if (customSceneSafetyPolicy == null) {
+            return;
+        }
+        var resolved = requireSafetyDecision(decision);
+        if (resolved.resultType() != CustomSceneSafetyDecision.ResultType.GENERATED_SCENE) {
+            throw safetyContract(resolved);
+        }
+    }
+
+    private CustomSceneSafetyDecision requireSafetyDecision(CustomSceneSafetyDecision decision) {
+        if (decision == null || decision.resultType() == null) {
+            throw safetyContract(null);
+        }
+        return decision;
+    }
+
+    private CustomSceneDiscoveryV2Response safetyResponse(CustomSceneSafetyDecision decision) {
+        var assessment = decision.assessment();
+        var template = decision.template();
+        var templateId = template == null
+                ? assessment == null ? "health-assessment-unavailable-v1" : assessment.templateId()
+                : templateId(template, assessment);
+        var action = template == null
+                ? assessment == null ? "uncertain" : action(assessment.action())
+                : template.action();
+        var policyVersion = template == null
+                ? assessment == null ? SAFETY_POLICY_VERSION : assessment.policyVersion()
+                : SAFETY_POLICY_VERSION;
+        var title = template == null ? "暂时无法判断这段描述" : template.titleZh();
+        var message = template == null ? HEALTH_ASSESSMENT_UNAVAILABLE_MESSAGE : template.messageZh();
+        var safety = new CustomSceneDiscoveryV2Response.SafetyResponse(
+                action,
+                templateId,
+                policyVersion,
+                template == null ? SAFETY_LOCALE : template.locale(),
+                title,
+                message);
+        return new CustomSceneDiscoveryV2Response(
+                SCHEMA_CUSTOM_SCENE_RESULT_V2,
+                traceId(),
+                resultType(decision.resultType()),
+                null,
+                null,
+                safety);
+    }
+
+    private ContractException safetyContract(CustomSceneSafetyDecision decision) {
+        if (decision != null && decision.resultType() == CustomSceneSafetyDecision.ResultType.HEALTH_SAFETY) {
+            var template = decision.template();
+            return new ContractException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    ERROR_HEALTH_SAFETY_REDIRECT,
+                    template == null ? HEALTH_REDIRECT_MESSAGE : template.messageZh(),
+                    safetyDetails(decision));
+        }
+        return new ContractException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                ERROR_HEALTH_ASSESSMENT_UNAVAILABLE,
+                decision == null || decision.template() == null
+                        ? HEALTH_ASSESSMENT_UNAVAILABLE_MESSAGE
+                        : decision.template().messageZh(),
+                safetyDetails(decision));
+    }
+
+    private Map<String, Object> safetyDetails(CustomSceneSafetyDecision decision) {
+        if (decision == null) {
+            return Map.of("policyVersion", SAFETY_POLICY_VERSION);
+        }
+        var assessment = decision.assessment();
+        var template = decision.template();
+        var details = new LinkedHashMap<String, Object>();
+        details.put("resultType", resultType(decision.resultType()));
+        details.put("policyVersion", assessment == null || assessment.policyVersion() == null
+                ? SAFETY_POLICY_VERSION : assessment.policyVersion());
+        if (template != null) {
+            details.put("templateId", templateId(template, assessment));
+            details.put("action", template.action());
+            details.put("locale", template.locale());
+        } else if (assessment != null) {
+            details.put("templateId", assessment.templateId());
+            details.put("action", action(assessment.action()));
+            details.put("locale", SAFETY_LOCALE);
+        }
+        return Map.copyOf(details);
+    }
+
+    private String templateId(CustomSceneSafetyProperties.Template template, CustomSceneSafetyAssessment assessment) {
+        return assessment == null || assessment.templateId() == null
+                ? template == null ? "health-assessment-unavailable-v1" : "health-assessment-unavailable-v1"
+                : assessment.templateId();
+    }
+
+    private String action(CustomSceneSafetyAssessment.Action value) {
+        return value == null ? "uncertain" : switch (value) {
+            case EMERGENCY -> "emergency";
+            case SEEK_MEDICAL_HELP -> "seek_medical_help";
+            case UNCERTAIN -> "uncertain";
+        };
+    }
+
+    private String resultType(CustomSceneSafetyDecision.ResultType value) {
+        return switch (value) {
+            case GENERATED_SCENE -> "generated_scene";
+            case HEALTH_SAFETY -> "health_safety";
+            case ASSESSMENT_UNAVAILABLE -> "assessment_unavailable";
+        };
+    }
+
+    private String traceId() {
+        return "disc_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     private PracticeDiscoverySurface validateSurface(String surface) {
@@ -270,6 +489,31 @@ public class PracticeDiscoveryService {
                     "clientTraceId 不合法。",
                     Map.of("field", "clientTraceId")
             );
+        }
+    }
+
+    private void validateClientRequestId(PracticeDiscoveryRequest request) {
+        var normalized = StrUtil.trimToNull(request.clientRequestId());
+        if (normalized == null) {
+            if (PracticeDiscoverySurface.fromWireValue(request.surface()) == PracticeDiscoverySurface.CARE_PATH
+                    && PracticeDiscoveryMode.fromWireValue(request.mode()) == PracticeDiscoveryMode.CUSTOM_SCENE) {
+                throw new ContractException(
+                        HttpStatus.BAD_REQUEST,
+                        "invalid_client_request_id",
+                        "clientRequestId 不合法。",
+                        Map.of("field", "clientRequestId"));
+            }
+            return;
+        }
+        if (!normalized.equals(request.clientRequestId())
+                || normalized.length() > MAX_CLIENT_REQUEST_ID_CHARS
+                || !SAFE_CLIENT_REQUEST_ID_PATTERN.matcher(normalized).matches()
+                || PHONE_LIKE_PATTERN.matcher(normalized).find()) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_client_request_id",
+                    "clientRequestId 不合法。",
+                    Map.of("field", "clientRequestId"));
         }
     }
 
@@ -853,6 +1097,13 @@ public class PracticeDiscoveryService {
             int score,
             String reasonCode,
             String fallbackReason
+    ) {
+    }
+
+    private record CustomSceneRoute(
+            DiscoveryContext context,
+            CustomSceneSafetyDecision safetyDecision,
+            PracticeGeneratedContentService.CustomSceneDiscoveryRequest generatedRequest
     ) {
     }
 }

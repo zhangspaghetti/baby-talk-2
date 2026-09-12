@@ -26,6 +26,9 @@ import com.zhangspaghetti.babytalk.profile.BabyProfileMapper;
 import com.zhangspaghetti.babytalk.profile.model.BabyProfileRow;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import com.zhangspaghetti.babytalk.web.ContractException;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyAssessment;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyPolicy;
 import java.lang.reflect.Constructor;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -58,6 +61,15 @@ class PracticeDiscoveryServiceTest {
 
     @Mock
     private PracticeGeneratedContentService generatedContentService;
+
+    @Mock
+    private SceneTextCanonicalizer sceneTextCanonicalizer;
+
+    @Mock
+    private SceneTextSecurityPolicy sceneTextSecurityPolicy;
+
+    @Mock
+    private CustomSceneSafetyPolicy customSceneSafetyPolicy;
 
     private PracticeDiscoveryService service;
 
@@ -452,6 +464,82 @@ class PracticeDiscoveryServiceTest {
         assertThat(response.starter().phraseId()).startsWith("gen_phrase_");
         assertThat(response.scenes().get(0).reasonCode()).isEqualTo("custom_scene_match");
         verify(catalogMapper, never()).findSpaces(any(), eq(50));
+    }
+
+    @Test
+    void v2HealthDecisionReturnsSafetyWithoutTouchingGeneration() {
+        var forms = new SceneTextForms(
+                "宝宝拉肚子哭闹怎么办",
+                "宝宝拉肚子哭闹怎么办",
+                new SceneTextRiskSignals(false, false, false, false));
+        when(sceneTextCanonicalizer.derive("宝宝拉肚子哭闹怎么办")).thenReturn(forms);
+        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
+        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.HEALTH_SAFETY);
+        when(decision.assessment()).thenReturn(new CustomSceneSafetyAssessment(
+                CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
+                CustomSceneSafetyAssessment.Action.SEEK_MEDICAL_HELP,
+                "health-concern-v1",
+                "health-safety-v1"));
+        when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
+                "seek_medical_help", "zh-CN", "先关注宝宝的身体状况", "请联系儿科医生进行评估。"));
+        when(customSceneSafetyPolicy.assess(forms, "m7_11")).thenReturn(decision);
+
+        var response = safetyAwareService().discoverCustomSceneV2(
+                new PracticeDiscoveryRequest(
+                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
+                        "zh-CN", 6, null, "宝宝拉肚子哭闹怎么办"),
+                null);
+
+        assertThat(response.resultType()).isEqualTo("health_safety");
+        assertThat(response.policyVersion()).isNull();
+        assertThat(response.scene()).isNull();
+        assertThat(response.safety().templateId()).isEqualTo("health-concern-v1");
+        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
+        verify(generatedContentService, never()).generateCustomScene(any());
+    }
+
+    @Test
+    void v1HealthDecisionUsesFixedErrorContractWithoutGeneration() {
+        var forms = new SceneTextForms(
+                "宝宝拉肚子哭闹怎么办",
+                "宝宝拉肚子哭闹怎么办",
+                new SceneTextRiskSignals(false, false, false, false));
+        when(sceneTextCanonicalizer.derive("宝宝拉肚子哭闹怎么办")).thenReturn(forms);
+        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
+        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.HEALTH_SAFETY);
+        when(decision.assessment()).thenReturn(new CustomSceneSafetyAssessment(
+                CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
+                CustomSceneSafetyAssessment.Action.SEEK_MEDICAL_HELP,
+                "health-concern-v1",
+                "health-safety-v1"));
+        when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
+                "seek_medical_help", "zh-CN", "先关注宝宝的身体状况", "固定健康提示。"));
+        when(customSceneSafetyPolicy.assess(forms, "m7_11")).thenReturn(decision);
+
+        assertThatThrownBy(() -> safetyAwareService().discover(new PracticeDiscoveryRequest(
+                "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
+                "zh-CN", 6, null, "宝宝拉肚子哭闹怎么办"), null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+                    assertThat(contract.code()).isEqualTo("health_safety_redirect");
+                    assertThat(contract.getMessage()).isEqualTo("固定健康提示。");
+                    assertThat(contract.details().toString()).doesNotContain("宝宝拉肚子哭闹怎么办");
+                });
+        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
+        verify(generatedContentService, never()).generateCustomScene(any());
+    }
+
+    private PracticeDiscoveryService safetyAwareService() {
+        return new PracticeDiscoveryService(
+                catalogMapper,
+                authConsentSyncService,
+                babyProfileMapper,
+                generatedContentService,
+                sceneTextCanonicalizer,
+                sceneTextSecurityPolicy,
+                customSceneSafetyPolicy);
     }
 
     @Test

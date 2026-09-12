@@ -46,7 +46,7 @@ spring:
             - id: app-api-consumer
               uri: ${BABY_TALK_APP_API_URI:http://localhost:8080}
               predicates:
-                - Path=/api/v1/**
+                - Path=/api/v1/**,/api/v2/**
             - id: app-api-public
               uri: ${BABY_TALK_APP_API_URI:http://localhost:8080}
               predicates:

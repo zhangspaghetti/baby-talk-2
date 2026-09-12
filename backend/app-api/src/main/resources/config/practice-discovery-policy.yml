@@ -44,16 +44,12 @@ babytalk:
           - homework
           - lesson
           - quiz
-          - medical
           - legal
           - lawyer
           - 作业
           - 课程
           - 测验
           - 考试
-          - 医疗
-          - 诊断
-          - 吃药
           - 法律
           - 律师
         care-context-markers:
@@ -161,20 +157,9 @@ babytalk:
           - 答错
           - 考核
         validator-medical-legal:
-          - diagnose
-          - dosage
-          - medicine
-          - medication
           - legal
           - lawyer
           - lawsuit
-          - 诊断
-          - 剂量
-          - 吃药
-          - 退烧
-          - 医疗
-          - 医生
-          - 处方
           - 法律
           - 律师
           - 诉讼

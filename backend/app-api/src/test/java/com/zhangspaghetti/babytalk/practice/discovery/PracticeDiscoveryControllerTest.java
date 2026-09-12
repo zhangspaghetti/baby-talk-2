@@ -183,6 +183,20 @@ class PracticeDiscoveryControllerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void v1HealthSceneReturnsFixedRedirectWithoutGeneratedContent() throws Exception {
+        var result = mockMvc.perform(discovery(customSceneJson("宝宝拉肚子哭闹怎么办")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("health_safety_redirect"))
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString())
+                .contains("请联系儿科医生进行评估")
+                .doesNotContain("宝宝拉肚子哭闹怎么办");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content", Integer.class)).isZero();
+    }
+
+    @Test
     void fakeModeRunsTheTypedOrchestratorAndPersistsCompleteBundleAndJudgeBeforeActivation() throws Exception {
         customSceneGenerationService.mode("success");
 

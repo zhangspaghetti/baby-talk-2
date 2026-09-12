@@ -68,4 +68,10 @@ class SceneTextSecurityPolicyTest {
         assertThatCode(() -> policy.requireSafe(canonicalizer.derive("宝宝不想穿鞋，need a calm transition")))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void allowsGenericMedicalLanguageForSafetyClassification() {
+        assertThatCode(() -> policy.requireSafe(canonicalizer.derive("宝宝拉肚子哭闹怎么办，请联系医生")))
+                .doesNotThrowAnyException();
+    }
 }
