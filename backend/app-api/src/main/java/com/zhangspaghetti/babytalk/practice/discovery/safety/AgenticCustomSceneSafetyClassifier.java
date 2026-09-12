@@ -1,20 +1,15 @@
 package com.zhangspaghetti.babytalk.practice.discovery.safety;
 
-import com.zhangspaghetti.babytalk.practice.agentic.OperationRequest;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiCapability;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiJsonSchemaPublisher;
-import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiOperationRunner;
+import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.StreamReadFeature;
@@ -37,7 +32,6 @@ public final class AgenticCustomSceneSafetyClassifier implements CustomSceneSafe
     private static final String LOCALE = "zh-CN";
     private static final String POLICY_VERSION = "health-safety-v1";
     private static final String PROMPT_VERSION = "custom-scene-safety-classifier-v1";
-    private static final String SUBJECT_TYPE = "generated_content";
     private static final JsonMapper STRICT_JSON_MAPPER = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
@@ -48,27 +42,27 @@ public final class AgenticCustomSceneSafetyClassifier implements CustomSceneSafe
     private static final List<String> SIGNAL_VALUES = List.of(
             "health_concern", "prompt_assessment", "ambiguous_concern", "recovered", "fictional");
 
-    private final PracticeAiOperationRunner operationRunner;
+    private final PracticeAiProviderManager providerManager;
     private final PracticeAiStructuredOutputCaller structuredOutputCaller;
     private final VersionedResourceRegistry resourceRegistry;
     private final ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AgenticCustomSceneSafetyClassifier(
-            PracticeAiOperationRunner operationRunner,
+            PracticeAiProviderManager providerManager,
             PracticeAiStructuredOutputCaller structuredOutputCaller,
             VersionedResourceRegistry resourceRegistry
     ) {
-        this(operationRunner, structuredOutputCaller, resourceRegistry, new ObjectMapper());
+        this(providerManager, structuredOutputCaller, resourceRegistry, new ObjectMapper());
     }
 
     AgenticCustomSceneSafetyClassifier(
-            PracticeAiOperationRunner operationRunner,
+            PracticeAiProviderManager providerManager,
             PracticeAiStructuredOutputCaller structuredOutputCaller,
             VersionedResourceRegistry resourceRegistry,
             ObjectMapper objectMapper
     ) {
-        this.operationRunner = Objects.requireNonNull(operationRunner, "operationRunner");
+        this.providerManager = Objects.requireNonNull(providerManager, "providerManager");
         this.structuredOutputCaller = Objects.requireNonNull(structuredOutputCaller, "structuredOutputCaller");
         this.resourceRegistry = Objects.requireNonNull(resourceRegistry, "resourceRegistry");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
@@ -80,49 +74,50 @@ public final class AgenticCustomSceneSafetyClassifier implements CustomSceneSafe
     ) {
         Objects.requireNonNull(request, "request");
         validateRequest(request);
-        var systemPrompt = requiredSystemPrompt(
-                resourceRegistry.promptText(VersionedResourceRegistry.PromptKind.SAFETY_CLASSIFIER));
-        var promptRef = resourceRegistry.promptRef(VersionedResourceRegistry.PromptKind.SAFETY_CLASSIFIER);
-        var promptVersion = promptRef == null ? PROMPT_VERSION : promptRef.version();
-        var promptHash = promptRef == null || !isHash(promptRef.contentHash())
-                ? sha256(systemPrompt)
-                : promptRef.contentHash();
-        var policyHash = resourceRegistry.healthSafetyPolicyHash();
-        if (!isHash(policyHash)) {
-            policyHash = sha256(request.policyVersion());
+        final String systemPrompt;
+        final String userPrompt;
+        try {
+            var promptRef = Objects.requireNonNull(
+                    resourceRegistry.promptRef(VersionedResourceRegistry.PromptKind.SAFETY_CLASSIFIER),
+                    "safety classifier prompt reference");
+            if (!PROMPT_VERSION.equals(promptRef.version()) || !isHash(promptRef.contentHash())) {
+                throw unavailable();
+            }
+            systemPrompt = requiredSystemPrompt(
+                    resourceRegistry.promptText(VersionedResourceRegistry.PromptKind.SAFETY_CLASSIFIER));
+            if (!isHash(resourceRegistry.healthSafetyPolicyHash())) {
+                throw unavailable();
+            }
+            userPrompt = objectMapper.writeValueAsString(new ClassifierPromptPayload(
+                    request.displayText(), request.ageRange(), request.locale(), request.policyVersion()));
+        } catch (CustomSceneSafetyClassifier.UnavailableException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw unavailable();
         }
-        var userPrompt = objectMapper.writeValueAsString(new ClassifierPromptPayload(
-                request.displayText(), request.ageRange(), request.locale(), request.policyVersion()));
-        var generatedContentId = UUID.randomUUID().toString();
-        var finalPolicyHash = policyHash;
-        var result = operationRunner.execute(new OperationRequest<>(
-                PracticeAiCapability.CUSTOM_SCENE_SAFETY_CLASSIFIER,
-                SUBJECT_TYPE,
-                generatedContentId,
-                generatedContentId,
-                1,
-                null,
-                promptVersion,
-                promptHash,
-                request.policyVersion(),
-                finalPolicyHash,
-                provider -> parseProviderResponse(provider, systemPrompt, userPrompt)));
-        return result.value();
-    }
 
-    private OperationRequest.ProviderInvocationResult<CustomSceneSafetyClassifier.SemanticResult>
-            parseProviderResponse(
-                    ResolvedProvider provider,
-                    String systemPrompt,
-                    String userPrompt
-            ) {
-        var content = OperationRequest.atFailureStage(
-                OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING,
-                () -> structuredOutputCaller.callRaw(provider, systemPrompt, userPrompt, ProviderResponse.class));
-        var semanticResult = OperationRequest.atFailureStage(
-                OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER,
-                () -> parse(content));
-        return new OperationRequest.ProviderInvocationResult<>(semanticResult, null);
+        final List<ResolvedProvider> providers;
+        try {
+            providers = providerManager.route(PracticeAiCapability.CUSTOM_SCENE_SAFETY_CLASSIFIER);
+        } catch (RuntimeException failure) {
+            throw unavailable();
+        }
+        if (providers == null || providers.isEmpty()) {
+            throw unavailable();
+        }
+        for (var provider : providers) {
+            try {
+                if (provider == null) {
+                    continue;
+                }
+                var content = structuredOutputCaller.callRaw(
+                        provider, systemPrompt, userPrompt, ProviderResponse.class);
+                return parse(content);
+            } catch (RuntimeException failure) {
+                // Provider SDK, binding, and strict-parser details stay inside the fail-closed boundary.
+            }
+        }
+        throw unavailable();
     }
 
     private CustomSceneSafetyClassifier.SemanticResult parse(String content) {
@@ -245,18 +240,8 @@ public final class AgenticCustomSceneSafetyClassifier implements CustomSceneSafe
         return value != null && value.matches("[0-9a-f]{64}");
     }
 
-    private static String sha256(String value) {
-        try {
-            var digest = MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8));
-            var hash = new StringBuilder(digest.length * 2);
-            for (var byteValue : digest) {
-                hash.append(String.format("%02x", byteValue));
-            }
-            return hash.toString();
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
+    private static CustomSceneSafetyClassifier.UnavailableException unavailable() {
+        return new CustomSceneSafetyClassifier.UnavailableException();
     }
 
     private static PracticeAiStructuredOutputCaller.StructuredOutputInvalidException invalid() {
