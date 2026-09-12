@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,6 +21,8 @@ import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceRetrieval
 import com.zhangspaghetti.babytalk.practice.generated.evidence.EvidenceRetrievalResult;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.ReplayMode;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.RetrievalStatus;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyAssessment;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyClassifier;
 import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
@@ -32,6 +35,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,7 +84,11 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
     @MockitoBean(name = "practiceAiStructuredOutputCaller")
     private PracticeAiStructuredOutputCaller structuredOutputCaller;
 
+    @MockitoBean
+    private CustomSceneSafetyClassifier customSceneSafetyClassifier;
+
     private final StubResponses caller = new StubResponses();
+    private final AtomicInteger safetyClassifierCalls = new AtomicInteger();
 
     @Autowired
     private StubEvidenceRetriever evidenceRetriever;
@@ -89,6 +97,13 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
     void resetStub() {
         caller.mode(StubMode.PASS);
         evidenceRetriever.mode(EvidenceMode.SUFFICIENT);
+        safetyClassifierCalls.set(0);
+        when(customSceneSafetyClassifier.classify(any())).thenAnswer(invocation -> {
+            safetyClassifierCalls.incrementAndGet();
+            return new CustomSceneSafetyClassifier.SemanticResult(
+                    CustomSceneSafetyAssessment.Intent.ORDINARY_SCENE,
+                    List.of());
+        });
         doAnswer(invocation -> caller.callRaw(
                 invocation.getArgument(1, String.class),
                 invocation.getArgument(2, String.class),
@@ -107,6 +122,15 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
                 (Class<?>) invocation.getArgument(3)))
                 .when(structuredOutputCaller)
                 .call(any(), anyString(), anyString(), any(), anyInt());
+    }
+
+    @Test
+    void safetyClassifierIsCalledAndOrdinarySceneAdmissionReachesAgenticGeneration() throws Exception {
+        mockMvc.perform(discovery("install_agentic_safety_classifier", "出门前宝宝不想穿鞋"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("generated"));
+
+        assertThat(safetyClassifierCalls).hasValue(1);
     }
 
     @Test
