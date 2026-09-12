@@ -10,12 +10,12 @@ babytalk:
           title-zh: 请立即寻求医疗帮助
           message-zh: 你描述的情况可能需要紧急处理。请立即联系当地急救服务，或前往急诊。不要等待本应用进一步回复。
         health-concern-v1:
-          action: seek-medical-help
+          action: seek_medical_help
           locale: zh-CN
           title-zh: 先关注宝宝的身体状况
           message-zh: 你描述的是宝宝的健康问题。仅凭这段描述，无法判断原因或严重程度，请联系儿科医生进行评估。如果宝宝出现呼吸困难、叫不醒或抽搐，请立即联系当地急救服务。
         health-prompt-assessment-v1:
-          action: seek-medical-help
+          action: seek_medical_help
           locale: zh-CN
           title-zh: 请尽快寻求医疗评估
           message-zh: 你描述的情况需要及时由医护人员评估，请现在联系儿科医生或就近医疗机构。如果宝宝出现呼吸困难、叫不醒或抽搐，请立即联系当地急救服务。
@@ -25,10 +25,10 @@ babytalk:
           title-zh: 目前无法判断宝宝的状况
           message-zh: 现有信息不足以判断宝宝的情况。请联系儿科医生说明你的担忧。如果你认为宝宝情况严重，或出现呼吸困难、叫不醒、抽搐，请立即寻求紧急医疗帮助。
         health-assessment-unavailable-v1:
-          action: unavailable
+          action: uncertain
           locale: zh-CN
           title-zh: 暂时无法判断这段描述
-          message-zh: 暂时无法判断这段描述。请联系儿科医生说明你的担忧；如果宝宝有紧急症状，请立即寻求医疗帮助。
+          message-zh: 暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。
       emergency-signals:
         breathing-difficulty:
           - 呼吸困难

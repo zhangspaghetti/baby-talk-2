@@ -37,6 +37,17 @@ class HealthSafetyTemplateRegistryTest {
     }
 
     @Test
+    void registryUsesOnlyApprovedActionsAndExactUnavailableCopy() {
+        assertThat(registry.template("health-emergency-v1").action()).isEqualTo("emergency");
+        assertThat(registry.template("health-concern-v1").action()).isEqualTo("seek_medical_help");
+        assertThat(registry.template("health-prompt-assessment-v1").action()).isEqualTo("seek_medical_help");
+        assertThat(registry.template("health-uncertain-v1").action()).isEqualTo("uncertain");
+        assertThat(registry.template("health-assessment-unavailable-v1").action()).isEqualTo("uncertain");
+        assertThat(registry.template("health-assessment-unavailable-v1").messageZh())
+                .isEqualTo("暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。");
+    }
+
+    @Test
     void registryExposesImmutableTemplateSet() {
         assertThat(registry.templateIds()).isUnmodifiable();
     }
