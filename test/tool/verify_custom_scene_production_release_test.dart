@@ -187,6 +187,7 @@ practiceAi:
     custom-scene-generator: [dashscope-qwen]
     custom-scene-quality-judge: [dashscope-qwen]
     custom-scene-repair: [dashscope-qwen]
+    custom-scene-safety-classifier: [dashscope-qwen]
   secret:
     existingSecret: babytalk-practice-ai
     rolloutVersion: "1"

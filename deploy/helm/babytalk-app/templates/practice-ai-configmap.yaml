@@ -5,7 +5,7 @@
 {{- end -}}
 {{- $providers := default dict $practiceAi.providers -}}
 {{- $capabilities := default dict $practiceAi.capabilities -}}
-{{- $requiredCapabilities := list "custom-scene-generator" "custom-scene-quality-judge" "custom-scene-repair" -}}
+{{- $requiredCapabilities := list "custom-scene-generator" "custom-scene-quality-judge" "custom-scene-repair" "custom-scene-safety-classifier" -}}
 {{- range $capabilityName, $_ := $capabilities -}}
 {{- if not (has $capabilityName $requiredCapabilities) -}}
 {{- fail (printf "practiceAi.capabilities has unknown route %s" $capabilityName) -}}

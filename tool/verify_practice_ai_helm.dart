@@ -6,6 +6,7 @@ const _requiredCapabilities = <String>{
   'custom-scene-generator',
   'custom-scene-quality-judge',
   'custom-scene-repair',
+  'custom-scene-safety-classifier',
 };
 const _ownerKeySecretEnvironmentVariable =
     'BABY_TALK_PRACTICE_DISCOVERY_OWNER_KEY_SECRET';

@@ -30,6 +30,109 @@ void main() {
       },
     );
 
+    test('rejects an agentic manifest missing the safety classifier route', () {
+      final missingSafetyClassifier = agenticManifest.replaceFirst(
+        '          custom-scene-safety-classifier:\n'
+            '            provider-names:\n'
+            '              - dashscope-qwen\n',
+        '',
+      );
+
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          missingSafetyClassifier,
+          profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+        ),
+        throwsA(
+          isA<practiceAi.PracticeAiHelmVerificationException>().having(
+            (error) => error.message,
+            'message',
+            contains('must configure route custom-scene-safety-classifier'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects an agentic safety classifier route with no providers', () {
+      final emptySafetyClassifier = agenticManifest.replaceFirst(
+        '          custom-scene-safety-classifier:\n'
+            '            provider-names:\n'
+            '              - dashscope-qwen\n',
+        '          custom-scene-safety-classifier:\n'
+            '            provider-names: []\n',
+      );
+
+      expect(
+        () => practiceAi.verifyRenderedPracticeAiManifest(
+          emptySafetyClassifier,
+          profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+        ),
+        throwsA(
+          isA<practiceAi.PracticeAiHelmVerificationException>().having(
+            (error) => error.message,
+            'message',
+            contains('must configure route custom-scene-safety-classifier'),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'rejects an agentic safety classifier route to an unknown provider',
+      () {
+        final unknownSafetyClassifierProvider = agenticManifest.replaceFirst(
+          '          custom-scene-safety-classifier:\n'
+              '            provider-names:\n'
+              '              - dashscope-qwen\n',
+          '          custom-scene-safety-classifier:\n'
+              '            provider-names:\n'
+              '              - unknown-provider\n',
+        );
+
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            unknownSafetyClassifierProvider,
+            profile: practiceAi.PracticeAiHelmProfile.agenticQa,
+          ),
+          throwsA(
+            isA<practiceAi.PracticeAiHelmVerificationException>().having(
+              (error) => error.message,
+              'message',
+              contains(
+                'Capability route custom-scene-safety-classifier references '
+                'unknown provider unknown-provider',
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'accepts an empty safety classifier route in fake and disabled modes',
+      () {
+        final disabledManifest = fakeManifest.replaceFirst(
+          'provider-mode: fake',
+          'provider-mode: disabled',
+        );
+
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            fakeManifest,
+            profile: practiceAi.PracticeAiHelmProfile.kindFake,
+          ),
+          returnsNormally,
+        );
+        expect(
+          () => practiceAi.verifyRenderedPracticeAiManifest(
+            disabledManifest,
+            profile: practiceAi.PracticeAiHelmProfile.disabledDefault,
+          ),
+          returnsNormally,
+        );
+      },
+    );
+
     test('requires agentic runtime to enable custom-scene discovery', () {
       final missingEnabled = agenticManifest.replaceFirst(
         '            enabled: true\n',
@@ -593,6 +696,9 @@ data:
           custom-scene-repair:
             provider-names:
               - dashscope-qwen
+          custom-scene-safety-classifier:
+            provider-names:
+              - dashscope-qwen
 ---
 apiVersion: v1
 kind: Secret
@@ -671,6 +777,8 @@ data:
           custom-scene-quality-judge:
             provider-names: []
           custom-scene-repair:
+            provider-names: []
+          custom-scene-safety-classifier:
             provider-names: []
 ---
 apiVersion: apps/v1
