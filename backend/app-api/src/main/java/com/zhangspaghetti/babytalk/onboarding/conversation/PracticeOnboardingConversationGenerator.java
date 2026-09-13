@@ -25,7 +25,7 @@ public class PracticeOnboardingConversationGenerator implements OnboardingConver
         if (safeScene == null) {
             throw new IllegalArgumentException("unsupported server-owned onboarding scene");
         }
-        var generated = generatedContentService.generateCustomScene(
+        var generated = generatedContentService.generateCustomSceneForServerOwnedRequest(
                 new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
                         "onboarding", "custom_scene", request.installationId(), null, null,
                         "12_18m", "daily_care", request.locale(), safeScene, request.localEventId()));

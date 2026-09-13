@@ -106,6 +106,28 @@ class PracticeGeneratedContentServiceOrchestrationTest {
     }
 
     @Test
+    void mismatchedAdmissionStopsOrchestratedReplayBeforeAnyQuery() {
+        var queries = mock(PracticeGeneratedContentQueryMapper.class);
+        var commands = mock(PracticeGeneratedContentCommands.class);
+        var orchestrator = mock(CustomSceneGenerationOrchestrator.class);
+        var admission = mock(com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.Admission.class);
+        var boundAdmission = mock(com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.Admission.class);
+        when(admission.bindContext(any(), any(), any())).thenReturn(boundAdmission);
+        when(boundAdmission.matches(any(), any(), any(), any(), any(), any(), any())).thenReturn(false);
+        var service = orchestratedService(queries, commands, orchestrator);
+
+        assertThatThrownBy(() -> service.generateCustomScene(request(), admission))
+                .isInstanceOf(com.zhangspaghetti.babytalk.web.ContractException.class)
+                .satisfies(error -> org.assertj.core.api.Assertions.assertThat(
+                        ((com.zhangspaghetti.babytalk.web.ContractException) error).code())
+                        .isEqualTo("invalid_generated_content_admission"));
+
+        verify(queries, never()).findByClientRequestId(any(), any(), any(), any(), anyInt());
+        verify(queries, never()).findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt());
+        verify(orchestrator, never()).execute(any());
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void activeResultWithSameOwnerFingerprintProfileAndEpochReusesWithoutOrchestratorExecution() {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
@@ -115,6 +137,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         active.setGeneratedContentId("pgc_supported_active");
         active.setStatus("active");
         active.setOwnerScope("account");
+        active.setContentRefreshEpoch(2);
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(active);
         when(queries.findApprovedUtterances("pgc_supported_active"))
@@ -129,11 +152,11 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                 keyFactory.ownerKey("installation", "install_test"),
                 new PracticeGeneratedContentKeyFactory.RequestFingerprintMaterial(
                         "onboarding", "custom_scene", "出门前穿鞋", "m7_11", "calmer_care", "zh-CN",
-                        "custom-scene-generation-v7", "custom-scene-quality-v1", "custom-scene-evidence-v1", 1));
+                        "custom-scene-generation-v7", "custom-scene-quality-v1", "custom-scene-evidence-v1", 2));
         verify(queries).findLiveByFingerprint(
                 eq(keyFactory.ownerKey("installation", "install_test")), eq("owner-v1"),
                 eq("onboarding"), eq("custom_scene"), eq(expectedFingerprint),
-                eq("custom-scene-generation-v7"), eq(1));
+                eq("custom-scene-generation-v7"), eq(2));
         verify(orchestrator, never()).execute(any());
         verify(commands, never()).reserveDraft(any(), any());
     }
@@ -168,7 +191,8 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
         var legacy = active("pgc_legacy_read");
-        when(queries.findActiveByGeneratedContentId(eq("pgc_legacy_read"), any(), any())).thenReturn(legacy);
+        when(queries.findActiveByGeneratedContentId(eq("pgc_legacy_read"), any(), anyInt(), any()))
+                .thenReturn(legacy);
         when(queries.findApprovedUtterances("pgc_legacy_read")).thenReturn(List.of());
         var service = orchestratedService(queries, commands, mock(CustomSceneGenerationOrchestrator.class));
 
@@ -229,6 +253,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var winner = new PracticeGeneratedContentEntity();
         winner.setGeneratedContentId("pgc_activation_winner");
         winner.setStatus("active");
+        winner.setContentRefreshEpoch(2);
         winner.setGenerationProfileVersion(registry.currentGenerationProfile().version());
         when(queries.findActiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt(), any()))
                 .thenReturn(winner);
@@ -263,7 +288,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         assertThat(registry.currentGenerationProfile().version()).isNotEqualTo("legacy-prompt");
         verify(queries).findActiveByFingerprint(
                 any(), eq("owner-v1"), eq("onboarding"), eq("custom_scene"), any(),
-                eq(registry.currentGenerationProfile().version()), eq(1), any());
+                eq(registry.currentGenerationProfile().version()), eq(2), any());
     }
 
     @Test
@@ -384,6 +409,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         active.setGeneratedContentId(generatedContentId);
         active.setStatus("active");
         active.setOwnerScope("account");
+        active.setContentRefreshEpoch(2);
         return active;
     }
 

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,7 @@ import com.zhangspaghetti.babytalk.practice.discovery.FakeCustomSceneGenerationS
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import com.zhangspaghetti.babytalk.web.ContractException;
@@ -183,7 +185,7 @@ class PracticeGeneratedContentServiceTest {
                 .map(method -> method.getName()))
                 .doesNotContain("findLatestLiveByFingerprint");
         verify(queries).findLiveByFingerprint(
-                any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.eq(1));
+                any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.eq(2));
         verify(commands).reserveDraft(draftCaptor.capture(), any());
         var draft = draftCaptor.getValue();
         var ownerProperties = ownerProperties("test-owner-key-secret-test-owner-key");
@@ -200,10 +202,27 @@ class PracticeGeneratedContentServiceTest {
                         PracticeDiscoveryCustomSceneProperties.DEFAULT_PROMPT_VERSION,
                         PracticeDiscoveryPolicyTestFixture.properties().policyVersion(),
                         PracticeDiscoveryCustomSceneProperties.DEFAULT_STRATEGY_VERSION,
-                        1));
-        assertThat(draft.contentRefreshEpoch()).isEqualTo(1);
+                        2));
+        assertThat(draft.contentRefreshEpoch()).isEqualTo(2);
         assertThat(draft.requestFingerprint()).isEqualTo(expectedFingerprint);
         assertThat(row.requestFingerprint()).isEqualTo(expectedFingerprint);
+    }
+
+    @Test
+    void mismatchedAdmissionIsRejectedBeforeReplayOrFingerprintLookup() {
+        var service = serviceWithFakeProvider();
+        var admission = mock(CustomSceneSafetyDecision.Admission.class);
+        var boundAdmission = mock(CustomSceneSafetyDecision.Admission.class);
+        when(admission.bindContext(any(), any(), any())).thenReturn(boundAdmission);
+        when(boundAdmission.matches(any(), any(), any(), any(), any(), any(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡"), admission))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> assertThat(((ContractException) error).code())
+                        .isEqualTo("invalid_generated_content_admission"));
+
+        verify(queries, never()).findByClientRequestId(any(), any(), any(), any(), anyInt());
+        verify(queries, never()).findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt());
     }
 
     @Test
@@ -1262,7 +1281,7 @@ class PracticeGeneratedContentServiceTest {
         row.setProviderRoutingPolicyVersion("routing-v1");
         row.setProviderRoutingPolicyHash("d".repeat(64));
         row.setGenerationAttemptLimit(3);
-        row.setContentRefreshEpoch(1);
+        row.setContentRefreshEpoch(2);
         row.setContentVersion(1);
         row.setCreatedAt(NOW_DB);
         row.setUpdatedAt(NOW_DB);

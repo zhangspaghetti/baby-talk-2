@@ -11,6 +11,8 @@ import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfiguration;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
 import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneTextValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneTextForms;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
@@ -49,9 +51,11 @@ public class PracticeGeneratedContentService {
     private static final String ERROR_INVALID_CLIENT_REQUEST_ID = "invalid_client_request_id";
     private static final String ERROR_CLIENT_REQUEST_ID_CONFLICT = "client_request_id_conflict";
     private static final String ERROR_CLIENT_REQUEST_TERMINAL = "client_request_terminal";
+    private static final String ERROR_INVALID_GENERATED_CONTENT_ADMISSION = "invalid_generated_content_admission";
     private static final int MAX_CLIENT_REQUEST_ID_CHARS = 96;
     private static final int MAX_DRAFT_RESERVATION_ATTEMPTS = 5;
-    private static final int CONTENT_REFRESH_EPOCH = 1;
+    private static final int CONTENT_REFRESH_EPOCH = 2;
+    private static final String HEALTH_SAFETY_POLICY_VERSION = "health-safety-v1";
     private static final Duration INSTALLATION_ACTIVE_RETENTION = Duration.ofDays(30);
     private static final Duration INSTALLATION_TERMINAL_RETENTION = Duration.ofDays(7);
     private static final int MIN_CLEANUP_LIMIT = 1;
@@ -192,7 +196,7 @@ public class PracticeGeneratedContentService {
 
     public Optional<PracticeGeneratedContentEntity> findActiveOrPromotedByGeneratedContentId(String generatedContentId) {
         return Optional.ofNullable(requireSupportedActive(queryMapper.findActiveByGeneratedContentId(
-                generatedContentId, ownerKeyVersion(), nowUtc())));
+                generatedContentId, ownerKeyVersion(), CONTENT_REFRESH_EPOCH, nowUtc())));
     }
 
     public List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
@@ -205,7 +209,12 @@ public class PracticeGeneratedContentService {
         if (clientRequestId == null) {
             return null;
         }
-        return queryMapper.findByClientRequestId(
+        var current = queryMapper.findByClientRequestId(
+                owner.ownerScope(), owner.ownerKey(), ownerKeyVersion(), clientRequestId, CONTENT_REFRESH_EPOCH);
+        if (current != null) {
+            return current;
+        }
+        return queryMapper.findByClientRequestIdAnyEpoch(
                 owner.ownerScope(), owner.ownerKey(), ownerKeyVersion(), clientRequestId);
     }
 
@@ -289,10 +298,39 @@ public class PracticeGeneratedContentService {
     }
 
     public PracticeGeneratedContentEntity generateCustomScene(
+            CustomSceneDiscoveryRequest request,
+            CustomSceneSafetyDecision.Admission admission
+    ) {
+        requireCustomSceneGenerationAvailable();
+        return generateCustomScene(request, resolveOwner(request), admission);
+    }
+
+    /**
+     * Fixture-only compatibility entry point. Production callers must provide a safety admission.
+     */
+    @Deprecated
+    PracticeGeneratedContentEntity generateCustomScene(CustomSceneDiscoveryRequest request) {
+        requireCustomSceneGenerationAvailable();
+        var owner = resolveOwner(request);
+        return generateCustomScene(request, owner, serverAdmission(request));
+    }
+
+    /** Generates a server-owned onboarding scene after minting its own server admission. */
+    public PracticeGeneratedContentEntity generateCustomSceneForServerOwnedRequest(
             CustomSceneDiscoveryRequest request
     ) {
         requireCustomSceneGenerationAvailable();
-        return generateCustomScene(request, resolveOwner(request));
+        var owner = resolveOwner(request);
+        if (!OWNER_INSTALLATION.equals(owner.ownerScope())
+                || trimToNull(request.accountId()) != null
+                || trimToNull(request.profileId()) != null) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_generated_content_owner",
+                    "server-owned onboarding owner 不合法。"
+            );
+        }
+        return generateCustomScene(request, owner, serverAdmission(request));
     }
 
     public PracticeGeneratedContentEntity generateCustomSceneForInstallationOwner(
@@ -314,17 +352,19 @@ public class PracticeGeneratedContentService {
                     "installation owner ref 不合法。"
             );
         }
-        return generateCustomScene(request, new OwnerContext(
-                OWNER_INSTALLATION, normalizedOwnerKey, null, normalizedRef, null));
+        var owner = new OwnerContext(OWNER_INSTALLATION, normalizedOwnerKey, null, normalizedRef, null);
+        return generateCustomScene(request, owner, serverAdmission(request));
     }
 
     private PracticeGeneratedContentEntity generateCustomScene(
             CustomSceneDiscoveryRequest request,
-            OwnerContext owner
+            OwnerContext owner,
+            CustomSceneSafetyDecision.Admission admission
     ) {
         var forms = sceneTextCanonicalizer.derive(request.customSceneText());
         sceneTextSecurityPolicy.requireSafe(forms);
         var normalizedSceneText = customSceneTextValidator.requireValid(forms);
+        var boundAdmission = validateAdmission(admission, request, owner, forms);
         var requestFingerprint = fingerprint(request, owner, forms.securityText());
         var clientRequestId = validateClientRequestId(request);
         var clientRequestFingerprint = clientRequestId == null
@@ -332,6 +372,9 @@ public class PracticeGeneratedContentService {
                 : clientRequestFingerprint(request, owner, forms.securityText());
         var requestReservation = findByClientRequestId(owner, clientRequestId);
         if (requestReservation != null) {
+            if (requestReservation.contentRefreshEpoch() != CONTENT_REFRESH_EPOCH) {
+                throw terminalClientRequest(requestReservation);
+            }
             return reconcileClientRequest(requestReservation, clientRequestFingerprint);
         }
         var existing = queryMapper.findLiveByFingerprint(
@@ -397,6 +440,47 @@ public class PracticeGeneratedContentService {
         }
 
         throw generationInProgress(generatedContentId(owner, requestFingerprint, firstReservationAttempt));
+    }
+
+    private CustomSceneSafetyDecision.Admission validateAdmission(
+            CustomSceneSafetyDecision.Admission admission,
+            CustomSceneDiscoveryRequest request,
+            OwnerContext owner,
+            SceneTextForms forms
+    ) {
+        if (admission == null) {
+            throw invalidGeneratedContentAdmission();
+        }
+        try {
+            var bound = admission.bindContext(owner.ownerScope(), owner.ownerKey(), owner.profileId());
+            if (bound == null || bound == admission
+                    || !bound.matches(
+                    forms.securityText(),
+                    request.ageRange(),
+                    request.locale(),
+                    owner.ownerScope(),
+                    owner.ownerKey(),
+                    owner.profileId(),
+                    HEALTH_SAFETY_POLICY_VERSION)) {
+                throw invalidGeneratedContentAdmission();
+            }
+            return bound;
+        } catch (RuntimeException exception) {
+            throw invalidGeneratedContentAdmission();
+        }
+    }
+
+    private CustomSceneSafetyDecision.Admission serverAdmission(CustomSceneDiscoveryRequest request) {
+        var forms = sceneTextCanonicalizer.derive(request.customSceneText());
+        return CustomSceneSafetyDecision.bindAdmission(forms, request.ageRange(), HEALTH_SAFETY_POLICY_VERSION);
+    }
+
+    private ContractException invalidGeneratedContentAdmission() {
+        return new ContractException(
+                HttpStatus.BAD_REQUEST,
+                ERROR_INVALID_GENERATED_CONTENT_ADMISSION,
+                "生成内容 admission 不合法。"
+        );
     }
 
     private ReservationPolicy reservationPolicy(String ownerScope) {
@@ -1063,6 +1147,10 @@ public class PracticeGeneratedContentService {
         if (row == null || !STATUS_ACTIVE.equals(row.status())) {
             return row;
         }
+        if (row.contentRefreshEpoch() != CONTENT_REFRESH_EPOCH) {
+            quarantineUnsupportedActive(row);
+            throw generationUnavailable(ERROR_LEGACY_ACTIVE_BUNDLE_UNSUPPORTED, true, null);
+        }
         if (hasCompleteSupportedBundle(queryMapper.findApprovedUtterances(row.generatedContentId()))) {
             return row;
         }
@@ -1070,6 +1158,11 @@ public class PracticeGeneratedContentService {
         commands.quarantineUnsupportedActive(
                 row.generatedContentId(), now, now.plus(INSTALLATION_TERMINAL_RETENTION));
         throw generationUnavailable(ERROR_LEGACY_ACTIVE_BUNDLE_UNSUPPORTED, true, null);
+    }
+
+    private void quarantineUnsupportedActive(PracticeGeneratedContentEntity row) {
+        commands.quarantineUnsupportedActive(
+                row.generatedContentId(), nowUtc(), nowUtc().plus(INSTALLATION_TERMINAL_RETENTION));
     }
 
     private boolean hasCompleteSupportedBundle(

@@ -230,7 +230,8 @@ class PracticeGeneratedContentWriteService implements PracticeGeneratedContentCo
                 draft.ownerScope(),
                 draft.ownerKey(),
                 draft.ownerKeyVersion(),
-                draft.clientRequestId());
+                draft.clientRequestId(),
+                draft.contentRefreshEpoch());
     }
 
     private void insertApprovedUtterances(PracticeGeneratedContentEntity active) {

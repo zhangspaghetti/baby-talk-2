@@ -183,7 +183,9 @@ public class PracticeDiscoveryService {
             var route = prepareCustomScene(request, sessionId, context, surface, mode);
             requireGeneratedScene(route.safetyDecision());
             generatedContentService.requireCustomSceneGenerationAvailable();
-            var generated = generatedContentService.generateCustomScene(route.generatedRequest());
+            var generated = generatedContentService.generateCustomScene(
+                    route.generatedRequest(),
+                    route.safetyDecision() == null ? null : route.safetyDecision().admission());
             return toGeneratedResponse(route.context(), generated, surface, mode);
         }
 
@@ -227,7 +229,8 @@ public class PracticeDiscoveryService {
         return switch (decision.resultType()) {
             case GENERATED_SCENE -> {
                 generatedContentService.requireCustomSceneGenerationAvailable();
-                var generated = generatedContentService.generateCustomScene(route.generatedRequest());
+                var generated = generatedContentService.generateCustomScene(
+                        route.generatedRequest(), decision.admission());
                 var scene = toGeneratedResponse(route.context(), generated, surface, mode);
                 yield new CustomSceneDiscoveryV2Response(
                         SCHEMA_CUSTOM_SCENE_RESULT_V2,
@@ -290,6 +293,10 @@ public class PracticeDiscoveryService {
 
     private CustomSceneSafetyDecision requireSafetyDecision(CustomSceneSafetyDecision decision) {
         if (decision == null || decision.resultType() == null) {
+            throw safetyContract(null);
+        }
+        if (decision.resultType() == CustomSceneSafetyDecision.ResultType.GENERATED_SCENE
+                && decision.admission() == null) {
             throw safetyContract(null);
         }
         if (decision.resultType() != CustomSceneSafetyDecision.ResultType.GENERATED_SCENE

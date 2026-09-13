@@ -83,7 +83,7 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
     @Test
     void acceptedOwnerReceivesActiveGeneratedAudioFromTheDevOnlyFakeProvider() throws Exception {
         var owner = authenticate("13800138021", "generated-audio-owner");
-        seedActiveCarePathContent(owner.accountId());
+        seedActiveCarePathContent(owner.accountId(), 2);
 
         var beforeConsent = getAudio(owner.accessToken(), CONTENT_ID, STARTER_UTTERANCE_ID);
         assertThat(beforeConsent.statusCode()).isEqualTo(409);
@@ -127,6 +127,18 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
         var denied = getAudio(otherOwner.accessToken(), CONTENT_ID, STARTER_UTTERANCE_ID);
         assertThat(denied.statusCode()).isEqualTo(404);
         assertThat(readJson(denied.body()).get("code").asText()).isEqualTo("generated_audio_not_found");
+    }
+
+    @Test
+    void legacyEpochActiveGeneratedAudioReturnsNotFound() throws Exception {
+        var owner = authenticate("13800138023", "generated-audio-legacy");
+        seedActiveCarePathContent(owner.accountId(), 1);
+        acceptConsent(owner.accessToken());
+
+        var audio = getAudio(owner.accessToken(), CONTENT_ID, STARTER_UTTERANCE_ID);
+
+        assertThat(audio.statusCode()).isEqualTo(404);
+        assertThat(readJson(audio.body()).get("code").asText()).isEqualTo("generated_audio_not_found");
     }
 
     private TokenView authenticate(String phoneNumber, String installationId) throws Exception {
@@ -190,7 +202,7 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
         return objectMapper.readTree(body);
     }
 
-    private void seedActiveCarePathContent(String accountId) {
+    private void seedActiveCarePathContent(String accountId, int contentRefreshEpoch) {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             jdbcTemplate.update("""
                     insert into practice_generated_content (
@@ -214,9 +226,9 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
                         '指向水。', '慢一点说。', 'Warm water.', '水暖暖的。', 'warm water', 'starter', 'fake', 'generating',
                         'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
                         'evidence-policy-v1', repeat('c', 64), 'routing-policy-v1', repeat('d', 64),
-                        3, 1, 1, null, null, now(), now() + interval '5 minutes', null, now(), now()
+                        3, ?, 1, null, null, now(), now() + interval '5 minutes', null, now(), now()
                     )
-                    """, CONTENT_ID, accountId);
+                    """, CONTENT_ID, accountId, contentRefreshEpoch);
             insertUtterance(STARTER_UTTERANCE_ID, "starter", null, 1);
             insertUtterance("utt_audio_cooperating_1", "reaction_support", "cooperating", 2);
             insertUtterance("utt_audio_hesitant_1", "reaction_support", "hesitant", 3);

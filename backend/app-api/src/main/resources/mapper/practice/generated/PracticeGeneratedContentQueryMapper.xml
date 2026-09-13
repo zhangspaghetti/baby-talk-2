@@ -150,6 +150,7 @@
         where c.generated_content_id = #{generatedContentId}
           and c.account_id = #{accountId}
           and c.status = 'active'
+          and c.content_refresh_epoch = #{contentRefreshEpoch}
           and c.surface = 'care_path'
           and u.utterance_id = #{utteranceId}
           and u.approval_status = 'approved'
@@ -208,6 +209,17 @@
           and owner_key = #{ownerKey}
           and owner_key_version = #{ownerKeyVersion}
           and client_request_id = #{clientRequestId}
+          and content_refresh_epoch = #{contentRefreshEpoch}
+        limit 1
+    </select>
+
+    <select id="findByClientRequestIdAnyEpoch" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where owner_scope = #{ownerScope}
+          and owner_key = #{ownerKey}
+          and owner_key_version = #{ownerKeyVersion}
+          and client_request_id = #{clientRequestId}
         limit 1
     </select>
 
@@ -232,6 +244,7 @@
         from practice_generated_content
         where generated_content_id = #{generatedContentId}
           and owner_key_version = #{ownerKeyVersion}
+          and content_refresh_epoch = #{contentRefreshEpoch}
           and status = 'active'
           and (owner_scope &lt;&gt; 'installation'
                or retention_expires_at &gt; #{reusableAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})

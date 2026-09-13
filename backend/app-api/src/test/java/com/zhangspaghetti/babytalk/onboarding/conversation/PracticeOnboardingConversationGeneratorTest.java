@@ -45,7 +45,7 @@ class PracticeOnboardingConversationGeneratorTest {
                 PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
         verify(content).generateCustomSceneForInstallationOwner(
                 request.capture(), eq(ownerKey), eq(installationRef));
-        verify(content, never()).generateCustomScene(any());
+        verify(content, never()).generateCustomScene(any(), any());
         assertThat(request.getValue().installationId()).isNull();
         assertThat(request.getValue().mode()).isEqualTo("custom_scene");
         assertThat(request.getValue().customSceneText()).contains("Time to sleep.", "hesitant");
@@ -63,7 +63,7 @@ class PracticeOnboardingConversationGeneratorTest {
         utterance.setEnglishText("Time to sleep.");
         utterance.setChineseText("该睡觉啦。");
         utterance.setPronunciationHint("time to sleep");
-        when(content.generateCustomScene(any())).thenReturn(generated);
+        when(content.generateCustomSceneForServerOwnedRequest(any())).thenReturn(generated);
         when(content.findApprovedUtterances("generated-first-1")).thenReturn(List.of(utterance));
         var generator = new PracticeOnboardingConversationGenerator(content);
 
@@ -72,7 +72,7 @@ class PracticeOnboardingConversationGeneratorTest {
 
         var request = ArgumentCaptor.forClass(
                 PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
-        verify(content).generateCustomScene(request.capture());
+        verify(content).generateCustomSceneForServerOwnedRequest(request.capture());
         assertThat(request.getValue().mode()).isEqualTo("custom_scene");
         assertThat(result.utteranceId()).isEqualTo("utterance-first-1");
     }

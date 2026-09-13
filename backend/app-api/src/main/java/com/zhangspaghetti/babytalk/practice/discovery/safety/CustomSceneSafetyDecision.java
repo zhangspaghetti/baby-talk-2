@@ -307,7 +307,8 @@ public final class CustomSceneSafetyDecision {
         }
     }
 
-    static Admission bindAdmission(SceneTextForms forms, String ageRange, String policyVersion) {
+    /** Issues an unbound admission for the server safety policy to bind to its resolved owner. */
+    public static Admission bindAdmission(SceneTextForms forms, String ageRange, String policyVersion) {
         return Admission.forPolicy(
                 forms,
                 ageRange,

@@ -156,6 +156,28 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void legacyEpochRowsCannotSatisfyReplayFingerprintIdOrPlayableAudioLookups() {
+        var legacy = row("pgc_repo_legacy_epoch")
+                .account("acct_pgc_repo_legacy_epoch")
+                .clientRequestId("legacy_epoch_request")
+                .contentRefreshEpoch(1)
+                .active()
+                .build();
+        insertCompleteCarePathBundle(legacy);
+
+        assertThat(queries.findByClientRequestId(
+                legacy.ownerScope(), legacy.ownerKey(), legacy.ownerKeyVersion(),
+                legacy.clientRequestId(), 2)).isNull();
+        assertThat(queries.findLiveByFingerprint(
+                legacy.ownerKey(), legacy.ownerKeyVersion(), legacy.surface(), legacy.mode(),
+                legacy.requestFingerprint(), legacy.generationProfileVersion(), 2)).isNull();
+        assertThat(queries.findActiveByGeneratedContentId(
+                legacy.generatedContentId(), legacy.ownerKeyVersion(), 2, WALL_CLOCK_NOW_DB)).isNull();
+        assertThat(queries.findPlayableOwnedActiveBundleUtterance(
+                legacy.generatedContentId(), legacy.phraseSlug(), legacy.accountId(), 2)).isNull();
+    }
+
+    @Test
     void profileOwnerShapeRequiresExistingMatchingProfile() {
         var row = row("pgc_repo_missing_profile")
                 .profile("acct_pgc_repo_missing_profile", "profile_pgc_repo_missing_profile")
@@ -299,7 +321,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .build();
         insert(terminal);
 
-        assertThat(queries.findByClientRequestId("installation", ownerKey, "v1", clientRequestId))
+        assertThat(queries.findByClientRequestId("installation", ownerKey, "v1", clientRequestId, 2))
                 .extracting(PracticeGeneratedContentEntity::generatedContentId)
                 .isEqualTo(terminal.generatedContentId());
         assertRejected(row("pgc_repo_request_duplicate")
@@ -778,7 +800,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from practice_generated_content where generated_content_id = 'pgc_repo_lazy_active_old'",
                 Integer.class)).isZero();
-        assertThat(reservation.row().contentRefreshEpoch()).isEqualTo(1);
+        assertThat(reservation.row().contentRefreshEpoch()).isEqualTo(2);
         assertThat(reservation.row().requestFingerprint()).isEqualTo(fingerprint);
     }
 
@@ -1369,6 +1391,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         private String generationSource;
         private String status = "draft";
         private String generationProfileVersion = "practice-gen-v1";
+        private int contentRefreshEpoch = 2;
         private int contentVersion = 1;
         private String generationErrorCode;
         private OffsetDateTime generationStartedAt;
@@ -1530,6 +1553,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             return this;
         }
 
+        RowBuilder contentRefreshEpoch(int contentRefreshEpoch) {
+            this.contentRefreshEpoch = contentRefreshEpoch;
+            return this;
+        }
+
         RowBuilder withoutResponseFields() {
             this.fillResponseFields = false;
             return this;
@@ -1609,7 +1637,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             row.setProviderRoutingPolicyVersion("routing-v1");
             row.setProviderRoutingPolicyHash("d".repeat(64));
             row.setGenerationAttemptLimit(3);
-            row.setContentRefreshEpoch(1);
+            row.setContentRefreshEpoch(contentRefreshEpoch);
             row.setContentVersion(contentVersion);
             row.setGenerationErrorCode(generationErrorCode);
             row.setGenerationErrorRetryable(

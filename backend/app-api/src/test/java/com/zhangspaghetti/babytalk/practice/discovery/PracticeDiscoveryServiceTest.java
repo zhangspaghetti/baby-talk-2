@@ -440,7 +440,7 @@ class PracticeDiscoveryServiceTest {
     void customSceneModeHydratesGeneratedRow() {
         var generated = generatedRow("pgc_service_generated");
         stubApprovedBundle(generated);
-        when(generatedContentService.generateCustomScene(any()))
+        when(generatedContentService.generateCustomScene(any(), any()))
                 .thenReturn(generated);
 
         var response = service.discover(new PracticeDiscoveryRequest(
@@ -495,7 +495,7 @@ class PracticeDiscoveryServiceTest {
         assertThat(response.scene()).isNull();
         assertThat(response.safety().templateId()).isEqualTo("health-concern-v1");
         verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     @Test
@@ -528,7 +528,7 @@ class PracticeDiscoveryServiceTest {
                     assertThat(contract.details().toString()).doesNotContain("宝宝拉肚子哭闹怎么办");
                 });
         verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     @Test
@@ -567,7 +567,7 @@ class PracticeDiscoveryServiceTest {
                     assertThat(contract.code()).isEqualTo("health_assessment_unavailable");
                 });
         verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     @Test
@@ -585,7 +585,7 @@ class PracticeDiscoveryServiceTest {
                 });
         verifyNoInteractions(authConsentSyncService, babyProfileMapper, customSceneSafetyPolicy);
         verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     @Test
@@ -618,7 +618,7 @@ class PracticeDiscoveryServiceTest {
                     assertThat(contract.code()).isEqualTo("health_assessment_unavailable");
                 });
         verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     @Test
@@ -655,7 +655,7 @@ class PracticeDiscoveryServiceTest {
                         .isEqualTo("invalid_custom_scene_text"));
         verify(customSceneSafetyPolicy, never()).assess(any(), any());
         verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     private void assertInvalidCustomSceneText(String text) {
@@ -672,7 +672,7 @@ class PracticeDiscoveryServiceTest {
                 });
         verify(customSceneSafetyPolicy, never()).assess(any(), any());
         verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     private PracticeDiscoveryService safetyAwareService() {
@@ -721,7 +721,7 @@ class PracticeDiscoveryServiceTest {
                 ));
         var generated = generatedRow("pgc_service_generated_account");
         stubApprovedBundle(generated);
-        when(generatedContentService.generateCustomScene(any()))
+        when(generatedContentService.generateCustomScene(any(), any()))
                 .thenReturn(generated);
         var captor = ArgumentCaptor.forClass(PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
 
@@ -739,7 +739,7 @@ class PracticeDiscoveryServiceTest {
         ), "sess_accepted");
 
         assertThat(response.profileMode()).isEqualTo("authenticated_request");
-        verify(generatedContentService).generateCustomScene(captor.capture());
+        verify(generatedContentService).generateCustomScene(captor.capture(), any());
         assertThat(captor.getValue().accountId()).isEqualTo("acct_custom_scene_owner");
         assertThat(captor.getValue().profileId()).isNull();
         assertThat(captor.getValue().installationId()).isNull();
@@ -769,7 +769,7 @@ class PracticeDiscoveryServiceTest {
                 .isSameAs(failure);
 
         verify(generatedContentService).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
         verifyNoInteractions(authConsentSyncService, babyProfileMapper);
     }
 
@@ -785,7 +785,7 @@ class PracticeDiscoveryServiceTest {
 
         assertThatThrownBy(() -> service.discover(customSceneRequest("_bad"), "sess_required"))
                 .isSameAs(failure);
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     @Test
@@ -800,7 +800,7 @@ class PracticeDiscoveryServiceTest {
 
         assertThatThrownBy(() -> service.discover(customSceneRequest(), "sess_revoked"))
                 .isSameAs(failure);
-        verify(generatedContentService, never()).generateCustomScene(any());
+        verify(generatedContentService, never()).generateCustomScene(any(), any());
     }
 
     @Test
@@ -990,7 +990,7 @@ class PracticeDiscoveryServiceTest {
         row.setTprActionZh(tprActionZh);
         row.setDeliveryGuidanceZh(deliveryGuidanceZh);
         stubApprovedBundle(row);
-        when(generatedContentService.generateCustomScene(any())).thenReturn(row);
+        when(generatedContentService.generateCustomScene(any(), any())).thenReturn(row);
         var response = service.discover(new PracticeDiscoveryRequest(
                 "onboarding",
                 "custom_scene",

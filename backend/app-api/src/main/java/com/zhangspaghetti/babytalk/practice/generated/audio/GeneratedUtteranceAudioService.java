@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneratedUtteranceAudioService {
 
     private static final Pattern SAFE_ID = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$");
+    private static final int CONTENT_REFRESH_EPOCH = 2;
 
     private final AuthConsentSyncService authConsentSyncService;
     private final PracticeGeneratedContentQueryMapper queryMapper;
@@ -37,7 +38,7 @@ public class GeneratedUtteranceAudioService {
         var contentId = requireSafeId(generatedContentId);
         var approvedUtteranceId = requireSafeId(utteranceId);
         var utterance = queryMapper.findPlayableOwnedActiveBundleUtterance(
-                contentId, approvedUtteranceId, session.accountId());
+                contentId, approvedUtteranceId, session.accountId(), CONTENT_REFRESH_EPOCH);
         if (utterance == null) {
             throw audioNotFound();
         }
