@@ -713,6 +713,91 @@ void main() {
     expect(second.disposeCalls, 0);
   });
 
+  testWidgets('replacement waits for old stop before new owner can play', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _DeferredReplacementCareAudioPlaybackController();
+    final second = _ControllableCareAudioPlaybackController();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: second,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await first.stopStarted.future;
+
+    expect(first.disposeBeforeStop, isFalse);
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    expect(second.requests, isEmpty);
+
+    first.finishStop.complete();
+    await first.disposeFinished.future;
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    expect(first.disposeBeforeStop, isFalse);
+    expect(second.requests, hasLength(1));
+  });
+
+  testWidgets('late source-stop failure after ownership loss stays silent', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final replacementNotifier = CarePathNotifier(
+      repository: CarePathRepository(
+        practiceRepository: _MemoryPracticeRepository(),
+      ),
+    );
+    addTearDown(replacementNotifier.dispose);
+    final audio = _DeferredStopFailureCareAudioPlaybackController();
+
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await replacementNotifier.startMoment(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: replacementNotifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await audio.stopStarted.future;
+    final globalStop = coordinator.stopActive().catchError((_) {});
+    audio.finishStop.complete();
+    await globalStop;
+    await tester.pump();
+
+    expect(find.text('音频暂时不可用'), findsNothing);
+    expect(find.byKey(const Key('care-turn-audio-error')), findsNothing);
+  });
+
   testWidgets('late play failure after ownership loss stays silent', (
     tester,
   ) async {
@@ -1253,6 +1338,47 @@ class _DeferredResumeCareAudioPlaybackController
     if (fail) {
       throw StateError('late resume failure');
     }
+  }
+}
+
+class _DeferredReplacementCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  final stopStarted = Completer<void>();
+  final finishStop = Completer<void>();
+  final disposeFinished = Completer<void>();
+  bool stopCompleted = false;
+  bool disposeBeforeStop = false;
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    stopStarted.complete();
+    await finishStop.future;
+    stopCompleted = true;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposeCalls += 1;
+    disposeBeforeStop = !stopCompleted;
+    await super.dispose();
+    disposeFinished.complete();
+  }
+}
+
+class _DeferredStopFailureCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  final stopStarted = Completer<void>();
+  final finishStop = Completer<void>();
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    if (!stopStarted.isCompleted) {
+      stopStarted.complete();
+    }
+    await finishStop.future;
+    throw StateError('late stop failure');
   }
 }
 
