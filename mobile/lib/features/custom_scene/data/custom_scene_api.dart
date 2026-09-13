@@ -47,7 +47,7 @@ class CustomSceneApiException implements Exception {
 }
 
 abstract interface class CustomSceneDiscoveryGateway {
-  Future<CustomSceneDiscoveryResponseDto> generate({
+  Future<CustomSceneDiscoveryV2ResponseDto> generate({
     required AccountSession session,
     required PersistRefreshedSession persistRefreshedSession,
     required CustomSceneRequestDto request,
@@ -73,14 +73,14 @@ class CustomSceneApi implements CustomSceneDiscoveryGateway {
   final Duration timeout;
 
   @override
-  Future<CustomSceneDiscoveryResponseDto> generate({
+  Future<CustomSceneDiscoveryV2ResponseDto> generate({
     required AccountSession session,
     required PersistRefreshedSession persistRefreshedSession,
     required CustomSceneRequestDto request,
   }) async {
     try {
       final authenticated = await _authenticatedApiClient
-          .execute<CustomSceneDiscoveryResponseDto>(
+          .execute<CustomSceneDiscoveryV2ResponseDto>(
             session: session,
             persistRefreshedSession: persistRefreshedSession,
             send: (accessToken) async {
@@ -110,7 +110,7 @@ class CustomSceneApi implements CustomSceneDiscoveryGateway {
     }
   }
 
-  Future<CustomSceneDiscoveryResponseDto> _post({
+  Future<CustomSceneDiscoveryV2ResponseDto> _post({
     required String accessToken,
     required CustomSceneRequestDto request,
   }) async {
@@ -118,7 +118,7 @@ class CustomSceneApi implements CustomSceneDiscoveryGateway {
     Response<dynamic> response;
     try {
       response = await _dio.request<dynamic>(
-        '/api/v1/practice/discovery',
+        '/api/v2/practice/discovery',
         data: request.toJson(),
         options: Options(
           method: 'POST',
@@ -164,7 +164,7 @@ class CustomSceneApi implements CustomSceneDiscoveryGateway {
     }
 
     try {
-      return CustomSceneDiscoveryResponseDto.fromJson(decoded);
+      return CustomSceneDiscoveryV2ResponseDto.fromJson(decoded);
     } on FormatException {
       throw const CustomSceneApiException.malformed();
     }

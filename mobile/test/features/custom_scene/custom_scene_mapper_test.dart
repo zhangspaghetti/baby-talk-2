@@ -1,19 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_dtos.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_mapper.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 void main() {
   const mapper = CustomSceneMapper();
 
-  test('maps complete generated bundle and preserves stable IDs', () {
-    final moment = mapper.toGeneratedCareMoment(
-      CustomSceneDiscoveryResponseDto.fromJson(_validResponse()),
+  test('maps generated_scene and preserves admitted provenance', () {
+    final result = mapper.toCustomSceneResult(
+      CustomSceneDiscoveryV2ResponseDto.fromJson(_validResponse()),
     );
+    expect(result, isA<GeneratedSceneResult>());
+    final generated = result as GeneratedSceneResult;
+    final moment = generated.moment;
 
     expect(moment.generatedContentId, 'gcn_1');
     expect(moment.schemaVersion, generatedCareMomentSchemaVersion);
+    expect(moment.safetyPolicyVersion, 'health-safety-v1');
+    expect(moment.contentRefreshEpoch, 2);
+    expect(generated.policyVersion, 'health-safety-v1');
     expect(moment.starter.role, GeneratedCareUtteranceRole.starter);
     expect(moment.sceneId, 'space_bath');
     expect(moment.momentId, 'activity_bath');
@@ -30,7 +37,7 @@ void main() {
       final response = _validResponse()..['providerDebug'] = 'never expose';
 
       expect(
-        () => CustomSceneDiscoveryResponseDto.fromJson(response),
+      () => CustomSceneDiscoveryV2ResponseDto.fromJson(response),
         throwsFormatException,
       );
     },
@@ -39,13 +46,15 @@ void main() {
   test('rejects an unknown reaction enum', () {
     final response = _validResponse();
     final support =
-        (response['reactionSupports'] as List<dynamic>).first
+        ((response['scene'] as Map<String, dynamic>)['reactionSupports']
+                as List<dynamic>)
+            .first
             as Map<String, dynamic>;
     support['reaction'] = 'surprised';
 
     expect(
-      () => mapper.toGeneratedCareMoment(
-        CustomSceneDiscoveryResponseDto.fromJson(response),
+      () => mapper.toCustomSceneResult(
+        CustomSceneDiscoveryV2ResponseDto.fromJson(response),
       ),
       throwsA(isA<CustomSceneMappingException>()),
     );
@@ -53,11 +62,13 @@ void main() {
 
   test('rejects an incomplete reaction bundle', () {
     final response = _validResponse();
-    (response['reactionSupports'] as List<dynamic>).removeLast();
+    ((response['scene'] as Map<String, dynamic>)['reactionSupports']
+            as List<dynamic>)
+        .removeLast();
 
     expect(
-      () => mapper.toGeneratedCareMoment(
-        CustomSceneDiscoveryResponseDto.fromJson(response),
+      () => mapper.toCustomSceneResult(
+        CustomSceneDiscoveryV2ResponseDto.fromJson(response),
       ),
       throwsA(isA<CustomSceneMappingException>()),
     );
@@ -65,44 +76,51 @@ void main() {
 
   test('rejects duplicate branch and wrong role before registration', () {
     final duplicate = _validResponse();
-    final supports = duplicate['reactionSupports'] as List<dynamic>;
+    final supports =
+        (duplicate['scene'] as Map<String, dynamic>)['reactionSupports']
+            as List<dynamic>;
     final second = supports[1] as Map<String, dynamic>;
     second['reaction'] = 'cooperating';
     second['displayOrder'] = 2;
 
     expect(
-      () => mapper.toGeneratedCareMoment(
-        CustomSceneDiscoveryResponseDto.fromJson(duplicate),
+      () => mapper.toCustomSceneResult(
+        CustomSceneDiscoveryV2ResponseDto.fromJson(duplicate),
       ),
       throwsA(isA<CustomSceneMappingException>()),
     );
 
     final wrongRole = _validResponse();
     final first =
-        (wrongRole['reactionSupports'] as List<dynamic>).first
+        ((wrongRole['scene'] as Map<String, dynamic>)['reactionSupports']
+                as List<dynamic>)
+            .first
             as Map<String, dynamic>;
     first['role'] = 'starter';
     expect(
-      () => mapper.toGeneratedCareMoment(
-        CustomSceneDiscoveryResponseDto.fromJson(wrongRole),
+      () => mapper.toCustomSceneResult(
+        CustomSceneDiscoveryV2ResponseDto.fromJson(wrongRole),
       ),
       throwsA(isA<CustomSceneMappingException>()),
     );
   });
 
   test('rejects unsupported bundle schema and provenance origin', () {
-    final oldSchema = _validResponse()
-      ..['bundleSchemaVersion'] = 'custom-scene-generated-output-v0';
+    final oldSchema = _validResponse();
+    (oldSchema['scene'] as Map<String, dynamic>)['bundleSchemaVersion'] =
+        'custom-scene-generated-output-v0';
     expect(
-      () => mapper.toGeneratedCareMoment(
-        CustomSceneDiscoveryResponseDto.fromJson(oldSchema),
+      () => mapper.toCustomSceneResult(
+        CustomSceneDiscoveryV2ResponseDto.fromJson(oldSchema),
       ),
       throwsA(isA<CustomSceneMappingException>()),
     );
 
     final badProvenance = _validResponse();
     final starter =
-        ((badProvenance['moments'] as List<dynamic>).single
+        (((badProvenance['scene'] as Map<String, dynamic>)['moments']
+                        as List<dynamic>)
+                    .single
                 as Map<String, dynamic>)['starterUtterances']
             as List<dynamic>;
     final provenance =
@@ -110,16 +128,161 @@ void main() {
             as Map<String, dynamic>;
     provenance['origin'] = 'fixture';
     expect(
-      () => mapper.toGeneratedCareMoment(
-        CustomSceneDiscoveryResponseDto.fromJson(badProvenance),
+      () => mapper.toCustomSceneResult(
+        CustomSceneDiscoveryV2ResponseDto.fromJson(badProvenance),
       ),
       throwsA(isA<CustomSceneMappingException>()),
     );
   });
+
+  test('maps health_safety with fixed Chinese notice only', () {
+    final result = mapper.toCustomSceneResult(
+      CustomSceneDiscoveryV2ResponseDto.fromJson(_healthResponse()),
+    );
+
+    expect(result, isA<HealthSafetyResult>());
+    final safety = (result as HealthSafetyResult).safety;
+    expect(safety.action, 'seek_medical_help');
+    expect(safety.templateId, 'health-concern-v1');
+    expect(safety.policyVersion, 'health-safety-v1');
+    expect(safety.locale, 'zh-CN');
+    expect(safety.titleZh, '先关注宝宝的身体状况');
+    expect(safety.messageZh, '请联系儿科医生进行评估。');
+  });
+
+  test('maps assessment_unavailable with embedded fallback copy', () {
+    final result = mapper.toCustomSceneResult(
+      CustomSceneDiscoveryV2ResponseDto.fromJson(
+        _unavailableResponse(),
+      ),
+    );
+
+    expect(result, isA<AssessmentUnavailableResult>());
+    final safety = (result as AssessmentUnavailableResult).safety;
+    expect(safety.templateId, 'health-assessment-unavailable-v1');
+    expect(safety.action, 'uncertain');
+    expect(safety.policyVersion, 'health-safety-v1');
+    expect(safety.locale, 'zh-CN');
+    expect(safety.titleZh, '暂时无法判断这段描述');
+    expect(
+      safety.messageZh,
+      '暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。',
+    );
+  });
+
+  test('rejects cross-variant payload fields and unknown values', () {
+    final healthWithScene = _healthResponse()..['scene'] = _generatedScene();
+    expect(
+      () => CustomSceneDiscoveryV2ResponseDto.fromJson(healthWithScene),
+      throwsFormatException,
+    );
+
+    final generatedWithSafety = _validResponse()
+      ..['safety'] = _healthResponse()['safety'];
+    expect(
+      () => CustomSceneDiscoveryV2ResponseDto.fromJson(generatedWithSafety),
+      throwsFormatException,
+    );
+
+    for (final mutation in <Map<String, dynamic> Function(Map<String, dynamic>)>[
+      (json) => json..['resultType'] = 'future_result',
+      (json) => json..['policyVersion'] = 'health-safety-v2',
+      (json) {
+        final safety = json['safety'] as Map<String, dynamic>;
+        safety['action'] = 'diagnose';
+        return json;
+      },
+      (json) {
+        final safety = json['safety'] as Map<String, dynamic>;
+        safety['templateId'] = 'health-future-v1';
+        return json;
+      },
+    ]) {
+      expect(
+        () => CustomSceneDiscoveryV2ResponseDto.fromJson(
+          mutation(_healthResponse()),
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('rejects non-Chinese locale, missing copy, and missing schema version', () {
+    final nonChinese = _healthResponse();
+    (nonChinese['safety'] as Map<String, dynamic>)['locale'] = 'en-US';
+    expect(
+      () => CustomSceneDiscoveryV2ResponseDto.fromJson(nonChinese),
+      throwsFormatException,
+    );
+
+    final missingCopy = _healthResponse();
+    (missingCopy['safety'] as Map<String, dynamic>).remove('messageZh');
+    expect(
+      () => CustomSceneDiscoveryV2ResponseDto.fromJson(missingCopy),
+      throwsFormatException,
+    );
+
+    final missingSchema = _healthResponse()..remove('schemaVersion');
+    expect(
+      () => CustomSceneDiscoveryV2ResponseDto.fromJson(missingSchema),
+      throwsFormatException,
+    );
+  });
+
+  test('maps malformed or future JSON to assessment unavailable fallback', () {
+    final result = mapper.fromJson(<String, dynamic>{
+      'schemaVersion': 'custom-scene-result-v9',
+      'discoveryTraceId': 'disc_future',
+      'resultType': 'future_result',
+    });
+
+    expect(result, isA<AssessmentUnavailableResult>());
+    expect(
+      (result as AssessmentUnavailableResult).safety.templateId,
+      'health-assessment-unavailable-v1',
+    );
+  });
 }
 
-Map<String, dynamic> _validResponse() {
-  return <String, dynamic>{
+Map<String, dynamic> _validResponse() => <String, dynamic>{
+  'schemaVersion': 'custom-scene-result-v2',
+  'discoveryTraceId': 'disc_1',
+  'resultType': 'generated_scene',
+  'policyVersion': 'health-safety-v1',
+  'scene': _generatedScene(),
+};
+
+Map<String, dynamic> _healthResponse() => <String, dynamic>{
+  'schemaVersion': 'custom-scene-result-v2',
+  'discoveryTraceId': 'disc_health',
+  'resultType': 'health_safety',
+  'safety': <String, Object?>{
+    'action': 'seek_medical_help',
+    'templateId': 'health-concern-v1',
+    'policyVersion': 'health-safety-v1',
+    'locale': 'zh-CN',
+    'titleZh': '先关注宝宝的身体状况',
+    'messageZh': '请联系儿科医生进行评估。',
+  },
+};
+
+Map<String, dynamic> _unavailableResponse() => <String, dynamic>{
+  'schemaVersion': 'custom-scene-result-v2',
+  'discoveryTraceId': 'disc_unavailable',
+  'resultType': 'assessment_unavailable',
+  'safety': <String, Object?>{
+    'action': 'uncertain',
+    'templateId': 'health-assessment-unavailable-v1',
+    'policyVersion': 'health-safety-v1',
+    'locale': 'zh-CN',
+    'titleZh': '暂时无法判断这段描述',
+    'messageZh':
+        '暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。',
+  },
+};
+
+Map<String, Object?> _generatedScene() {
+  return <String, Object?>{
     'discoveryTraceId': 'disc_1',
     'surface': 'care_path',
     'mode': 'custom_scene',

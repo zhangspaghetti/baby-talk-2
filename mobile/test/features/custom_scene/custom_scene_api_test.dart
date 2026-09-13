@@ -13,7 +13,7 @@ void main() {
     test('uses authenticated canonical discovery contract', () async {
       final dio = _mockDio((options) async {
         expect(options.method, 'POST');
-        expect(options.path, '/api/v1/practice/discovery');
+        expect(options.path, '/api/v2/practice/discovery');
         expect(options.headers[authorizationHeaderName], 'Bearer access-live');
         final body = options.data as Map<String, Object?>;
         expect(body, <String, Object?>{
@@ -50,7 +50,8 @@ void main() {
         ),
       );
 
-      expect(response.generatedContentId, 'gcn_1');
+      expect(response.resultType, 'generated_scene');
+      expect(response.scene?.generatedContentId, 'gcn_1');
     });
 
     test('keeps backend error message out of API exception', () async {
@@ -180,75 +181,83 @@ class _MockInterceptor extends Interceptor {
 
 Map<String, dynamic> _validResponse() {
   return <String, dynamic>{
+    'schemaVersion': 'custom-scene-result-v2',
     'discoveryTraceId': 'disc_1',
-    'surface': 'care_path',
-    'mode': 'custom_scene',
-    'profileMode': 'authenticated_request',
-    'source': 'generated',
-    'bundleSchemaVersion': generatedCareMomentSchemaVersion,
-    'generatedContentId': 'gcn_1',
-    'scenes': <Map<String, Object?>>[
-      <String, Object?>{
-        'sceneId': 'space_bath',
-        'spaceId': 'space_bath',
-        'title': '洗澡',
-        'rank': 1,
-        'reasonCode': 'custom_scene_match',
-      },
-    ],
-    'moments': <Map<String, Object?>>[
-      <String, Object?>{
-        'momentId': 'activity_bath',
-        'sceneId': 'space_bath',
-        'spaceId': 'space_bath',
-        'activityId': 'activity_bath',
-        'title': '洗澡时',
-        'sceneTag': 'bath',
-        'coachTip': '轻声说',
-        'rank': 1,
-        'starterUtterances': <Map<String, Object?>>[
-          <String, Object?>{
-            'utteranceId': 'phrase_starter',
-            'phraseId': 'phrase_starter',
-            'english': 'Warm water.',
-            'chinese': '温水来了。',
-            'pronunciation': 'wɔːm ˈwɔːtər',
-            'difficulty': 'starter',
-            'source': 'generated',
-            'role': 'starter',
-            'reaction': null,
-            'tprActionZh': '靠近宝宝',
-            'deliveryGuidanceZh': '慢慢说',
-            'displayOrder': 1,
-            'providerProvenance': _provenance(),
-          },
-        ],
-      },
-    ],
-    'starter': <String, Object?>{
-      'sceneId': 'space_bath',
-      'spaceId': 'space_bath',
-      'momentId': 'activity_bath',
-      'activityId': 'activity_bath',
-      'utteranceId': 'phrase_starter',
-      'phraseId': 'phrase_starter',
-      'source': 'generated',
-    },
-    'reactionSupports': <Map<String, Object?>>[
-      _support('cooperating'),
-      _support('hesitant'),
-      _support('resisting'),
-      _support('no_response'),
-      _support('other'),
-    ],
-    'trace': <String, Object?>{
-      'strategy': 'custom_scene_generated',
-      'fallbackReason': null,
-      'candidateCount': 1,
-      'returnedCount': 1,
-    },
+    'resultType': 'generated_scene',
+    'policyVersion': 'health-safety-v1',
+    'scene': _generatedScene(),
   };
 }
+
+Map<String, Object?> _generatedScene() => <String, Object?>{
+  'discoveryTraceId': 'disc_1',
+  'surface': 'care_path',
+  'mode': 'custom_scene',
+  'profileMode': 'authenticated_request',
+  'source': 'generated',
+  'bundleSchemaVersion': generatedCareMomentSchemaVersion,
+  'generatedContentId': 'gcn_1',
+  'scenes': <Map<String, Object?>>[
+    <String, Object?>{
+      'sceneId': 'space_bath',
+      'spaceId': 'space_bath',
+      'title': '洗澡',
+      'rank': 1,
+      'reasonCode': 'custom_scene_match',
+    },
+  ],
+  'moments': <Map<String, Object?>>[
+    <String, Object?>{
+      'momentId': 'activity_bath',
+      'sceneId': 'space_bath',
+      'spaceId': 'space_bath',
+      'activityId': 'activity_bath',
+      'title': '洗澡时',
+      'sceneTag': 'bath',
+      'coachTip': '轻声说',
+      'rank': 1,
+      'starterUtterances': <Map<String, Object?>>[
+        <String, Object?>{
+          'utteranceId': 'phrase_starter',
+          'phraseId': 'phrase_starter',
+          'english': 'Warm water.',
+          'chinese': '温水来了。',
+          'pronunciation': 'wɔːm ˈwɔːtər',
+          'difficulty': 'starter',
+          'source': 'generated',
+          'role': 'starter',
+          'reaction': null,
+          'tprActionZh': '靠近宝宝',
+          'deliveryGuidanceZh': '慢慢说',
+          'displayOrder': 1,
+          'providerProvenance': _provenance(),
+        },
+      ],
+    },
+  ],
+  'starter': <String, Object?>{
+    'sceneId': 'space_bath',
+    'spaceId': 'space_bath',
+    'momentId': 'activity_bath',
+    'activityId': 'activity_bath',
+    'utteranceId': 'phrase_starter',
+    'phraseId': 'phrase_starter',
+    'source': 'generated',
+  },
+  'reactionSupports': <Map<String, Object?>>[
+    _support('cooperating'),
+    _support('hesitant'),
+    _support('resisting'),
+    _support('no_response'),
+    _support('other'),
+  ],
+  'trace': <String, Object?>{
+    'strategy': 'custom_scene_generated',
+    'fallbackReason': null,
+    'candidateCount': 1,
+    'returnedCount': 1,
+  },
+};
 
 Map<String, Object?> _support(String reactionType) {
   return <String, Object?>{

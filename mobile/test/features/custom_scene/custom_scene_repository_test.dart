@@ -10,6 +10,7 @@ import 'package:mobile/features/custom_scene/data/custom_scene_profile_context_r
 import 'package:mobile/features/custom_scene/data/custom_scene_repository_impl.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 
 void main() {
   test(
@@ -285,6 +286,90 @@ void main() {
       expect(gateway.callCount, 0);
     },
   );
+
+  test(
+    'returns health safety result without treating it as a generation failure',
+    () async {
+      final gateway = _RecordingGateway(
+        response: CustomSceneDiscoveryV2ResponseDto.fromJson(_healthResponse()),
+      );
+      final repository = _repository(gateway: gateway);
+
+      final result = await repository.generate(
+        CustomSceneDraft(
+          text: '宝宝拉肚子哭闹怎么办',
+          entrySource: CustomSceneEntrySource.scene,
+          requestIdentity: CustomSceneRequestIdentity(
+            clientRequestId: 'custom_scene_health',
+          ),
+        ),
+      );
+
+      expect(result, isA<HealthSafetyResult>());
+      expect(
+        (result as HealthSafetyResult).safety.templateId,
+        'health-concern-v1',
+      );
+      expect(gateway.callCount, 1);
+    },
+  );
+
+  test(
+    'maps v2 unavailable status to assessment unavailable without v1 retry',
+    () async {
+      final gateway = _RecordingGateway(
+        error: const CustomSceneApiException(
+          kind: CustomSceneApiFailureKind.http,
+          statusCode: 503,
+          code: 'health_assessment_unavailable',
+        ),
+      );
+      final repository = _repository(gateway: gateway);
+
+      final result = await repository.generate(
+        CustomSceneDraft(
+          text: '宝宝洗澡时一直躲水。',
+          entrySource: CustomSceneEntrySource.scene,
+          requestIdentity: CustomSceneRequestIdentity(
+            clientRequestId: 'custom_scene_unavailable',
+          ),
+        ),
+      );
+
+      expect(result, isA<AssessmentUnavailableResult>());
+      expect(
+        (result as AssessmentUnavailableResult).safety.templateId,
+        'health-assessment-unavailable-v1',
+      );
+      expect(gateway.callCount, 1);
+    },
+  );
+
+  test(
+    'maps malformed v2 response to assessment unavailable fallback',
+    () async {
+      final gateway = _RecordingGateway(
+        error: const CustomSceneApiException.malformed(),
+      );
+      final repository = _repository(gateway: gateway);
+
+      final result = await repository.generate(
+        CustomSceneDraft(
+          text: '宝宝洗澡时一直躲水。',
+          entrySource: CustomSceneEntrySource.scene,
+          requestIdentity: CustomSceneRequestIdentity(
+            clientRequestId: 'custom_scene_malformed',
+          ),
+        ),
+      );
+
+      expect(result, isA<AssessmentUnavailableResult>());
+      expect(
+        (result as AssessmentUnavailableResult).safety.titleZh,
+        '暂时无法判断这段描述',
+      );
+    },
+  );
 }
 
 CustomSceneRepositoryImpl _repository({
@@ -333,21 +418,25 @@ class _MissingProfileSource implements CustomSceneProfileContextSource {
 }
 
 class _RecordingGateway implements CustomSceneDiscoveryGateway {
-  _RecordingGateway({this.error});
+  _RecordingGateway({this.error, this.response});
 
   final CustomSceneApiException? error;
+  final CustomSceneDiscoveryV2ResponseDto? response;
   CustomSceneRequestDto? request;
   int callCount = 0;
 
   @override
-  Future<CustomSceneDiscoveryResponseDto> generate({
+  Future<CustomSceneDiscoveryV2ResponseDto> generate({
     required AccountSession session,
     required PersistRefreshedSession persistRefreshedSession,
     required CustomSceneRequestDto request,
   }) async {
     callCount += 1;
     this.request = request;
-    throw error ?? StateError('unexpected network call');
+    if (error != null) {
+      throw error!;
+    }
+    return response ?? (throw StateError('unexpected network call'));
   }
 }
 
@@ -364,3 +453,17 @@ AccountSession _session() {
     refreshTokenExpiresAt: DateTime.utc(2026, 8, 28),
   );
 }
+
+Map<String, dynamic> _healthResponse() => <String, dynamic>{
+  'schemaVersion': 'custom-scene-result-v2',
+  'discoveryTraceId': 'disc_health',
+  'resultType': 'health_safety',
+  'safety': <String, Object?>{
+    'action': 'seek_medical_help',
+    'templateId': 'health-concern-v1',
+    'policyVersion': 'health-safety-v1',
+    'locale': 'zh-CN',
+    'titleZh': '先关注宝宝的身体状况',
+    'messageZh': '请联系儿科医生进行评估。',
+  },
+};

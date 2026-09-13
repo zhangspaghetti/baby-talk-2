@@ -1,4 +1,5 @@
 import 'package:mobile/features/custom_scene/data/custom_scene_dtos.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
@@ -9,7 +10,62 @@ class CustomSceneMappingException implements Exception {
 class CustomSceneMapper {
   const CustomSceneMapper();
 
-  GeneratedCareMoment toGeneratedCareMoment(
+  CustomSceneResult toCustomSceneResult(
+    CustomSceneDiscoveryV2ResponseDto response,
+  ) {
+    _require(response.schemaVersion == customSceneResultSchemaVersion);
+    switch (response.resultType) {
+      case 'generated_scene':
+        _require(
+          response.policyVersion == generatedCareSafetyPolicyVersion &&
+              response.scene != null &&
+              response.safety == null,
+        );
+        return GeneratedSceneResult(
+          _toGeneratedCareMoment(response.scene!),
+          policyVersion: response.policyVersion!,
+        );
+      case 'health_safety':
+        final safety = response.safety;
+        _require(
+          response.policyVersion == null &&
+              response.scene == null &&
+              safety != null &&
+              safety.templateId != 'health-assessment-unavailable-v1',
+        );
+        return HealthSafetyResult(_toHealthSafetyNotice(safety!));
+      case 'assessment_unavailable':
+        final safety = response.safety;
+        _require(
+          response.policyVersion == null &&
+              response.scene == null &&
+              safety != null &&
+              safety.templateId == 'health-assessment-unavailable-v1' &&
+              safety.action == 'uncertain',
+        );
+        return AssessmentUnavailableResult(_toHealthSafetyNotice(safety!));
+      default:
+        throw const CustomSceneMappingException();
+    }
+  }
+
+  CustomSceneResult map(CustomSceneDiscoveryV2ResponseDto response) {
+    return toCustomSceneResult(response);
+  }
+
+  CustomSceneResult fromJson(Map<String, dynamic> json) {
+    try {
+      return toCustomSceneResult(
+        CustomSceneDiscoveryV2ResponseDto.fromJson(json),
+      );
+    } on Object {
+      return const AssessmentUnavailableResult(
+        healthAssessmentUnavailableNotice,
+      );
+    }
+  }
+
+  GeneratedCareMoment _toGeneratedCareMoment(
     CustomSceneDiscoveryResponseDto response,
   ) {
     _require(
@@ -109,6 +165,8 @@ class CustomSceneMapper {
 
     return GeneratedCareMoment(
       schemaVersion: response.bundleSchemaVersion,
+      safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+      contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
       generatedContentId: response.generatedContentId,
       sceneId: scene.sceneId,
       spaceId: scene.spaceId,
@@ -120,6 +178,31 @@ class CustomSceneMapper {
       source: response.source,
       starter: generatedStarter,
       reactionSupports: supportMap,
+    );
+  }
+
+  HealthSafetyNotice _toHealthSafetyNotice(CustomSceneSafetyDto safety) {
+    final expectedAction = <String, String>{
+      'health-emergency-v1': 'emergency',
+      'health-concern-v1': 'seek_medical_help',
+      'health-prompt-assessment-v1': 'seek_medical_help',
+      'health-uncertain-v1': 'uncertain',
+      'health-assessment-unavailable-v1': 'uncertain',
+    }[safety.templateId];
+    _require(
+      expectedAction == safety.action &&
+          safety.policyVersion == generatedCareSafetyPolicyVersion &&
+          safety.locale == 'zh-CN' &&
+          safety.titleZh.trim().isNotEmpty &&
+          safety.messageZh.trim().isNotEmpty,
+    );
+    return HealthSafetyNotice(
+      action: safety.action,
+      templateId: safety.templateId,
+      policyVersion: safety.policyVersion,
+      locale: safety.locale,
+      titleZh: safety.titleZh,
+      messageZh: safety.messageZh,
     );
   }
 

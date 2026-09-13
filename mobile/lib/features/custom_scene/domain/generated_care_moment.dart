@@ -1,6 +1,8 @@
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 const generatedCareMomentSchemaVersion = 'custom-scene-generated-output-v1';
+const generatedCareSafetyPolicyVersion = 'health-safety-v1';
+const generatedCareMomentContentRefreshEpoch = 2;
 
 enum GeneratedCareUtteranceRole {
   starter('starter'),
@@ -134,6 +136,8 @@ class GeneratedReactionSupportMap {
 class GeneratedCareMoment {
   GeneratedCareMoment({
     required String schemaVersion,
+    required String safetyPolicyVersion,
+    required int contentRefreshEpoch,
     required String generatedContentId,
     required String sceneId,
     required String spaceId,
@@ -146,6 +150,8 @@ class GeneratedCareMoment {
     required this.starter,
     required this.reactionSupports,
   }) : schemaVersion = _requiredSchemaVersion(schemaVersion),
+       safetyPolicyVersion = _requiredSafetyPolicyVersion(safetyPolicyVersion),
+       contentRefreshEpoch = _requiredContentRefreshEpoch(contentRefreshEpoch),
        generatedContentId = _required(generatedContentId, 'generatedContentId'),
        sceneId = _required(sceneId, 'sceneId'),
        spaceId = _required(spaceId, 'spaceId'),
@@ -172,6 +178,8 @@ class GeneratedCareMoment {
   }
 
   final String schemaVersion;
+  final String safetyPolicyVersion;
+  final int contentRefreshEpoch;
   final String generatedContentId;
   final String sceneId;
   final String spaceId;
@@ -199,6 +207,28 @@ String _requiredSchemaVersion(String value) {
       value,
       'schemaVersion',
       '不支持 generated care moment schema。',
+    );
+  }
+  return value;
+}
+
+String _requiredSafetyPolicyVersion(String value) {
+  if (value != generatedCareSafetyPolicyVersion) {
+    throw ArgumentError.value(
+      value,
+      'safetyPolicyVersion',
+      '不支持 generated care moment safety policy。',
+    );
+  }
+  return value;
+}
+
+int _requiredContentRefreshEpoch(int value) {
+  if (value != generatedCareMomentContentRefreshEpoch) {
+    throw ArgumentError.value(
+      value,
+      'contentRefreshEpoch',
+      '不支持 generated care moment content refresh epoch。',
     );
   }
   return value;

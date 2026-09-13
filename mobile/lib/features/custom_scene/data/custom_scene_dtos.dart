@@ -1,3 +1,139 @@
+import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+
+const customSceneResultSchemaVersion = 'custom-scene-result-v2';
+
+const Map<String, String> _healthSafetyTemplateActions = <String, String>{
+  'health-emergency-v1': 'emergency',
+  'health-concern-v1': 'seek_medical_help',
+  'health-prompt-assessment-v1': 'seek_medical_help',
+  'health-uncertain-v1': 'uncertain',
+  'health-assessment-unavailable-v1': 'uncertain',
+};
+
+class CustomSceneDiscoveryV2ResponseDto {
+  CustomSceneDiscoveryV2ResponseDto({
+    required this.schemaVersion,
+    required this.discoveryTraceId,
+    required this.resultType,
+    required this.policyVersion,
+    required this.scene,
+    required this.safety,
+  });
+
+  factory CustomSceneDiscoveryV2ResponseDto.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final resultType = _requiredExactString(json, 'resultType');
+    switch (resultType) {
+      case 'generated_scene':
+        _requireExactKeys(json, const <String>{
+          'schemaVersion',
+          'discoveryTraceId',
+          'resultType',
+          'policyVersion',
+          'scene',
+        });
+        final schemaVersion = _requiredExactString(json, 'schemaVersion');
+        final policyVersion = _requiredExactString(json, 'policyVersion');
+        if (schemaVersion != customSceneResultSchemaVersion ||
+            policyVersion != generatedCareSafetyPolicyVersion) {
+          throw const FormatException('v2 custom scene result version 不受支持。');
+        }
+        return CustomSceneDiscoveryV2ResponseDto(
+          schemaVersion: schemaVersion,
+          discoveryTraceId: _requiredString(json, 'discoveryTraceId'),
+          resultType: resultType,
+          policyVersion: policyVersion,
+          scene: CustomSceneDiscoveryResponseDto.fromJson(
+            _requiredMap(json, 'scene'),
+          ),
+          safety: null,
+        );
+      case 'health_safety':
+      case 'assessment_unavailable':
+        _requireExactKeys(json, const <String>{
+          'schemaVersion',
+          'discoveryTraceId',
+          'resultType',
+          'safety',
+        });
+        final schemaVersion = _requiredExactString(json, 'schemaVersion');
+        if (schemaVersion != customSceneResultSchemaVersion) {
+          throw const FormatException('v2 custom scene result schema 不受支持。');
+        }
+        return CustomSceneDiscoveryV2ResponseDto(
+          schemaVersion: schemaVersion,
+          discoveryTraceId: _requiredString(json, 'discoveryTraceId'),
+          resultType: resultType,
+          policyVersion: null,
+          scene: null,
+          safety: CustomSceneSafetyDto.fromJson(
+            _requiredMap(json, 'safety'),
+          ),
+        );
+      default:
+        throw const FormatException('未知 v2 custom scene result type。');
+    }
+  }
+
+  final String schemaVersion;
+  final String discoveryTraceId;
+  final String resultType;
+  final String? policyVersion;
+  final CustomSceneDiscoveryResponseDto? scene;
+  final CustomSceneSafetyDto? safety;
+}
+
+class CustomSceneSafetyDto {
+  CustomSceneSafetyDto({
+    required this.action,
+    required this.templateId,
+    required this.policyVersion,
+    required this.locale,
+    required this.titleZh,
+    required this.messageZh,
+  });
+
+  factory CustomSceneSafetyDto.fromJson(Map<String, dynamic> json) {
+    _requireExactKeys(json, const <String>{
+      'action',
+      'templateId',
+      'policyVersion',
+      'locale',
+      'titleZh',
+      'messageZh',
+    });
+    final action = _requiredExactString(json, 'action');
+    final templateId = _requiredExactString(json, 'templateId');
+    final policyVersion = _requiredExactString(json, 'policyVersion');
+    final locale = _requiredExactString(json, 'locale');
+    final titleZh = _requiredString(json, 'titleZh');
+    final messageZh = _requiredString(json, 'messageZh');
+    if (policyVersion != generatedCareSafetyPolicyVersion ||
+        locale != 'zh-CN' ||
+        _healthSafetyTemplateActions[templateId] != action) {
+      throw const FormatException('health safety contract 不受支持。');
+    }
+    return CustomSceneSafetyDto(
+      action: action,
+      templateId: templateId,
+      policyVersion: policyVersion,
+      locale: locale,
+      titleZh: titleZh,
+      messageZh: messageZh,
+    );
+  }
+
+  final String action;
+  final String templateId;
+  final String policyVersion;
+  final String locale;
+  final String titleZh;
+  final String messageZh;
+}
+
+typedef CustomSceneGeneratedSceneDto = CustomSceneDiscoveryResponseDto;
+
 class CustomSceneRequestDto {
   const CustomSceneRequestDto({
     required this.installationId,
@@ -472,6 +608,14 @@ String _requiredString(Map<String, dynamic> json, String key) {
     throw FormatException('字段 `$key` 缺失或不是非空字符串。');
   }
   return value.trim();
+}
+
+String _requiredExactString(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value is! String || value.isEmpty || value.trim() != value) {
+    throw FormatException('字段 `$key` 缺失或不是精确字符串。');
+  }
+  return value;
 }
 
 String? _optionalString(Map<String, dynamic> json, String key) {
