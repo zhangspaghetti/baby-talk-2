@@ -84,7 +84,9 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   int? _playbackIntent;
   int _audioIntent = 0;
   int _audioControllerGeneration = 0;
+  Completer<void> _audioGenerationInvalidation = Completer<void>();
   Future<void> _audioReplacementTail = Future<void>.value();
+  CareAudioPlaybackController? _pendingReplacementController;
   Future<bool>? _audioStopBarrier;
   bool _isAudioStopping = false;
   bool _audioStopFailed = false;
@@ -135,7 +137,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   @override
   void dispose() {
     _audioIntent += 1;
-    _audioControllerGeneration += 1;
+    _advanceAudioControllerGeneration();
+    _pendingReplacementController = null;
     _pendingAudioKey = null;
     _playbackIntent = null;
     _audioStopBarrier = null;
@@ -224,15 +227,18 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
 
   void _replaceAudioController() {
     final replacement = _buildAudioController();
-    if (identical(replacement, _audioController)) {
+    if (identical(replacement, _audioController) ||
+        identical(replacement, _pendingReplacementController)) {
       return;
     }
     final previous = _audioController;
     final previousCompletionSubscription = _audioCompletionSubscription;
+    final sourceStopBarrier = _audioStopBarrier;
     _audioController = null;
     _audioCompletionSubscription = null;
     _audioIntent += 1;
-    final generation = ++_audioControllerGeneration;
+    final generation = _advanceAudioControllerGeneration();
+    final generationInvalidation = _audioGenerationInvalidation.future;
     _pendingAudioKey = null;
     _playbackIntent = null;
     _audioStopBarrier = null;
@@ -242,14 +248,27 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _audioStopFailed = false;
     _isAudioStopping = true;
     _audioOwnershipLost = true;
+    _pendingReplacementController = replacement;
     _unregisterAudioOwnership(widget.careAudioSessionCoordinator);
     final priorReplacement = _audioReplacementTail;
     final replacementTask = priorReplacement.then<void>((_) async {
+      if (sourceStopBarrier != null) {
+        await Future.any<void>(<Future<void>>[
+          sourceStopBarrier.then<void>((_) {}),
+          generationInvalidation,
+        ]);
+      }
       await _stopAndDispose(previous, previousCompletionSubscription);
-      if (!mounted || generation != _audioControllerGeneration) {
-        await _disposeReplacement(replacement);
+      if (!mounted ||
+          generation != _audioControllerGeneration ||
+          !identical(_pendingReplacementController, replacement)) {
+        if (!identical(_audioController, replacement) &&
+            !identical(_pendingReplacementController, replacement)) {
+          await _disposeReplacement(replacement);
+        }
         return;
       }
+      _pendingReplacementController = null;
       _isAudioStopping = false;
       _audioStopFailed = false;
       _audioOwnershipLost = false;
@@ -292,6 +311,14 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     }
   }
 
+  int _advanceAudioControllerGeneration() {
+    if (!_audioGenerationInvalidation.isCompleted) {
+      _audioGenerationInvalidation.complete();
+    }
+    _audioGenerationInvalidation = Completer<void>();
+    return ++_audioControllerGeneration;
+  }
+
   Future<void> _disposeAudioController(
     CareAudioPlaybackController? controller,
     StreamSubscription<CareAudioPlaybackCompletion>? completionSubscription,
@@ -331,6 +358,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       return;
     }
     _audioIntent += 1;
+    _advanceAudioControllerGeneration();
+    _pendingReplacementController = null;
     _pendingAudioKey = null;
     _playbackIntent = null;
     _audioStopBarrier = null;

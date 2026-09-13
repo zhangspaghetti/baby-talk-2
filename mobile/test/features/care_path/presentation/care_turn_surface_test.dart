@@ -753,6 +753,112 @@ void main() {
     expect(second.requests, hasLength(1));
   });
 
+  testWidgets('reused pending replacement controller remains current', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _DeferredReplacementCareAudioPlaybackController();
+    final reused = _ControllableCareAudioPlaybackController();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: reused,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await first.stopStarted.future;
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: reused,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+
+    first.finishStop.complete();
+    await first.disposeFinished.future;
+    await tester.pump();
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    expect(reused.disposeCalls, 0);
+    expect(reused.requests, hasLength(1));
+  });
+
+  testWidgets('replacement waits for existing source stop barrier', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final replacementNotifier = CarePathNotifier(
+      repository: CarePathRepository(
+        practiceRepository: _MemoryPracticeRepository(),
+      ),
+    );
+    addTearDown(replacementNotifier.dispose);
+    final first = _OrderedStopCareAudioPlaybackController();
+    final second = _ControllableCareAudioPlaybackController();
+
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await replacementNotifier.startMoment(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: replacementNotifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await first.firstStopStarted.future;
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: replacementNotifier,
+        careAudio: second,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pump();
+
+    expect(first.secondStopStarted.isCompleted, isFalse);
+    expect(first.disposeCalls, 0);
+    first.finishFirstStop.complete();
+    await first.secondStopStarted.future;
+    expect(first.disposeCalls, 0);
+    first.finishSecondStop.complete();
+    for (var index = 0; index < 5 && first.disposeCalls == 0; index += 1) {
+      await tester.pump();
+    }
+
+    expect(first.disposeCalls, 1);
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    expect(second.requests, hasLength(1));
+  });
+
   testWidgets('late source-stop failure after ownership loss stays silent', (
     tester,
   ) async {
@@ -1379,6 +1485,26 @@ class _DeferredStopFailureCareAudioPlaybackController
     }
     await finishStop.future;
     throw StateError('late stop failure');
+  }
+}
+
+class _OrderedStopCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  final firstStopStarted = Completer<void>();
+  final finishFirstStop = Completer<void>();
+  final secondStopStarted = Completer<void>();
+  final finishSecondStop = Completer<void>();
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    if (stopCalls == 1) {
+      firstStopStarted.complete();
+      await finishFirstStop.future;
+      return;
+    }
+    secondStopStarted.complete();
+    await finishSecondStop.future;
   }
 }
 
