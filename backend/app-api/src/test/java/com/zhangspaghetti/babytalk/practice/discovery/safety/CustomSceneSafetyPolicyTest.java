@@ -26,6 +26,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,6 +182,14 @@ class CustomSceneSafetyPolicyTest {
         assertThat(admission.matches(
                 forms.securityText(), "m7_11", "zh-CN",
                 "installation", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
+    }
+
+    @Test
+    void genericAdmissionIssuerIsNotPublic() {
+        assertThat(Arrays.stream(CustomSceneSafetyDecision.class.getDeclaredMethods())
+                .filter(method -> method.getName().equals("bindAdmission"))
+                .anyMatch(method -> Modifier.isPublic(method.getModifiers())))
+                .isFalse();
     }
 
     @Test

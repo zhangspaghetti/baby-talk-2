@@ -167,7 +167,13 @@ public final class CustomSceneSafetyPolicy {
                     yield unavailable();
                 }
                 yield CustomSceneSafetyDecision.generatedScene(
-                        CustomSceneSafetyDecision.bindAdmission(forms, ageRange, policyVersion));
+                        CustomSceneSafetyDecision.Admission.forPolicy(
+                                forms,
+                                ageRange,
+                                LOCALE,
+                                CustomSceneSafetyDecision.ownerContextPlaceholder(),
+                                CustomSceneSafetyDecision.profileContextPlaceholder(),
+                                policyVersion));
             }
         };
     }

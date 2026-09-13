@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import java.util.List;
@@ -32,7 +33,9 @@ class PracticeOnboardingConversationGeneratorTest {
         utterance.setPronunciationHint("wi kan go slo-li");
         var installationRef = "installation_" + "a".repeat(64);
         var ownerKey = "owner_" + "b".repeat(64);
-        when(content.generateCustomSceneForInstallationOwner(any(), eq(ownerKey), eq(installationRef)))
+        when(content.generateCustomSceneForServerOwnedRequest(
+                any(), eq(CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME),
+                eq(ownerKey), eq(installationRef)))
                 .thenReturn(generated);
         when(content.findApprovedUtterances("generated-next-1")).thenReturn(List.of(utterance));
         var generator = new PracticeOnboardingConversationGenerator(content);
@@ -43,8 +46,9 @@ class PracticeOnboardingConversationGeneratorTest {
 
         var request = ArgumentCaptor.forClass(
                 PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
-        verify(content).generateCustomSceneForInstallationOwner(
-                request.capture(), eq(ownerKey), eq(installationRef));
+        verify(content).generateCustomSceneForServerOwnedRequest(
+                request.capture(), eq(CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME),
+                eq(ownerKey), eq(installationRef));
         verify(content, never()).generateCustomScene(any(), any());
         assertThat(request.getValue().installationId()).isNull();
         assertThat(request.getValue().mode()).isEqualTo("custom_scene");
@@ -63,7 +67,8 @@ class PracticeOnboardingConversationGeneratorTest {
         utterance.setEnglishText("Time to sleep.");
         utterance.setChineseText("该睡觉啦。");
         utterance.setPronunciationHint("time to sleep");
-        when(content.generateCustomSceneForServerOwnedRequest(any())).thenReturn(generated);
+        when(content.generateCustomSceneForServerOwnedRequest(
+                any(), eq(CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME))).thenReturn(generated);
         when(content.findApprovedUtterances("generated-first-1")).thenReturn(List.of(utterance));
         var generator = new PracticeOnboardingConversationGenerator(content);
 
@@ -72,7 +77,8 @@ class PracticeOnboardingConversationGeneratorTest {
 
         var request = ArgumentCaptor.forClass(
                 PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
-        verify(content).generateCustomSceneForServerOwnedRequest(request.capture());
+        verify(content).generateCustomSceneForServerOwnedRequest(
+                request.capture(), eq(CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME));
         assertThat(request.getValue().mode()).isEqualTo("custom_scene");
         assertThat(result.utteranceId()).isEqualTo("utterance-first-1");
     }

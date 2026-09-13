@@ -14,7 +14,8 @@ public interface PracticeGeneratedContentQueryMapper {
             @Param("generatedContentId") String generatedContentId);
 
     List<PracticeGeneratedContentUtteranceEntity> findApprovedUtterances(
-            @Param("generatedContentId") String generatedContentId);
+            @Param("generatedContentId") String generatedContentId,
+            @Param("contentRefreshEpoch") int contentRefreshEpoch);
 
     PracticeGeneratedContentEntity findActiveOwnedByAccountId(
             @Param("generatedContentId") String generatedContentId,
@@ -22,7 +23,8 @@ public interface PracticeGeneratedContentQueryMapper {
 
     PracticeGeneratedContentUtteranceEntity findPlayableApprovedUtterance(
             @Param("generatedContentId") String generatedContentId,
-            @Param("utteranceId") String utteranceId);
+            @Param("utteranceId") String utteranceId,
+            @Param("contentRefreshEpoch") int contentRefreshEpoch);
 
     PracticeGeneratedContentUtteranceEntity findPlayableOwnedActiveBundleUtterance(
             @Param("generatedContentId") String generatedContentId,

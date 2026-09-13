@@ -3,6 +3,8 @@ package com.zhangspaghetti.babytalk.onboarding.conversation;
 import com.zhangspaghetti.babytalk.onboarding.conversation.OnboardingConversationGenerator.GenerationRequest;
 import com.zhangspaghetti.babytalk.onboarding.conversation.OnboardingConversationStore.StoredConversation;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentKeyFactory;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentEpoch;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Duration;
@@ -38,6 +40,7 @@ public class OnboardingConversationService {
     private final OnboardingConversationGenerator generator;
     private final PracticeGeneratedContentKeyFactory keyFactory;
     private final OnboardingAudioCapabilityService audioCapabilities;
+    private final PracticeGeneratedContentService generatedContent;
     private final Clock clock;
 
     @Autowired
@@ -45,9 +48,10 @@ public class OnboardingConversationService {
             OnboardingConversationStore store,
             OnboardingConversationGenerator generator,
             PracticeGeneratedContentKeyFactory keyFactory,
-            OnboardingAudioCapabilityService audioCapabilities
+            OnboardingAudioCapabilityService audioCapabilities,
+            PracticeGeneratedContentService generatedContent
     ) {
-        this(store, generator, keyFactory, audioCapabilities, Clock.systemUTC());
+        this(store, generator, keyFactory, audioCapabilities, generatedContent, Clock.systemUTC());
     }
 
     OnboardingConversationService(
@@ -55,12 +59,14 @@ public class OnboardingConversationService {
             OnboardingConversationGenerator generator,
             PracticeGeneratedContentKeyFactory keyFactory,
             OnboardingAudioCapabilityService audioCapabilities,
+            PracticeGeneratedContentService generatedContent,
             Clock clock
     ) {
         this.store = store;
         this.generator = generator;
         this.keyFactory = keyFactory;
         this.audioCapabilities = audioCapabilities;
+        this.generatedContent = generatedContent;
         this.clock = clock;
     }
 
@@ -97,6 +103,7 @@ public class OnboardingConversationService {
                     Map.copyOf(request.generationScene().facets()), request.locale(), request.timeBand()));
             var completedAt = utcNow();
             var expiresAt = completedAt.plus(TTL);
+            requireCurrentGeneratedContent(generated.generatedContentId());
             if (store.activate(
                     conversationId, generated.generatedContentId(), generated.utteranceId(),
                     generated.englishText(), generated.chineseText(), generated.pronunciationHint(),
@@ -128,6 +135,7 @@ public class OnboardingConversationService {
                         "同一本地事件已使用不同请求。");
             }
             if ("active".equals(existing.status())) {
+                requireCurrentGeneratedContent(existing.generatedContentId());
                 var now = utcNow();
                 var expiresAt = now.plus(TTL);
                 if (store.extendExpiry(existing.conversationId(), expiresAt, now) == 1) {
@@ -216,6 +224,10 @@ public class OnboardingConversationService {
         return new ContractException(HttpStatus.BAD_REQUEST, code, message);
     }
 
+    private ContractException notFound() {
+        return new ContractException(HttpStatus.NOT_FOUND, "onboarding_conversation_not_found", "访客对话不可用。");
+    }
+
     private String canonicalRequest(CreateRequest request) {
         return java.util.stream.Stream.of(
                         request.careEntryId(), request.registryRevision(),
@@ -241,12 +253,29 @@ public class OnboardingConversationService {
     }
 
     private Conversation response(StoredConversation stored, OffsetDateTime expiresAt) {
+        requireCurrentGeneratedContent(stored == null ? null : stored.generatedContentId());
         var audioCapability = audioCapabilities.issue(
                 stored.conversationId(), stored.utteranceId(), expiresAt);
         return new Conversation(
                 stored.conversationId(), expiresAt,
                 new Utterance(stored.utteranceId(), stored.englishText(), stored.chineseText(),
                         stored.pronunciationHint(), audioCapability, "remote_generated"));
+    }
+
+    private void requireCurrentGeneratedContent(String generatedContentId) {
+        try {
+            var content = generatedContent == null ? null
+                    : generatedContent.findActiveOrPromotedByGeneratedContentId(generatedContentId).orElse(null);
+            if (content == null
+                    || content.contentRefreshEpoch() != PracticeGeneratedContentEpoch.CURRENT
+                    || !("active".equals(content.status()) || "promoted".equals(content.status()))) {
+                throw notFound();
+            }
+        } catch (ContractException exception) {
+            throw notFound();
+        } catch (RuntimeException exception) {
+            throw notFound();
+        }
     }
 
     public record CreateRequest(

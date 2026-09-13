@@ -140,7 +140,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         active.setContentRefreshEpoch(2);
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(active);
-        when(queries.findApprovedUtterances("pgc_supported_active"))
+        when(queries.findApprovedUtterances("pgc_supported_active", 2))
                 .thenReturn(completeApprovedUtterances("pgc_supported_active"));
 
         var service = orchestratedService(queries, commands, orchestrator);
@@ -169,7 +169,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var legacy = active("pgc_legacy_reuse");
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(legacy);
-        when(queries.findApprovedUtterances("pgc_legacy_reuse")).thenReturn(List.of());
+        when(queries.findApprovedUtterances("pgc_legacy_reuse", 2)).thenReturn(List.of());
         var service = orchestratedService(queries, commands, orchestrator);
 
         assertThatThrownBy(() -> service.generateCustomScene(request()))
@@ -193,7 +193,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var legacy = active("pgc_legacy_read");
         when(queries.findActiveByGeneratedContentId(eq("pgc_legacy_read"), any(), anyInt(), any()))
                 .thenReturn(legacy);
-        when(queries.findApprovedUtterances("pgc_legacy_read")).thenReturn(List.of());
+        when(queries.findApprovedUtterances("pgc_legacy_read", 2)).thenReturn(List.of());
         var service = orchestratedService(queries, commands, mock(CustomSceneGenerationOrchestrator.class));
 
         assertThatThrownBy(() -> service.findActiveOrPromotedByGeneratedContentId("pgc_legacy_read"))
@@ -257,7 +257,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         winner.setGenerationProfileVersion(registry.currentGenerationProfile().version());
         when(queries.findActiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt(), any()))
                 .thenReturn(winner);
-        when(queries.findApprovedUtterances("pgc_activation_winner"))
+        when(queries.findApprovedUtterances("pgc_activation_winner", 2))
                 .thenReturn(completeApprovedUtterances("pgc_activation_winner"));
 
         var policy = PracticeDiscoveryPolicyTestFixture.properties();

@@ -2,6 +2,8 @@ package com.zhangspaghetti.babytalk.onboarding.conversation;
 
 import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedUtteranceAudio;
 import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedUtteranceAudioService;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentEpoch;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -16,6 +18,7 @@ public final class OnboardingConversationAudioService {
     private final OnboardingConversationTurnStore turnStore;
     private final OnboardingAudioCapabilityService capabilities;
     private final GeneratedUtteranceAudioService generatedAudioService;
+    private final PracticeGeneratedContentService generatedContent;
     private final Clock clock;
 
     @Autowired
@@ -23,9 +26,10 @@ public final class OnboardingConversationAudioService {
             OnboardingConversationStore store,
             OnboardingConversationTurnStore turnStore,
             OnboardingAudioCapabilityService capabilities,
-            GeneratedUtteranceAudioService generatedAudioService
+            GeneratedUtteranceAudioService generatedAudioService,
+            PracticeGeneratedContentService generatedContent
     ) {
-        this(store, turnStore, capabilities, generatedAudioService, Clock.systemUTC());
+        this(store, turnStore, capabilities, generatedAudioService, generatedContent, Clock.systemUTC());
     }
 
     OnboardingConversationAudioService(
@@ -33,12 +37,14 @@ public final class OnboardingConversationAudioService {
             OnboardingConversationTurnStore turnStore,
             OnboardingAudioCapabilityService capabilities,
             GeneratedUtteranceAudioService generatedAudioService,
+            PracticeGeneratedContentService generatedContent,
             Clock clock
     ) {
         this.store = store;
         this.turnStore = turnStore;
         this.capabilities = capabilities;
         this.generatedAudioService = generatedAudioService;
+        this.generatedContent = generatedContent;
         this.clock = clock;
     }
 
@@ -54,16 +60,34 @@ public final class OnboardingConversationAudioService {
                 || !conversation.expiresAt().isAfter(OffsetDateTime.now(clock))) {
             throw audioNotFound();
         }
+        requireCurrentGeneratedContent(conversation.generatedContentId());
         if (!utteranceId.equals(conversation.utteranceId())) {
             var turn = turnStore.findByUtterance(conversationId, utteranceId);
             if (turn == null || !turn.expiresAt().isAfter(OffsetDateTime.now(clock))) {
                 throw audioNotFound();
             }
-            return generatedAudioService.synthesizeApproved(
-                    turn.generatedContentId(), turn.utteranceId(), turn.englishText());
+            requireCurrentGeneratedContent(turn.generatedContentId());
+            return generatedAudioService.synthesizeOnboardingApproved(
+                    turn.generatedContentId(), turn.utteranceId());
         }
-        return generatedAudioService.synthesizeApproved(
-                conversation.generatedContentId(), conversation.utteranceId(), conversation.englishText());
+        return generatedAudioService.synthesizeOnboardingApproved(
+                conversation.generatedContentId(), conversation.utteranceId());
+    }
+
+    private void requireCurrentGeneratedContent(String generatedContentId) {
+        try {
+            var content = generatedContent == null ? null
+                    : generatedContent.findActiveOrPromotedByGeneratedContentId(generatedContentId).orElse(null);
+            if (content == null
+                    || content.contentRefreshEpoch() != PracticeGeneratedContentEpoch.CURRENT
+                    || !("active".equals(content.status()) || "promoted".equals(content.status()))) {
+                throw audioNotFound();
+            }
+        } catch (ContractException exception) {
+            throw audioNotFound();
+        } catch (RuntimeException exception) {
+            throw audioNotFound();
+        }
     }
 
     private ContractException audioNotFound() {

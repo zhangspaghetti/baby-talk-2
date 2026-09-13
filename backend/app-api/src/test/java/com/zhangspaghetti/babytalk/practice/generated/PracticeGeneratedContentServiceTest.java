@@ -15,10 +15,12 @@ import com.zhangspaghetti.babytalk.practice.discovery.FakeCustomSceneGenerationS
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
 import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import com.zhangspaghetti.babytalk.web.ContractException;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService.CustomSceneDiscoveryRequest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,7 +58,7 @@ class PracticeGeneratedContentServiceTest {
                 .when(commands.startGeneration(any(), any(), anyInt(), any()))
                 .thenReturn(GenerationStartDecision.STARTED);
         org.mockito.Mockito.lenient()
-                .when(queries.findApprovedUtterances(any()))
+                .when(queries.findApprovedUtterances(any(), anyInt()))
                 .thenAnswer(invocation -> completeApprovedUtterances(invocation.getArgument(0, String.class)));
     }
 
@@ -223,6 +225,42 @@ class PracticeGeneratedContentServiceTest {
 
         verify(queries, never()).findByClientRequestId(any(), any(), any(), any(), anyInt());
         verify(queries, never()).findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt());
+    }
+
+    @Test
+    void realAdmissionOwnerProfileAgeAndLocaleMismatchesRejectBeforeQueriesOrCommands() {
+        var service = serviceWithFakeProvider();
+        var owner = ownerProperties("test-owner-key-secret-test-owner-key");
+        var ownerKey = new PracticeGeneratedContentKeyFactory(owner).ownerKey("installation", "install_1");
+        var admission = CustomSceneSafetyDecision.serverOwnedOnboardingAdmission(
+                CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME,
+                new SceneTextCanonicalizer().derive(
+                        CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME.securityText()))
+                .bindContext("installation", ownerKey, null);
+
+        var ageMismatch = new CustomSceneDiscoveryRequest(
+                "onboarding", "custom_scene", "install_1", null, null,
+                "m7_11", "calmer_care", "zh-CN",
+                CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME.securityText());
+        var localeMismatch = new CustomSceneDiscoveryRequest(
+                "onboarding", "custom_scene", "install_1", null, null,
+                "12_18m", "calmer_care", "en-US",
+                CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME.securityText());
+        var ownerMismatch = new CustomSceneDiscoveryRequest(
+                "onboarding", "custom_scene", null, "acct_mismatch", null,
+                "12_18m", "calmer_care", "zh-CN",
+                CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME.securityText());
+        var profileMismatch = new CustomSceneDiscoveryRequest(
+                "onboarding", "custom_scene", null, "acct_mismatch", "profile_mismatch",
+                "12_18m", "calmer_care", "zh-CN",
+                CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME.securityText());
+
+        for (var request : List.of(ageMismatch, localeMismatch, ownerMismatch, profileMismatch)) {
+            assertThatThrownBy(() -> service.generateCustomScene(request, admission))
+                    .isInstanceOfSatisfying(ContractException.class, error ->
+                            assertThat(error.code()).isEqualTo("invalid_generated_content_admission"));
+        }
+        verifyNoInteractions(queries, commands);
     }
 
     @Test

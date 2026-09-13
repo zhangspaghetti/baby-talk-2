@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentKeyFactory;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentOwnerProperties;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Instant;
@@ -12,12 +13,16 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class OnboardingConversationServiceTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-14T10:00:00Z"), ZoneOffset.UTC);
     private final FakeStore store = new FakeStore();
     private final FakeGenerator generator = new FakeGenerator();
+    private final PracticeGeneratedContentService generatedContent = mock(PracticeGeneratedContentService.class);
     private final PracticeGeneratedContentKeyFactory keyFactory =
             new PracticeGeneratedContentKeyFactory(new PracticeGeneratedContentOwnerProperties(
                     "v1", "0123456789abcdef0123456789abcdef"));
@@ -26,7 +31,18 @@ class OnboardingConversationServiceTest {
             generator,
             keyFactory,
             new OnboardingAudioCapabilityService(keyFactory, CLOCK),
+            generatedContent,
             CLOCK);
+
+    @BeforeEach
+    void currentGeneratedContentIsAvailableForExistingFixtures() {
+        var current = new com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity();
+        current.setGeneratedContentId("generated-1");
+        current.setStatus("active");
+        current.setContentRefreshEpoch(2);
+        when(generatedContent.findActiveOrPromotedByGeneratedContentId("generated-1"))
+                .thenReturn(java.util.Optional.of(current));
+    }
 
     @Test
     void createsHmacScopedConversationWithTwentyFourHourTtl() {
@@ -59,6 +75,7 @@ class OnboardingConversationServiceTest {
                 keyFactory,
                 new OnboardingAudioCapabilityService(keyFactory,
                         Clock.fixed(Instant.parse("2026-08-14T11:00:00Z"), ZoneOffset.UTC)),
+                generatedContent,
                 Clock.fixed(Instant.parse("2026-08-14T11:00:00Z"), ZoneOffset.UTC));
 
         var replay = later.create(request("event-1", "bedtime"));
@@ -98,6 +115,23 @@ class OnboardingConversationServiceTest {
     }
 
     @Test
+    void staleGeneratedContentReplayFailsClosedWithoutExtendingOrReturningEnglish() {
+        var first = service.create(request("event-legacy", "bedtime"));
+        store.replaceGeneratedContentId(first.conversationId(), "generated-legacy");
+        when(generatedContent.findActiveOrPromotedByGeneratedContentId("generated-legacy"))
+                .thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.create(request("event-legacy", "bedtime")))
+                .isInstanceOfSatisfying(ContractException.class, exception -> {
+                    assertThat(exception.status().value()).isEqualTo(404);
+                    assertThat(exception.code()).isEqualTo("onboarding_conversation_not_found");
+                    assertThat(exception.getMessage()).doesNotContain("Time to sleep.");
+                });
+        assertThat(store.extendCalls).isZero();
+        assertThat(generator.calls).isOne();
+    }
+
+    @Test
     void rejectsDelimiterBearingTimeBandBeforeFingerprinting() {
         var base = request("event-1", "bedtime");
         var invalid = new OnboardingConversationService.CreateRequest(
@@ -125,6 +159,7 @@ class OnboardingConversationServiceTest {
 
     private static final class FakeStore implements OnboardingConversationStore {
         private final Map<String, StoredConversation> rows = new HashMap<>();
+        private int extendCalls;
 
         @Override
         public StoredConversation find(String installationRefHash, String localEventId) {
@@ -177,6 +212,7 @@ class OnboardingConversationServiceTest {
         @Override
         public int extendExpiry(String conversationId, java.time.OffsetDateTime expiresAt,
                                 java.time.OffsetDateTime updatedAt) {
+            extendCalls++;
             return rows.values().stream().anyMatch(row ->
                     row.conversationId().equals(conversationId)
                             && "active".equals(row.status())
@@ -202,6 +238,20 @@ class OnboardingConversationServiceTest {
 
         StoredConversation only() {
             return rows.values().iterator().next();
+        }
+
+        void replaceGeneratedContentId(String conversationId, String generatedContentId) {
+            var entry = rows.entrySet().stream()
+                    .filter(candidate -> candidate.getValue().conversationId().equals(conversationId))
+                    .findFirst().orElseThrow();
+            var row = entry.getValue();
+            entry.setValue(new StoredConversation(
+                    row.conversationId(), row.installationRefHash(), row.localEventId(), row.requestFingerprint(),
+                    row.registryRevision(), row.careEntryId(), row.generationNamespace(), row.generationKey(),
+                    row.generationVersion(), row.generationFacetsJson(), row.locale(), row.timeBand(),
+                    generatedContentId, row.utteranceId(), row.englishText(), row.chineseText(),
+                    row.pronunciationHint(), row.audioRef(), row.status(), row.expiresAt(),
+                    row.createdAt(), row.updatedAt(), row.installationOwnerKey()));
         }
     }
 

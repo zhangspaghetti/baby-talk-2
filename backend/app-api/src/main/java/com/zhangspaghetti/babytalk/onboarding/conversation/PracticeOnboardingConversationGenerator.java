@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.onboarding.conversation;
 
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +29,8 @@ public class PracticeOnboardingConversationGenerator implements OnboardingConver
         var generated = generatedContentService.generateCustomSceneForServerOwnedRequest(
                 new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
                         "onboarding", "custom_scene", request.installationId(), null, null,
-                        "12_18m", "daily_care", request.locale(), safeScene, request.localEventId()));
+                        "12_18m", "daily_care", request.locale(), safeScene, request.localEventId()),
+                CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.fromSceneKey(request.sceneKey()));
         var starter = generatedContentService.findApprovedUtterances(generated.generatedContentId()).stream()
                 .filter(utterance -> "starter".equals(utterance.role()))
                 .findFirst()
@@ -47,13 +49,14 @@ public class PracticeOnboardingConversationGenerator implements OnboardingConver
         var reactionContext = request.reactionProvided()
                 ? "，宝宝反应类型为" + request.reaction()
                 : "，宝宝暂时没有明显反应";
-        var generated = generatedContentService.generateCustomSceneForInstallationOwner(
+        var generated = generatedContentService.generateCustomSceneForServerOwnedRequest(
                 new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
                         "onboarding", "custom_scene", null, null, null,
                         "12_18m", "daily_care", request.locale(),
                         safeScene + "，家长刚才说了英文：" + request.previousEnglishText() + reactionContext,
-                        request.localEventId()), request.installationOwnerKey(),
-                request.installationRefHash());
+                        request.localEventId()),
+                CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.fromSceneKey(request.sceneKey()),
+                request.installationOwnerKey(), request.installationRefHash());
         var utterances = generatedContentService.findApprovedUtterances(generated.generatedContentId());
         var selected = request.reactionProvided()
                 ? utterances.stream()

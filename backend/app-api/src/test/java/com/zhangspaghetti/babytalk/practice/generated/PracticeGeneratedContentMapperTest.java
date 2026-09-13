@@ -175,6 +175,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 legacy.generatedContentId(), legacy.ownerKeyVersion(), 2, WALL_CLOCK_NOW_DB)).isNull();
         assertThat(queries.findPlayableOwnedActiveBundleUtterance(
                 legacy.generatedContentId(), legacy.phraseSlug(), legacy.accountId(), 2)).isNull();
+        assertThat(queries.findApprovedUtterances(legacy.generatedContentId(), 2)).isEmpty();
     }
 
     @Test
@@ -235,7 +236,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                     complete.generatedContentId());
         });
 
-        assertThat(queries.findApprovedUtterances(complete.generatedContentId()))
+        assertThat(queries.findApprovedUtterances(complete.generatedContentId(), 2))
                 .extracting(value -> value.utteranceId())
                 .containsExactly(
                         complete.phraseSlug(),
@@ -249,11 +250,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findActiveOwnedByAccountId(
                 complete.generatedContentId(), "acct_pgc_repo_other")).isNull();
         assertThat(queries.findPlayableApprovedUtterance(
-                complete.generatedContentId(), complete.phraseSlug()))
+                complete.generatedContentId(), complete.phraseSlug(), 2))
                 .extracting(value -> value.englishText())
                 .isEqualTo("Warm water.");
         assertThat(queries.findPlayableApprovedUtterance(
-                complete.generatedContentId(), "utt_missing")).isNull();
+                complete.generatedContentId(), "utt_missing", 2)).isNull();
 
         assertThatThrownBy(() -> transaction().executeWithoutResult(status ->
                 insertCarePathSupport(complete.generatedContentId(), "other", 6)))

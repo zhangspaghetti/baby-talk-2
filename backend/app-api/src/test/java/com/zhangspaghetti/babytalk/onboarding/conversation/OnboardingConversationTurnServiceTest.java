@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.zhangspaghetti.babytalk.onboarding.conversation.OnboardingConversationStore.StoredConversation;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentKeyFactory;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentOwnerProperties;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Instant;
@@ -19,6 +20,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import static org.mockito.Mockito.verify;
 
 class OnboardingConversationTurnServiceTest {
 
@@ -26,11 +29,20 @@ class OnboardingConversationTurnServiceTest {
     private final OnboardingConversationStore conversations = mock(OnboardingConversationStore.class);
     private final FakeTurnStore turns = new FakeTurnStore();
     private final CapturingGenerator generator = new CapturingGenerator();
+    private final PracticeGeneratedContentService generatedContent = mock(PracticeGeneratedContentService.class);
     private final PracticeGeneratedContentKeyFactory keys = new PracticeGeneratedContentKeyFactory(
             new PracticeGeneratedContentOwnerProperties("v1", "0123456789abcdef0123456789abcdef"));
     private final OnboardingConversationTurnService service = new OnboardingConversationTurnService(
-            conversations, turns, generator, keys,
-            new OnboardingAudioCapabilityService(keys, CLOCK), CLOCK);
+        conversations, turns, generator, keys,
+            new OnboardingAudioCapabilityService(keys, CLOCK), generatedContent, CLOCK);
+
+    @BeforeEach
+    void currentGeneratedContentIsAvailableForExistingFixtures() {
+        when(generatedContent.findActiveOrPromotedByGeneratedContentId("generated-first-1"))
+                .thenReturn(java.util.Optional.of(currentContent("generated-first-1")));
+        when(generatedContent.findActiveOrPromotedByGeneratedContentId("generated-next-1"))
+                .thenReturn(java.util.Optional.of(currentContent("generated-next-1")));
+    }
 
     @Test
     void noReactionReachesGeneratorAndExactReplayDoesNotGenerateTwice() {
@@ -141,6 +153,26 @@ class OnboardingConversationTurnServiceTest {
         assertThat(generator.calls).isEqualTo(2);
     }
 
+    @Test
+    void staleTurnReplayFailsClosedWithoutReturningEnglishOrGeneratingAgain() {
+        when(conversations.findByConversationId("onbc_test_1234")).thenReturn(conversation(false));
+        var first = service.next("onbc_test_1234", request("turn-legacy", false, null, null));
+        turns.replaceGeneratedContentId("onbc_test_1234", "turn-legacy", "generated-legacy");
+        when(generatedContent.findActiveOrPromotedByGeneratedContentId("generated-legacy"))
+                .thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.next(
+                "onbc_test_1234", request("turn-legacy", false, null, null)))
+                .isInstanceOfSatisfying(ContractException.class, error -> {
+                    assertThat(error.status().value()).isEqualTo(404);
+                    assertThat(error.code()).isEqualTo("onboarding_conversation_not_found");
+                    assertThat(error.getMessage()).doesNotContain("We can go slowly.");
+                });
+        assertThat(first.utterance().englishText()).isEqualTo("We can go slowly.");
+        assertThat(generator.calls).isOne();
+        verify(generatedContent).findActiveOrPromotedByGeneratedContentId("generated-legacy");
+    }
+
     private OnboardingConversationTurnService.NextRequest request(
             String eventId, boolean reactionProvided, String reaction, String reactionText) {
         return new OnboardingConversationTurnService.NextRequest(
@@ -159,6 +191,15 @@ class OnboardingConversationTurnServiceTest {
                 "taim tu sliip", null, "active", expiresAt,
                 OffsetDateTime.now(CLOCK).minusMinutes(1), OffsetDateTime.now(CLOCK),
                 "owner_" + "b".repeat(64));
+    }
+
+    private com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity currentContent(
+            String generatedContentId) {
+        var content = new com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity();
+        content.setGeneratedContentId(generatedContentId);
+        content.setStatus("active");
+        content.setContentRefreshEpoch(2);
+        return content;
     }
 
     private static final class CapturingGenerator implements OnboardingConversationGenerator {
@@ -253,6 +294,18 @@ class OnboardingConversationTurnServiceTest {
                     || row.expiresAt().isAfter(expiresAtOrBefore)) return 0;
             rows.remove(key);
             return 1;
+        }
+
+        synchronized void replaceGeneratedContentId(
+                String conversationId, String localEventId, String generatedContentId) {
+            var key = conversationId + "|" + localEventId;
+            var row = rows.get(key);
+            rows.put(key, new StoredTurn(
+                    row.turnId(), row.conversationId(), row.localEventId(), row.requestFingerprint(),
+                    row.previousUtteranceId(), row.parentAction(), row.reactionProvided(), row.reaction(),
+                    generatedContentId, row.utteranceId(), row.englishText(), row.chineseText(),
+                    row.pronunciationHint(), row.audioRef(), row.status(), row.expiresAt(),
+                    row.createdAt(), row.updatedAt()));
         }
     }
 }

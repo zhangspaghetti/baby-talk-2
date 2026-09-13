@@ -124,6 +124,39 @@ public final class CustomSceneSafetyDecision {
         ASSESSMENT_UNAVAILABLE
     }
 
+    /** Fixed server-owned onboarding purposes. No caller-supplied scene text is accepted. */
+    public enum ServerOwnedOnboardingPurpose {
+        BEDTIME("bedtime", "宝宝准备睡觉,需要温柔安抚"),
+        FEEDING("feeding", "宝宝正在进食,需要简短陪伴"),
+        POST_CRY("post_cry", "宝宝刚哭过,需要温柔安抚"),
+        DIAPER_CHANGE("diaper_change", "宝宝正在换尿布,需要简短陪伴");
+
+        private final String sceneKey;
+        private final String securityText;
+
+        ServerOwnedOnboardingPurpose(String sceneKey, String securityText) {
+            this.sceneKey = sceneKey;
+            this.securityText = securityText;
+        }
+
+        public String sceneKey() {
+            return sceneKey;
+        }
+
+        public String securityText() {
+            return securityText;
+        }
+
+        public static ServerOwnedOnboardingPurpose fromSceneKey(String sceneKey) {
+            for (var purpose : values()) {
+                if (purpose.sceneKey.equals(sceneKey)) {
+                    return purpose;
+                }
+            }
+            throw new IllegalArgumentException("unsupported server-owned onboarding purpose");
+        }
+    }
+
     /**
      * Opaque server-created token. Its constructor and digest are private so callers can only
      * transport a token issued by this package's safety policy.
@@ -307,15 +340,26 @@ public final class CustomSceneSafetyDecision {
         }
     }
 
-    /** Issues an unbound admission for the server safety policy to bind to its resolved owner. */
-    public static Admission bindAdmission(SceneTextForms forms, String ageRange, String policyVersion) {
+    /** Issues a server-owned onboarding admission for a fixed purpose and its server-built context. */
+    public static Admission serverOwnedOnboardingAdmission(
+            ServerOwnedOnboardingPurpose purpose,
+            SceneTextForms forms
+    ) {
+        Objects.requireNonNull(purpose, "purpose");
+        Objects.requireNonNull(forms, "forms");
+        var securityText = forms.securityText();
+        var contextualPrefix = purpose.securityText() + "，家长刚才说了英文：";
+        if (!purpose.securityText().equals(securityText)
+                && (securityText == null || !securityText.startsWith(contextualPrefix))) {
+            throw new IllegalArgumentException("unsupported server-owned onboarding context");
+        }
         return Admission.forPolicy(
                 forms,
-                ageRange,
+                "12_18m",
                 DEFAULT_LOCALE,
                 OWNER_CONTEXT_PLACEHOLDER,
                 PROFILE_CONTEXT_PLACEHOLDER,
-                policyVersion);
+                HEALTH_SAFETY_POLICY_VERSION);
     }
 
     static String ownerContextPlaceholder() {
