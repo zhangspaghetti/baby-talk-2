@@ -10,11 +10,31 @@ typedef GeneratedCareMomentDirectoryResolver = Future<Directory> Function();
 class StoredGeneratedCareMoment {
   StoredGeneratedCareMoment({
     required String accountContext,
-    required this.moment,
-  }) : accountContext = _requiredString(accountContext, 'accountContext');
+    required GeneratedCareMoment moment,
+    String? safetyPolicyVersion,
+    int? contentRefreshEpoch,
+  }) : accountContext = _requiredString(accountContext, 'accountContext'),
+       moment = moment,
+       safetyPolicyVersion = safetyPolicyVersion ?? moment.safetyPolicyVersion,
+       contentRefreshEpoch = contentRefreshEpoch ?? moment.contentRefreshEpoch {
+    if (this.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+        this.contentRefreshEpoch != generatedCareMomentContentRefreshEpoch ||
+        moment.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+        moment.contentRefreshEpoch != generatedCareMomentContentRefreshEpoch ||
+        this.safetyPolicyVersion != moment.safetyPolicyVersion ||
+        this.contentRefreshEpoch != moment.contentRefreshEpoch) {
+      throw ArgumentError.value(
+        safetyPolicyVersion,
+        'safetyPolicyVersion',
+        'generated care moment provenance 不受支持。',
+      );
+    }
+  }
 
   final String accountContext;
   final GeneratedCareMoment moment;
+  final String safetyPolicyVersion;
+  final int contentRefreshEpoch;
 }
 
 /// Public diagnostics deliberately omit account context and generated text.
@@ -428,6 +448,8 @@ Map<String, Object?> _encodeRecord(StoredGeneratedCareMoment record) {
   return <String, Object?>{
     'accountContext': record.accountContext,
     'schemaVersion': moment.schemaVersion,
+    'safetyPolicyVersion': record.safetyPolicyVersion,
+    'contentRefreshEpoch': record.contentRefreshEpoch,
     'generatedContentId': moment.generatedContentId,
     'sceneId': moment.sceneId,
     'spaceId': moment.spaceId,
@@ -449,6 +471,8 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
   _requireExactKeys(json, const <String>{
     'accountContext',
     'schemaVersion',
+    'safetyPolicyVersion',
+    'contentRefreshEpoch',
     'generatedContentId',
     'sceneId',
     'spaceId',
@@ -473,10 +497,26 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
   if (source != 'generated') {
     throw const FormatException('invalid generated care moment source');
   }
+  final safetyPolicyVersion = _requiredString(
+    json['safetyPolicyVersion'],
+    'safetyPolicyVersion',
+  );
+  final contentRefreshEpoch = _requiredNonNegativeInt(
+    json['contentRefreshEpoch'],
+    'contentRefreshEpoch',
+  );
+  if (safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+      contentRefreshEpoch != generatedCareMomentContentRefreshEpoch) {
+    throw const FormatException('unsupported generated care moment provenance');
+  }
   return StoredGeneratedCareMoment(
     accountContext: _requiredString(json['accountContext'], 'accountContext'),
+    safetyPolicyVersion: safetyPolicyVersion,
+    contentRefreshEpoch: contentRefreshEpoch,
     moment: GeneratedCareMoment(
       schemaVersion: _requiredString(json['schemaVersion'], 'schemaVersion'),
+      safetyPolicyVersion: safetyPolicyVersion,
+      contentRefreshEpoch: contentRefreshEpoch,
       generatedContentId: _requiredString(
         json['generatedContentId'],
         'generatedContentId',

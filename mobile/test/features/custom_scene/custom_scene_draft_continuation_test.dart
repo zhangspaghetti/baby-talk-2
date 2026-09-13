@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -203,6 +204,39 @@ void main() {
         AuthContinuationReadStatus.notFound,
       );
     });
+
+    test(
+      'generated draft without current provenance is removed on restart',
+      () async {
+        final draftStore = CustomSceneDraftStore(
+          directoryResolver: () async => tempDir,
+        );
+        final draft = CustomSceneStoredDraft(
+          draftId: 'generated_draft_1',
+          text: _draft().text,
+          entrySource: CustomSceneEntrySource.today,
+          requestIdentity: CustomSceneRequestIdentity(
+            clientRequestId: 'generated_request_1',
+          ),
+          state: CustomSceneStoredDraftState.readyForHandoff,
+          expectedAccountContext: 'account_a',
+          registeredContentId: 'generated_1',
+          createdAt: now,
+          expiresAt: now.add(const Duration(minutes: 15)),
+        );
+        await draftStore.write(draft);
+        final file = File('${tempDir.path}/custom_scene_draft.json');
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root.remove('safetyPolicyVersion');
+        await file.writeAsString(jsonEncode(root));
+
+        final result = await draftStore.readResult(now: now);
+
+        expect(result.status, CustomSceneDraftReadStatus.corrupt);
+        expect(await draftStore.read(now: now), isNull);
+      },
+    );
   });
 }
 

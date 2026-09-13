@@ -51,6 +51,8 @@ GeneratedCareMoment generatedCareMomentFixture({
 
   return GeneratedCareMoment(
     schemaVersion: generatedCareMomentSchemaVersion,
+    safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+    contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
     generatedContentId: generatedContentId,
     sceneId: sceneId ?? 'scene_$generatedContentId',
     spaceId: spaceId ?? 'space_$generatedContentId',

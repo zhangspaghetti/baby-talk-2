@@ -10,6 +10,7 @@ import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart'
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
@@ -75,6 +76,18 @@ void main() {
             now: now,
           )).draft?.registeredContentId,
           'generated_1',
+        );
+        expect(
+          (await harness.draftStore.readResult(
+            now: now,
+          )).draft?.safetyPolicyVersion,
+          generatedCareSafetyPolicyVersion,
+        );
+        expect(
+          (await harness.draftStore.readResult(
+            now: now,
+          )).draft?.contentRefreshEpoch,
+          generatedCareMomentContentRefreshEpoch,
         );
 
         final restartedRepository = _FakeRepository((_) async => _moment());
@@ -487,6 +500,149 @@ void main() {
         expect(repository.received, isEmpty);
       },
     );
+
+    test(
+      'health safety result stops audio, publishes notice, and clears recovery',
+      () async {
+        const notice = HealthSafetyNotice(
+          action: 'emergency',
+          templateId: 'health-emergency-v1',
+          policyVersion: generatedCareSafetyPolicyVersion,
+          locale: 'zh-CN',
+          titleZh: '先关注宝宝的身体状况',
+          messageZh: '请联系儿科医生进行评估。',
+        );
+        final audioStop = _RecordingAudioStopper();
+        final repository = _FakeRepository(
+          (_) async => const HealthSafetyResult(notice),
+        );
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+          audioStopper: audioStop,
+        );
+        await harness.continuation.beginAuthentication(draft: _draft());
+
+        await harness.controller.submit(_draft());
+
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.healthSafety,
+        );
+        expect(harness.controller.state.safetyNotice, same(notice));
+        expect(harness.controller.state.generatedContentId, isNull);
+        expect(harness.controller.state.message, notice.messageZh);
+        expect(audioStop.calls, 1);
+        expect(
+          (await harness.draftStore.readResult(now: now)).status,
+          CustomSceneDraftReadStatus.notFound,
+        );
+        expect(
+          (await harness.continuation.readForAuthenticatedResume(
+            accountContext: 'account_a',
+          )).status,
+          CustomSceneDraftContinuationStatus.notFound,
+        );
+      },
+    );
+
+    test(
+      'assessment unavailable result is terminal without registration or handoff',
+      () async {
+        final audioStop = _RecordingAudioStopper();
+        final registrar = _FakeRegistrar();
+        final handoff = _FakeHandoffSink();
+        final repository = _FakeRepository(
+          (_) async => const AssessmentUnavailableResult(
+            healthAssessmentUnavailableNotice,
+          ),
+        );
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: registrar,
+          handoff: handoff,
+          audioStopper: audioStop,
+        );
+
+        await harness.controller.submit(_draft());
+
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.assessmentUnavailable,
+        );
+        expect(
+          harness.controller.state.safetyNotice,
+          same(healthAssessmentUnavailableNotice),
+        );
+        expect(harness.controller.state.generatedContentId, isNull);
+        expect(registrar.moments, isEmpty);
+        expect(handoff.generatedContentIds, isEmpty);
+        expect(audioStop.calls, 1);
+      },
+    );
+
+    test('safety notice remains visible when draft cleanup fails', () async {
+      final draftStore = _FailingDeleteDraftStore(
+        directoryResolver: () async => tempDir,
+      );
+      final audioStop = _RecordingAudioStopper();
+      final harness = _harness(
+        tempDir: tempDir,
+        clock: () => now,
+        repository: _FakeRepository(
+          (_) async =>
+              const HealthSafetyResult(healthAssessmentUnavailableNotice),
+        ),
+        registrar: _FakeRegistrar(),
+        handoff: _FakeHandoffSink(),
+        audioStopper: audioStop,
+        draftStore: draftStore,
+      );
+
+      await harness.controller.submit(_draft());
+
+      expect(
+        harness.controller.state.phase,
+        CustomSceneSubmissionPhase.healthSafety,
+      );
+      expect(
+        harness.controller.state.safetyNotice,
+        same(healthAssessmentUnavailableNotice),
+      );
+      expect(audioStop.calls, 1);
+    });
+
+    test('safety stop timeout publishes within the 250 ms bound', () async {
+      final audioStop = _BlockingAudioStopper();
+      final stopwatch = Stopwatch()..start();
+      final harness = _harness(
+        tempDir: tempDir,
+        clock: () => now,
+        repository: _FakeRepository(
+          (_) async =>
+              const HealthSafetyResult(healthAssessmentUnavailableNotice),
+        ),
+        registrar: _FakeRegistrar(),
+        handoff: _FakeHandoffSink(),
+        audioStopper: audioStop,
+      );
+
+      await harness.controller.submit(_draft());
+      stopwatch.stop();
+      audioStop.complete();
+
+      expect(audioStop.calls, 1);
+      expect(
+        harness.controller.state.phase,
+        CustomSceneSubmissionPhase.healthSafety,
+      );
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 1)));
+    });
   });
 }
 
@@ -508,12 +664,14 @@ _Harness _harness({
   required _FakeRepository repository,
   required _FakeRegistrar registrar,
   required _FakeHandoffSink handoff,
+  CustomSceneAudioStopper? audioStopper,
+  CustomSceneDraftStore? draftStore,
 }) {
-  final draftStore = CustomSceneDraftStore(
-    directoryResolver: () async => tempDir,
-  );
+  final resolvedDraftStore =
+      draftStore ??
+      CustomSceneDraftStore(directoryResolver: () async => tempDir);
   final continuation = CustomSceneDraftContinuationCoordinator(
-    draftStore: draftStore,
+    draftStore: resolvedDraftStore,
     authContinuationCoordinator: AuthContinuationCoordinator(
       store: AuthContinuationStore(directoryResolver: () async => tempDir),
       clock: clock,
@@ -525,14 +683,15 @@ _Harness _harness({
   return _Harness(
     controller: CustomSceneSubmissionController(
       repository: repository,
-      draftStore: draftStore,
+      draftStore: resolvedDraftStore,
       draftContinuationCoordinator: continuation,
       approvedContentRegistrar: registrar,
       accountContextLoader: () async => 'account_a',
       clock: clock,
       draftIdGenerator: () => 'draft_1',
+      audioStopper: audioStopper,
     ),
-    draftStore: draftStore,
+    draftStore: resolvedDraftStore,
     continuation: continuation,
   );
 }
@@ -540,13 +699,55 @@ _Harness _harness({
 class _FakeRepository implements CustomSceneRepository {
   _FakeRepository(this._generate);
 
-  final Future<GeneratedCareMoment> Function(CustomSceneDraft draft) _generate;
+  final Future<dynamic> Function(CustomSceneDraft draft) _generate;
   final List<CustomSceneDraft> received = <CustomSceneDraft>[];
 
   @override
-  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) {
+  Future<CustomSceneResult> generate(CustomSceneDraft draft) async {
     received.add(draft);
-    return _generate(draft);
+    final result = await _generate(draft);
+    if (result is CustomSceneResult) {
+      return result;
+    }
+    return GeneratedSceneResult(
+      result as GeneratedCareMoment,
+      policyVersion: generatedCareSafetyPolicyVersion,
+    );
+  }
+}
+
+class _RecordingAudioStopper implements CustomSceneAudioStopper {
+  int calls = 0;
+
+  @override
+  Future<void> stopActive() async {
+    calls += 1;
+  }
+}
+
+class _BlockingAudioStopper implements CustomSceneAudioStopper {
+  final Completer<void> _completion = Completer<void>();
+  int calls = 0;
+
+  @override
+  Future<void> stopActive() {
+    calls += 1;
+    return _completion.future;
+  }
+
+  void complete() {
+    if (!_completion.isCompleted) {
+      _completion.complete();
+    }
+  }
+}
+
+class _FailingDeleteDraftStore extends CustomSceneDraftStore {
+  _FailingDeleteDraftStore({required super.directoryResolver});
+
+  @override
+  Future<void> deleteIfExists() async {
+    throw const CustomSceneDraftStoreException();
   }
 }
 
@@ -621,6 +822,8 @@ GeneratedCareMoment _moment() {
 
   return GeneratedCareMoment(
     schemaVersion: generatedCareMomentSchemaVersion,
+    safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+    contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
     generatedContentId: 'generated_1',
     sceneId: 'scene_1',
     spaceId: 'space_1',

@@ -668,6 +668,8 @@ GeneratedCareMoment _generatedLifecycleMoment() {
 
   return GeneratedCareMoment(
     schemaVersion: generatedCareMomentSchemaVersion,
+    safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+    contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
     generatedContentId: 'lifecycle_generated_content',
     sceneId: 'lifecycle_scene',
     spaceId: 'lifecycle_space',

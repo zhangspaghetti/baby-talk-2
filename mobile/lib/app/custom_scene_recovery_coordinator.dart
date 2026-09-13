@@ -127,6 +127,7 @@ class CustomSceneRecoveryCoordinator {
     final accountContext = _stableAccountContext;
     final normalizedContentId = generatedContentId?.trim();
     if (accountContext == null ||
+        _isSafetyTerminal ||
         _controller.state.canOpenPreparedContent ||
         normalizedContentId == null ||
         normalizedContentId.isEmpty ||
@@ -151,6 +152,11 @@ class CustomSceneRecoveryCoordinator {
       _routedContentId = null;
     }
   }
+
+  bool get _isSafetyTerminal =>
+      _controller.state.phase == CustomSceneSubmissionPhase.healthSafety ||
+      _controller.state.phase ==
+          CustomSceneSubmissionPhase.assessmentUnavailable;
 
   bool _isRouteActive({
     required String accountContext,

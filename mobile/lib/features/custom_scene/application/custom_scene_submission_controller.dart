@@ -6,6 +6,7 @@ import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart'
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 
@@ -17,6 +18,17 @@ abstract interface class CustomSceneApprovedContentRegistrar {
     required String accountContext,
     required GeneratedCareMoment moment,
   });
+}
+
+abstract interface class CustomSceneAudioStopper {
+  Future<void> stopActive();
+}
+
+class _NoopCustomSceneAudioStopper implements CustomSceneAudioStopper {
+  const _NoopCustomSceneAudioStopper();
+
+  @override
+  Future<void> stopActive() async {}
 }
 
 /// An app-level route command. `custom_scene` never imports a Care Turn screen.
@@ -63,6 +75,8 @@ enum CustomSceneSubmissionPhase {
   handoffFailed,
   handoffTimedOut,
   recoverableError,
+  healthSafety,
+  assessmentUnavailable,
 }
 
 @immutable
@@ -72,18 +86,21 @@ class CustomSceneSubmissionState {
     this.message,
     this.generatedContentId,
     this.canCancelRetainedDraft = false,
+    this.safetyNotice,
   });
 
   const CustomSceneSubmissionState.editing()
     : phase = CustomSceneSubmissionPhase.editing,
       message = null,
       generatedContentId = null,
-      canCancelRetainedDraft = false;
+      canCancelRetainedDraft = false,
+      safetyNotice = null;
 
   final CustomSceneSubmissionPhase phase;
   final String? message;
   final String? generatedContentId;
   final bool canCancelRetainedDraft;
+  final HealthSafetyNotice? safetyNotice;
 
   bool get isBusy => switch (phase) {
     CustomSceneSubmissionPhase.restoring ||
@@ -113,6 +130,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     draftContinuationCoordinator,
     required CustomSceneApprovedContentRegistrar approvedContentRegistrar,
     required CustomSceneAccountContextLoader accountContextLoader,
+    CustomSceneAudioStopper? audioStopper,
     DateTime Function()? clock,
     String Function()? draftIdGenerator,
   }) : _repository = repository,
@@ -120,6 +138,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
        _draftContinuationCoordinator = draftContinuationCoordinator,
        _approvedContentRegistrar = approvedContentRegistrar,
        _accountContextLoader = accountContextLoader,
+       _audioStopper = audioStopper ?? const _NoopCustomSceneAudioStopper(),
        _clock = clock ?? DateTime.now,
        _draftIdGenerator = draftIdGenerator ?? _defaultDraftId;
 
@@ -128,6 +147,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   final CustomSceneDraftContinuationCoordinator _draftContinuationCoordinator;
   final CustomSceneApprovedContentRegistrar _approvedContentRegistrar;
   final CustomSceneAccountContextLoader _accountContextLoader;
+  final CustomSceneAudioStopper _audioStopper;
   final DateTime Function() _clock;
   final String Function() _draftIdGenerator;
 
@@ -139,9 +159,14 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   int _operationEpoch = 0;
   bool _disposed = false;
 
+  static const _audioStopTimeout = Duration(milliseconds: 250);
+
   CustomSceneSubmissionState get state => _state;
 
   Future<void> submit(CustomSceneDraft draft) {
+    if (_isSafetyTerminal) {
+      return Future<void>.value();
+    }
     final running = _activeSubmission;
     if (running != null) {
       return running;
@@ -169,6 +194,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   /// Uses the durable continuation from #20. This is the only automatic
   /// resume path; it never initiates another login flow.
   Future<void> resumeAfterAuthentication({required String accountContext}) {
+    if (_isSafetyTerminal) {
+      return Future<void>.value();
+    }
     final running = _activeSubmission;
     if (running != null) {
       return running;
@@ -198,6 +226,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   }
 
   Future<void> resumeAfterCurrentAuthentication() async {
+    if (_isSafetyTerminal) {
+      return;
+    }
     final accountContext = await _loadAccountContext();
     if (accountContext == null) {
       _setState(
@@ -214,7 +245,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   /// Restores only durable work. Unknown outcomes require an explicit retry,
   /// which reuses the same request identity for server reconciliation.
   Future<void> restore({required String accountContext}) {
+    if (_isSafetyTerminal) {
+      return Future<void>.value();
+    }
     return _enqueue(() async {
+      if (_isSafetyTerminal) {
+        return;
+      }
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.restoring,
@@ -225,7 +262,8 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         _setState(const CustomSceneSubmissionState.editing());
         return;
       }
-      if (result.status == CustomSceneDraftReadStatus.expired) {
+      if (result.status == CustomSceneDraftReadStatus.expired ||
+          result.status == CustomSceneDraftReadStatus.corrupt) {
         await _draftContinuationCoordinator.cancel();
         _setState(const CustomSceneSubmissionState.editing());
         return;
@@ -276,6 +314,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   }
 
   Future<void> retry() {
+    if (_isSafetyTerminal) {
+      return Future<void>.value();
+    }
     final running = _activeSubmission;
     if (running != null) {
       return running;
@@ -362,6 +403,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
 
   Future<void> cancel() {
     _operationEpoch += 1;
+    _approvedMomentPendingRegistration = null;
     final hasRequestInFlight = _activeSubmission != null;
     _setState(const CustomSceneSubmissionState.editing());
     if (hasRequestInFlight) {
@@ -371,6 +413,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     }
     return _enqueue(_draftContinuationCoordinator.cancel);
   }
+
+  /// Clears a terminal safety notice before the user enters a new description.
+  Future<void> modifyDescription() => cancel();
 
   Future<void> _resumeStoredDraftAfterAuthentication(
     CustomSceneStoredDraft draft, {
@@ -404,7 +449,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     }
     if (accountContext == null) {
       if (_isOperationCurrent(operationEpoch)) {
-        await _beginAuthentication(draft);
+        await _beginAuthentication(draft, operationEpoch: operationEpoch);
       }
       return;
     }
@@ -427,6 +472,15 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       await _draftContinuationCoordinator.cancel();
       return;
     }
+    final accountStillCurrent = await _isAccountContextCurrent(accountContext);
+    if (!_isOperationCurrent(operationEpoch)) {
+      await _draftContinuationCoordinator.cancel();
+      return;
+    }
+    if (!accountStillCurrent) {
+      _operationEpoch += 1;
+      return;
+    }
     _setState(
       const CustomSceneSubmissionState(
         phase: CustomSceneSubmissionPhase.submitting,
@@ -437,38 +491,83 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         await _draftContinuationCoordinator.cancel();
         return;
       }
-      final moment = await _repository.generate(submitting.toDraft());
-      final pendingRegistration = submitting.copyWith(
-        state: CustomSceneStoredDraftState.approvedPendingRegistration,
-        registeredContentId: moment.generatedContentId,
-      );
-      await _draftStore.write(pendingRegistration);
-      _approvedMomentPendingRegistration = moment;
+      final result = await _repository.generate(submitting.toDraft());
       if (!_isOperationCurrent(operationEpoch)) {
-        await _markUnknownOutcome(pendingRegistration, publish: false);
+        if (!_isSafetyTerminal) {
+          await _markUnknownOutcome(submitting, publish: false);
+        }
         return;
       }
-      _setState(
-        const CustomSceneSubmissionState(
-          phase: CustomSceneSubmissionPhase.generated,
-        ),
-      );
-      await _registerApprovedMoment(
-        accountContext: accountContext,
-        moment: moment,
-        draft: pendingRegistration,
-        operationEpoch: operationEpoch,
-      );
+      if (!await _isAccountContextCurrent(accountContext)) {
+        _operationEpoch += 1;
+        await _markUnknownOutcome(submitting, publish: false);
+        return;
+      }
+      switch (result) {
+        case GeneratedSceneResult(:final moment, :final policyVersion):
+          if (policyVersion != generatedCareSafetyPolicyVersion ||
+              moment.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+              moment.contentRefreshEpoch !=
+                  generatedCareMomentContentRefreshEpoch) {
+            await _publishSafety(
+              phase: CustomSceneSubmissionPhase.assessmentUnavailable,
+              safety: healthAssessmentUnavailableNotice,
+              operationEpoch: operationEpoch,
+              draftId: submitting.draftId,
+            );
+            return;
+          }
+          final pendingRegistration = submitting.copyWith(
+            state: CustomSceneStoredDraftState.approvedPendingRegistration,
+            registeredContentId: moment.generatedContentId,
+            safetyPolicyVersion: moment.safetyPolicyVersion,
+            contentRefreshEpoch: moment.contentRefreshEpoch,
+          );
+          await _draftStore.write(pendingRegistration);
+          _approvedMomentPendingRegistration = moment;
+          if (!_isOperationCurrent(operationEpoch)) {
+            if (!_isSafetyTerminal) {
+              await _markUnknownOutcome(pendingRegistration, publish: false);
+            }
+            return;
+          }
+          _setState(
+            const CustomSceneSubmissionState(
+              phase: CustomSceneSubmissionPhase.generated,
+            ),
+          );
+          await _registerApprovedMoment(
+            accountContext: accountContext,
+            moment: moment,
+            draft: pendingRegistration,
+            operationEpoch: operationEpoch,
+          );
+        case HealthSafetyResult(:final safety):
+          await _publishSafety(
+            phase: CustomSceneSubmissionPhase.healthSafety,
+            safety: safety,
+            operationEpoch: operationEpoch,
+            draftId: submitting.draftId,
+          );
+        case AssessmentUnavailableResult(:final safety):
+          await _publishSafety(
+            phase: CustomSceneSubmissionPhase.assessmentUnavailable,
+            safety: safety,
+            operationEpoch: operationEpoch,
+            draftId: submitting.draftId,
+          );
+      }
     } on CustomSceneFailure catch (failure) {
       if (!_isOperationCurrent(operationEpoch)) {
         await _markUnknownOutcome(submitting, publish: false);
         return;
       }
-      await _handleFailure(failure, submitting);
+      await _handleFailure(failure, submitting, operationEpoch: operationEpoch);
     } on Object {
       await _markUnknownOutcome(
         submitting,
         publish: _isOperationCurrent(operationEpoch),
+        operationEpoch: operationEpoch,
       );
     }
   }
@@ -479,6 +578,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     required CustomSceneStoredDraft draft,
     required int operationEpoch,
   }) async {
+    if (!_isOperationCurrent(operationEpoch)) {
+      return;
+    }
     _setState(
       const CustomSceneSubmissionState(
         phase: CustomSceneSubmissionPhase.registeringCareMoment,
@@ -489,12 +591,30 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         accountContext: accountContext,
         moment: moment,
       );
+      if (!_isOperationCurrent(operationEpoch)) {
+        return;
+      }
+      final accountStillCurrent = await _isAccountContextCurrent(
+        accountContext,
+      );
+      if (!_isOperationCurrent(operationEpoch)) {
+        return;
+      }
+      if (!accountStillCurrent) {
+        _operationEpoch += 1;
+        return;
+      }
       final readyForHandoff = draft.copyWith(
         state: CustomSceneStoredDraftState.readyForHandoff,
         expectedAccountContext: accountContext,
         registeredContentId: moment.generatedContentId,
+        safetyPolicyVersion: moment.safetyPolicyVersion,
+        contentRefreshEpoch: moment.contentRefreshEpoch,
       );
       await _draftStore.write(readyForHandoff);
+      if (!_isOperationCurrent(operationEpoch)) {
+        return;
+      }
       try {
         await _draftContinuationCoordinator.clearAuthenticationContinuation(
           draftId: readyForHandoff.draftId,
@@ -522,14 +642,15 @@ class CustomSceneSubmissionController extends ChangeNotifier {
 
   Future<void> _handleFailure(
     CustomSceneFailure failure,
-    CustomSceneStoredDraft submitting,
-  ) async {
+    CustomSceneStoredDraft submitting, {
+    required int operationEpoch,
+  }) async {
     if (failure.kind == CustomSceneFailureKind.authenticationRequired) {
-      await _beginAuthentication(submitting);
+      await _beginAuthentication(submitting, operationEpoch: operationEpoch);
       return;
     }
     if (_isUnknownOutcome(failure)) {
-      await _markUnknownOutcome(submitting);
+      await _markUnknownOutcome(submitting, operationEpoch: operationEpoch);
       return;
     }
     if (failure.kind == CustomSceneFailureKind.profileUnavailable) {
@@ -538,6 +659,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       // turn a deterministic profile miss into an unrelated "pending draft"
       // error on the next attempt.
       await _discardUnsubmittedDraft(submitting);
+    }
+    if (!_isOperationCurrent(operationEpoch)) {
+      return;
     }
     _setState(
       _recoverable(
@@ -567,12 +691,18 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     }
   }
 
-  Future<void> _beginAuthentication(CustomSceneStoredDraft stored) async {
+  Future<void> _beginAuthentication(
+    CustomSceneStoredDraft stored, {
+    int? operationEpoch,
+  }) async {
     try {
       await _draftContinuationCoordinator.beginAuthentication(
         draft: stored.toDraft(),
         expectedAccountContext: stored.expectedAccountContext,
       );
+      if (operationEpoch != null && !_isOperationCurrent(operationEpoch)) {
+        return;
+      }
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.needsAuthentication,
@@ -580,13 +710,16 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         ),
       );
     } on Object {
-      _setState(_recoverable('暂时无法保存描述，请稍后再试。'));
+      if (operationEpoch == null || _isOperationCurrent(operationEpoch)) {
+        _setState(_recoverable('暂时无法保存描述，请稍后再试。'));
+      }
     }
   }
 
   Future<void> _markUnknownOutcome(
     CustomSceneStoredDraft draft, {
     bool publish = true,
+    int? operationEpoch,
   }) async {
     try {
       await _draftStore.write(
@@ -596,7 +729,8 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       // The request identity remains in the previous durable snapshot when
       // storage cannot update the transient phase.
     }
-    if (publish) {
+    if (publish &&
+        (operationEpoch == null || _isOperationCurrent(operationEpoch))) {
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.unknownOutcome,
@@ -668,8 +802,58 @@ class CustomSceneSubmissionController extends ChangeNotifier {
             failure.retryable);
   }
 
+  Future<bool> _isAccountContextCurrent(String expectedAccountContext) async {
+    try {
+      final current = (await _accountContextLoader())?.trim();
+      return current == expectedAccountContext.trim();
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<void> _publishSafety({
+    required CustomSceneSubmissionPhase phase,
+    required HealthSafetyNotice safety,
+    required int operationEpoch,
+    required String draftId,
+  }) async {
+    if (!_isOperationCurrent(operationEpoch)) {
+      return;
+    }
+    _operationEpoch += 1;
+    final safetyEpoch = _operationEpoch;
+    _approvedMomentPendingRegistration = null;
+    try {
+      await _audioStopper.stopActive().timeout(_audioStopTimeout);
+    } on Object {
+      // A hung or failed audio stop cannot delay the safety state indefinitely.
+    }
+    if (!_isOperationCurrent(safetyEpoch)) {
+      return;
+    }
+    _setState(
+      CustomSceneSubmissionState(
+        phase: phase,
+        message: safety.messageZh,
+        safetyNotice: safety,
+      ),
+    );
+    try {
+      await _draftStore.deleteIfExists();
+    } on Object {
+      // Safety notice remains the primary visible result.
+    }
+    try {
+      await _draftContinuationCoordinator.clearAuthenticationContinuation(
+        draftId: draftId,
+      );
+    } on Object {
+      // Authentication continuation cleanup is best effort.
+    }
+  }
+
   bool _isOperationCurrent(int operationEpoch) {
-    return operationEpoch == _operationEpoch;
+    return !_disposed && operationEpoch == _operationEpoch;
   }
 
   CustomSceneSubmissionState _stateForResumeStatus(
@@ -718,17 +902,24 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   }
 
   void _setState(CustomSceneSubmissionState state) {
-    _state = state;
-    if (!_disposed) {
-      notifyListeners();
+    if (_disposed) {
+      return;
     }
+    _state = state;
+    notifyListeners();
   }
 
   @override
   void dispose() {
+    _operationEpoch += 1;
+    _approvedMomentPendingRegistration = null;
     _disposed = true;
     super.dispose();
   }
+
+  bool get _isSafetyTerminal =>
+      _state.phase == CustomSceneSubmissionPhase.healthSafety ||
+      _state.phase == CustomSceneSubmissionPhase.assessmentUnavailable;
 
   static String _defaultDraftId() {
     return 'custom_scene_draft_${DateTime.now().toUtc().microsecondsSinceEpoch}';

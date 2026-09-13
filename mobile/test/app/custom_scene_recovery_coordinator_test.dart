@@ -10,6 +10,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_submission
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 
@@ -625,7 +626,7 @@ class _HandoffSink implements CustomSceneCareTurnHandoffSink {
 
 class _Repository implements CustomSceneRepository {
   @override
-  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) {
+  Future<CustomSceneResult> generate(CustomSceneDraft draft) {
     throw UnimplementedError('recovery must not generate');
   }
 }
@@ -633,13 +634,20 @@ class _Repository implements CustomSceneRepository {
 class _CallbackRepository implements CustomSceneRepository {
   _CallbackRepository(this.handler);
 
-  final Future<GeneratedCareMoment> Function(CustomSceneDraft draft) handler;
+  final Future<dynamic> Function(CustomSceneDraft draft) handler;
   final List<CustomSceneDraft> received = <CustomSceneDraft>[];
 
   @override
-  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) {
+  Future<CustomSceneResult> generate(CustomSceneDraft draft) async {
     received.add(draft);
-    return handler(draft);
+    final result = await handler(draft);
+    if (result is CustomSceneResult) {
+      return result;
+    }
+    return GeneratedSceneResult(
+      result as GeneratedCareMoment,
+      policyVersion: generatedCareSafetyPolicyVersion,
+    );
   }
 }
 

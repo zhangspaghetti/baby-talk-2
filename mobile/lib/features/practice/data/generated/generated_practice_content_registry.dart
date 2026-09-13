@@ -74,6 +74,8 @@ class GeneratedPracticeContentRegistry
       StoredGeneratedCareMoment(
         accountContext: normalizedAccountContext,
         moment: moment,
+        safetyPolicyVersion: moment.safetyPolicyVersion,
+        contentRefreshEpoch: moment.contentRefreshEpoch,
       ),
     );
     // Low-priority metadata maintenance must not turn a successful registration
@@ -334,6 +336,8 @@ class GeneratedPracticeContentRegistry
 
   void _validateMoment(GeneratedCareMoment moment) {
     if (moment.schemaVersion != generatedCareMomentSchemaVersion ||
+        moment.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+        moment.contentRefreshEpoch != generatedCareMomentContentRefreshEpoch ||
         moment.source != 'generated' ||
         moment.generatedContentId.trim().isEmpty ||
         moment.spaceId.trim().isEmpty ||

@@ -11,6 +11,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_submission
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
@@ -350,8 +351,11 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
 
 class _FakeRepository implements CustomSceneRepository {
   @override
-  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) async {
-    return _moment();
+  Future<CustomSceneResult> generate(CustomSceneDraft draft) async {
+    return GeneratedSceneResult(
+      _moment(),
+      policyVersion: generatedCareSafetyPolicyVersion,
+    );
   }
 }
 
@@ -394,6 +398,8 @@ GeneratedCareMoment _moment() {
 
   return GeneratedCareMoment(
     schemaVersion: generatedCareMomentSchemaVersion,
+    safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+    contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
     generatedContentId: 'generated_1',
     sceneId: 'scene_1',
     spaceId: 'space_1',
