@@ -264,7 +264,9 @@ final generatedAudioMemoryCacheProvider = Provider<GeneratedAudioMemoryCache>((
 
 final careAudioSessionCoordinatorProvider =
     Provider<CareAudioSessionCoordinator>((ref) {
-      return CareAudioSessionCoordinator();
+      final coordinator = CareAudioSessionCoordinator();
+      ref.onDispose(coordinator.dispose);
+      return coordinator;
     });
 
 final generatedAudioRepositoryProvider = Provider<GeneratedAudioRepository>((

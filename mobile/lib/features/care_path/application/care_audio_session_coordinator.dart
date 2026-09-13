@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 
 /// App-scoped owner for the single active Care Turn audio session.
-class CareAudioSessionCoordinator implements CustomSceneAudioStopper {
+class CareAudioSessionCoordinator extends ChangeNotifier
+    implements CustomSceneAudioStopper {
   CareAudioSessionCoordinator();
 
   _CareAudioOwnership? _current;
@@ -20,6 +22,7 @@ class CareAudioSessionCoordinator implements CustomSceneAudioStopper {
     );
     final previous = _current;
     _current = ownership;
+    notifyListeners();
     if (previous != null) {
       unawaited(_stopBestEffort(previous.controller));
     }
@@ -40,6 +43,7 @@ class CareAudioSessionCoordinator implements CustomSceneAudioStopper {
     }
     _current = null;
     _generation += 1;
+    notifyListeners();
   }
 
   @override
@@ -47,6 +51,7 @@ class CareAudioSessionCoordinator implements CustomSceneAudioStopper {
     final current = _current;
     _current = null;
     _generation += 1;
+    notifyListeners();
     if (current == null) {
       return;
     }
