@@ -264,7 +264,8 @@ public class PracticeDiscoveryService {
         customSceneTextValidator.requireValid(forms);
         var safetyDecision = customSceneSafetyPolicy == null
                 ? null
-                : customSceneSafetyPolicy.assess(forms, generatedContext.ageRange());
+                : customSceneSafetyPolicy.assess(
+                        forms, surface.wireValue(), mode.wireValue(), generatedContext.ageRange());
         return new CustomSceneRoute(
                 generatedContext,
                 safetyDecision,

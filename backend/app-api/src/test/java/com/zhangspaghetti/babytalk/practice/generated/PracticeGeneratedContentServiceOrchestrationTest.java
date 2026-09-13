@@ -113,7 +113,8 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var admission = mock(com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.Admission.class);
         var boundAdmission = mock(com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.Admission.class);
         when(admission.bindContext(any(), any(), any())).thenReturn(boundAdmission);
-        when(boundAdmission.matches(any(), any(), any(), any(), any(), any(), any())).thenReturn(false);
+        when(boundAdmission.matches(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(false);
         var service = orchestratedService(queries, commands, orchestrator);
 
         assertThatThrownBy(() -> service.generateCustomScene(request(), admission))

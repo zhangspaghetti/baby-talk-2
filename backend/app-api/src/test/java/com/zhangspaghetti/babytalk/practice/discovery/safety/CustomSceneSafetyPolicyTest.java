@@ -174,13 +174,80 @@ class CustomSceneSafetyPolicyTest {
 
         assertThat(bound).isNotEqualTo(admission);
         assertThat(bound.matches(
-                forms.securityText(), "m7_11", "zh-CN",
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
                 "installation", "owner-hash", "profile-1", "health-safety-v1")).isTrue();
         assertThat(bound.matches(
-                forms.securityText(), "m7_11", "zh-CN",
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
                 "installation", "other-owner", "profile-1", "health-safety-v1")).isFalse();
         assertThat(admission.matches(
-                forms.securityText(), "m7_11", "zh-CN",
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
+                "installation", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
+    }
+
+    @Test
+    void serverOwnedAdmissionAcceptsCanonicalizedGeneratedOnboardingContext() {
+        var forms = canonicalizer.derive("宝宝准备睡觉，需要温柔安抚，家长刚才说了英文：Time to sleep.");
+
+        var admission = CustomSceneSafetyDecision.serverOwnedOnboardingAdmission(
+                CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME, forms);
+
+        assertThat(admission).isNotNull();
+    }
+
+    @Test
+    void policyAdmissionBindsRequestedSurfaceAndMode() {
+        when(classifier.classify(any())).thenReturn(new CustomSceneSafetyClassifier.SemanticResult(
+                ORDINARY_SCENE, List.of()));
+        var forms = canonicalizer.derive("宝宝洗澡一直躲水");
+        var admission = policy().assess(forms, "onboarding", "custom_scene", "m7_11").admission()
+                .bindContext("installation", "owner-hash", null);
+
+        assertThat(admission.matches(
+                forms.securityText(), "onboarding", "custom_scene", "m7_11", "zh-CN",
+                "installation", "owner-hash", null, "health-safety-v1")).isTrue();
+        assertThat(admission.matches(
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
+                "installation", "owner-hash", null, "health-safety-v1")).isFalse();
+    }
+
+    @Test
+    void contextBoundAdmissionRequiresExactIndependentFields() {
+        var forms = canonicalizer.derive("宝宝洗澡一直躲水");
+        var admission = CustomSceneSafetyDecision.Admission.forPolicy(
+                forms, "care_path", "custom_scene", "m7_11", "zh-CN",
+                CustomSceneSafetyDecision.ownerContextPlaceholder(),
+                CustomSceneSafetyDecision.profileContextPlaceholder(), "health-safety-v1");
+        var bound = admission.bindContext("installation", "owner-hash", "profile-1");
+
+        assertThat(bound.matches(
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
+                "installation", "owner-hash", "profile-1", "health-safety-v1")).isTrue();
+        assertThat(bound.matches(
+                "宝宝洗澡后哄睡", "care_path", "custom_scene", "m7_11", "zh-CN",
+                "installation", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
+        assertThat(bound.matches(
+                forms.securityText(), "care_path", "custom_scene", "m4_6", "zh-CN",
+                "installation", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
+        assertThat(bound.matches(
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "en-US",
+                "installation", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
+        assertThat(bound.matches(
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
+                "profile", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
+        assertThat(bound.matches(
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
+                "installation", "other-owner", "profile-1", "health-safety-v1")).isFalse();
+        assertThat(bound.matches(
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
+                "installation", "owner-hash", "other-profile", "health-safety-v1")).isFalse();
+        assertThat(bound.matches(
+                forms.securityText(), "care_path", "custom_scene", "m7_11", "zh-CN",
+                "installation", "owner-hash", "profile-1", "other-policy")).isFalse();
+        assertThat(bound.matches(
+                forms.securityText(), "onboarding", "custom_scene", "m7_11", "zh-CN",
+                "installation", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
+        assertThat(bound.matches(
+                forms.securityText(), "care_path", "catalog", "m7_11", "zh-CN",
                 "installation", "owner-hash", "profile-1", "health-safety-v1")).isFalse();
     }
 

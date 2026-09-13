@@ -31,6 +31,8 @@ public final class CustomSceneSafetyPolicy {
 
     private static final String LOCALE = "zh-CN";
     private static final String HEALTH_SAFETY_POLICY_VERSION = "health-safety-v1";
+    private static final String DEFAULT_SURFACE = "care_path";
+    private static final String CUSTOM_SCENE_MODE = "custom_scene";
 
     private final CustomSceneEmergencyRuleClassifier emergencyRules;
     private final CustomSceneSafetyClassifier classifier;
@@ -91,6 +93,16 @@ public final class CustomSceneSafetyPolicy {
     }
 
     public CustomSceneSafetyDecision assess(SceneTextForms forms, String ageRange) {
+        return assess(forms, DEFAULT_SURFACE, CUSTOM_SCENE_MODE, ageRange);
+    }
+
+    /** Assesses a custom-scene request while binding its exact surface and mode into admission. */
+    public CustomSceneSafetyDecision assess(
+            SceneTextForms forms,
+            String surface,
+            String mode,
+            String ageRange
+    ) {
         Optional<CustomSceneSafetyAssessment> urgent;
         try {
             urgent = emergencyRules.classify(forms);
@@ -109,7 +121,8 @@ public final class CustomSceneSafetyPolicy {
             return unavailable();
         }
 
-        if (classifier == null || forms == null || isBlank(forms.displayText()) || isBlank(ageRange)) {
+        if (!supportedGenerationContext(surface, mode)
+                || classifier == null || forms == null || isBlank(forms.displayText()) || isBlank(ageRange)) {
             return unavailable();
         }
 
@@ -120,7 +133,7 @@ public final class CustomSceneSafetyPolicy {
         try {
             submitted = executor.submit(() -> classifyInto(result, request));
             result.orTimeout(timeoutMillis(classifierTimeout), TimeUnit.MILLISECONDS);
-            return mapSemantic(result.join(), forms, request.ageRange());
+            return mapSemantic(result.join(), forms, request.ageRange(), surface, mode);
         } catch (RuntimeException failure) {
             cancel(submitted, result);
             return unavailable();
@@ -141,7 +154,9 @@ public final class CustomSceneSafetyPolicy {
     private CustomSceneSafetyDecision mapSemantic(
             CustomSceneSafetyClassifier.SemanticResult result,
             SceneTextForms forms,
-            String ageRange
+            String ageRange,
+            String surface,
+            String mode
     ) {
         if (result == null || result.intent() == null || result.signals() == null) {
             return unavailable();
@@ -169,6 +184,8 @@ public final class CustomSceneSafetyPolicy {
                 yield CustomSceneSafetyDecision.generatedScene(
                         CustomSceneSafetyDecision.Admission.forPolicy(
                                 forms,
+                                surface,
+                                mode,
                                 ageRange,
                                 LOCALE,
                                 CustomSceneSafetyDecision.ownerContextPlaceholder(),
@@ -206,6 +223,11 @@ public final class CustomSceneSafetyPolicy {
                 && assessment.action() == EMERGENCY
                 && "health-emergency-v1".equals(assessment.templateId())
                 && policyVersion.equals(assessment.policyVersion());
+    }
+
+    private boolean supportedGenerationContext(String surface, String mode) {
+        return ("care_path".equals(surface) || "onboarding".equals(surface))
+                && "custom_scene".equals(mode);
     }
 
     private CustomSceneSafetyDecision unavailable() {

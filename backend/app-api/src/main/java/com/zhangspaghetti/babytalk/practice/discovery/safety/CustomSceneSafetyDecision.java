@@ -173,6 +173,8 @@ public final class CustomSceneSafetyDecision {
 
         static Admission forPolicy(
                 SceneTextForms forms,
+                String surface,
+                String mode,
                 String ageRange,
                 String locale,
                 String ownerContext,
@@ -182,6 +184,8 @@ public final class CustomSceneSafetyDecision {
             var securityText = securityText(forms);
             return new Admission(digest(
                     securityText,
+                    surface,
+                    mode,
                     ageRange,
                     locale,
                     ownerContext,
@@ -204,30 +208,41 @@ public final class CustomSceneSafetyDecision {
                     digest, normalizedOwnerScope, normalizedOwnerKey, normalizedProfileId), true);
         }
 
+        /** Exposes binding state without exposing the admission digest or source context. */
+        public boolean contextBound() {
+            return contextBound;
+        }
+
         /**
          * Validates a token against all admission inputs without exposing its digest or retaining
          * source text. Task 4 can use this method when binding the token to an owner and profile.
          */
         public boolean matches(
                 String securityText,
+                String surface,
+                String mode,
                 String ageRange,
                 String locale,
                 String ownerContext,
                 String profileContext,
                 String policyVersion
         ) {
-            if (securityText == null || securityText.isBlank()) {
+            if (contextBound || !hasRequiredAdmissionFields(securityText, surface, mode, ageRange, locale,
+                    policyVersion)) {
                 return false;
             }
             return MessageDigest.isEqual(
                     digest.getBytes(StandardCharsets.US_ASCII),
-                    digest(securityText, ageRange, locale, ownerContext, profileContext, policyVersion)
+                    digest(securityText, surface, mode, ageRange, locale,
+                            ownerContext, profileContext, policyVersion)
                             .getBytes(StandardCharsets.US_ASCII));
         }
 
         /** Validates a context-bound token against server-resolved owner and profile values. */
         public boolean matches(
                 String securityText,
+                String surface,
+                String mode,
                 String ageRange,
                 String locale,
                 String ownerScope,
@@ -235,11 +250,14 @@ public final class CustomSceneSafetyDecision {
                 String profileId,
                 String policyVersion
         ) {
-            if (!contextBound || securityText == null || securityText.isBlank()) {
+            if (!contextBound || !hasRequiredAdmissionFields(securityText, surface, mode, ageRange, locale,
+                    policyVersion)) {
                 return false;
             }
             var expectedBase = digest(
                     securityText,
+                    surface,
+                    mode,
                     ageRange,
                     locale,
                     OWNER_CONTEXT_PLACEHOLDER,
@@ -286,23 +304,14 @@ public final class CustomSceneSafetyDecision {
             return forms.displayText() == null ? "" : forms.displayText();
         }
 
-        private static String digest(
-                String securityText,
-                String ageRange,
-                String locale,
-                String ownerContext,
-                String profileContext,
-                String policyVersion
-        ) {
-            var material = lengthPrefix(securityText)
-                    + lengthPrefix(ageRange)
-                    + lengthPrefix(locale)
-                    + lengthPrefix(ownerContext)
-                    + lengthPrefix(profileContext)
-                    + lengthPrefix(policyVersion);
+        private static String digest(String... values) {
+            var material = new StringBuilder();
+            for (var value : values) {
+                material.append(lengthPrefix(value));
+            }
             try {
                 return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                        .digest(material.getBytes(StandardCharsets.UTF_8)));
+                        .digest(material.toString().getBytes(StandardCharsets.UTF_8)));
             } catch (NoSuchAlgorithmException exception) {
                 throw new IllegalStateException("SHA-256 digest unavailable");
             }
@@ -338,6 +347,26 @@ public final class CustomSceneSafetyDecision {
             var safe = value == null ? "" : value;
             return safe.length() + ":" + safe;
         }
+
+        private static boolean hasRequiredAdmissionFields(
+                String securityText,
+                String surface,
+                String mode,
+                String ageRange,
+                String locale,
+                String policyVersion
+        ) {
+            return !isBlank(securityText)
+                    && !isBlank(surface)
+                    && !isBlank(mode)
+                    && !isBlank(ageRange)
+                    && !isBlank(locale)
+                    && !isBlank(policyVersion);
+        }
+
+        private static boolean isBlank(String value) {
+            return value == null || value.isBlank();
+        }
     }
 
     /** Issues a server-owned onboarding admission for a fixed purpose and its server-built context. */
@@ -348,13 +377,16 @@ public final class CustomSceneSafetyDecision {
         Objects.requireNonNull(purpose, "purpose");
         Objects.requireNonNull(forms, "forms");
         var securityText = forms.securityText();
-        var contextualPrefix = purpose.securityText() + "，家长刚才说了英文：";
+        // forms.securityText() is NFKC/case-fold canonicalized, so full-width punctuation is ASCII here.
+        var contextualPrefix = purpose.securityText() + ",家长刚才说了英文:";
         if (!purpose.securityText().equals(securityText)
                 && (securityText == null || !securityText.startsWith(contextualPrefix))) {
             throw new IllegalArgumentException("unsupported server-owned onboarding context");
         }
         return Admission.forPolicy(
                 forms,
+                "onboarding",
+                "custom_scene",
                 "12_18m",
                 DEFAULT_LOCALE,
                 OWNER_CONTEXT_PLACEHOLDER,

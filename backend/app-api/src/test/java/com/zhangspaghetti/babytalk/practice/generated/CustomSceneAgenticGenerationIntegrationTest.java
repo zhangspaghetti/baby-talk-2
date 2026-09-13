@@ -23,6 +23,9 @@ import com.zhangspaghetti.babytalk.practice.generated.evidence.ReplayMode;
 import com.zhangspaghetti.babytalk.practice.generated.evidence.RetrievalStatus;
 import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyAssessment;
 import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyClassifier;
+import com.zhangspaghetti.babytalk.onboarding.conversation.OnboardingConversationGenerator;
+import com.zhangspaghetti.babytalk.onboarding.conversation.PracticeOnboardingConversationGenerator;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentKeyFactory;
 import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeVerdict;
@@ -81,6 +84,12 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private PracticeOnboardingConversationGenerator onboardingGenerator;
+
+    @Autowired
+    private PracticeGeneratedContentKeyFactory keyFactory;
+
     @MockitoBean(name = "practiceAiStructuredOutputCaller")
     private PracticeAiStructuredOutputCaller structuredOutputCaller;
 
@@ -131,6 +140,35 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
                 .andExpect(jsonPath("$.source").value("generated"));
 
         assertThat(safetyClassifierCalls).hasValue(1);
+    }
+
+    @Test
+    void realOnboardingGeneratorTurnUsesRealGeneratedContentService() {
+        var installationId = "install_agentic_onboarding_turn";
+        var result = onboardingGenerator.generateNext(new OnboardingConversationGenerator.NextGenerationRequest(
+                keyFactory.installationRefHash(installationId),
+                keyFactory.ownerKey("installation", installationId),
+                "turn-agentic-onboarding",
+                "bedtime",
+                java.util.Map.of(),
+                "zh-CN",
+                "evening",
+                "utterance-previous",
+                "Time to sleep.",
+                "said_it",
+                false,
+                null,
+                null));
+
+        assertThat(result.generatedContentId()).startsWith("pgc_");
+        assertThat(result.utteranceId()).isNotBlank();
+        assertThat(result.englishText()).isNotBlank();
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from practice_generated_content where status = 'active'", Integer.class))
+                .isOne();
+        assertThat(jdbcTemplate.queryForObject(
+                "select surface from practice_generated_content where generated_content_id = ?",
+                String.class, result.generatedContentId())).isEqualTo("onboarding");
     }
 
     @Test

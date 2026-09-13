@@ -216,7 +216,8 @@ class PracticeGeneratedContentServiceTest {
         var admission = mock(CustomSceneSafetyDecision.Admission.class);
         var boundAdmission = mock(CustomSceneSafetyDecision.Admission.class);
         when(admission.bindContext(any(), any(), any())).thenReturn(boundAdmission);
-        when(boundAdmission.matches(any(), any(), any(), any(), any(), any(), any())).thenReturn(false);
+        when(boundAdmission.matches(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(false);
 
         assertThatThrownBy(() -> service.generateCustomScene(request("洗澡后哄睡"), admission))
                 .isInstanceOf(ContractException.class)
@@ -256,6 +257,54 @@ class PracticeGeneratedContentServiceTest {
                 CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME.securityText());
 
         for (var request : List.of(ageMismatch, localeMismatch, ownerMismatch, profileMismatch)) {
+            assertThatThrownBy(() -> service.generateCustomScene(request, admission))
+                    .isInstanceOfSatisfying(ContractException.class, error ->
+                            assertThat(error.code()).isEqualTo("invalid_generated_content_admission"));
+        }
+        verifyNoInteractions(queries, commands);
+    }
+
+    @Test
+    void contextBoundAdmissionMatchesExactRequestBeforeGenerationQueries() {
+        var service = serviceWithFakeProvider();
+        var owner = ownerProperties("test-owner-key-secret-test-owner-key");
+        var keys = new PracticeGeneratedContentKeyFactory(owner);
+        var purpose = CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME;
+        var admission = CustomSceneSafetyDecision.serverOwnedOnboardingAdmission(
+                purpose, new SceneTextCanonicalizer().derive(purpose.securityText()))
+                .bindContext("installation", keys.ownerKey("installation", "install_1"), null);
+        var request = new CustomSceneDiscoveryRequest(
+                "onboarding", "custom_scene", "install_1", null, null,
+                "12_18m", "daily_care", "zh-CN", purpose.securityText());
+        stubReserveInserted();
+        stubActivateDraft();
+
+        var result = service.generateCustomScene(request, admission);
+
+        assertThat(result.status()).isEqualTo("active");
+        verify(queries).findLiveByFingerprint(
+                any(), any(), org.mockito.ArgumentMatchers.eq("onboarding"),
+                org.mockito.ArgumentMatchers.eq("custom_scene"), any(), any(), anyInt());
+    }
+
+    @Test
+    void contextBoundAdmissionCannotCrossSurfaceOrModeBeforeAnyQuery() {
+        var service = serviceWithFakeProvider();
+        var owner = ownerProperties("test-owner-key-secret-test-owner-key");
+        var keys = new PracticeGeneratedContentKeyFactory(owner);
+        var purpose = CustomSceneSafetyDecision.ServerOwnedOnboardingPurpose.BEDTIME;
+        var admission = CustomSceneSafetyDecision.serverOwnedOnboardingAdmission(
+                purpose, new SceneTextCanonicalizer().derive(purpose.securityText()))
+                .bindContext("installation", keys.ownerKey("installation", "install_1"), null);
+        var requests = List.of(
+                new CustomSceneDiscoveryRequest(
+                        "care_path", "custom_scene", "install_1", null, null,
+                        "12_18m", "daily_care", "zh-CN", purpose.securityText()),
+                new CustomSceneDiscoveryRequest(
+                        "onboarding", "catalog", "install_1", null, null,
+                        "12_18m", "daily_care", "zh-CN", purpose.securityText()));
+
+        for (var request : requests) {
             assertThatThrownBy(() -> service.generateCustomScene(request, admission))
                     .isInstanceOfSatisfying(ContractException.class, error ->
                             assertThat(error.code()).isEqualTo("invalid_generated_content_admission"));

@@ -485,10 +485,14 @@ public class PracticeGeneratedContentService {
             throw invalidGeneratedContentAdmission();
         }
         try {
-            var bound = admission.bindContext(owner.ownerScope(), owner.ownerKey(), owner.profileId());
-            if (bound == null || bound == admission
+            var bound = admission.contextBound()
+                    ? admission
+                    : admission.bindContext(owner.ownerScope(), owner.ownerKey(), owner.profileId());
+            if (bound == null
                     || !bound.matches(
                     forms.securityText(),
+                    request.surface(),
+                    request.mode(),
                     request.ageRange(),
                     request.locale(),
                     owner.ownerScope(),

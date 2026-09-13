@@ -467,6 +467,31 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
+    void customSceneSafetyAssessmentReceivesExactSurfaceAndMode() {
+        var forms = new SceneTextForms(
+                "洗澡后哄睡",
+                "洗澡后哄睡",
+                new SceneTextRiskSignals(false, false, false, false));
+        when(sceneTextCanonicalizer.derive("洗澡后哄睡")).thenReturn(forms);
+        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
+        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.GENERATED_SCENE);
+        when(decision.admission()).thenReturn(
+                org.mockito.Mockito.mock(CustomSceneSafetyDecision.Admission.class));
+        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
+                .thenReturn(decision);
+        var generated = generatedRow("pgc_surface_mode_bound");
+        stubApprovedBundle(generated);
+        when(generatedContentService.generateCustomScene(any(), any())).thenReturn(generated);
+
+        safetyAwareService().discoverCustomSceneV2(
+                new PracticeDiscoveryRequest(
+                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
+                        "zh-CN", 6, null, "洗澡后哄睡"), null);
+
+        verify(customSceneSafetyPolicy).assess(forms, "onboarding", "custom_scene", "m7_11");
+    }
+
+    @Test
     void v2HealthDecisionReturnsSafetyWithoutTouchingGeneration() {
         var forms = new SceneTextForms(
                 "宝宝拉肚子哭闹怎么办",
@@ -482,7 +507,8 @@ class PracticeDiscoveryServiceTest {
                 "health-safety-v1"));
         when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
                 "seek_medical_help", "zh-CN", "先关注宝宝的身体状况", "请联系儿科医生进行评估。"));
-        when(customSceneSafetyPolicy.assess(forms, "m7_11")).thenReturn(decision);
+        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
+                .thenReturn(decision);
 
         var response = safetyAwareService().discoverCustomSceneV2(
                 new PracticeDiscoveryRequest(
@@ -514,7 +540,8 @@ class PracticeDiscoveryServiceTest {
                 "health-safety-v1"));
         when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
                 "seek_medical_help", "zh-CN", "先关注宝宝的身体状况", "固定健康提示。"));
-        when(customSceneSafetyPolicy.assess(forms, "m7_11")).thenReturn(decision);
+        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
+                .thenReturn(decision);
 
         assertThatThrownBy(() -> safetyAwareService().discover(new PracticeDiscoveryRequest(
                 "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
@@ -547,7 +574,8 @@ class PracticeDiscoveryServiceTest {
                 "health-safety-v1"));
         when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
                 "uncertain", "zh-CN", "暂时无法判断这段描述", "暂时无法完成判断。"));
-        when(customSceneSafetyPolicy.assess(forms, "m7_11")).thenReturn(decision);
+        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
+                .thenReturn(decision);
         var request = new PracticeDiscoveryRequest(
                 "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
                 "zh-CN", 6, null, "洗澡后哄睡");
@@ -604,7 +632,8 @@ class PracticeDiscoveryServiceTest {
                 "health-safety-v1"));
         when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
                 "uncertain", "zh-CN", "模板不一致", "模板不一致。"));
-        when(customSceneSafetyPolicy.assess(forms, "m7_11")).thenReturn(decision);
+        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
+                .thenReturn(decision);
 
         assertThatThrownBy(() -> safetyAwareService().discoverCustomSceneV2(
                 new PracticeDiscoveryRequest(
