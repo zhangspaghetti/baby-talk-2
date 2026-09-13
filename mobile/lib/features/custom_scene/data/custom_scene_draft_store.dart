@@ -132,6 +132,29 @@ class CustomSceneDraftStore {
     });
   }
 
+  /// Deletes only the exact request snapshot that the caller owns. This keeps
+  /// a late terminal callback from deleting a newer account's draft.
+  Future<void> deleteIfMatches({
+    required String draftId,
+    required String clientRequestId,
+    required String? expectedAccountContext,
+    required DateTime now,
+  }) {
+    return _enqueueMutation(() async {
+      final result = await _readResult(now: now.toUtc());
+      final stored = result.draft;
+      if (result.status != CustomSceneDraftReadStatus.available ||
+          stored == null ||
+          stored.draftId != draftId ||
+          stored.requestIdentity.clientRequestId != clientRequestId ||
+          stored.expectedAccountContext != expectedAccountContext) {
+        return;
+      }
+      final file = await _resolveFile();
+      await _deleteFiles(file);
+    });
+  }
+
   Future<T> _enqueueMutation<T>(Future<T> Function() mutation) {
     final running = _mutationTail.then((_) => mutation());
     _mutationTail = running.then<void>((_) {}, onError: (_, _) {});

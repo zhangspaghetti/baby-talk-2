@@ -564,6 +564,8 @@ CustomSceneStoredDraft _readyDraft(
     state: CustomSceneStoredDraftState.readyForHandoff,
     expectedAccountContext: accountContext,
     registeredContentId: generatedContentId,
+    safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+    contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
     createdAt: now,
     expiresAt: now.add(const Duration(minutes: 15)),
   );

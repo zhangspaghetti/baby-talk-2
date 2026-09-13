@@ -641,7 +641,203 @@ void main() {
         harness.controller.state.phase,
         CustomSceneSubmissionPhase.healthSafety,
       );
-      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 1)));
+      expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 500)));
+    });
+
+    test(
+      'account change drops late old result without deleting new account draft',
+      () async {
+        final requestStarted = Completer<void>();
+        final releaseRequest = Completer<void>();
+        var accountContext = 'account_a';
+        final repository = _FakeRepository((_) async {
+          requestStarted.complete();
+          await releaseRequest.future;
+          return _moment();
+        });
+        final registrar = _FakeRegistrar();
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: registrar,
+          handoff: _FakeHandoffSink(),
+          accountContextLoader: () async => accountContext,
+        );
+
+        final submission = harness.controller.submit(_draft());
+        await requestStarted.future;
+        accountContext = 'account_b';
+        harness.controller.invalidateForAccountChange();
+        await harness.draftStore.write(
+          CustomSceneStoredDraft(
+            draftId: 'new_account_draft',
+            text: '新账号自己的描述。',
+            entrySource: CustomSceneEntrySource.today,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'new_account_request',
+            ),
+            state: CustomSceneStoredDraftState.editing,
+            expectedAccountContext: accountContext,
+            createdAt: now,
+            expiresAt: now.add(const Duration(minutes: 15)),
+          ),
+        );
+        releaseRequest.complete();
+        await submission;
+
+        expect(registrar.moments, isEmpty);
+        expect(
+          (await harness.draftStore.readResult(now: now)).draft?.draftId,
+          'new_account_draft',
+        );
+        expect(
+          harness.controller.state.phase,
+          isNot(CustomSceneSubmissionPhase.readyForHandoff),
+        );
+      },
+    );
+
+    test(
+      'cancel during account load prevents generation and state overwrite',
+      () async {
+        final accountLoadStarted = Completer<void>();
+        final releaseAccountLoad = Completer<void>();
+        final repository = _FakeRepository((_) async => _moment());
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+          accountContextLoader: () async {
+            accountLoadStarted.complete();
+            await releaseAccountLoad.future;
+            return 'account_a';
+          },
+        );
+
+        final submission = harness.controller.submit(_draft());
+        await accountLoadStarted.future;
+        await harness.controller.cancel();
+        releaseAccountLoad.complete();
+        await submission;
+
+        expect(repository.received, isEmpty);
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.editing,
+        );
+      },
+    );
+
+    test('cancel during draft write prevents generation', () async {
+      final draftStore = _BlockingDraftStore(
+        directoryResolver: () async => tempDir,
+      );
+      final repository = _FakeRepository((_) async => _moment());
+      final harness = _harness(
+        tempDir: tempDir,
+        clock: () => now,
+        repository: repository,
+        registrar: _FakeRegistrar(),
+        handoff: _FakeHandoffSink(),
+        draftStore: draftStore,
+      );
+
+      final submission = harness.controller.submit(_draft());
+      await draftStore.writeStarted.future;
+      await harness.controller.cancel();
+      draftStore.releaseWrite.complete();
+      await submission;
+
+      expect(repository.received, isEmpty);
+      expect(
+        harness.controller.state.phase,
+        CustomSceneSubmissionPhase.editing,
+      );
+    });
+
+    test('cancel cleanup failure still completes in editing state', () async {
+      final harness = _harness(
+        tempDir: tempDir,
+        clock: () => now,
+        repository: _FakeRepository((_) async => _moment()),
+        registrar: _FakeRegistrar(),
+        handoff: _FakeHandoffSink(),
+        draftStore: _FailingDeleteDraftStore(
+          directoryResolver: () async => tempDir,
+        ),
+      );
+
+      await harness.controller.cancel();
+
+      expect(
+        harness.controller.state.phase,
+        CustomSceneSubmissionPhase.editing,
+      );
+    });
+
+    test('late registration cannot publish after modify-description', () async {
+      final registrar = _BlockingRegistrar();
+      final harness = _harness(
+        tempDir: tempDir,
+        clock: () => now,
+        repository: _FakeRepository((_) async => _moment()),
+        registrar: registrar,
+        handoff: _FakeHandoffSink(),
+      );
+
+      final submission = harness.controller.submit(_draft());
+      await registrar.started.future;
+      await harness.controller.modifyDescription();
+      registrar.release.complete();
+      await submission;
+
+      expect(
+        harness.controller.state.phase,
+        CustomSceneSubmissionPhase.editing,
+      );
+      expect(
+        (await harness.draftStore.readResult(now: now)).draft?.state,
+        CustomSceneStoredDraftState.approvedPendingRegistration,
+      );
+    });
+
+    test('late registration cannot publish after dispose', () async {
+      final registrar = _BlockingRegistrar();
+      final harness = _harness(
+        tempDir: tempDir,
+        clock: () => now,
+        repository: _FakeRepository((_) async => _moment()),
+        registrar: registrar,
+        handoff: _FakeHandoffSink(),
+      );
+
+      final submission = harness.controller.submit(_draft());
+      await registrar.started.future;
+      harness.controller.dispose();
+      registrar.release.complete();
+      await submission;
+    });
+
+    test('generated drafts require explicit current provenance', () {
+      expect(
+        () => CustomSceneStoredDraft(
+          draftId: 'generated_draft',
+          text: _draft().text,
+          entrySource: CustomSceneEntrySource.today,
+          requestIdentity: CustomSceneRequestIdentity(
+            clientRequestId: 'generated_request',
+          ),
+          state: CustomSceneStoredDraftState.readyForHandoff,
+          expectedAccountContext: 'account_a',
+          registeredContentId: 'generated_1',
+          createdAt: now,
+          expiresAt: now.add(const Duration(minutes: 15)),
+        ),
+        throwsArgumentError,
+      );
     });
   });
 }
@@ -662,10 +858,11 @@ _Harness _harness({
   required Directory tempDir,
   required DateTime Function() clock,
   required _FakeRepository repository,
-  required _FakeRegistrar registrar,
+  required CustomSceneApprovedContentRegistrar registrar,
   required _FakeHandoffSink handoff,
   CustomSceneAudioStopper? audioStopper,
   CustomSceneDraftStore? draftStore,
+  CustomSceneAccountContextLoader? accountContextLoader,
 }) {
   final resolvedDraftStore =
       draftStore ??
@@ -686,7 +883,7 @@ _Harness _harness({
       draftStore: resolvedDraftStore,
       draftContinuationCoordinator: continuation,
       approvedContentRegistrar: registrar,
-      accountContextLoader: () async => 'account_a',
+      accountContextLoader: accountContextLoader ?? () async => 'account_a',
       clock: clock,
       draftIdGenerator: () => 'draft_1',
       audioStopper: audioStopper,
@@ -748,6 +945,38 @@ class _FailingDeleteDraftStore extends CustomSceneDraftStore {
   @override
   Future<void> deleteIfExists() async {
     throw const CustomSceneDraftStoreException();
+  }
+}
+
+class _BlockingDraftStore extends CustomSceneDraftStore {
+  _BlockingDraftStore({required super.directoryResolver});
+
+  final Completer<void> writeStarted = Completer<void>();
+  final Completer<void> releaseWrite = Completer<void>();
+  bool _blocked = false;
+
+  @override
+  Future<void> write(CustomSceneStoredDraft draft) async {
+    if (!_blocked) {
+      _blocked = true;
+      writeStarted.complete();
+      await releaseWrite.future;
+    }
+    return super.write(draft);
+  }
+}
+
+class _BlockingRegistrar implements CustomSceneApprovedContentRegistrar {
+  final Completer<void> started = Completer<void>();
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Future<void> register({
+    required String accountContext,
+    required GeneratedCareMoment moment,
+  }) async {
+    started.complete();
+    await release.future;
   }
 }
 

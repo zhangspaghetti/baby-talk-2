@@ -26,3 +26,11 @@ Commit: `feat(mobile): add health safety terminal state`
 ## Short contract
 
 Safety/unavailable result stops owned audio within 250 ms, invalidates old callbacks, exposes Chinese terminal notice, and clears durable custom-scene continuation best effort. Generated content is accepted only with policy `health-safety-v1` and epoch `2`; all other persisted generated content is unavailable and cannot reach handoff or audio.
+
+## Round 1 fixes
+
+- Added synchronous `invalidateForAccountChange()` and account generation tokens; recovery invokes it on account scope changes. Late old results cannot write or delete a newer account draft, and route failures cannot alter a newer account route.
+- Captured operation tokens before enqueue for submit/retry/auth resume/restore. Cancellation during account load, draft I/O, audio stop, or registration invalidates every later state/write step.
+- Added exact `draftId`/request/account conditional cleanup, best effort cancel with editing in `finally`, explicit generated-draft provenance validation, and late registration/dispose/modify tests.
+
+Round 1 focused tests, analyzer, and diff checks pass. Flutter-generated Windows files were restored.

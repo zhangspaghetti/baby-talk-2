@@ -34,6 +34,10 @@ class CustomSceneRecoveryCoordinator {
   }) {
     return _enqueue(() async {
       final normalizedAccountContext = accountContext?.trim();
+      if (_stableAccountContext != normalizedAccountContext &&
+          _stableAccountContext != null) {
+        _controller.invalidateForAccountChange();
+      }
       if (normalizedAccountContext == null ||
           normalizedAccountContext.isEmpty) {
         _stableAccountContext = null;
@@ -110,14 +114,21 @@ class CustomSceneRecoveryCoordinator {
       final routeAttempt = await _handoffSink.handoff(
         CustomSceneCareTurnHandoff(generatedContentId: generatedContentId),
       );
+      if (_stableAccountContext != accountContext ||
+          _controller.state.generatedContentId != generatedContentId) {
+        return;
+      }
       _trackRouteAttempt(
         accountContext: accountContext,
         generatedContentId: generatedContentId,
         routeAttempt: routeAttempt,
       );
     } on Object {
-      _routedContentId = null;
-      _controller.markHandoffRouteFailed();
+      if (_stableAccountContext == accountContext &&
+          _controller.state.generatedContentId == generatedContentId) {
+        _routedContentId = null;
+        _controller.markHandoffRouteFailed();
+      }
     }
   }
 
@@ -143,13 +154,18 @@ class CustomSceneRecoveryCoordinator {
       final routeAttempt = await _handoffSink.handoff(
         CustomSceneCareTurnHandoff(generatedContentId: normalizedContentId),
       );
+      if (_stableAccountContext != accountContext) {
+        return;
+      }
       _trackRouteAttempt(
         accountContext: accountContext,
         generatedContentId: normalizedContentId,
         routeAttempt: routeAttempt,
       );
     } on Object {
-      _routedContentId = null;
+      if (_stableAccountContext == accountContext) {
+        _routedContentId = null;
+      }
     }
   }
 

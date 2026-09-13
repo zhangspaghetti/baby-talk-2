@@ -138,14 +138,29 @@ String? _storedSafetyPolicyVersion(
   if (!_isGeneratedState(state)) {
     return value == null ? null : _optional(value);
   }
-  return value == null ? generatedCareSafetyPolicyVersion : value.trim();
+  final normalized = value?.trim();
+  if (normalized != generatedCareSafetyPolicyVersion) {
+    throw ArgumentError.value(
+      value,
+      'safetyPolicyVersion',
+      'generated state 必须显式保存当前 safety policy。',
+    );
+  }
+  return normalized;
 }
 
 int? _storedContentRefreshEpoch(CustomSceneStoredDraftState state, int? value) {
   if (!_isGeneratedState(state)) {
     return value;
   }
-  return value ?? generatedCareMomentContentRefreshEpoch;
+  if (value != generatedCareMomentContentRefreshEpoch) {
+    throw ArgumentError.value(
+      value,
+      'contentRefreshEpoch',
+      'generated state 必须显式保存当前 content refresh epoch。',
+    );
+  }
+  return value;
 }
 
 String _required(String value, String fieldName) {

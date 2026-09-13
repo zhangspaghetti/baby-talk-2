@@ -31,6 +31,16 @@ class _NoopCustomSceneAudioStopper implements CustomSceneAudioStopper {
   Future<void> stopActive() async {}
 }
 
+class _CustomSceneOperationToken {
+  const _CustomSceneOperationToken({
+    required this.operationEpoch,
+    required this.accountGeneration,
+  });
+
+  final int operationEpoch;
+  final int accountGeneration;
+}
+
 /// An app-level route command. `custom_scene` never imports a Care Turn screen.
 class CustomSceneCareTurnHandoff {
   CustomSceneCareTurnHandoff({required String generatedContentId})
@@ -157,11 +167,21 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   Future<void>? _activeSubmission;
   GeneratedCareMoment? _approvedMomentPendingRegistration;
   int _operationEpoch = 0;
+  int _accountGeneration = 0;
   bool _disposed = false;
 
   static const _audioStopTimeout = Duration(milliseconds: 250);
 
   CustomSceneSubmissionState get state => _state;
+
+  /// Invalidates all work bound to the previous account without touching its
+  /// durable draft. Recovery owns subsequent account-scoped restoration.
+  void invalidateForAccountChange() {
+    _accountGeneration += 1;
+    _operationEpoch += 1;
+    _approvedMomentPendingRegistration = null;
+    _setState(const CustomSceneSubmissionState.editing());
+  }
 
   Future<void> submit(CustomSceneDraft draft) {
     if (_isSafetyTerminal) {
@@ -171,16 +191,33 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     if (running != null) {
       return running;
     }
+    final operationToken = _captureOperationToken();
     final operation = _enqueue(() async {
+      if (!_isOperationCurrent(operationToken)) {
+        return;
+      }
       try {
         final accountContext = await _loadAccountContext();
+        if (!_isOperationCurrent(operationToken)) {
+          return;
+        }
         final stored = await _persistOrReuseDraft(
           draft: draft,
           accountContext: accountContext,
+          operationToken: operationToken,
         );
-        await _submitStored(stored, accountContext: accountContext);
+        if (!_isOperationCurrent(operationToken)) {
+          return;
+        }
+        await _submitStored(
+          stored,
+          accountContext: accountContext,
+          operationToken: operationToken,
+        );
       } on CustomSceneSubmissionException {
-        _setState(_recoverable('当前已有另一段描述待处理，请先完成或取消。'));
+        if (_isOperationCurrent(operationToken)) {
+          _setState(_recoverable('当前已有另一段描述待处理，请先完成或取消。'));
+        }
       }
     });
     _activeSubmission = operation;
@@ -201,7 +238,11 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     if (running != null) {
       return running;
     }
+    final operationToken = _captureOperationToken();
     final operation = _enqueue(() async {
+      if (!_isOperationCurrent(operationToken)) {
+        return;
+      }
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.restoring,
@@ -209,13 +250,20 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       );
       final resumed = await _draftContinuationCoordinator
           .readForAuthenticatedResume(accountContext: accountContext);
+      if (!_isOperationCurrent(operationToken)) {
+        return;
+      }
       if (resumed.status !=
               CustomSceneDraftContinuationStatus.readyForSubmission ||
           resumed.draft == null) {
         _setState(_stateForResumeStatus(resumed.status));
         return;
       }
-      await _submitStored(resumed.draft!, accountContext: accountContext);
+      await _submitStored(
+        resumed.draft!,
+        accountContext: accountContext,
+        operationToken: operationToken,
+      );
     });
     _activeSubmission = operation;
     return operation.whenComplete(() {
@@ -229,7 +277,11 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     if (_isSafetyTerminal) {
       return;
     }
+    final operationToken = _captureOperationToken();
     final accountContext = await _loadAccountContext();
+    if (!_isOperationCurrent(operationToken)) {
+      return;
+    }
     if (accountContext == null) {
       _setState(
         const CustomSceneSubmissionState(
@@ -248,8 +300,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     if (_isSafetyTerminal) {
       return Future<void>.value();
     }
+    final operationToken = _captureOperationToken();
     return _enqueue(() async {
-      if (_isSafetyTerminal) {
+      if (_isSafetyTerminal || !_isOperationCurrent(operationToken)) {
         return;
       }
       _setState(
@@ -258,14 +311,24 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         ),
       );
       final result = await _draftStore.readResult(now: _clock().toUtc());
+      if (!_isOperationCurrent(operationToken)) {
+        return;
+      }
       if (result.status == CustomSceneDraftReadStatus.notFound) {
         _setState(const CustomSceneSubmissionState.editing());
         return;
       }
       if (result.status == CustomSceneDraftReadStatus.expired ||
           result.status == CustomSceneDraftReadStatus.corrupt) {
-        await _draftContinuationCoordinator.cancel();
-        _setState(const CustomSceneSubmissionState.editing());
+        try {
+          await _draftContinuationCoordinator.cancel();
+        } on Object {
+          // Corrupt/expired state is already unusable; cleanup is best effort.
+        } finally {
+          if (_isOperationCurrent(operationToken)) {
+            _setState(const CustomSceneSubmissionState.editing());
+          }
+        }
         return;
       }
       if (result.status != CustomSceneDraftReadStatus.available ||
@@ -296,6 +359,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         await _resumeStoredDraftAfterAuthentication(
           draft,
           accountContext: accountContext,
+          operationToken: operationToken,
         );
         return;
       }
@@ -303,6 +367,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         await _draftStore.write(
           draft.copyWith(state: CustomSceneStoredDraftState.unknownOutcome),
         );
+        if (!_isOperationCurrent(operationToken)) {
+          return;
+        }
       }
       _setState(
         const CustomSceneSubmissionState(
@@ -321,8 +388,15 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     if (running != null) {
       return running;
     }
+    final operationToken = _captureOperationToken();
     final operation = _enqueue(() async {
+      if (!_isOperationCurrent(operationToken)) {
+        return;
+      }
       final accountContext = await _loadAccountContext();
+      if (!_isOperationCurrent(operationToken)) {
+        return;
+      }
       if (accountContext == null) {
         _setState(
           const CustomSceneSubmissionState(
@@ -333,6 +407,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         return;
       }
       final result = await _draftStore.readResult(now: _clock().toUtc());
+      if (!_isOperationCurrent(operationToken)) {
+        return;
+      }
       if (result.status != CustomSceneDraftReadStatus.available ||
           result.draft == null) {
         _setState(_recoverable('暂时无法继续，请重新填写描述。'));
@@ -359,11 +436,15 @@ class CustomSceneSubmissionController extends ChangeNotifier {
           accountContext: accountContext,
           moment: _approvedMomentPendingRegistration!,
           draft: draft,
-          operationEpoch: _operationEpoch,
+          operationToken: operationToken,
         );
         return;
       }
-      await _submitStored(draft, accountContext: accountContext);
+      await _submitStored(
+        draft,
+        accountContext: accountContext,
+        operationToken: operationToken,
+      );
     });
     _activeSubmission = operation;
     return operation.whenComplete(() {
@@ -395,9 +476,14 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       if (!_state.canOpenPreparedContent) {
         return;
       }
-      await _draftContinuationCoordinator.cancel();
-      _approvedMomentPendingRegistration = null;
-      _setState(const CustomSceneSubmissionState.editing());
+      try {
+        await _draftContinuationCoordinator.cancel();
+      } on Object {
+        // Abandonment still exits prepared state when local cleanup fails.
+      } finally {
+        _approvedMomentPendingRegistration = null;
+        _setState(const CustomSceneSubmissionState.editing());
+      }
     });
   }
 
@@ -411,7 +497,15 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       // identity is retained by the running operation for later reconciliation.
       return Future<void>.value();
     }
-    return _enqueue(_draftContinuationCoordinator.cancel);
+    return _enqueue(() async {
+      try {
+        await _draftContinuationCoordinator.cancel();
+      } on Object {
+        // Durable cleanup is best effort; editing remains the visible state.
+      } finally {
+        _setState(const CustomSceneSubmissionState.editing());
+      }
+    });
   }
 
   /// Clears a terminal safety notice before the user enters a new description.
@@ -420,9 +514,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   Future<void> _resumeStoredDraftAfterAuthentication(
     CustomSceneStoredDraft draft, {
     required String accountContext,
+    required _CustomSceneOperationToken operationToken,
   }) async {
     final resumed = await _draftContinuationCoordinator
         .readForAuthenticatedResume(accountContext: accountContext);
+    if (!_isOperationCurrent(operationToken)) {
+      return;
+    }
     if (resumed.status !=
             CustomSceneDraftContinuationStatus.readyForSubmission ||
         resumed.draft == null ||
@@ -430,14 +528,22 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       _setState(_stateForResumeStatus(resumed.status));
       return;
     }
-    await _submitStored(resumed.draft!, accountContext: accountContext);
+    await _submitStored(
+      resumed.draft!,
+      accountContext: accountContext,
+      operationToken: operationToken,
+    );
   }
 
   Future<void> _submitStored(
     CustomSceneStoredDraft draft, {
     required String? accountContext,
+    _CustomSceneOperationToken? operationToken,
   }) async {
-    final operationEpoch = _operationEpoch;
+    final token = operationToken ?? _captureOperationToken();
+    if (!_isOperationCurrent(token)) {
+      return;
+    }
     if (draft.state == CustomSceneStoredDraftState.readyForHandoff) {
       _setState(
         CustomSceneSubmissionState(
@@ -448,13 +554,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       return;
     }
     if (accountContext == null) {
-      if (_isOperationCurrent(operationEpoch)) {
-        await _beginAuthentication(draft, operationEpoch: operationEpoch);
-      }
+      await _beginAuthentication(draft, operationToken: token);
       return;
     }
     if (!_matchesAccount(draft, accountContext)) {
-      _setState(_recoverable('账号已切换，请重新填写描述。'));
+      if (_isOperationCurrent(token)) {
+        _setState(_recoverable('账号已切换，请重新填写描述。'));
+      }
       return;
     }
     final submitting = draft.copyWith(
@@ -465,16 +571,16 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     try {
       await _draftStore.write(submitting);
     } on Object {
-      _setState(_recoverable('暂时无法保存描述，请稍后再试。'));
+      if (_isOperationCurrent(token)) {
+        _setState(_recoverable('暂时无法保存描述，请稍后再试。'));
+      }
       return;
     }
-    if (!_isOperationCurrent(operationEpoch)) {
-      await _draftContinuationCoordinator.cancel();
+    if (!_isOperationCurrent(token)) {
       return;
     }
     final accountStillCurrent = await _isAccountContextCurrent(accountContext);
-    if (!_isOperationCurrent(operationEpoch)) {
-      await _draftContinuationCoordinator.cancel();
+    if (!_isOperationCurrent(token)) {
       return;
     }
     if (!accountStillCurrent) {
@@ -486,21 +592,43 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         phase: CustomSceneSubmissionPhase.submitting,
       ),
     );
+    var requestStarted = false;
     try {
-      if (!_isOperationCurrent(operationEpoch)) {
-        await _draftContinuationCoordinator.cancel();
+      if (!_isOperationCurrent(token)) {
         return;
       }
+      requestStarted = true;
       final result = await _repository.generate(submitting.toDraft());
-      if (!_isOperationCurrent(operationEpoch)) {
+      if (!_isOperationCurrent(token)) {
         if (!_isSafetyTerminal) {
-          await _markUnknownOutcome(submitting, publish: false);
+          await _markUnknownOutcome(
+            submitting,
+            publish: false,
+            accountGeneration: token.accountGeneration,
+          );
         }
         return;
       }
-      if (!await _isAccountContextCurrent(accountContext)) {
+      final resultAccountStillCurrent = await _isAccountContextCurrent(
+        accountContext,
+      );
+      if (!_isOperationCurrent(token)) {
+        if (requestStarted && !_isSafetyTerminal) {
+          await _markUnknownOutcome(
+            submitting,
+            publish: false,
+            accountGeneration: token.accountGeneration,
+          );
+        }
+        return;
+      }
+      if (!resultAccountStillCurrent) {
         _operationEpoch += 1;
-        await _markUnknownOutcome(submitting, publish: false);
+        await _markUnknownOutcome(
+          submitting,
+          publish: false,
+          accountGeneration: token.accountGeneration,
+        );
         return;
       }
       switch (result) {
@@ -512,8 +640,8 @@ class CustomSceneSubmissionController extends ChangeNotifier {
             await _publishSafety(
               phase: CustomSceneSubmissionPhase.assessmentUnavailable,
               safety: healthAssessmentUnavailableNotice,
-              operationEpoch: operationEpoch,
-              draftId: submitting.draftId,
+              operationToken: token,
+              draft: submitting,
             );
             return;
           }
@@ -524,13 +652,17 @@ class CustomSceneSubmissionController extends ChangeNotifier {
             contentRefreshEpoch: moment.contentRefreshEpoch,
           );
           await _draftStore.write(pendingRegistration);
-          _approvedMomentPendingRegistration = moment;
-          if (!_isOperationCurrent(operationEpoch)) {
+          if (!_isOperationCurrent(token)) {
             if (!_isSafetyTerminal) {
-              await _markUnknownOutcome(pendingRegistration, publish: false);
+              await _markUnknownOutcome(
+                submitting,
+                publish: false,
+                accountGeneration: token.accountGeneration,
+              );
             }
             return;
           }
+          _approvedMomentPendingRegistration = moment;
           _setState(
             const CustomSceneSubmissionState(
               phase: CustomSceneSubmissionPhase.generated,
@@ -540,34 +672,40 @@ class CustomSceneSubmissionController extends ChangeNotifier {
             accountContext: accountContext,
             moment: moment,
             draft: pendingRegistration,
-            operationEpoch: operationEpoch,
+            operationToken: token,
           );
         case HealthSafetyResult(:final safety):
           await _publishSafety(
             phase: CustomSceneSubmissionPhase.healthSafety,
             safety: safety,
-            operationEpoch: operationEpoch,
-            draftId: submitting.draftId,
+            operationToken: token,
+            draft: submitting,
           );
         case AssessmentUnavailableResult(:final safety):
           await _publishSafety(
             phase: CustomSceneSubmissionPhase.assessmentUnavailable,
             safety: safety,
-            operationEpoch: operationEpoch,
-            draftId: submitting.draftId,
+            operationToken: token,
+            draft: submitting,
           );
       }
     } on CustomSceneFailure catch (failure) {
-      if (!_isOperationCurrent(operationEpoch)) {
-        await _markUnknownOutcome(submitting, publish: false);
+      if (!_isOperationCurrent(token)) {
+        if (requestStarted && !_isSafetyTerminal) {
+          await _markUnknownOutcome(
+            submitting,
+            publish: false,
+            accountGeneration: token.accountGeneration,
+          );
+        }
         return;
       }
-      await _handleFailure(failure, submitting, operationEpoch: operationEpoch);
+      await _handleFailure(failure, submitting, operationToken: token);
     } on Object {
       await _markUnknownOutcome(
         submitting,
-        publish: _isOperationCurrent(operationEpoch),
-        operationEpoch: operationEpoch,
+        publish: _isOperationCurrent(token),
+        accountGeneration: token.accountGeneration,
       );
     }
   }
@@ -576,9 +714,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     required String accountContext,
     required GeneratedCareMoment moment,
     required CustomSceneStoredDraft draft,
-    required int operationEpoch,
+    required _CustomSceneOperationToken operationToken,
   }) async {
-    if (!_isOperationCurrent(operationEpoch)) {
+    if (!_isOperationCurrent(operationToken)) {
       return;
     }
     _setState(
@@ -591,13 +729,13 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         accountContext: accountContext,
         moment: moment,
       );
-      if (!_isOperationCurrent(operationEpoch)) {
+      if (!_isOperationCurrent(operationToken)) {
         return;
       }
       final accountStillCurrent = await _isAccountContextCurrent(
         accountContext,
       );
-      if (!_isOperationCurrent(operationEpoch)) {
+      if (!_isOperationCurrent(operationToken)) {
         return;
       }
       if (!accountStillCurrent) {
@@ -612,7 +750,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         contentRefreshEpoch: moment.contentRefreshEpoch,
       );
       await _draftStore.write(readyForHandoff);
-      if (!_isOperationCurrent(operationEpoch)) {
+      if (!_isOperationCurrent(operationToken)) {
         return;
       }
       try {
@@ -624,7 +762,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         // removed by confirmation or lifecycle cleanup.
       }
       _approvedMomentPendingRegistration = null;
-      if (!_isOperationCurrent(operationEpoch)) {
+      if (!_isOperationCurrent(operationToken)) {
         return;
       }
       _setState(
@@ -634,7 +772,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         ),
       );
     } on Object {
-      if (_isOperationCurrent(operationEpoch)) {
+      if (_isOperationCurrent(operationToken)) {
         _setState(_recoverable('内容已准备好，但暂时无法保存。请重试以继续。'));
       }
     }
@@ -643,14 +781,14 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   Future<void> _handleFailure(
     CustomSceneFailure failure,
     CustomSceneStoredDraft submitting, {
-    required int operationEpoch,
+    required _CustomSceneOperationToken operationToken,
   }) async {
     if (failure.kind == CustomSceneFailureKind.authenticationRequired) {
-      await _beginAuthentication(submitting, operationEpoch: operationEpoch);
+      await _beginAuthentication(submitting, operationToken: operationToken);
       return;
     }
     if (_isUnknownOutcome(failure)) {
-      await _markUnknownOutcome(submitting, operationEpoch: operationEpoch);
+      await _markUnknownOutcome(submitting, operationToken: operationToken);
       return;
     }
     if (failure.kind == CustomSceneFailureKind.profileUnavailable) {
@@ -660,7 +798,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       // error on the next attempt.
       await _discardUnsubmittedDraft(submitting);
     }
-    if (!_isOperationCurrent(operationEpoch)) {
+    if (!_isOperationCurrent(operationToken)) {
       return;
     }
     _setState(
@@ -693,14 +831,14 @@ class CustomSceneSubmissionController extends ChangeNotifier {
 
   Future<void> _beginAuthentication(
     CustomSceneStoredDraft stored, {
-    int? operationEpoch,
+    _CustomSceneOperationToken? operationToken,
   }) async {
     try {
       await _draftContinuationCoordinator.beginAuthentication(
         draft: stored.toDraft(),
         expectedAccountContext: stored.expectedAccountContext,
       );
-      if (operationEpoch != null && !_isOperationCurrent(operationEpoch)) {
+      if (operationToken != null && !_isOperationCurrent(operationToken)) {
         return;
       }
       _setState(
@@ -710,7 +848,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         ),
       );
     } on Object {
-      if (operationEpoch == null || _isOperationCurrent(operationEpoch)) {
+      if (operationToken == null || _isOperationCurrent(operationToken)) {
         _setState(_recoverable('暂时无法保存描述，请稍后再试。'));
       }
     }
@@ -719,18 +857,39 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   Future<void> _markUnknownOutcome(
     CustomSceneStoredDraft draft, {
     bool publish = true,
-    int? operationEpoch,
+    _CustomSceneOperationToken? operationToken,
+    int? accountGeneration,
   }) async {
+    if (accountGeneration != null && accountGeneration != _accountGeneration) {
+      return;
+    }
+    if (operationToken != null &&
+        operationToken.accountGeneration != _accountGeneration) {
+      return;
+    }
+    final result = await _draftStore.readResult(now: _clock().toUtc());
+    if (accountGeneration != null && accountGeneration != _accountGeneration) {
+      return;
+    }
+    final stored = result.draft;
+    if (result.status != CustomSceneDraftReadStatus.available ||
+        stored == null ||
+        stored.draftId != draft.draftId ||
+        stored.requestIdentity.clientRequestId !=
+            draft.requestIdentity.clientRequestId ||
+        stored.expectedAccountContext != draft.expectedAccountContext) {
+      return;
+    }
     try {
       await _draftStore.write(
-        draft.copyWith(state: CustomSceneStoredDraftState.unknownOutcome),
+        stored.copyWith(state: CustomSceneStoredDraftState.unknownOutcome),
       );
     } on Object {
       // The request identity remains in the previous durable snapshot when
       // storage cannot update the transient phase.
     }
     if (publish &&
-        (operationEpoch == null || _isOperationCurrent(operationEpoch))) {
+        (operationToken == null || _isOperationCurrent(operationToken))) {
       _setState(
         const CustomSceneSubmissionState(
           phase: CustomSceneSubmissionPhase.unknownOutcome,
@@ -743,8 +902,12 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   Future<CustomSceneStoredDraft> _persistOrReuseDraft({
     required CustomSceneDraft draft,
     required String? accountContext,
+    required _CustomSceneOperationToken operationToken,
   }) async {
     final result = await _draftStore.readResult(now: _clock().toUtc());
+    if (!_isOperationCurrent(operationToken)) {
+      throw const CustomSceneSubmissionException();
+    }
     switch (result.status) {
       case CustomSceneDraftReadStatus.available:
         final stored = result.draft!;
@@ -773,6 +936,9 @@ class CustomSceneSubmissionController extends ChangeNotifier {
           expiresAt: createdAt.add(const Duration(minutes: 15)),
           expectedAccountContext: accountContext,
         );
+        if (!_isOperationCurrent(operationToken)) {
+          throw const CustomSceneSubmissionException();
+        }
         await _draftStore.write(stored);
         return stored;
       case CustomSceneDraftReadStatus.ioFailure:
@@ -814,21 +980,24 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   Future<void> _publishSafety({
     required CustomSceneSubmissionPhase phase,
     required HealthSafetyNotice safety,
-    required int operationEpoch,
-    required String draftId,
+    required _CustomSceneOperationToken operationToken,
+    required CustomSceneStoredDraft draft,
   }) async {
-    if (!_isOperationCurrent(operationEpoch)) {
+    if (!_isOperationCurrent(operationToken)) {
       return;
     }
     _operationEpoch += 1;
-    final safetyEpoch = _operationEpoch;
+    final safetyToken = _CustomSceneOperationToken(
+      operationEpoch: _operationEpoch,
+      accountGeneration: operationToken.accountGeneration,
+    );
     _approvedMomentPendingRegistration = null;
     try {
       await _audioStopper.stopActive().timeout(_audioStopTimeout);
     } on Object {
       // A hung or failed audio stop cannot delay the safety state indefinitely.
     }
-    if (!_isOperationCurrent(safetyEpoch)) {
+    if (!_isOperationCurrent(safetyToken)) {
       return;
     }
     _setState(
@@ -839,21 +1008,41 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       ),
     );
     try {
-      await _draftStore.deleteIfExists();
+      if (!_isOperationCurrent(safetyToken)) {
+        return;
+      }
+      await _draftStore.deleteIfMatches(
+        draftId: draft.draftId,
+        clientRequestId: draft.requestIdentity.clientRequestId,
+        expectedAccountContext: draft.expectedAccountContext,
+        now: _clock().toUtc(),
+      );
     } on Object {
       // Safety notice remains the primary visible result.
     }
     try {
+      if (!_isOperationCurrent(safetyToken)) {
+        return;
+      }
       await _draftContinuationCoordinator.clearAuthenticationContinuation(
-        draftId: draftId,
+        draftId: draft.draftId,
       );
     } on Object {
       // Authentication continuation cleanup is best effort.
     }
   }
 
-  bool _isOperationCurrent(int operationEpoch) {
-    return !_disposed && operationEpoch == _operationEpoch;
+  _CustomSceneOperationToken _captureOperationToken() {
+    return _CustomSceneOperationToken(
+      operationEpoch: _operationEpoch,
+      accountGeneration: _accountGeneration,
+    );
+  }
+
+  bool _isOperationCurrent(_CustomSceneOperationToken operationToken) {
+    return !_disposed &&
+        operationToken.operationEpoch == _operationEpoch &&
+        operationToken.accountGeneration == _accountGeneration;
   }
 
   CustomSceneSubmissionState _stateForResumeStatus(
