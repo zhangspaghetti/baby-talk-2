@@ -295,6 +295,8 @@ class GeneratedPracticeContentRegistry
       coachTip: moment.coachTip,
       contentSource: PracticeContentSource.generated,
       generatedContentId: moment.generatedContentId,
+      safetyPolicyVersion: moment.safetyPolicyVersion,
+      contentRefreshEpoch: moment.contentRefreshEpoch,
       utteranceIdsByPhraseId: <String, String>{
         for (final utterance in utterances)
           utterance.phraseId: utterance.utteranceId,

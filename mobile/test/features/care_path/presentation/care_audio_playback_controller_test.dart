@@ -7,6 +7,7 @@ import 'package:mobile/features/account/data/services/authenticated_api_client.d
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/application/care_audio_session_coordinator.dart';
 import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_api.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
@@ -20,18 +21,22 @@ void main() {
       generatedAudioRepository: _repository(gateway),
       output: output,
     );
+    final coordinator = CareAudioSessionCoordinator();
+    coordinator.register(controller);
 
     final playing = controller.play(
       const CareAudioPlaybackRequest(
         source: GeneratedCareAudioSource(
           generatedContentId: 'pgc_1',
           utteranceId: 'utt_1',
+          safetyPolicyVersion: 'health-safety-v1',
+          contentRefreshEpoch: 2,
         ),
         sessionId: 1,
       ),
     );
     await gateway.requested.future;
-    await controller.stop();
+    await coordinator.stopActive();
     gateway.response.complete(
       GeneratedAudioPayload(
         bytes: Uint8List.fromList(<int>[1, 2, 3]),
@@ -137,6 +142,8 @@ void main() {
       const source = GeneratedCareAudioSource(
         generatedContentId: 'pgc_1',
         utteranceId: 'starter_1',
+        safetyPolicyVersion: 'health-safety-v1',
+        contentRefreshEpoch: 2,
       );
 
       final first = repository.load(source);
@@ -171,10 +178,14 @@ void main() {
       const starter = GeneratedCareAudioSource(
         generatedContentId: 'pgc_1',
         utteranceId: 'starter_1',
+        safetyPolicyVersion: 'health-safety-v1',
+        contentRefreshEpoch: 2,
       );
       const support = GeneratedCareAudioSource(
         generatedContentId: 'pgc_1',
         utteranceId: 'support_hesitant_1',
+        safetyPolicyVersion: 'health-safety-v1',
+        contentRefreshEpoch: 2,
       );
 
       final starterPlayback = controller.play(

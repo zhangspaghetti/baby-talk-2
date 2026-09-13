@@ -27,6 +27,8 @@ class PracticeActivitySnapshot {
     required this.phrases,
     this.contentSource = PracticeContentSource.seed,
     this.generatedContentId,
+    this.safetyPolicyVersion,
+    this.contentRefreshEpoch,
     this.utteranceIdsByPhraseId = const <String, String>{},
     this.reactionSupportPhraseIds = const <BabyReactionType, String>{},
   });
@@ -40,6 +42,8 @@ class PracticeActivitySnapshot {
   final List<PracticePhrase> phrases;
   final PracticeContentSource contentSource;
   final String? generatedContentId;
+  final String? safetyPolicyVersion;
+  final int? contentRefreshEpoch;
   final Map<String, String> utteranceIdsByPhraseId;
   final Map<BabyReactionType, String> reactionSupportPhraseIds;
 

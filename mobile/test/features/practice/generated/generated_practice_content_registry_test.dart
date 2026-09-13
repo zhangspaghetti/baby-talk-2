@@ -899,6 +899,8 @@ void main() {
           GeneratedCareAudioSource(
             generatedContentId: moment.generatedContentId,
             utteranceId: moment.starter.utteranceId,
+            safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+            contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
           ),
         );
         expect(
@@ -1007,6 +1009,8 @@ void main() {
             GeneratedCareAudioSource(
               generatedContentId: moment.generatedContentId,
               utteranceId: expectedSupport.utteranceId,
+              safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+              contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
             ),
           );
           expect(
@@ -1014,6 +1018,8 @@ void main() {
             GeneratedCareAudioSource(
               generatedContentId: moment.generatedContentId,
               utteranceId: expectedSupport.utteranceId,
+              safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+              contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
             ),
           );
           expect(recorded.nextSupportUtterance, isNull);
@@ -1073,6 +1079,8 @@ void main() {
           GeneratedCareAudioSource(
             generatedContentId: lostMoment.generatedContentId,
             utteranceId: hesitantSupport.utteranceId,
+            safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+            contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
           ),
         );
         expect(reconciledAfterLostResponse.nextSupportUtterance, isNull);
@@ -1204,6 +1212,8 @@ void main() {
           GeneratedCareAudioSource(
             generatedContentId: first.generatedContentId,
             utteranceId: hesitantSupport.utteranceId,
+            safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+            contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
           ),
         );
         expect(restored.nextSupportUtterance, isNull);

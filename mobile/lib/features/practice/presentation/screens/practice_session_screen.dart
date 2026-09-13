@@ -250,6 +250,9 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
               ),
             )
           : null,
+      careAudioSessionCoordinator: ref.watch(
+        careAudioSessionCoordinatorProvider,
+      ),
       onQuietExit: onboardingArgs == null
           ? () => Navigator.of(context).maybePop()
           : () => context.go(AppRouteNames.shell),

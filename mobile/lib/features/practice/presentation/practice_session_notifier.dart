@@ -478,6 +478,10 @@ class PracticeSessionNotifier extends ChangeNotifier {
         sceneTag: currentSnapshot.sceneTag,
         coachTip: currentSnapshot.coachTip,
         phrases: List.unmodifiable(updatedPhrases),
+        contentSource: currentSnapshot.contentSource,
+        generatedContentId: currentSnapshot.generatedContentId,
+        safetyPolicyVersion: currentSnapshot.safetyPolicyVersion,
+        contentRefreshEpoch: currentSnapshot.contentRefreshEpoch,
       );
 
       _phrasePhase = PhraseInteractionPhase.ready;

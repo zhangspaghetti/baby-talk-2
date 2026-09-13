@@ -695,6 +695,8 @@ class CarePathRepository {
   }) {
     final generatedContentId = activity?.generatedContentId;
     final utteranceId = activity?.utteranceIdForPhrase(phrase.phraseId);
+    final safetyPolicyVersion = activity?.safetyPolicyVersion;
+    final contentRefreshEpoch = activity?.contentRefreshEpoch;
     return CareUtterance(
       phraseId: phrase.phraseId,
       english: phrase.english,
@@ -706,10 +708,14 @@ class CarePathRepository {
       audioSource:
           activity?.contentSource == PracticeContentSource.generated &&
               generatedContentId != null &&
-              utteranceId != null
+              utteranceId != null &&
+              safetyPolicyVersion != null &&
+              contentRefreshEpoch != null
           ? GeneratedCareAudioSource(
               generatedContentId: generatedContentId,
               utteranceId: utteranceId,
+              safetyPolicyVersion: safetyPolicyVersion,
+              contentRefreshEpoch: contentRefreshEpoch,
             )
           : phrase.audioAsset.trim().isEmpty
           ? null

@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/application/care_audio_session_coordinator.dart';
 import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
@@ -511,6 +512,61 @@ void main() {
     expect(audio.playedSources, isEmpty);
   });
 
+  testWidgets('surface ownership unregister keeps newer surface active', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _ControllableCareAudioPlaybackController();
+    final second = _ControllableCareAudioPlaybackController();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      KeyedSubtree(
+        key: const Key('replacement-surface'),
+        child: _surfaceTestApp(
+          notifier: notifier,
+          careAudio: second,
+          careAudioSessionCoordinator: coordinator,
+        ),
+      ),
+    );
+
+    await coordinator.stopActive();
+
+    expect(first.stopCalls, 1);
+    expect(second.stopCalls, 1);
+  });
+
+  testWidgets('coordinator invalidation suppresses late surface completion', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final audio = _ControllableCareAudioPlaybackController();
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    await coordinator.stopActive();
+    audio.completeLastPlayback();
+    await tester.pump();
+
+    expect(find.text('已听过一次'), findsNothing);
+  });
+
   testWidgets('failed stop blocks a new generated support playback', (
     tester,
   ) async {
@@ -713,6 +769,7 @@ Widget _surfaceTestApp({
   CareTurnTraceReady? onTraceReady,
   CareTurnRetryReaction? onRetryReaction,
   CareAudioPlaybackController? careAudio,
+  CareAudioSessionCoordinator? careAudioSessionCoordinator,
   PracticeAudioController Function()? audioControllerFactory,
   CareTurnAudioPlaybackPolicy playbackPolicy =
       CareTurnAudioPlaybackPolicy.disabled,
@@ -726,6 +783,7 @@ Widget _surfaceTestApp({
         audioControllerFactory:
             audioControllerFactory ?? _SilentPracticeAudioController.new,
         careAudioControllerFactory: careAudio == null ? null : () => careAudio,
+        careAudioSessionCoordinator: careAudioSessionCoordinator,
         playbackPolicy: playbackPolicy,
         onTraceReady: onTraceReady,
         onRetryReaction: onRetryReaction,
@@ -738,6 +796,7 @@ Widget _surfaceTestApp({
 Widget _generatedSurfaceTestApp({
   required CarePathNotifier notifier,
   required CareAudioPlaybackController audio,
+  CareAudioSessionCoordinator? careAudioSessionCoordinator,
 }) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -746,6 +805,7 @@ Widget _generatedSurfaceTestApp({
       body: CareTurnSurface(
         notifier: notifier,
         careAudioControllerFactory: () => audio,
+        careAudioSessionCoordinator: careAudioSessionCoordinator,
       ),
     ),
   );
@@ -925,6 +985,7 @@ class _ControllableCareAudioPlaybackController
   final List<CareAudioPlaybackRequest> requests = <CareAudioPlaybackRequest>[];
   int pauseCalls = 0;
   int resumeCalls = 0;
+  int stopCalls = 0;
 
   @override
   CareAudioPlaybackCapabilities get capabilities =>
@@ -962,7 +1023,9 @@ class _ControllableCareAudioPlaybackController
   Future<void> setPlaybackRate(double rate) async {}
 
   @override
-  Future<void> stop() async {}
+  Future<void> stop() async {
+    stopCalls += 1;
+  }
 }
 
 class _GeneratedBranchPracticeRepository implements PracticeRepository {
@@ -970,10 +1033,14 @@ class _GeneratedBranchPracticeRepository implements PracticeRepository {
   static const starterSource = GeneratedCareAudioSource(
     generatedContentId: generatedContentId,
     utteranceId: 'starter_1',
+    safetyPolicyVersion: 'health-safety-v1',
+    contentRefreshEpoch: 2,
   );
   static const supportSource = GeneratedCareAudioSource(
     generatedContentId: generatedContentId,
     utteranceId: 'support_cooperating_1',
+    safetyPolicyVersion: 'health-safety-v1',
+    contentRefreshEpoch: 2,
   );
   static const _activity = PracticeActivitySnapshot(
     spaceId: 'generated_space',
@@ -984,6 +1051,8 @@ class _GeneratedBranchPracticeRepository implements PracticeRepository {
     coachTip: '现在可以说。',
     contentSource: PracticeContentSource.generated,
     generatedContentId: generatedContentId,
+    safetyPolicyVersion: 'health-safety-v1',
+    contentRefreshEpoch: 2,
     phrases: <PracticePhrase>[
       PracticePhrase(
         spaceId: 'generated_space',

@@ -6,6 +6,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/application/care_audio_session_coordinator.dart';
 import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
@@ -26,6 +27,7 @@ class CareTurnSurface extends StatefulWidget {
     required this.notifier,
     this.audioControllerFactory,
     this.careAudioControllerFactory,
+    this.careAudioSessionCoordinator,
     this.playbackPolicy = CareTurnAudioPlaybackPolicy.disabled,
     this.onTraceReady,
     this.onTraceContinue,
@@ -45,6 +47,7 @@ class CareTurnSurface extends StatefulWidget {
   final CarePathNotifier notifier;
   final PracticeAudioController Function()? audioControllerFactory;
   final CareAudioPlaybackController Function()? careAudioControllerFactory;
+  final CareAudioSessionCoordinator? careAudioSessionCoordinator;
   final CareTurnAudioPlaybackPolicy playbackPolicy;
   final CareTurnTraceReady? onTraceReady;
   final VoidCallback? onTraceContinue;
@@ -66,6 +69,7 @@ class CareTurnSurface extends StatefulWidget {
 
 class _CareTurnSurfaceState extends State<CareTurnSurface> {
   CareAudioPlaybackController? _audioController;
+  Object? _audioOwnershipToken;
   StreamSubscription<CareAudioPlaybackCompletion>? _audioCompletionSubscription;
   bool _isPlayingAudio = false;
   bool _isAudioPaused = false;
@@ -94,6 +98,13 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   @override
   void didUpdateWidget(covariant CareTurnSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(
+      oldWidget.careAudioSessionCoordinator,
+      widget.careAudioSessionCoordinator,
+    )) {
+      _unregisterAudioOwnership(oldWidget.careAudioSessionCoordinator);
+      _registerAudioOwnership();
+    }
     final notifierChanged = !identical(oldWidget.notifier, widget.notifier);
     if (notifierChanged) {
       oldWidget.notifier.removeListener(_onNotifierChanged);
@@ -118,6 +129,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _playbackIntent = null;
     widget.notifier.removeListener(_onNotifierChanged);
     _audioCompletionSubscription?.cancel();
+    _unregisterAudioOwnership(widget.careAudioSessionCoordinator);
     unawaited(_audioController?.dispose());
     super.dispose();
   }
@@ -132,11 +144,13 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
           AudioplayersPracticeAudioController.new;
       _audioController = LegacyPracticeCareAudioPlaybackController(factory());
     }
+    _registerAudioOwnership();
     _audioCompletionSubscription = _audioController!.completionStream.listen((
       completion,
     ) {
       final playbackIntent = _playbackIntent;
       if (!mounted ||
+          !_isCurrentAudioOwner ||
           _isAudioStopping ||
           playbackIntent == null ||
           completion.sessionId != playbackIntent ||
@@ -155,6 +169,32 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         _playbackIntent = null;
       });
     });
+  }
+
+  void _registerAudioOwnership() {
+    final coordinator = widget.careAudioSessionCoordinator;
+    final controller = _audioController;
+    if (coordinator == null ||
+        controller == null ||
+        _audioOwnershipToken != null) {
+      return;
+    }
+    _audioOwnershipToken = coordinator.register(controller);
+  }
+
+  void _unregisterAudioOwnership(CareAudioSessionCoordinator? coordinator) {
+    final token = _audioOwnershipToken;
+    if (coordinator == null || token == null) {
+      return;
+    }
+    _audioOwnershipToken = null;
+    coordinator.unregister(token);
+  }
+
+  bool get _isCurrentAudioOwner {
+    final coordinator = widget.careAudioSessionCoordinator;
+    final token = _audioOwnershipToken;
+    return coordinator == null || token == null || coordinator.isCurrent(token);
   }
 
   void _onNotifierChanged() {
@@ -365,6 +405,9 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     final l = AppLocalizations.of(context)!;
     final controller = _audioController;
     final source = _audioSource(utterance);
+    if (!_isCurrentAudioOwner) {
+      return;
+    }
     if (controller == null || source == null) {
       setState(() {
         _audioMessage = l.practiceAudioMissingInline;
@@ -401,6 +444,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         }
       }
       if (!mounted ||
+          !_isCurrentAudioOwner ||
           intent != _audioIntent ||
           _pendingAudioKey != audioKey ||
           _activeAudioKey != audioKey) {
@@ -414,6 +458,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         ),
       );
       if (!mounted ||
+          !_isCurrentAudioOwner ||
           intent != _audioIntent ||
           !_isPlayingAudio ||
           _pendingAudioKey != audioKey ||

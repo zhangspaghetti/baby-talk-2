@@ -21,6 +21,7 @@ import 'package:mobile/features/account/data/services/authenticated_api_client.d
 import 'package:mobile/features/care_entry/data/file_onboarding_care_turn_continuation_store.dart';
 import 'package:mobile/features/care_entry/presentation/care_entry_providers.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
+import 'package:mobile/features/care_path/application/care_audio_session_coordinator.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_api.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
@@ -261,6 +262,11 @@ final generatedAudioMemoryCacheProvider = Provider<GeneratedAudioMemoryCache>((
   return GeneratedAudioMemoryCache();
 });
 
+final careAudioSessionCoordinatorProvider =
+    Provider<CareAudioSessionCoordinator>((ref) {
+      return CareAudioSessionCoordinator();
+    });
+
 final generatedAudioRepositoryProvider = Provider<GeneratedAudioRepository>((
   ref,
 ) {
@@ -410,6 +416,7 @@ final customSceneSubmissionControllerProvider =
         accountContextLoader: ref
             .watch(generatedPracticeContentRegistryProvider)
             .loadCurrentAccountContext,
+        audioStopper: ref.watch(careAudioSessionCoordinatorProvider),
       );
       ref.onDispose(controller.dispose);
       return controller;

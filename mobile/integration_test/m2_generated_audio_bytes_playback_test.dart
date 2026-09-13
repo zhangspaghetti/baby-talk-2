@@ -83,6 +83,8 @@ void main() {
               source: GeneratedCareAudioSource(
                 generatedContentId: 'pgc_controlled_network_1',
                 utteranceId: 'utt_controlled_network_1',
+                safetyPolicyVersion: 'health-safety-v1',
+                contentRefreshEpoch: 2,
               ),
               sessionId: 1,
             ),
