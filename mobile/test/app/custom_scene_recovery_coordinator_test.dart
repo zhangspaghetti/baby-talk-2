@@ -547,6 +547,80 @@ void main() {
       expect(handoff.ids, <String>['generated_1']);
     },
   );
+
+  test(
+    'account change invalidates queued restore before old restore callback returns',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp('custom_recovery_');
+      addTearDown(() => tempDir.delete(recursive: true));
+      final now = DateTime.utc(2026, 7, 29, 9);
+      final store = _BlockingRestoreReadStore(
+        directoryResolver: () async => tempDir,
+      );
+      await store.write(_readyDraft(now));
+      final controller = _controller(store: store, now: now);
+      final handoff = _HandoffSink();
+      final coordinator = CustomSceneRecoveryCoordinator(
+        controller: controller,
+        handoffSink: handoff,
+      );
+      addTearDown(() {
+        coordinator.dispose();
+        controller.dispose();
+      });
+
+      final oldRecovery = coordinator.recoverForAuthenticatedAccount(
+        accountContext: 'account_a',
+      );
+      await store.readStarted.future;
+      final newRecovery = coordinator.recoverForAuthenticatedAccount(
+        accountContext: 'account_b',
+      );
+
+      expect(controller.state.phase, CustomSceneSubmissionPhase.editing);
+      store.releaseRead.complete();
+      await Future.wait(<Future<void>>[oldRecovery, newRecovery]);
+      expect(handoff.ids, isEmpty);
+    },
+  );
+
+  test(
+    'A to B to A scope events invalidate the old route completion',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp('custom_recovery_');
+      addTearDown(() => tempDir.delete(recursive: true));
+      final now = DateTime.utc(2026, 7, 29, 9);
+      final store = CustomSceneDraftStore(
+        directoryResolver: () async => tempDir,
+      );
+      await store.write(_readyDraft(now));
+      final controller = _controller(store: store, now: now);
+      final handoff = _HandoffSink();
+      final coordinator = CustomSceneRecoveryCoordinator(
+        controller: controller,
+        handoffSink: handoff,
+      );
+      addTearDown(() {
+        coordinator.dispose();
+        controller.dispose();
+      });
+
+      await coordinator.recoverForAuthenticatedAccount(
+        accountContext: 'account_a',
+      );
+      final toB = coordinator.recoverForAuthenticatedAccount(
+        accountContext: 'account_b',
+      );
+      final backToA = coordinator.recoverForAuthenticatedAccount(
+        accountContext: 'account_a',
+      );
+      await Future.wait(<Future<void>>[toB, backToA]);
+
+      expect(handoff.ids, <String>['generated_1', 'generated_1']);
+      await handoff.completeRoute(0);
+      expect(handoff.ids, <String>['generated_1', 'generated_1']);
+    },
+  );
 }
 
 CustomSceneStoredDraft _readyDraft(
@@ -677,6 +751,24 @@ class _FailingSubmittingDraftStore extends CustomSceneDraftStore {
       throw const CustomSceneDraftStoreException();
     }
     return super.write(draft);
+  }
+}
+
+class _BlockingRestoreReadStore extends CustomSceneDraftStore {
+  _BlockingRestoreReadStore({required super.directoryResolver});
+
+  final Completer<void> readStarted = Completer<void>();
+  final Completer<void> releaseRead = Completer<void>();
+  bool _blocked = true;
+
+  @override
+  Future<CustomSceneDraftReadResult> readResult({required DateTime now}) async {
+    if (_blocked) {
+      _blocked = false;
+      readStarted.complete();
+      await releaseRead.future;
+    }
+    return super.readResult(now: now);
   }
 }
 

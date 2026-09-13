@@ -78,8 +78,9 @@ class CustomSceneDraftStore {
       final draft = _decodeStoredDraft(decoded);
       if (!draft.expiresAt.isAfter(now.toUtc())) {
         await _deleteFilesBestEffort(file);
-        return const CustomSceneDraftReadResult(
+        return CustomSceneDraftReadResult(
           status: CustomSceneDraftReadStatus.expired,
+          draft: draft,
         );
       }
       return CustomSceneDraftReadResult(

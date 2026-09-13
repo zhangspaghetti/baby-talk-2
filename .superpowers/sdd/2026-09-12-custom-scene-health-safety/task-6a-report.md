@@ -34,3 +34,19 @@ Safety/unavailable result stops owned audio within 250 ms, invalidates old callb
 - Added exact `draftId`/request/account conditional cleanup, best effort cancel with editing in `finally`, explicit generated-draft provenance validation, and late registration/dispose/modify tests.
 
 Round 1 focused tests, analyzer, and diff checks pass. Flutter-generated Windows files were restored.
+
+## Round 2 fixes
+
+- Recovery now advances scope generation and invalidates controller synchronously before queueing work. A→B→A events invalidate stale restore and route completions.
+- Added compare-and-delete for draft and authentication continuation identity/account tuples. Profile/corrupt/expired cleanup checks operation ownership and never runs unscoped cancellation for stale work.
+- Exposed `safetyAudioStopTimeout` as exact 250 ms constant; tests assert exact value and retain bounded wall-clock tolerance.
+
+Round 2 focused tests passed. Also passed:
+
+```text
+dart format --output=none --set-exit-if-changed lib/features/custom_scene/application/custom_scene_submission_controller.dart lib/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart lib/features/custom_scene/data/custom_scene_draft_store.dart lib/features/custom_scene/domain/custom_scene_stored_draft.dart lib/app/custom_scene_recovery_coordinator.dart test/features/custom_scene/custom_scene_submission_controller_test.dart test/features/custom_scene/custom_scene_draft_continuation_test.dart test/features/custom_scene/custom_scene_handoff_confirmation_coordinator_test.dart test/app/custom_scene_recovery_coordinator_test.dart test/features/practice/generated/generated_care_moment_local_store_test.dart test/features/practice/generated/generated_practice_content_registry_test.dart
+dart analyze lib/features/custom_scene lib/features/practice/data/generated test/features/custom_scene test/features/practice/generated
+git diff --check
+```
+
+Windows Flutter generated files were restored after verification.

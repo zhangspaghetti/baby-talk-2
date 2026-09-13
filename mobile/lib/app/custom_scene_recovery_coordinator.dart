@@ -23,7 +23,9 @@ class CustomSceneRecoveryCoordinator {
   String? _routedContentId;
   String? _activeRouteAccountContext;
   String? _activeRouteContentId;
+  int? _activeRouteGeneration;
   Future<void>? _activeRouteCompletion;
+  int _scopeGeneration = 0;
   bool _disposed = false;
 
   /// Call only after account state has finished settling. A missing account
@@ -32,11 +34,21 @@ class CustomSceneRecoveryCoordinator {
     String? accountContext,
     String? resumableGeneratedContentId,
   }) {
+    final normalizedAccountContext = accountContext?.trim();
+    final scopeGeneration = ++_scopeGeneration;
+    final previousAccountContext = _stableAccountContext;
+    final accountChanged =
+        previousAccountContext != normalizedAccountContext &&
+        previousAccountContext != null;
+    _stableAccountContext = normalizedAccountContext;
+    if (accountChanged) {
+      _controller.invalidateForAccountChange();
+      _recoveredAccountContext = null;
+      _routedContentId = null;
+    }
     return _enqueue(() async {
-      final normalizedAccountContext = accountContext?.trim();
-      if (_stableAccountContext != normalizedAccountContext &&
-          _stableAccountContext != null) {
-        _controller.invalidateForAccountChange();
+      if (_disposed || scopeGeneration != _scopeGeneration) {
+        return;
       }
       if (normalizedAccountContext == null ||
           normalizedAccountContext.isEmpty) {
@@ -45,14 +57,11 @@ class CustomSceneRecoveryCoordinator {
         _routedContentId = null;
         return;
       }
-      if (_stableAccountContext != normalizedAccountContext) {
-        _routedContentId = null;
-      }
-      _stableAccountContext = normalizedAccountContext;
       if (_recoveredAccountContext == normalizedAccountContext) {
-        await _routePreparedContentIfReady();
+        await _routePreparedContentIfReady(scopeGeneration: scopeGeneration);
         await _routeResumableGeneratedContentIfIdle(
           resumableGeneratedContentId,
+          scopeGeneration: scopeGeneration,
         );
         return;
       }
@@ -61,9 +70,15 @@ class CustomSceneRecoveryCoordinator {
       } on Object {
         return;
       }
+      if (scopeGeneration != _scopeGeneration) {
+        return;
+      }
       _recoveredAccountContext = normalizedAccountContext;
-      await _routePreparedContentIfReady();
-      await _routeResumableGeneratedContentIfIdle(resumableGeneratedContentId);
+      await _routePreparedContentIfReady(scopeGeneration: scopeGeneration);
+      await _routeResumableGeneratedContentIfIdle(
+        resumableGeneratedContentId,
+        scopeGeneration: scopeGeneration,
+      );
     });
   }
 
@@ -74,9 +89,13 @@ class CustomSceneRecoveryCoordinator {
       return activeStart;
     }
     late final Future<void> operation;
+    final scopeGeneration = _scopeGeneration;
     operation =
         _enqueue(
-          () => _routePreparedContentIfReady(allowRecoveredRetry: true),
+          () => _routePreparedContentIfReady(
+            allowRecoveredRetry: true,
+            scopeGeneration: scopeGeneration,
+          ),
         ).whenComplete(() {
           if (identical(_activePreparedContentOpenStart, operation)) {
             _activePreparedContentOpenStart = null;
@@ -88,7 +107,12 @@ class CustomSceneRecoveryCoordinator {
 
   Future<void> _routePreparedContentIfReady({
     bool allowRecoveredRetry = false,
+    int? scopeGeneration,
   }) async {
+    final generation = scopeGeneration ?? _scopeGeneration;
+    if (generation != _scopeGeneration) {
+      return;
+    }
     final accountContext = _stableAccountContext;
     final state = _controller.state;
     final generatedContentId = state.generatedContentId?.trim();
@@ -103,6 +127,7 @@ class CustomSceneRecoveryCoordinator {
     if (_isRouteActive(
       accountContext: accountContext,
       generatedContentId: generatedContentId,
+      scopeGeneration: generation,
     )) {
       return;
     }
@@ -114,17 +139,20 @@ class CustomSceneRecoveryCoordinator {
       final routeAttempt = await _handoffSink.handoff(
         CustomSceneCareTurnHandoff(generatedContentId: generatedContentId),
       );
-      if (_stableAccountContext != accountContext ||
+      if (generation != _scopeGeneration ||
+          _stableAccountContext != accountContext ||
           _controller.state.generatedContentId != generatedContentId) {
         return;
       }
       _trackRouteAttempt(
         accountContext: accountContext,
         generatedContentId: generatedContentId,
+        scopeGeneration: generation,
         routeAttempt: routeAttempt,
       );
     } on Object {
-      if (_stableAccountContext == accountContext &&
+      if (generation == _scopeGeneration &&
+          _stableAccountContext == accountContext &&
           _controller.state.generatedContentId == generatedContentId) {
         _routedContentId = null;
         _controller.markHandoffRouteFailed();
@@ -133,8 +161,13 @@ class CustomSceneRecoveryCoordinator {
   }
 
   Future<void> _routeResumableGeneratedContentIfIdle(
-    String? generatedContentId,
-  ) async {
+    String? generatedContentId, {
+    int? scopeGeneration,
+  }) async {
+    final generation = scopeGeneration ?? _scopeGeneration;
+    if (generation != _scopeGeneration) {
+      return;
+    }
     final accountContext = _stableAccountContext;
     final normalizedContentId = generatedContentId?.trim();
     if (accountContext == null ||
@@ -145,6 +178,7 @@ class CustomSceneRecoveryCoordinator {
         _isRouteActive(
           accountContext: accountContext,
           generatedContentId: normalizedContentId,
+          scopeGeneration: generation,
         ) ||
         _routedContentId == normalizedContentId) {
       return;
@@ -154,16 +188,19 @@ class CustomSceneRecoveryCoordinator {
       final routeAttempt = await _handoffSink.handoff(
         CustomSceneCareTurnHandoff(generatedContentId: normalizedContentId),
       );
-      if (_stableAccountContext != accountContext) {
+      if (generation != _scopeGeneration ||
+          _stableAccountContext != accountContext) {
         return;
       }
       _trackRouteAttempt(
         accountContext: accountContext,
         generatedContentId: normalizedContentId,
+        scopeGeneration: generation,
         routeAttempt: routeAttempt,
       );
     } on Object {
-      if (_stableAccountContext == accountContext) {
+      if (generation == _scopeGeneration &&
+          _stableAccountContext == accountContext) {
         _routedContentId = null;
       }
     }
@@ -177,20 +214,24 @@ class CustomSceneRecoveryCoordinator {
   bool _isRouteActive({
     required String accountContext,
     required String generatedContentId,
+    required int scopeGeneration,
   }) {
     return _activeRouteAccountContext == accountContext &&
         _activeRouteContentId == generatedContentId &&
+        _activeRouteGeneration == scopeGeneration &&
         _activeRouteCompletion != null;
   }
 
   void _trackRouteAttempt({
     required String accountContext,
     required String generatedContentId,
+    required int scopeGeneration,
     required CustomSceneCareTurnRouteAttempt routeAttempt,
   }) {
     final completion = routeAttempt.routeCompletion;
     _activeRouteAccountContext = accountContext;
     _activeRouteContentId = generatedContentId;
+    _activeRouteGeneration = scopeGeneration;
     _activeRouteCompletion = completion;
     unawaited(
       completion.then<void>(
@@ -206,6 +247,7 @@ class CustomSceneRecoveryCoordinator {
     }
     _activeRouteAccountContext = null;
     _activeRouteContentId = null;
+    _activeRouteGeneration = null;
     _activeRouteCompletion = null;
   }
 

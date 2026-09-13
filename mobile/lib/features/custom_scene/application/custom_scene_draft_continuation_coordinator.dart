@@ -326,6 +326,22 @@ class CustomSceneDraftContinuationCoordinator {
     );
   }
 
+  /// Clears only a continuation matching the complete request identity and
+  /// account scope owned by the caller.
+  Future<void> clearAuthenticationContinuationIfMatches({
+    required String draftId,
+    required String clientRequestId,
+    required String? expectedAccountContext,
+  }) {
+    return _enqueue(
+      () => _clearGenerateCustomSceneAuthenticationContinuationIfMatches(
+        draftId: draftId,
+        clientRequestId: clientRequestId,
+        expectedAccountContext: expectedAccountContext,
+      ),
+    );
+  }
+
   /// A Care Turn acknowledgement is accepted only for the current account and
   /// exact durable ready intent. Stale, duplicate, and cross-account signals
   /// are intentionally harmless.
@@ -366,10 +382,17 @@ class CustomSceneDraftContinuationCoordinator {
     }
     try {
       await beforeIntentCleanup?.call();
-      await _draftStore.deleteIfExists();
+      await _draftStore.deleteIfMatches(
+        draftId: draft.draftId,
+        clientRequestId: draft.requestIdentity.clientRequestId,
+        expectedAccountContext: draft.expectedAccountContext,
+        now: _clock().toUtc(),
+      );
       try {
-        await _clearGenerateCustomSceneAuthenticationContinuation(
-          draft.draftId,
+        await _clearGenerateCustomSceneAuthenticationContinuationIfMatches(
+          draftId: draft.draftId,
+          clientRequestId: draft.requestIdentity.clientRequestId,
+          expectedAccountContext: draft.expectedAccountContext,
         );
       } on Object {
         // Draft deletion is success. Only the matching authentication record
@@ -391,6 +414,30 @@ class CustomSceneDraftContinuationCoordinator {
     final continuation = result.continuation;
     if (continuation?.intent != AuthContinuationIntent.generateCustomScene ||
         continuation?.customScene?.draftId != draftId) {
+      return;
+    }
+    await _authContinuationCoordinator.clear();
+  }
+
+  Future<void> _clearGenerateCustomSceneAuthenticationContinuationIfMatches({
+    required String draftId,
+    required String clientRequestId,
+    required String? expectedAccountContext,
+  }) async {
+    final result = await _authContinuationCoordinator.readPendingResult();
+    if (result.status != AuthContinuationReadStatus.available) {
+      return;
+    }
+    final payload = result.continuation?.customScene;
+    final normalizedExpectedAccountContext = expectedAccountContext?.trim();
+    if (result.continuation?.intent !=
+            AuthContinuationIntent.generateCustomScene ||
+        payload == null ||
+        payload.draftId != draftId.trim() ||
+        payload.clientRequestId != clientRequestId.trim() ||
+        (payload.expectedAccountContext != null &&
+            payload.expectedAccountContext !=
+                normalizedExpectedAccountContext)) {
       return;
     }
     await _authContinuationCoordinator.clear();

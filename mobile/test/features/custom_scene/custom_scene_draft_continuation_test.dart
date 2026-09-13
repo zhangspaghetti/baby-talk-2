@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
+import 'package:mobile/features/account/domain/models/auth_continuation.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
@@ -238,6 +239,51 @@ void main() {
 
         expect(result.status, CustomSceneDraftReadStatus.corrupt);
         expect(await draftStore.read(now: now), isNull);
+      },
+    );
+
+    test(
+      'conditional auth cleanup preserves a newer account continuation',
+      () async {
+        final draftStore = CustomSceneDraftStore(
+          directoryResolver: () async => tempDir,
+        );
+        final authStore = AuthContinuationStore(
+          directoryResolver: () async => tempDir,
+        );
+        final authContinuation = AuthContinuationCoordinator(
+          store: authStore,
+          clock: () => now,
+          correlationIdGenerator: () => 'auth_newer',
+        );
+        final coordinator = CustomSceneDraftContinuationCoordinator(
+          draftStore: draftStore,
+          authContinuationCoordinator: authContinuation,
+          clock: () => now,
+          draftIdGenerator: () => 'draft_old',
+        );
+        final oldDraft = _draft(text: '旧账号描述。', clientRequestId: 'old_request');
+        await authContinuation.beginGenerateCustomScene(
+          payload: AuthContinuationCustomScenePayload(
+            draftId: 'new_draft',
+            entrySource: CustomSceneEntrySource.today,
+            clientRequestId: 'new_request',
+            expectedAccountContext: 'account_b',
+          ),
+        );
+
+        await coordinator.clearAuthenticationContinuationIfMatches(
+          draftId: 'old_draft',
+          clientRequestId: oldDraft.requestIdentity.clientRequestId,
+          expectedAccountContext: 'account_a',
+        );
+
+        final result = await authStore.readResult(now: now);
+        expect(result.status, AuthContinuationReadStatus.available);
+        expect(
+          result.continuation?.customScene?.clientRequestId,
+          'new_request',
+        );
       },
     );
   });

@@ -618,6 +618,7 @@ void main() {
     });
 
     test('safety stop timeout publishes within the 250 ms bound', () async {
+      expect(safetyAudioStopTimeout, const Duration(milliseconds: 250));
       final audioStop = _BlockingAudioStopper();
       final stopwatch = Stopwatch()..start();
       final harness = _harness(
@@ -944,6 +945,16 @@ class _FailingDeleteDraftStore extends CustomSceneDraftStore {
 
   @override
   Future<void> deleteIfExists() async {
+    throw const CustomSceneDraftStoreException();
+  }
+
+  @override
+  Future<void> deleteIfMatches({
+    required String draftId,
+    required String clientRequestId,
+    required String? expectedAccountContext,
+    required DateTime now,
+  }) async {
     throw const CustomSceneDraftStoreException();
   }
 }

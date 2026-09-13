@@ -24,6 +24,8 @@ abstract interface class CustomSceneAudioStopper {
   Future<void> stopActive();
 }
 
+const safetyAudioStopTimeout = Duration(milliseconds: 250);
+
 class _NoopCustomSceneAudioStopper implements CustomSceneAudioStopper {
   const _NoopCustomSceneAudioStopper();
 
@@ -169,8 +171,6 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   int _operationEpoch = 0;
   int _accountGeneration = 0;
   bool _disposed = false;
-
-  static const _audioStopTimeout = Duration(milliseconds: 250);
 
   CustomSceneSubmissionState get state => _state;
 
@@ -320,14 +320,15 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       }
       if (result.status == CustomSceneDraftReadStatus.expired ||
           result.status == CustomSceneDraftReadStatus.corrupt) {
-        try {
-          await _draftContinuationCoordinator.cancel();
-        } on Object {
-          // Corrupt/expired state is already unusable; cleanup is best effort.
-        } finally {
-          if (_isOperationCurrent(operationToken)) {
-            _setState(const CustomSceneSubmissionState.editing());
-          }
+        final staleDraft = result.draft;
+        if (staleDraft != null) {
+          await _clearExactDraftIntentIfOwned(
+            staleDraft,
+            operationToken: operationToken,
+          );
+        }
+        if (_isOperationCurrent(operationToken)) {
+          _setState(const CustomSceneSubmissionState.editing());
         }
         return;
       }
@@ -754,9 +755,12 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         return;
       }
       try {
-        await _draftContinuationCoordinator.clearAuthenticationContinuation(
-          draftId: readyForHandoff.draftId,
-        );
+        await _draftContinuationCoordinator
+            .clearAuthenticationContinuationIfMatches(
+              draftId: readyForHandoff.draftId,
+              clientRequestId: readyForHandoff.requestIdentity.clientRequestId,
+              expectedAccountContext: readyForHandoff.expectedAccountContext,
+            );
       } on Object {
         // Ready intent is committed. A stale authentication continuation is
         // removed by confirmation or lifecycle cleanup.
@@ -796,7 +800,10 @@ class CustomSceneSubmissionController extends ChangeNotifier {
       // server-side request to reconcile, so retaining this local intent would
       // turn a deterministic profile miss into an unrelated "pending draft"
       // error on the next attempt.
-      await _discardUnsubmittedDraft(submitting);
+      await _discardUnsubmittedDraft(
+        submitting,
+        operationToken: operationToken,
+      );
     }
     if (!_isOperationCurrent(operationToken)) {
       return;
@@ -811,21 +818,64 @@ class CustomSceneSubmissionController extends ChangeNotifier {
   }
 
   Future<void> _discardUnsubmittedDraft(
-    CustomSceneStoredDraft submitting,
-  ) async {
+    CustomSceneStoredDraft submitting, {
+    required _CustomSceneOperationToken operationToken,
+  }) async {
+    if (!_isOperationCurrent(operationToken)) {
+      return;
+    }
     try {
       final result = await _draftStore.readResult(now: _clock().toUtc());
+      if (!_isOperationCurrent(operationToken)) {
+        return;
+      }
       final stored = result.draft;
       if (result.status != CustomSceneDraftReadStatus.available ||
           stored == null ||
           stored.draftId != submitting.draftId ||
           stored.requestIdentity.clientRequestId !=
-              submitting.requestIdentity.clientRequestId) {
+              submitting.requestIdentity.clientRequestId ||
+          stored.expectedAccountContext != submitting.expectedAccountContext) {
         return;
       }
-      await _draftContinuationCoordinator.cancel();
+      await _clearExactDraftIntentIfOwned(
+        stored,
+        operationToken: operationToken,
+      );
     } on Object {
       // Keep the deterministic profile error visible if local cleanup fails.
+    }
+  }
+
+  Future<void> _clearExactDraftIntentIfOwned(
+    CustomSceneStoredDraft draft, {
+    required _CustomSceneOperationToken operationToken,
+  }) async {
+    if (!_isOperationCurrent(operationToken)) {
+      return;
+    }
+    try {
+      await _draftStore.deleteIfMatches(
+        draftId: draft.draftId,
+        clientRequestId: draft.requestIdentity.clientRequestId,
+        expectedAccountContext: draft.expectedAccountContext,
+        now: _clock().toUtc(),
+      );
+    } on Object {
+      // Best effort cleanup must not replace the primary state.
+    }
+    if (!_isOperationCurrent(operationToken)) {
+      return;
+    }
+    try {
+      await _draftContinuationCoordinator
+          .clearAuthenticationContinuationIfMatches(
+            draftId: draft.draftId,
+            clientRequestId: draft.requestIdentity.clientRequestId,
+            expectedAccountContext: draft.expectedAccountContext,
+          );
+    } on Object {
+      // Best effort cleanup must not replace the primary state.
     }
   }
 
@@ -993,7 +1043,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     );
     _approvedMomentPendingRegistration = null;
     try {
-      await _audioStopper.stopActive().timeout(_audioStopTimeout);
+      await _audioStopper.stopActive().timeout(safetyAudioStopTimeout);
     } on Object {
       // A hung or failed audio stop cannot delay the safety state indefinitely.
     }
@@ -1007,29 +1057,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         safetyNotice: safety,
       ),
     );
-    try {
-      if (!_isOperationCurrent(safetyToken)) {
-        return;
-      }
-      await _draftStore.deleteIfMatches(
-        draftId: draft.draftId,
-        clientRequestId: draft.requestIdentity.clientRequestId,
-        expectedAccountContext: draft.expectedAccountContext,
-        now: _clock().toUtc(),
-      );
-    } on Object {
-      // Safety notice remains the primary visible result.
-    }
-    try {
-      if (!_isOperationCurrent(safetyToken)) {
-        return;
-      }
-      await _draftContinuationCoordinator.clearAuthenticationContinuation(
-        draftId: draft.draftId,
-      );
-    } on Object {
-      // Authentication continuation cleanup is best effort.
-    }
+    await _clearExactDraftIntentIfOwned(draft, operationToken: safetyToken);
   }
 
   _CustomSceneOperationToken _captureOperationToken() {
