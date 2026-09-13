@@ -31,7 +31,7 @@ class CustomSceneMapper {
           response.policyVersion == null &&
               response.scene == null &&
               safety != null &&
-              safety.templateId != 'health-assessment-unavailable-v1',
+              safety.templateId != healthAssessmentUnavailableTemplateId,
         );
         return HealthSafetyResult(_toHealthSafetyNotice(safety!));
       case 'assessment_unavailable':
@@ -40,7 +40,7 @@ class CustomSceneMapper {
           response.policyVersion == null &&
               response.scene == null &&
               safety != null &&
-              safety.templateId == 'health-assessment-unavailable-v1' &&
+              safety.templateId == healthAssessmentUnavailableTemplateId &&
               safety.action == 'uncertain',
         );
         return AssessmentUnavailableResult(_toHealthSafetyNotice(safety!));
@@ -182,13 +182,7 @@ class CustomSceneMapper {
   }
 
   HealthSafetyNotice _toHealthSafetyNotice(CustomSceneSafetyDto safety) {
-    final expectedAction = <String, String>{
-      'health-emergency-v1': 'emergency',
-      'health-concern-v1': 'seek_medical_help',
-      'health-prompt-assessment-v1': 'seek_medical_help',
-      'health-uncertain-v1': 'uncertain',
-      'health-assessment-unavailable-v1': 'uncertain',
-    }[safety.templateId];
+    final expectedAction = healthSafetyTemplateActionById[safety.templateId];
     _require(
       expectedAction == safety.action &&
           safety.policyVersion == generatedCareSafetyPolicyVersion &&

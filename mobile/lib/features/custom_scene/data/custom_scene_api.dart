@@ -11,6 +11,16 @@ import 'package:mobile/features/custom_scene/data/custom_scene_dtos.dart';
 
 enum CustomSceneApiFailureKind { network, timeout, malformed, http }
 
+const Set<String> _authenticationFailureCodes = <String>{
+  'consumer_authentication_required',
+  'consumer_session_invalid',
+  'invalid_access_token',
+  'access_token_rotated',
+  'access_token_revoked',
+  'access_token_expired',
+  'invalid_session',
+};
+
 class CustomSceneApiException implements Exception {
   const CustomSceneApiException({
     required this.kind,
@@ -37,7 +47,8 @@ class CustomSceneApiException implements Exception {
   final String? generatedContentId;
   final bool requiresNewClientRequestId;
 
-  bool get isUnauthorized => statusCode == 401 || code == 'invalid_session';
+  bool get isUnauthorized =>
+      statusCode == 401 && _authenticationFailureCodes.contains(code);
 
   @override
   String toString() {

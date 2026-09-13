@@ -1,14 +1,7 @@
 import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 
 const customSceneResultSchemaVersion = 'custom-scene-result-v2';
-
-const Map<String, String> _healthSafetyTemplateActions = <String, String>{
-  'health-emergency-v1': 'emergency',
-  'health-concern-v1': 'seek_medical_help',
-  'health-prompt-assessment-v1': 'seek_medical_help',
-  'health-uncertain-v1': 'uncertain',
-  'health-assessment-unavailable-v1': 'uncertain',
-};
 
 class CustomSceneDiscoveryV2ResponseDto {
   CustomSceneDiscoveryV2ResponseDto({
@@ -61,15 +54,28 @@ class CustomSceneDiscoveryV2ResponseDto {
         if (schemaVersion != customSceneResultSchemaVersion) {
           throw const FormatException('v2 custom scene result schema 不受支持。');
         }
+        final safety = CustomSceneSafetyDto.fromJson(
+          _requiredMap(json, 'safety'),
+        );
+        if (resultType == 'health_safety' &&
+            safety.templateId == healthAssessmentUnavailableTemplateId) {
+          throw const FormatException(
+            'assessment unavailable template cannot be health safety result。',
+          );
+        }
+        if (resultType == 'assessment_unavailable' &&
+            safety.templateId != healthAssessmentUnavailableTemplateId) {
+          throw const FormatException(
+            'assessment unavailable result must use unavailable template。',
+          );
+        }
         return CustomSceneDiscoveryV2ResponseDto(
           schemaVersion: schemaVersion,
           discoveryTraceId: _requiredString(json, 'discoveryTraceId'),
           resultType: resultType,
           policyVersion: null,
           scene: null,
-          safety: CustomSceneSafetyDto.fromJson(
-            _requiredMap(json, 'safety'),
-          ),
+          safety: safety,
         );
       default:
         throw const FormatException('未知 v2 custom scene result type。');
@@ -111,7 +117,7 @@ class CustomSceneSafetyDto {
     final messageZh = _requiredString(json, 'messageZh');
     if (policyVersion != generatedCareSafetyPolicyVersion ||
         locale != 'zh-CN' ||
-        _healthSafetyTemplateActions[templateId] != action) {
+        healthSafetyTemplateActionById[templateId] != action) {
       throw const FormatException('health safety contract 不受支持。');
     }
     return CustomSceneSafetyDto(

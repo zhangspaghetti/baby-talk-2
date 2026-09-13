@@ -346,6 +346,35 @@ void main() {
   );
 
   test(
+    'maps 404 or 500 invalid_session to unavailable without refresh or retry',
+    () async {
+      for (final statusCode in <int>[404, 500]) {
+        final gateway = _RecordingGateway(
+          error: CustomSceneApiException(
+            kind: CustomSceneApiFailureKind.http,
+            statusCode: statusCode,
+            code: 'invalid_session',
+          ),
+        );
+        final repository = _repository(gateway: gateway);
+
+        final result = await repository.generate(
+          CustomSceneDraft(
+            text: '宝宝洗澡时一直躲水。',
+            entrySource: CustomSceneEntrySource.scene,
+            requestIdentity: CustomSceneRequestIdentity(
+              clientRequestId: 'custom_scene_status_$statusCode',
+            ),
+          ),
+        );
+
+        expect(result, isA<AssessmentUnavailableResult>());
+        expect(gateway.callCount, 1);
+      }
+    },
+  );
+
+  test(
     'maps malformed v2 response to assessment unavailable fallback',
     () async {
       final gateway = _RecordingGateway(

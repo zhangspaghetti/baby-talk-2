@@ -105,8 +105,133 @@ void main() {
         ),
       );
     });
+
+    test('does not refresh when 404 or 500 says invalid_session', () async {
+      for (final statusCode in <int>[404, 500]) {
+        final accountApiService = _NoRefreshAccountApiService();
+        var requestCount = 0;
+        final api = CustomSceneApi(
+          authenticatedApiClient: AuthenticatedApiClient(
+            apiService: accountApiService,
+          ),
+          dio: _mockDio((options) async {
+            requestCount += 1;
+            return _response(
+              options,
+              _errorResponse(statusCode, code: 'invalid_session'),
+              statusCode: statusCode,
+            );
+          }),
+        );
+
+        await expectLater(
+          api.generate(
+            session: _session(),
+            persistRefreshedSession: (session) async => session,
+            request: _request(),
+          ),
+          throwsA(
+            isA<CustomSceneApiException>()
+                .having(
+                  (error) => error.kind,
+                  'kind',
+                  CustomSceneApiFailureKind.http,
+                )
+                .having((error) => error.statusCode, 'statusCode', statusCode),
+          ),
+        );
+        expect(requestCount, 1);
+        expect(accountApiService.refreshCallCount, 0);
+      }
+    });
+
+    test('only marks known authentication failures as refreshable 401s', () {
+      expect(
+        const CustomSceneApiException(
+          kind: CustomSceneApiFailureKind.http,
+          statusCode: 401,
+          code: 'invalid_session',
+        ).isUnauthorized,
+        isTrue,
+      );
+      expect(
+        const CustomSceneApiException(
+          kind: CustomSceneApiFailureKind.http,
+          statusCode: 404,
+          code: 'invalid_session',
+        ).isUnauthorized,
+        isFalse,
+      );
+      expect(
+        const CustomSceneApiException(
+          kind: CustomSceneApiFailureKind.http,
+          statusCode: 401,
+          code: 'unknown_auth_code',
+        ).isUnauthorized,
+        isFalse,
+      );
+    });
+
+    test(
+      'parses malformed 404 and 500 bodies as unavailable API errors',
+      () async {
+        for (final statusCode in <int>[404, 500]) {
+          for (final body in <Object?>[
+            '',
+            '<html>gateway failure</html>',
+            <String, Object?>{'unexpected': true},
+          ]) {
+            final accountApiService = _NoRefreshAccountApiService();
+            final api = CustomSceneApi(
+              authenticatedApiClient: AuthenticatedApiClient(
+                apiService: accountApiService,
+              ),
+              dio: _mockDio(
+                (options) async =>
+                    _response(options, body, statusCode: statusCode),
+              ),
+            );
+
+            await expectLater(
+              api.generate(
+                session: _session(),
+                persistRefreshedSession: (session) async => session,
+                request: _request(),
+              ),
+              throwsA(
+                isA<CustomSceneApiException>().having(
+                  (error) => error.kind,
+                  'kind',
+                  CustomSceneApiFailureKind.malformed,
+                ),
+              ),
+            );
+            expect(accountApiService.refreshCallCount, 0);
+          }
+        }
+      },
+    );
   });
 }
+
+CustomSceneRequestDto _request() => const CustomSceneRequestDto(
+  installationId: 'install_1',
+  babyProfileId: null,
+  ageRange: 'm7_11',
+  parentGoal: 'natural_opening',
+  locale: 'zh-CN',
+  customSceneText: '宝宝洗澡时一直躲水。',
+  clientRequestId: 'custom_scene_1',
+);
+
+Map<String, Object?> _errorResponse(int statusCode, {required String code}) =>
+    <String, Object?>{
+      'timestamp': '2026-07-28T00:00:00Z',
+      'status': statusCode,
+      'code': code,
+      'message': '暂时无法完成请求。',
+      'details': <String, Object?>{},
+    };
 
 Dio _mockDio(Future<Response<dynamic>> Function(RequestOptions) handler) {
   return Dio(
@@ -143,10 +268,13 @@ AccountSession _session() {
 class _NoRefreshAccountApiService extends AccountApiService {
   _NoRefreshAccountApiService() : super();
 
+  int refreshCallCount = 0;
+
   @override
   Future<AccountSessionResponse> refreshSession({
     required String refreshToken,
   }) {
+    refreshCallCount += 1;
     throw StateError('refresh should not be called');
   }
 

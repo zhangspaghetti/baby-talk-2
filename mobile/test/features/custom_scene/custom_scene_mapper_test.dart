@@ -37,7 +37,7 @@ void main() {
       final response = _validResponse()..['providerDebug'] = 'never expose';
 
       expect(
-      () => CustomSceneDiscoveryV2ResponseDto.fromJson(response),
+        () => CustomSceneDiscoveryV2ResponseDto.fromJson(response),
         throwsFormatException,
       );
     },
@@ -47,8 +47,8 @@ void main() {
     final response = _validResponse();
     final support =
         ((response['scene'] as Map<String, dynamic>)['reactionSupports']
-                as List<dynamic>)
-            .first
+                    as List<dynamic>)
+                .first
             as Map<String, dynamic>;
     support['reaction'] = 'surprised';
 
@@ -93,8 +93,8 @@ void main() {
     final wrongRole = _validResponse();
     final first =
         ((wrongRole['scene'] as Map<String, dynamic>)['reactionSupports']
-                as List<dynamic>)
-            .first
+                    as List<dynamic>)
+                .first
             as Map<String, dynamic>;
     first['role'] = 'starter';
     expect(
@@ -152,9 +152,7 @@ void main() {
 
   test('maps assessment_unavailable with embedded fallback copy', () {
     final result = mapper.toCustomSceneResult(
-      CustomSceneDiscoveryV2ResponseDto.fromJson(
-        _unavailableResponse(),
-      ),
+      CustomSceneDiscoveryV2ResponseDto.fromJson(_unavailableResponse()),
     );
 
     expect(result, isA<AssessmentUnavailableResult>());
@@ -168,6 +166,58 @@ void main() {
       safety.messageZh,
       '暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。',
     );
+  });
+
+  test('reserves assessment-unavailable template for its own variant', () {
+    final health = _healthResponse();
+    final healthSafety = health['safety'] as Map<String, dynamic>;
+    healthSafety['action'] = 'uncertain';
+    healthSafety['templateId'] = 'health-assessment-unavailable-v1';
+
+    expect(
+      () => CustomSceneDiscoveryV2ResponseDto.fromJson(health),
+      throwsFormatException,
+    );
+
+    expect(
+      CustomSceneDiscoveryV2ResponseDto.fromJson(
+        _unavailableResponse(),
+      ).resultType,
+      'assessment_unavailable',
+    );
+
+    final unavailableWithHealthTemplate = _unavailableResponse();
+    final unavailableSafety =
+        unavailableWithHealthTemplate['safety'] as Map<String, dynamic>;
+    unavailableSafety['action'] = 'seek_medical_help';
+    unavailableSafety['templateId'] = 'health-concern-v1';
+    expect(
+      () => CustomSceneDiscoveryV2ResponseDto.fromJson(
+        unavailableWithHealthTemplate,
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('uses one registry for every approved template/action pair', () {
+    for (final entry in healthSafetyTemplateActionById.entries) {
+      final response = entry.key == 'health-assessment-unavailable-v1'
+          ? _unavailableResponse()
+          : _healthResponse();
+      final safety = response['safety'] as Map<String, dynamic>;
+      safety['templateId'] = entry.key;
+      safety['action'] = entry.value;
+
+      final result = mapper.toCustomSceneResult(
+        CustomSceneDiscoveryV2ResponseDto.fromJson(response),
+      );
+      expect(
+        result,
+        entry.key == 'health-assessment-unavailable-v1'
+            ? isA<AssessmentUnavailableResult>()
+            : isA<HealthSafetyResult>(),
+      );
+    }
   });
 
   test('rejects cross-variant payload fields and unknown values', () {
@@ -184,20 +234,21 @@ void main() {
       throwsFormatException,
     );
 
-    for (final mutation in <Map<String, dynamic> Function(Map<String, dynamic>)>[
-      (json) => json..['resultType'] = 'future_result',
-      (json) => json..['policyVersion'] = 'health-safety-v2',
-      (json) {
-        final safety = json['safety'] as Map<String, dynamic>;
-        safety['action'] = 'diagnose';
-        return json;
-      },
-      (json) {
-        final safety = json['safety'] as Map<String, dynamic>;
-        safety['templateId'] = 'health-future-v1';
-        return json;
-      },
-    ]) {
+    for (final mutation
+        in <Map<String, dynamic> Function(Map<String, dynamic>)>[
+          (json) => json..['resultType'] = 'future_result',
+          (json) => json..['policyVersion'] = 'health-safety-v2',
+          (json) {
+            final safety = json['safety'] as Map<String, dynamic>;
+            safety['action'] = 'diagnose';
+            return json;
+          },
+          (json) {
+            final safety = json['safety'] as Map<String, dynamic>;
+            safety['templateId'] = 'health-future-v1';
+            return json;
+          },
+        ]) {
       expect(
         () => CustomSceneDiscoveryV2ResponseDto.fromJson(
           mutation(_healthResponse()),
@@ -207,27 +258,30 @@ void main() {
     }
   });
 
-  test('rejects non-Chinese locale, missing copy, and missing schema version', () {
-    final nonChinese = _healthResponse();
-    (nonChinese['safety'] as Map<String, dynamic>)['locale'] = 'en-US';
-    expect(
-      () => CustomSceneDiscoveryV2ResponseDto.fromJson(nonChinese),
-      throwsFormatException,
-    );
+  test(
+    'rejects non-Chinese locale, missing copy, and missing schema version',
+    () {
+      final nonChinese = _healthResponse();
+      (nonChinese['safety'] as Map<String, dynamic>)['locale'] = 'en-US';
+      expect(
+        () => CustomSceneDiscoveryV2ResponseDto.fromJson(nonChinese),
+        throwsFormatException,
+      );
 
-    final missingCopy = _healthResponse();
-    (missingCopy['safety'] as Map<String, dynamic>).remove('messageZh');
-    expect(
-      () => CustomSceneDiscoveryV2ResponseDto.fromJson(missingCopy),
-      throwsFormatException,
-    );
+      final missingCopy = _healthResponse();
+      (missingCopy['safety'] as Map<String, dynamic>).remove('messageZh');
+      expect(
+        () => CustomSceneDiscoveryV2ResponseDto.fromJson(missingCopy),
+        throwsFormatException,
+      );
 
-    final missingSchema = _healthResponse()..remove('schemaVersion');
-    expect(
-      () => CustomSceneDiscoveryV2ResponseDto.fromJson(missingSchema),
-      throwsFormatException,
-    );
-  });
+      final missingSchema = _healthResponse()..remove('schemaVersion');
+      expect(
+        () => CustomSceneDiscoveryV2ResponseDto.fromJson(missingSchema),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('maps malformed or future JSON to assessment unavailable fallback', () {
     final result = mapper.fromJson(<String, dynamic>{
@@ -276,8 +330,7 @@ Map<String, dynamic> _unavailableResponse() => <String, dynamic>{
     'policyVersion': 'health-safety-v1',
     'locale': 'zh-CN',
     'titleZh': '暂时无法判断这段描述',
-    'messageZh':
-        '暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。',
+    'messageZh': '暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。',
   },
 };
 
