@@ -25,3 +25,10 @@ Flutter-generated Windows files were restored after verification.
 ## Short contract
 
 Terminal health states show fixed Chinese safety guidance in one live region with only `关闭` and `修改描述`. Editing clears the terminal state, focuses the input, and resubmits through the normal fresh-request path; closing leaves the flow without care-turn handoff.
+
+## Round 1 fix
+
+- Added `assessmentUnavailable` widget coverage using `healthAssessmentUnavailableNotice` and a controller state in the unavailable terminal phase.
+- Asserted exact fixed Chinese title/message, one live-region label, only close/edit actions, and no input, submit, generated, handoff, audio, retry, or celebration UI.
+
+Verification: focused two-file widget command passed with `21` tests; focused analyze passed; format check passed; `git diff --check` passed. Flutter-generated Windows files were restored after the run.

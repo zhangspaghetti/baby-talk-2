@@ -322,6 +322,64 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets(
+    'assessment unavailable renders its fixed Chinese terminal guidance',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final controller = _ImmediateSubmissionController()
+        ..publishAssessmentUnavailable();
+      await _pump(
+        tester,
+        CustomSceneInputScreen(
+          routeArgs: const CustomSceneRouteArgs(
+            entrySource: CustomSceneEntrySource.scene,
+          ),
+          controller: controller,
+        ),
+      );
+
+      expect(
+        controller.state.phase,
+        CustomSceneSubmissionPhase.assessmentUnavailable,
+      );
+      expect(
+        find.text(healthAssessmentUnavailableNotice.titleZh),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(healthAssessmentUnavailableNotice.messageZh),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('custom-scene-health-close')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('custom-scene-health-edit')), findsOneWidget);
+
+      final label =
+          '${healthAssessmentUnavailableNotice.titleZh}。${healthAssessmentUnavailableNotice.messageZh}';
+      final panel = find.byKey(const Key('custom-scene-health-panel'));
+      expect(
+        tester.getSemantics(panel),
+        matchesSemantics(label: label, isLiveRegion: true),
+      );
+      expect(find.semantics.byLabel(label), findsOneWidget);
+
+      expect(find.byKey(const Key('custom-scene-text-field')), findsNothing);
+      expect(find.byKey(const Key('custom-scene-submit-button')), findsNothing);
+      expect(
+        find.byKey(const Key('custom-scene-abandon-prepared')),
+        findsNothing,
+      );
+      expect(find.text('重试'), findsNothing);
+      expect(find.text('播放'), findsNothing);
+      expect(find.text('庆祝'), findsNothing);
+      expect(find.textContaining('Warm water'), findsNothing);
+      expect(find.textContaining('starter'), findsNothing);
+      semantics.dispose();
+    },
+  );
+
   testWidgets('modify description clears safety and submits a new request', (
     tester,
   ) async {
@@ -501,6 +559,14 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
         titleZh: titleZh,
         messageZh: messageZh,
       ),
+    );
+  }
+
+  void publishAssessmentUnavailable() {
+    _testState = CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.assessmentUnavailable,
+      message: healthAssessmentUnavailableNotice.messageZh,
+      safetyNotice: healthAssessmentUnavailableNotice,
     );
   }
 
