@@ -143,6 +143,20 @@ class CustomSceneAgenticGenerationIntegrationTest extends AbstractIntegrationTes
     }
 
     @Test
+    void healthSafetyStopsGenerationAndRecordsOnlyAggregateMetric() throws Exception {
+        when(customSceneSafetyClassifier.classify(any())).thenReturn(new CustomSceneSafetyClassifier.SemanticResult(
+                CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
+                List.of(CustomSceneSafetyClassifier.Signal.HEALTH_CONCERN)));
+
+        mockMvc.perform(discovery("install_agentic_health", "宝宝拉肚子哭闹怎么办"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("health_safety_redirect"));
+
+        assertThat(count("practice_generated_content")).isZero();
+        assertThat(count("practice_ai_provider_calls")).isZero();
+    }
+
+    @Test
     void realOnboardingGeneratorTurnUsesRealGeneratedContentService() {
         var installationId = "install_agentic_onboarding_turn";
         var result = onboardingGenerator.generateNext(new OnboardingConversationGenerator.NextGenerationRequest(

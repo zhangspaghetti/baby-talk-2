@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.ObjectProvider;
@@ -40,6 +41,7 @@ public final class CustomSceneSafetyPolicy {
     private final AsyncTaskExecutor executor;
     private final Duration classifierTimeout;
     private final String policyVersion;
+    private final CustomSceneSafetyMetrics metrics;
 
     @Autowired
     public CustomSceneSafetyPolicy(
@@ -48,10 +50,11 @@ public final class CustomSceneSafetyPolicy {
             HealthSafetyTemplateRegistry templates,
             @Qualifier(CustomSceneSafetyExecutorConfiguration.EXECUTOR_BEAN_NAME)
             AsyncTaskExecutor executor,
-            CustomSceneSafetyProperties properties
+            CustomSceneSafetyProperties properties,
+            CustomSceneSafetyMetrics metrics
     ) {
         this(emergencyRules, classifierProvider == null ? null : classifierProvider.getIfAvailable(), templates, executor,
-                properties.classifierTimeout(), properties.policyVersion());
+                properties.classifierTimeout(), properties.policyVersion(), metrics);
     }
 
     public CustomSceneSafetyPolicy(
@@ -62,7 +65,19 @@ public final class CustomSceneSafetyPolicy {
             CustomSceneSafetyProperties properties
     ) {
         this(emergencyRules, classifier, templates, executor,
-                properties.classifierTimeout(), properties.policyVersion());
+                properties.classifierTimeout(), properties.policyVersion(), CustomSceneSafetyMetrics.noop());
+    }
+
+    public CustomSceneSafetyPolicy(
+            CustomSceneEmergencyRuleClassifier emergencyRules,
+            CustomSceneSafetyClassifier classifier,
+            HealthSafetyTemplateRegistry templates,
+            AsyncTaskExecutor executor,
+            CustomSceneSafetyProperties properties,
+            CustomSceneSafetyMetrics metrics
+    ) {
+        this(emergencyRules, classifier, templates, executor,
+                properties.classifierTimeout(), properties.policyVersion(), metrics);
     }
 
     public CustomSceneSafetyPolicy(
@@ -73,12 +88,26 @@ public final class CustomSceneSafetyPolicy {
             Duration classifierTimeout,
             String policyVersion
     ) {
+        this(emergencyRules, classifier, templates, executor, classifierTimeout, policyVersion,
+                CustomSceneSafetyMetrics.noop());
+    }
+
+    public CustomSceneSafetyPolicy(
+            CustomSceneEmergencyRuleClassifier emergencyRules,
+            CustomSceneSafetyClassifier classifier,
+            HealthSafetyTemplateRegistry templates,
+            AsyncTaskExecutor executor,
+            Duration classifierTimeout,
+            String policyVersion,
+            CustomSceneSafetyMetrics metrics
+    ) {
         this.emergencyRules = Objects.requireNonNull(emergencyRules, "emergencyRules");
         this.classifier = classifier;
         this.templates = Objects.requireNonNull(templates, "templates");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.classifierTimeout = requirePositive(classifierTimeout);
         this.policyVersion = requirePolicyVersion(policyVersion);
+        this.metrics = Objects.requireNonNull(metrics, "metrics");
     }
 
     public CustomSceneSafetyPolicy(
@@ -107,36 +136,51 @@ public final class CustomSceneSafetyPolicy {
         try {
             urgent = emergencyRules.classify(forms);
         } catch (RuntimeException failure) {
-            return unavailable();
+            return unavailable(CustomSceneSafetyMetrics.FailureKind.INVALID_OUTPUT);
         }
         if (urgent == null) {
-            return unavailable();
+            return unavailable(CustomSceneSafetyMetrics.FailureKind.INVALID_OUTPUT);
         }
         if (urgent.isPresent()) {
             var assessment = urgent.orElse(null);
             if (isEmergencyAssessment(assessment)) {
-                return CustomSceneSafetyDecision.health(
-                        assessment, templates.template("health-emergency-v1"));
+                return record(CustomSceneSafetyDecision.health(
+                        assessment, templates.template("health-emergency-v1")));
             }
-            return unavailable();
+            return unavailable(CustomSceneSafetyMetrics.FailureKind.INVALID_OUTPUT);
         }
 
-        if (!supportedGenerationContext(surface, mode)
-                || classifier == null || forms == null || isBlank(forms.displayText()) || isBlank(ageRange)) {
-            return unavailable();
+        if (!supportedGenerationContext(surface, mode)) {
+            metrics.recordBlockedLegacyBypass();
+            return record(unavailable());
+        }
+        if (classifier == null || forms == null || isBlank(forms.displayText()) || isBlank(ageRange)) {
+            return unavailable(CustomSceneSafetyMetrics.FailureKind.INVALID_OUTPUT);
         }
 
         var request = new CustomSceneSafetyClassifier.ClassifierRequest(
                 forms.displayText(), ageRange.trim(), LOCALE, policyVersion);
         var result = new CompletableFuture<CustomSceneSafetyClassifier.SemanticResult>();
         Future<?> submitted = null;
+        var timer = metrics.startClassifierTimer();
         try {
             submitted = executor.submit(() -> classifyInto(result, request));
             result.orTimeout(timeoutMillis(classifierTimeout), TimeUnit.MILLISECONDS);
-            return mapSemantic(result.join(), forms, request.ageRange(), surface, mode);
+            var decision = mapSemantic(result.join(), forms, request.ageRange(), surface, mode);
+            if (decision.resultType() == CustomSceneSafetyDecision.ResultType.ASSESSMENT_UNAVAILABLE) {
+                metrics.recordInvalidOutput();
+            }
+            return record(decision);
         } catch (RuntimeException failure) {
             cancel(submitted, result);
-            return unavailable();
+            if (hasCause(failure, TimeoutException.class)) {
+                metrics.recordClassifierTimeout();
+            } else {
+                metrics.recordInvalidOutput();
+            }
+            return record(unavailable());
+        } finally {
+            metrics.recordClassifierDuration(timer);
         }
     }
 
@@ -243,6 +287,16 @@ public final class CustomSceneSafetyPolicy {
         }
     }
 
+    private CustomSceneSafetyDecision unavailable(CustomSceneSafetyMetrics.FailureKind failureKind) {
+        metrics.recordFailure(failureKind);
+        return record(unavailable());
+    }
+
+    private CustomSceneSafetyDecision record(CustomSceneSafetyDecision decision) {
+        metrics.recordResult(decision);
+        return decision;
+    }
+
     private void cancel(
             Future<?> submitted,
             CompletableFuture<?> result
@@ -255,6 +309,15 @@ public final class CustomSceneSafetyPolicy {
 
     private static long timeoutMillis(Duration timeout) {
         return Math.max(1L, timeout.toMillis());
+    }
+
+    private static boolean hasCause(Throwable failure, Class<? extends Throwable> type) {
+        for (var cause = failure; cause != null; cause = cause.getCause()) {
+            if (type.isInstance(cause)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Duration requirePositive(Duration timeout) {

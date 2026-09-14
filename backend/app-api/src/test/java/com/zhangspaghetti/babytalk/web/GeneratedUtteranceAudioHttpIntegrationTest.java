@@ -135,10 +135,12 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
         seedActiveCarePathContent(owner.accountId(), 1);
         acceptConsent(owner.accessToken());
 
-        var audio = getAudio(owner.accessToken(), CONTENT_ID, STARTER_UTTERANCE_ID);
+        for (var utteranceId : BUNDLE_UTTERANCE_IDS) {
+            var audio = getAudio(owner.accessToken(), CONTENT_ID, utteranceId);
 
-        assertThat(audio.statusCode()).isEqualTo(404);
-        assertThat(readJson(audio.body()).get("code").asText()).isEqualTo("generated_audio_not_found");
+            assertThat(audio.statusCode()).isEqualTo(404);
+            assertThat(readJson(audio.body()).get("code").asText()).isEqualTo("generated_audio_not_found");
+        }
     }
 
     private TokenView authenticate(String phoneNumber, String installationId) throws Exception {
