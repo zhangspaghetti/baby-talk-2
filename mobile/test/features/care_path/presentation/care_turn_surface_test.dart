@@ -746,6 +746,15 @@ void main() {
     first.finishStop.complete();
     await first.disposeFinished.future;
     await tester.pump();
+    await tester.pump();
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('care-turn-listen-once')),
+          )
+          .onPressed,
+      isNotNull,
+    );
     await tester.tap(find.byKey(const Key('care-turn-listen-once')));
     await tester.pump();
 
@@ -857,6 +866,173 @@ void main() {
     await tester.tap(find.byKey(const Key('care-turn-listen-once')));
     await tester.pump();
     expect(second.requests, hasLength(1));
+  });
+
+  testWidgets(
+    'deferred source stop blocks all replacement factories until it settles',
+    (tester) async {
+      final coordinator = CareAudioSessionCoordinator();
+      final replacementNotifier = CarePathNotifier(
+        repository: CarePathRepository(
+          practiceRepository: _MemoryPracticeRepository(),
+        ),
+      );
+      addTearDown(replacementNotifier.dispose);
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await replacementNotifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+
+      final first = _OrderedStopCareAudioPlaybackController();
+      var secondFactoryCalls = 0;
+      var thirdFactoryCalls = 0;
+      _ControllableCareAudioPlaybackController? third;
+      CareAudioPlaybackController firstFactory() => first;
+      CareAudioPlaybackController secondFactory() {
+        secondFactoryCalls += 1;
+        return _ControllableCareAudioPlaybackController();
+      }
+
+      CareAudioPlaybackController thirdFactory() {
+        thirdFactoryCalls += 1;
+        return third = _ControllableCareAudioPlaybackController();
+      }
+
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: notifier,
+          careAudioControllerFactory: firstFactory,
+          careAudioSessionCoordinator: coordinator,
+        ),
+      );
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: replacementNotifier,
+          careAudioControllerFactory: secondFactory,
+          careAudioSessionCoordinator: coordinator,
+        ),
+      );
+      await first.firstStopStarted.future;
+
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: replacementNotifier,
+          careAudioControllerFactory: thirdFactory,
+          careAudioSessionCoordinator: coordinator,
+        ),
+      );
+      expect(first.disposeCalls, 0);
+      expect(secondFactoryCalls, 0);
+      expect(thirdFactoryCalls, 0);
+
+      first.finishFirstStop.complete();
+      for (
+        var index = 0;
+        index < 5 && !first.secondStopStarted.isCompleted;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+      expect(first.secondStopStarted.isCompleted, isTrue);
+      expect(first.disposeCalls, 0);
+      first.finishSecondStop.complete();
+      for (var index = 0; index < 5 && thirdFactoryCalls == 0; index += 1) {
+        await tester.pump();
+      }
+
+      expect(secondFactoryCalls, 0);
+      expect(thirdFactoryCalls, 1);
+      expect(third, isNotNull);
+      await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+      await tester.pump();
+      expect(third!.requests, hasLength(1));
+    },
+  );
+
+  testWidgets('A-B-C-B creates and attaches only latest B', (tester) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _DeferredReplacementCareAudioPlaybackController();
+    final bControllers = <_ControllableCareAudioPlaybackController>[];
+    final cControllers = <_ControllableCareAudioPlaybackController>[];
+    CareAudioPlaybackController firstFactory() => first;
+    CareAudioPlaybackController bFactory() {
+      final controller = _ControllableCareAudioPlaybackController();
+      bControllers.add(controller);
+      return controller;
+    }
+
+    CareAudioPlaybackController cFactory() {
+      final controller = _ControllableCareAudioPlaybackController();
+      cControllers.add(controller);
+      return controller;
+    }
+
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudioControllerFactory: firstFactory,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudioControllerFactory: bFactory,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await first.stopStarted.future;
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudioControllerFactory: cFactory,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudioControllerFactory: bFactory,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+
+    expect(bControllers, isEmpty);
+    expect(cControllers, isEmpty);
+    first.finishStop.complete();
+    await first.disposeFinished.future;
+    for (var index = 0; index < 5 && bControllers.isEmpty; index += 1) {
+      await tester.pump();
+    }
+
+    expect(bControllers, hasLength(1));
+    expect(cControllers, isEmpty);
+    expect(first.disposeCalls, 1);
+    expect(bControllers.single.disposeCalls, 0);
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    expect(bControllers.single.requests, hasLength(1));
+
+    await tester.pumpWidget(const SizedBox());
+    for (
+      var index = 0;
+      index < 5 && bControllers.single.disposeCalls == 0;
+      index += 1
+    ) {
+      await tester.pump();
+    }
+    expect(bControllers.single.disposeCalls, 1);
+    expect(
+      cControllers.every((controller) => controller.disposeCalls <= 1),
+      isTrue,
+    );
   });
 
   testWidgets('late source-stop failure after ownership loss stays silent', (
@@ -1131,6 +1307,7 @@ Widget _surfaceTestApp({
   CareTurnTraceReady? onTraceReady,
   CareTurnRetryReaction? onRetryReaction,
   CareAudioPlaybackController? careAudio,
+  CareAudioPlaybackController Function()? careAudioControllerFactory,
   CareAudioSessionCoordinator? careAudioSessionCoordinator,
   PracticeAudioController Function()? audioControllerFactory,
   CareTurnAudioPlaybackPolicy playbackPolicy =
@@ -1144,7 +1321,10 @@ Widget _surfaceTestApp({
         notifier: notifier,
         audioControllerFactory:
             audioControllerFactory ?? _SilentPracticeAudioController.new,
-        careAudioControllerFactory: careAudio == null ? null : () => careAudio,
+        careAudioController: careAudioControllerFactory == null
+            ? careAudio
+            : null,
+        careAudioControllerFactory: careAudioControllerFactory,
         careAudioSessionCoordinator: careAudioSessionCoordinator,
         playbackPolicy: playbackPolicy,
         onTraceReady: onTraceReady,
@@ -1166,7 +1346,7 @@ Widget _generatedSurfaceTestApp({
     home: Scaffold(
       body: CareTurnSurface(
         notifier: notifier,
-        careAudioControllerFactory: () => audio,
+        careAudioController: audio,
         careAudioSessionCoordinator: careAudioSessionCoordinator,
       ),
     ),
@@ -1465,7 +1645,6 @@ class _DeferredReplacementCareAudioPlaybackController
 
   @override
   Future<void> dispose() async {
-    disposeCalls += 1;
     disposeBeforeStop = !stopCompleted;
     await super.dispose();
     disposeFinished.complete();
