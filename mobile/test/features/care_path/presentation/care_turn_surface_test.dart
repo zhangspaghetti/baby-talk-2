@@ -869,6 +869,46 @@ void main() {
   });
 
   testWidgets(
+    'surface dispose waits for deferred source stop before controller dispose',
+    (tester) async {
+      final replacementNotifier = CarePathNotifier(
+        repository: CarePathRepository(
+          practiceRepository: _MemoryPracticeRepository(),
+        ),
+      );
+      addTearDown(replacementNotifier.dispose);
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await replacementNotifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+
+      final audio = _DeferredReplacementCareAudioPlaybackController();
+      await tester.pumpWidget(
+        _surfaceTestApp(notifier: notifier, careAudio: audio),
+      );
+      await tester.pumpWidget(
+        _surfaceTestApp(notifier: replacementNotifier, careAudio: audio),
+      );
+      await audio.stopStarted.future;
+
+      await tester.pumpWidget(const SizedBox());
+      expect(audio.disposeCalls, 0);
+
+      audio.finishStop.complete();
+      for (var index = 0; index < 5 && audio.disposeCalls == 0; index += 1) {
+        await tester.pump();
+      }
+
+      expect(audio.disposeCalls, 1);
+      expect(audio.disposeBeforeStop, isFalse);
+    },
+  );
+
+  testWidgets(
     'deferred source stop blocks all replacement factories until it settles',
     (tester) async {
       final coordinator = CareAudioSessionCoordinator();

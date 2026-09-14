@@ -153,15 +153,27 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _pendingAudioControllerIdentity = null;
     _pendingAudioKey = null;
     _playbackIntent = null;
+    _isPlayingAudio = false;
+    _isAudioPaused = false;
+    _isAudioStopping = true;
+    _audioOwnershipLost = true;
+    _audioStopFailed = false;
     widget.notifier.removeListener(_onNotifierChanged);
     final completionSubscription = _audioCompletionSubscription;
     _audioCompletionSubscription = null;
     final controller = _audioController;
     _audioController = null;
+    final stopBarrier = _audioStopBarrier;
     _unregisterAudioOwnership(widget.careAudioSessionCoordinator);
     _removeReplacementCoordinatorListener();
     if (_replacementSourceController == null) {
-      unawaited(_disposeAudioController(controller, completionSubscription));
+      unawaited(
+        _disposeAudioControllerAfterStopBarrier(
+          controller,
+          completionSubscription,
+          stopBarrier,
+        ),
+      );
     } else {
       unawaited(completionSubscription?.cancel());
     }
@@ -412,6 +424,24 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     if (controller != null && _invalidAudioControllers.add(controller)) {
       await controller.dispose();
     }
+  }
+
+  Future<void> _disposeAudioControllerAfterStopBarrier(
+    CareAudioPlaybackController? controller,
+    StreamSubscription<CareAudioPlaybackCompletion>? completionSubscription,
+    Future<bool>? stopBarrier,
+  ) async {
+    if (stopBarrier != null) {
+      try {
+        await stopBarrier;
+      } catch (_) {
+        // Disposal must continue after a failed source stop.
+      }
+      if (identical(_audioStopBarrier, stopBarrier)) {
+        _audioStopBarrier = null;
+      }
+    }
+    await _disposeAudioController(controller, completionSubscription);
   }
 
   void _registerAudioOwnership() {
