@@ -7,6 +7,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 
 typedef CustomSceneAccountEntryOpener =
@@ -80,6 +81,12 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     final isAvailable = controller != null;
     final canOpenPreparedContent = state?.canOpenPreparedContent ?? false;
     final canCancelRetainedDraft = state?.canCancelRetainedDraft ?? false;
+    final isHealthSafety =
+        state?.phase == CustomSceneSubmissionPhase.healthSafety ||
+        state?.phase == CustomSceneSubmissionPhase.assessmentUnavailable;
+    final healthNotice = isHealthSafety
+        ? state?.safetyNotice ?? healthAssessmentUnavailableNotice
+        : null;
 
     return PopScope<Object?>(
       canPop: _canPop,
@@ -114,135 +121,145 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '说说现在正在发生什么',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: AppLayoutConstants.spacingSm),
-                      Text(
-                        '写下你想回应的此刻，我们会帮你准备一句自然的表达。',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: context.appColors.textSecondary,
-                          height: 1.5,
+                      if (healthNotice != null)
+                        CustomSceneHealthSafetyPanel(
+                          notice: healthNotice,
+                          onClose: _returnToPresetScenes,
+                          onEdit: _modifyDescription,
+                        )
+                      else ...[
+                        Text(
+                          '说说现在正在发生什么',
+                          style: Theme.of(context).textTheme.headlineSmall,
                         ),
-                      ),
-                      const SizedBox(height: AppLayoutConstants.spacingLg),
-                      TextField(
-                        key: const Key('custom-scene-text-field'),
-                        controller: _textController,
-                        focusNode: _fieldFocusNode,
-                        minLines: 4,
-                        maxLines: 7,
-                        maxLength: 240,
-                        textInputAction: TextInputAction.newline,
-                        decoration: const InputDecoration(
-                          labelText: '此刻发生了什么？',
-                          hintText: '例如：洗澡时宝宝不想碰水。',
-                          alignLabelWithHint: true,
-                        ),
-                        onChanged: (_) {
-                          if (_inputError != null) {
-                            setState(() => _inputError = null);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: AppLayoutConstants.spacingSm),
-                      Semantics(
-                        container: true,
-                        label: '隐私说明：请不要填写姓名、电话、地址或其他私密信息。',
-                        child: Text(
-                          '请不要填写姓名、电话、地址或其他私密信息。',
-                          key: const Key('custom-scene-privacy-note'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: context.appColors.textMuted,
-                                height: 1.45,
-                              ),
-                        ),
-                      ),
-                      if (message != null) ...[
-                        const SizedBox(height: AppLayoutConstants.spacingMd),
-                        Semantics(
-                          liveRegion: true,
-                          child: Text(
-                            message,
-                            key: const Key('custom-scene-input-message'),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: context.appColors.error),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: AppLayoutConstants.spacingXl),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          key: const Key('custom-scene-submit-button'),
-                          onPressed: !isAvailable || busy
-                              ? null
-                              : canOpenPreparedContent
-                              ? (widget.onOpenPreparedContent == null
-                                    ? null
-                                    : () => unawaited(
-                                        widget.onOpenPreparedContent!(),
-                                      ))
-                              : _submitOrContinueAuthentication,
-                          child: Text(
-                            canOpenPreparedContent
-                                ? '打开已准备内容'
-                                : busy
-                                ? '正在准备…'
-                                : state?.phase ==
-                                      CustomSceneSubmissionPhase
-                                          .needsAuthentication
-                                ? '登录后继续'
-                                : state?.phase ==
-                                      CustomSceneSubmissionPhase.unknownOutcome
-                                ? '继续确认结果'
-                                : '帮我准备一句',
-                          ),
-                        ),
-                      ),
-                      if (canCancelRetainedDraft) ...[
-                        const SizedBox(height: AppLayoutConstants.spacingSm),
-                        Center(
-                          child: TextButton(
-                            key: const Key(
-                              'custom-scene-cancel-retained-draft',
-                            ),
-                            onPressed: busy
-                                ? null
-                                : _confirmCancelRetainedDraft,
-                            child: const Text('取消并重新开始'),
-                          ),
-                        ),
-                      ],
-                      if (canOpenPreparedContent) ...[
-                        const SizedBox(height: AppLayoutConstants.spacingSm),
-                        Center(
-                          child: TextButton(
-                            key: const Key('custom-scene-abandon-prepared'),
-                            onPressed: busy ? null : _confirmAbandonPrepared,
-                            child: const Text('放弃这条内容'),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: AppLayoutConstants.spacingSm),
-                      Center(
-                        child: TextButton(
-                          key: const Key('custom-scene-preset-fallback'),
-                          onPressed: busy ? null : _returnToPresetScenes,
-                          child: const Text('查看已有场景'),
-                        ),
-                      ),
-                      if (!isAvailable) ...[
                         const SizedBox(height: AppLayoutConstants.spacingSm),
                         Text(
-                          '这个入口正在准备中。',
-                          key: const Key('custom-scene-unavailable-note'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: context.appColors.textMuted),
-                          textAlign: TextAlign.center,
+                          '写下你想回应的此刻，我们会帮你准备一句自然的表达。',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: context.appColors.textSecondary,
+                                height: 1.5,
+                              ),
                         ),
+                        const SizedBox(height: AppLayoutConstants.spacingLg),
+                        TextField(
+                          key: const Key('custom-scene-text-field'),
+                          controller: _textController,
+                          focusNode: _fieldFocusNode,
+                          minLines: 4,
+                          maxLines: 7,
+                          maxLength: 240,
+                          textInputAction: TextInputAction.newline,
+                          decoration: const InputDecoration(
+                            labelText: '此刻发生了什么？',
+                            hintText: '例如：洗澡时宝宝不想碰水。',
+                            alignLabelWithHint: true,
+                          ),
+                          onChanged: (_) {
+                            if (_inputError != null) {
+                              setState(() => _inputError = null);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: AppLayoutConstants.spacingSm),
+                        Semantics(
+                          container: true,
+                          label: '隐私说明：请不要填写姓名、电话、地址或其他私密信息。',
+                          child: Text(
+                            '请不要填写姓名、电话、地址或其他私密信息。',
+                            key: const Key('custom-scene-privacy-note'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: context.appColors.textMuted,
+                                  height: 1.45,
+                                ),
+                          ),
+                        ),
+                        if (message != null) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingMd),
+                          Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              message,
+                              key: const Key('custom-scene-input-message'),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: context.appColors.error),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppLayoutConstants.spacingXl),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            key: const Key('custom-scene-submit-button'),
+                            onPressed: !isAvailable || busy
+                                ? null
+                                : canOpenPreparedContent
+                                ? (widget.onOpenPreparedContent == null
+                                      ? null
+                                      : () => unawaited(
+                                          widget.onOpenPreparedContent!(),
+                                        ))
+                                : _submitOrContinueAuthentication,
+                            child: Text(
+                              canOpenPreparedContent
+                                  ? '打开已准备内容'
+                                  : busy
+                                  ? '正在准备…'
+                                  : state?.phase ==
+                                        CustomSceneSubmissionPhase
+                                            .needsAuthentication
+                                  ? '登录后继续'
+                                  : state?.phase ==
+                                        CustomSceneSubmissionPhase
+                                            .unknownOutcome
+                                  ? '继续确认结果'
+                                  : '帮我准备一句',
+                            ),
+                          ),
+                        ),
+                        if (canCancelRetainedDraft) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingSm),
+                          Center(
+                            child: TextButton(
+                              key: const Key(
+                                'custom-scene-cancel-retained-draft',
+                              ),
+                              onPressed: busy
+                                  ? null
+                                  : _confirmCancelRetainedDraft,
+                              child: const Text('取消并重新开始'),
+                            ),
+                          ),
+                        ],
+                        if (canOpenPreparedContent) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingSm),
+                          Center(
+                            child: TextButton(
+                              key: const Key('custom-scene-abandon-prepared'),
+                              onPressed: busy ? null : _confirmAbandonPrepared,
+                              child: const Text('放弃这条内容'),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppLayoutConstants.spacingSm),
+                        Center(
+                          child: TextButton(
+                            key: const Key('custom-scene-preset-fallback'),
+                            onPressed: busy ? null : _returnToPresetScenes,
+                            child: const Text('查看已有场景'),
+                          ),
+                        ),
+                        if (!isAvailable) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingSm),
+                          Text(
+                            '这个入口正在准备中。',
+                            key: const Key('custom-scene-unavailable-note'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: context.appColors.textMuted),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -290,6 +307,19 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
               ),
       ),
     );
+  }
+
+  Future<void> _modifyDescription() async {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+    await controller.modifyDescription();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _inputError = null);
+    _fieldFocusNode.requestFocus();
   }
 
   void _handleSubmissionChange() {
@@ -399,5 +429,86 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       _textController.clear();
       _inputError = null;
     });
+  }
+}
+
+class CustomSceneHealthSafetyPanel extends StatelessWidget {
+  const CustomSceneHealthSafetyPanel({
+    super.key,
+    required this.notice,
+    required this.onClose,
+    required this.onEdit,
+  });
+
+  final HealthSafetyNotice notice;
+  final VoidCallback onClose;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final title = notice.titleZh.trim();
+    final message = notice.messageZh.trim();
+
+    return Semantics(
+      key: const Key('custom-scene-health-panel'),
+      container: true,
+      liveRegion: true,
+      label: '$title。$message',
+      child: Container(
+        width: double.infinity,
+        padding: AppLayoutConstants.bannerPadding,
+        decoration: BoxDecoration(
+          color: colors.warningSoft,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+          border: Border.all(color: colors.warning.withValues(alpha: 0.35)),
+          boxShadow: colors.warmShadowSm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ExcludeSemantics(
+              child: Text(
+                title,
+                key: const Key('custom-scene-health-title'),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingSm),
+            ExcludeSemantics(
+              child: Text(
+                message,
+                key: const Key('custom-scene-health-message'),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: colors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingLg),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                key: const Key('custom-scene-health-edit'),
+                onPressed: onEdit,
+                child: const Text('修改描述'),
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                key: const Key('custom-scene-health-close'),
+                onPressed: onClose,
+                child: const Text('关闭'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

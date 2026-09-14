@@ -232,6 +232,161 @@ void main() {
     );
   });
 
+  testWidgets('health safety renders Chinese guidance with safe actions', (
+    tester,
+  ) async {
+    final controller = _ImmediateSubmissionController()..publishHealthSafety();
+    await _pump(
+      tester,
+      CustomSceneInputScreen(
+        routeArgs: const CustomSceneRouteArgs(
+          entrySource: CustomSceneEntrySource.scene,
+        ),
+        controller: controller,
+      ),
+    );
+
+    expect(find.text('先关注宝宝的身体状况'), findsOneWidget);
+    expect(find.textContaining('请联系儿科医生进行评估'), findsOneWidget);
+    expect(find.text('帮我准备一句'), findsNothing);
+    expect(find.byKey(const Key('custom-scene-health-close')), findsOneWidget);
+    expect(find.byKey(const Key('custom-scene-health-edit')), findsOneWidget);
+    expect(find.byKey(const Key('custom-scene-submit-button')), findsNothing);
+    expect(
+      find.byKey(const Key('custom-scene-abandon-prepared')),
+      findsNothing,
+    );
+    expect(find.textContaining('Warm water'), findsNothing);
+    expect(find.textContaining('starter'), findsNothing);
+    expect(find.textContaining('播放'), findsNothing);
+    expect(find.textContaining('庆祝'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('emergency safety notice fits above the fold on a small phone', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 568);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final controller = _ImmediateSubmissionController()
+      ..publishHealthSafety(
+        titleZh: '请立即寻求医疗帮助',
+        messageZh: '你描述的情况可能需要紧急处理。请立即联系当地急救服务，或前往急诊。不要等待本应用进一步回复。',
+        templateId: 'health-emergency-v1',
+        action: 'emergency',
+      );
+    await _pump(
+      tester,
+      CustomSceneInputScreen(
+        routeArgs: const CustomSceneRouteArgs(
+          entrySource: CustomSceneEntrySource.scene,
+        ),
+        controller: controller,
+      ),
+    );
+
+    final title = find.text('请立即寻求医疗帮助');
+    final message = find.textContaining('请立即联系当地急救服务');
+    expect(title, findsOneWidget);
+    expect(message, findsOneWidget);
+    expect(tester.getTopLeft(title).dy, lessThan(568));
+    expect(tester.getBottomRight(message).dy, lessThanOrEqualTo(568));
+  });
+
+  testWidgets('health safety live region announces title and message once', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final controller = _ImmediateSubmissionController()..publishHealthSafety();
+    await _pump(
+      tester,
+      CustomSceneInputScreen(
+        routeArgs: const CustomSceneRouteArgs(
+          entrySource: CustomSceneEntrySource.scene,
+        ),
+        controller: controller,
+      ),
+    );
+
+    const label = '先关注宝宝的身体状况。请联系儿科医生进行评估。';
+    final panel = find.byKey(const Key('custom-scene-health-panel'));
+    expect(panel, findsOneWidget);
+    expect(
+      tester.getSemantics(panel),
+      matchesSemantics(label: label, isLiveRegion: true),
+    );
+    expect(find.semantics.byLabel(label), findsOneWidget);
+    semantics.dispose();
+  });
+
+  testWidgets('modify description clears safety and submits a new request', (
+    tester,
+  ) async {
+    final controller = _ImmediateSubmissionController()..publishHealthSafety();
+    var requestNumber = 0;
+    await _pump(
+      tester,
+      CustomSceneInputScreen(
+        routeArgs: const CustomSceneRouteArgs(
+          entrySource: CustomSceneEntrySource.scene,
+        ),
+        controller: controller,
+        clientRequestIdGenerator: () => 'scene_request_${++requestNumber}',
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('custom-scene-health-edit')));
+    await tester.pump();
+
+    expect(controller.state.phase, CustomSceneSubmissionPhase.editing);
+    expect(controller.state.generatedContentId, isNull);
+    expect(find.byKey(const Key('custom-scene-health-panel')), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('custom-scene-text-field')))
+          .focusNode
+          ?.hasFocus,
+      isTrue,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('custom-scene-text-field')),
+      '洗澡时宝宝不想碰水。',
+    );
+    await tester.tap(find.byKey(const Key('custom-scene-submit-button')));
+    await tester.pump();
+
+    expect(
+      controller.submitted.single.requestIdentity.clientRequestId,
+      'scene_request_1',
+    );
+    expect(controller.state.generatedContentId, 'generated_1');
+  });
+
+  testWidgets('closing health safety exits without handoff', (tester) async {
+    var fallbackCount = 0;
+    final controller = _ImmediateSubmissionController()..publishHealthSafety();
+    await _pump(
+      tester,
+      CustomSceneInputScreen(
+        routeArgs: const CustomSceneRouteArgs(
+          entrySource: CustomSceneEntrySource.scene,
+        ),
+        controller: controller,
+      ),
+      onPresetFallback: () async => fallbackCount += 1,
+    );
+
+    await tester.tap(find.byKey(const Key('custom-scene-health-close')));
+    await tester.pump();
+
+    expect(fallbackCount, 1);
+    expect(controller.handoffIds, isEmpty);
+  });
+
   testWidgets('input fits phone viewport at 1.3 text scale', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
@@ -327,6 +482,25 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
       phase: CustomSceneSubmissionPhase.recoverableError,
       message: '这次生成已结束，请重新生成。',
       canCancelRetainedDraft: true,
+    );
+  }
+
+  void publishHealthSafety({
+    String titleZh = '先关注宝宝的身体状况',
+    String messageZh = '请联系儿科医生进行评估。',
+    String templateId = 'health-concern-v1',
+    String action = 'seek_medical_help',
+  }) {
+    _testState = CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.healthSafety,
+      safetyNotice: HealthSafetyNotice(
+        action: action,
+        templateId: templateId,
+        policyVersion: 'health-safety-v1',
+        locale: 'zh-CN',
+        titleZh: titleZh,
+        messageZh: messageZh,
+      ),
     );
   }
 
