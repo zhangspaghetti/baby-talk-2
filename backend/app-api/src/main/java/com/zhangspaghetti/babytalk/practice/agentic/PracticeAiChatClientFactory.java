@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.agentic;
 
 import com.zhangspaghetti.babytalk.config.ai.OpenAiCompatibleResponseMetadataInterceptor;
+import java.time.Duration;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -25,15 +26,28 @@ public class PracticeAiChatClientFactory {
     }
 
     public ResolvedProvider create(String providerName, PracticeAiProperties.ProviderDefinition provider) {
+        return create(providerName, provider, provider.timeout());
+    }
+
+    public ResolvedProvider create(
+            String providerName,
+            PracticeAiProperties.ProviderDefinition provider,
+            Duration transportTimeout
+    ) {
         String apiKey = environment.getRequiredProperty(provider.apiKeyEnvironmentVariable());
         if (apiKey.isBlank()) {
             throw new IllegalArgumentException("AI provider secret must not be blank: " + providerName);
         }
         OpenAiChatOptions options = optionsFactory.build(provider, apiKey);
+        if (!provider.timeout().equals(transportTimeout)) {
+            options = options.mutate().timeout(transportTimeout).build();
+        }
         var chatModel = OpenAiChatModel.builder()
                 .options(options)
-                .httpClientBuilderCustomizer(builder ->
-                        builder.interceptor(new OpenAiCompatibleResponseMetadataInterceptor()))
+                .httpClientBuilderCustomizer(builder -> {
+                    builder.timeout(transportTimeout);
+                    builder.interceptor(new OpenAiCompatibleResponseMetadataInterceptor());
+                })
                 .build();
         return new ResolvedProvider(
                 providerName,
