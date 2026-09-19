@@ -25,7 +25,9 @@ class CustomSceneSafetyPropertiesTest {
         assertThat(properties.classifierPrompt()).isEqualTo(new CustomSceneSafetyProperties.PromptRef(
                 "custom-scene-safety-classifier-v1",
                 "config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt"));
-        assertThat(properties.contentHash()).matches("[0-9a-f]{64}");
+        assertThat(properties.contentHash())
+                .isEqualTo("7efe85daa60cfdb29bc4400a4666519c342f585a3486e2bfd23d1cbad1fbac27");
+        assertThat(properties.lockedContentHash()).isEqualTo(properties.contentHash());
         assertThat(properties.templates()).hasSize(5);
         assertThat(properties.emergencySignals()).containsKeys(
                 "breathing-difficulty",

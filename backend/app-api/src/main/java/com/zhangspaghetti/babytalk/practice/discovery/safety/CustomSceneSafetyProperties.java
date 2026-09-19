@@ -29,7 +29,8 @@ public record CustomSceneSafetyProperties(
         Duration classifierTimeout,
         PromptRef classifierPrompt,
         Map<String, Template> templates,
-        Map<String, List<String>> emergencySignals
+        Map<String, List<String>> emergencySignals,
+        String lockedContentHash
 ) {
 
     private static final String DEFAULT_POLICY_VERSION = "health-safety-v1";
@@ -64,6 +65,14 @@ public record CustomSceneSafetyProperties(
         classifierPrompt = Objects.requireNonNull(classifierPrompt, "classifier prompt");
         templates = immutableTemplates(templates);
         emergencySignals = immutableSignals(emergencySignals);
+        var computedContentHash = canonicalHash(
+                policyVersion, classifierTimeout, classifierPrompt, templates, emergencySignals);
+        lockedContentHash = lockedContentHash == null
+                ? computedContentHash
+                : requiredHash(lockedContentHash, "locked content hash");
+        if (!computedContentHash.equals(lockedContentHash)) {
+            throw new IllegalArgumentException("health safety locked content hash mismatch");
+        }
     }
 
     public CustomSceneSafetyProperties(
@@ -77,7 +86,8 @@ public record CustomSceneSafetyProperties(
                 classifierTimeout,
                 new PromptRef(DEFAULT_CLASSIFIER_PROMPT_VERSION, DEFAULT_CLASSIFIER_PROMPT_PATH),
                 templates,
-                emergencySignals);
+                emergencySignals,
+                null);
     }
 
     public static CustomSceneSafetyProperties defaults() {
@@ -100,6 +110,20 @@ public record CustomSceneSafetyProperties(
 
     /** Stable policy content hash used as the opaque audit boundary value. */
     public String contentHash() {
+        return canonicalHash(policyVersion, classifierTimeout, classifierPrompt, templates, emergencySignals);
+    }
+
+    public String lockedContentHash() {
+        return lockedContentHash;
+    }
+
+    private static String canonicalHash(
+            String policyVersion,
+            Duration classifierTimeout,
+            PromptRef classifierPrompt,
+            Map<String, Template> templates,
+            Map<String, List<String>> emergencySignals
+    ) {
         var canonical = new StringBuilder()
                 .append(policyVersion).append('\n')
                 .append(classifierTimeout).append('\n')
@@ -125,6 +149,14 @@ public record CustomSceneSafetyProperties(
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }
+    }
+
+    private static String requiredHash(String value, String field) {
+        var normalized = requiredText(value, field);
+        if (!normalized.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("health safety " + field + " must be a SHA-256 hash");
+        }
+        return normalized;
     }
 
     private static String requiredText(String value, String field) {

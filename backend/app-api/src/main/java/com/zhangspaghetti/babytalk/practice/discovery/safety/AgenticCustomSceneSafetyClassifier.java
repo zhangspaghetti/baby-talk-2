@@ -6,6 +6,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiStructuredOutputCaller;
 import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -32,6 +33,7 @@ public final class AgenticCustomSceneSafetyClassifier implements CustomSceneSafe
     private static final String LOCALE = "zh-CN";
     private static final String POLICY_VERSION = "health-safety-v1";
     private static final String PROMPT_VERSION = "custom-scene-safety-classifier-v1";
+    private static final Duration PROVIDER_TIMEOUT = Duration.ofSeconds(3);
     private static final JsonMapper STRICT_JSON_MAPPER = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
@@ -105,19 +107,18 @@ public final class AgenticCustomSceneSafetyClassifier implements CustomSceneSafe
         if (providers == null || providers.isEmpty()) {
             throw unavailable();
         }
-        for (var provider : providers) {
-            try {
-                if (provider == null) {
-                    continue;
-                }
-                var content = structuredOutputCaller.callRaw(
-                        provider, systemPrompt, userPrompt, ProviderResponse.class);
-                return parse(content);
-            } catch (RuntimeException failure) {
-                // Provider SDK, binding, and strict-parser details stay inside the fail-closed boundary.
-            }
+        var provider = providers.get(0);
+        if (provider == null) {
+            throw unavailable();
         }
-        throw unavailable();
+        try {
+            var content = structuredOutputCaller.callRaw(
+                    provider, systemPrompt, userPrompt, ProviderResponse.class, PROVIDER_TIMEOUT);
+            return parse(content);
+        } catch (RuntimeException failure) {
+            // Provider SDK, binding, transport timeout, and strict-parser details stay fail-closed.
+            throw unavailable();
+        }
     }
 
     private CustomSceneSafetyClassifier.SemanticResult parse(String content) {

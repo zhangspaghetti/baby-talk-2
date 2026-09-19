@@ -60,6 +60,9 @@ resources:
 - version: custom-scene-safety-classifier-v1
   resource-path: config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt
   content-hash: 8e973dbaac37d54747833f3a9676349877307686859fbebfb37fa6d0e459232d
+- version: health-safety-v1
+  resource-path: config/practice-health-safety-v1.yml
+  content-hash: 7efe85daa60cfdb29bc4400a4666519c342f585a3486e2bfd23d1cbad1fbac27
 - version: family-english-baseline-v1
   resource-path: config/practice-ai/evidence/family-english-baseline-v1.yml
   content-hash: 6e49982f2461ce9233651c5fd9cb23e27f8ecc09943f4426374d4222ec92fa25

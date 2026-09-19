@@ -221,6 +221,13 @@ void _scanProductionValues(
   );
   _requireSectionLine(
     practiceAi,
+    'custom-scene-safety-classifier',
+    '[dashscope-qwen]',
+    'production safety classifier route must use dashscope-qwen',
+    violations,
+  );
+  _requireSectionLine(
+    practiceAi,
     'existingSecret',
     'babytalk-practice-ai',
     'production Practice AI credentials must use dedicated external Secret',

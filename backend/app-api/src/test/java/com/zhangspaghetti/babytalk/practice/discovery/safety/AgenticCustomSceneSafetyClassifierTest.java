@@ -18,6 +18,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.ResolvedProvider;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedRef;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,8 @@ class AgenticCustomSceneSafetyClassifierTest {
         var fixture = fixture(List.of(provider));
         when(fixture.caller().callRaw(
                 eq(provider), eq(SYSTEM_PROMPT), any(String.class),
-                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class)))
+                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class),
+                eq(Duration.ofSeconds(3))))
                 .thenReturn(validJson("real_health_concern", "health_concern"));
 
         var result = fixture.classifier().classify(request("宝宝拉肚子"));
@@ -58,7 +60,8 @@ class AgenticCustomSceneSafetyClassifierTest {
         var userPrompt = ArgumentCaptor.forClass(String.class);
         verify(fixture.caller()).callRaw(
                 eq(provider), eq(SYSTEM_PROMPT), userPrompt.capture(),
-                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class));
+                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class),
+                eq(Duration.ofSeconds(3)));
         assertThat(userPrompt.getValue()).doesNotContain("generatedContentId", "accountId", "traceId");
         assertThat(JSON_MAPPER.readTree(userPrompt.getValue()).properties()
                 .stream().map(java.util.Map.Entry::getKey).toList())
@@ -66,23 +69,24 @@ class AgenticCustomSceneSafetyClassifierTest {
     }
 
     @Test
-    void triesProvidersInConfiguredOrderAndReturnsSecondProviderResult() {
+    void firstProviderFailureStopsRouteAndNeverCallsSecondProvider() {
         var primary = provider("primary");
         var secondary = provider("secondary");
         var fixture = fixture(List.of(primary, secondary));
         when(fixture.caller().callRaw(
                 eq(primary), eq(SYSTEM_PROMPT), any(String.class),
-                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class)))
+                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class),
+                eq(Duration.ofSeconds(3))))
                 .thenThrow(new IllegalStateException("provider-secret-sentinel"));
-        when(fixture.caller().callRaw(
+
+        assertThatThrownBy(() -> fixture.classifier().classify(request("医生游戏")))
+                .isInstanceOf(CustomSceneSafetyClassifier.UnavailableException.class)
+                .hasMessage("custom scene safety classifier unavailable");
+
+        verify(fixture.caller(), never()).callRaw(
                 eq(secondary), eq(SYSTEM_PROMPT), any(String.class),
-                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class)))
-                .thenReturn(validJson("ordinary_scene", "fictional"));
-
-        var result = fixture.classifier().classify(request("医生游戏"));
-
-        assertThat(result.intent()).isEqualTo(CustomSceneSafetyAssessment.Intent.ORDINARY_SCENE);
-        assertThat(result.signals()).containsExactly(CustomSceneSafetyClassifier.Signal.FICTIONAL);
+                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class),
+                eq(Duration.ofSeconds(3)));
     }
 
     @Test
@@ -91,7 +95,8 @@ class AgenticCustomSceneSafetyClassifierTest {
         var fixture = fixture(List.of(provider));
         when(fixture.caller().callRaw(
                 eq(provider), eq(SYSTEM_PROMPT), any(String.class),
-                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class)))
+                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class),
+                eq(Duration.ofSeconds(3))))
                 .thenThrow(new IllegalArgumentException("provider-secret-sentinel user-secret-sentinel"));
 
         assertThatThrownBy(() -> fixture.classifier().classify(request("user-secret-sentinel")))
@@ -142,7 +147,8 @@ class AgenticCustomSceneSafetyClassifierTest {
         var fixture = fixture(List.of(provider));
         when(fixture.caller().callRaw(
                 eq(provider), eq(SYSTEM_PROMPT), any(String.class),
-                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class)))
+                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class),
+                eq(Duration.ofSeconds(3))))
                 .thenReturn(raw);
 
         assertThat(fixture.classifier().classify(request("scene"))).isNotNull();
@@ -167,7 +173,8 @@ class AgenticCustomSceneSafetyClassifierTest {
         var fixture = fixture(List.of(provider));
         when(fixture.caller().callRaw(
                 eq(provider), eq(SYSTEM_PROMPT), any(String.class),
-                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class)))
+                eq(AgenticCustomSceneSafetyClassifier.ProviderResponse.class),
+                eq(Duration.ofSeconds(3))))
                 .thenReturn(raw);
 
         assertThatThrownBy(() -> fixture.classifier().classify(request("秘密用户原文")))

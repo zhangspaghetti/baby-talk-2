@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.List;
 import org.springframework.core.io.ByteArrayResource;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
@@ -59,7 +61,8 @@ class VersionedResourceRegistryTest {
         assertThat(ref.contentHash())
                 .isEqualTo("8e973dbaac37d54747833f3a9676349877307686859fbebfb37fa6d0e459232d");
         assertThat(prompt).contains("untrusted data", "exactly one JSON object", "medical advice");
-        assertThat(registry.healthSafetyPolicyHash()).matches("[0-9a-f]{64}");
+        assertThat(registry.healthSafetyPolicyHash())
+                .isEqualTo("7efe85daa60cfdb29bc4400a4666519c342f585a3486e2bfd23d1cbad1fbac27");
     }
 
     @Test
@@ -78,6 +81,40 @@ class VersionedResourceRegistryTest {
                 "classpath:config/practice-ai/missing-version-lock.yml"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("missing versioned resource");
+    }
+
+    @Test
+    void refusesHealthSafetyPolicyWhenBoundTemplateCopyDiffersFromLockedContent() {
+        var defaults = CustomSceneSafetyProperties.defaults();
+        var templates = new LinkedHashMap<>(defaults.templates());
+        var original = templates.get("health-concern-v1");
+        templates.put("health-concern-v1", new CustomSceneSafetyProperties.Template(
+                original.action(), original.locale(), original.titleZh(), original.messageZh() + "替换文案"));
+        var replaced = new CustomSceneSafetyProperties(
+                defaults.policyVersion(), defaults.classifierTimeout(), templates, defaults.emergencySignals());
+
+        assertThatThrownBy(() -> new VersionedResourceRegistry(
+                new DefaultResourceLoader(),
+                "classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml",
+                replaced))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("health safety policy lock hash mismatch");
+    }
+
+    @Test
+    void refusesHealthSafetyPolicyWhenBoundEmergencySignalDiffersFromLockedContent() {
+        var defaults = CustomSceneSafetyProperties.defaults();
+        var signals = new LinkedHashMap<>(defaults.emergencySignals());
+        signals.put("seizure", List.of("替换信号"));
+        var replaced = new CustomSceneSafetyProperties(
+                defaults.policyVersion(), defaults.classifierTimeout(), defaults.templates(), signals);
+
+        assertThatThrownBy(() -> new VersionedResourceRegistry(
+                new DefaultResourceLoader(),
+                "classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml",
+                replaced))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("health safety policy lock hash mismatch");
     }
 
     @Test

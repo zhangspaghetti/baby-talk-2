@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.agentic;
 
 import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEffort;
+import java.time.Duration;
 import java.util.Objects;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.ai.converter.ResponseTextCleaner;
@@ -118,14 +119,30 @@ public class PracticeAiStructuredOutputCaller {
             String userPrompt,
             Class<T> responseType
     ) {
-        return callRaw(provider, systemPrompt, userPrompt, responseType, null);
+        return callRawWithControls(provider, systemPrompt, userPrompt, responseType, null, null);
     }
 
-    private <T> String callRaw(
+    /** Calls one structured-output request with an explicit transport deadline. */
+    public <T> String callRaw(
             ResolvedProvider provider,
             String systemPrompt,
             String userPrompt,
             Class<T> responseType,
+            Duration transportTimeout
+    ) {
+        if (transportTimeout == null || transportTimeout.isZero() || transportTimeout.isNegative()) {
+            throw new IllegalArgumentException("transportTimeout must be positive");
+        }
+        return callRawWithControls(
+                provider, systemPrompt, userPrompt, responseType, transportTimeout, null);
+    }
+
+    private <T> String callRawWithControls(
+            ResolvedProvider provider,
+            String systemPrompt,
+            String userPrompt,
+            Class<T> responseType,
+            Duration transportTimeout,
             PracticeAiReasoningEffort reasoningEffort
     ) {
         var converter = strictConverter(responseType);
@@ -133,6 +150,9 @@ public class PracticeAiStructuredOutputCaller {
                 .responseFormat(OpenAiChatModel.ResponseFormat.builder()
                         .jsonSchema(PracticeAiJsonSchemaPublisher.publish(converter, responseType))
                         .build());
+        if (transportTimeout != null) {
+            options.timeout(transportTimeout);
+        }
         if (reasoningEffort != null) {
             options.reasoningEffort(reasoningEffort.wireValue());
         }
@@ -163,7 +183,7 @@ public class PracticeAiStructuredOutputCaller {
             int minimumOutputTokens
     ) {
         requireOutputBudget(provider, minimumOutputTokens);
-        return callRaw(provider, systemPrompt, userPrompt, responseType);
+        return callRawWithControls(provider, systemPrompt, userPrompt, responseType, null, null);
     }
 
     /**
@@ -179,11 +199,12 @@ public class PracticeAiStructuredOutputCaller {
             PracticeAiReasoningEffort reasoningEffort
     ) {
         requireOutputBudget(provider, minimumOutputTokens);
-        return callRaw(
+        return callRawWithControls(
                 provider,
                 systemPrompt,
                 userPrompt,
                 responseType,
+                null,
                 Objects.requireNonNull(reasoningEffort, "reasoningEffort"));
     }
 

@@ -29,6 +29,8 @@ public class VersionedResourceRegistry {
     private static final String RESOURCE_PREFIX = "config/practice-ai/";
     private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml";
     private static final String DEFAULT_VERSION_LOCK = "classpath:config/practice-ai/version-lock.yml";
+    private static final String HEALTH_SAFETY_POLICY_VERSION = "health-safety-v1";
+    private static final String HEALTH_SAFETY_POLICY_PATH = "config/practice-health-safety-v1.yml";
     private static final String VERSION_LOCK_SCHEMA = "practice-ai-version-lock-schema-v1";
     private static final String RUBRIC_SCHEMA = "judge-rubric-schema-v1";
     private static final String EVIDENCE_POLICY_SCHEMA = "evidence-policy-schema-v1";
@@ -107,6 +109,7 @@ public class VersionedResourceRegistry {
         var repairPrompt = promptRef(profileDocument, "repair-prompt");
         var classifierPrompt = classifierPromptRef(safetyProperties);
         verifyVersionLock(classifierPrompt, versionLockPath);
+        var lockedHealthSafetyPolicyHash = verifyHealthSafetyPolicy(safetyProperties, versionLockPath);
         var rubricRef = yamlRef(profileDocument, "rubric");
         var evidencePolicyRef = yamlRef(profileDocument, "evidence-policy");
         var baselineEvidenceRef = yamlRef(profileDocument, "baseline-evidence");
@@ -121,7 +124,7 @@ public class VersionedResourceRegistry {
                 PromptKind.JUDGE, judgePrompt,
                 PromptKind.REPAIR, repairPrompt,
                 PromptKind.SAFETY_CLASSIFIER, classifierPrompt);
-        this.healthSafetyPolicyHash = safetyProperties.contentHash();
+        this.healthSafetyPolicyHash = lockedHealthSafetyPolicyHash;
         this.qualityRubric = readRubric(rubricRef);
         this.minimumEvidencePolicy = readEvidencePolicy(evidencePolicyRef);
         this.baselineEvidence = readBaselineEvidence(baselineEvidenceRef);
@@ -241,6 +244,62 @@ public class VersionedResourceRegistry {
                 ref.resourcePath(), string(entry, "resource-path", "classifier prompt lock"), "path");
         requireLockEquals(
                 ref.contentHash(), string(entry, "content-hash", "classifier prompt lock"), "hash");
+    }
+
+    private String verifyHealthSafetyPolicy(
+            CustomSceneSafetyProperties safetyProperties,
+            String versionLockPath
+    ) {
+        if (!HEALTH_SAFETY_POLICY_VERSION.equals(safetyProperties.policyVersion())) {
+            throw new IllegalStateException("health safety policy version mismatch");
+        }
+        var policyDocument = yamlDocument(requiredResource("classpath:" + HEALTH_SAFETY_POLICY_PATH));
+        var babytalk = map(policyDocument.get("babytalk"), "health safety policy");
+        var practice = map(babytalk.get("practice"), "health safety policy");
+        var declared = map(practice.get("health-safety"), "health safety policy");
+        requireEquals(
+                HEALTH_SAFETY_POLICY_VERSION,
+                string(declared, "policy-version", "health safety policy"),
+                "health safety policy version mismatch");
+
+        var lock = yamlDocument(requiredResource(versionLockPath));
+        requireEquals(
+                VERSION_LOCK_SCHEMA,
+                string(lock, "schema-version", "version lock schema"),
+                "version lock schema");
+        var matches = new ArrayList<Map<String, Object>>();
+        for (var value : list(lock.get("resources"), "version lock resources")) {
+            var entry = map(value, "version lock resource");
+            if (HEALTH_SAFETY_POLICY_VERSION.equals(entry.get("version"))
+                    || HEALTH_SAFETY_POLICY_PATH.equals(entry.get("resource-path"))) {
+                matches.add(entry);
+            }
+        }
+        if (matches.size() != 1) {
+            throw new IllegalStateException("missing or duplicate version lock for health safety policy");
+        }
+        var entry = matches.get(0);
+        requireHealthSafetyLockEquals(
+                HEALTH_SAFETY_POLICY_VERSION,
+                string(entry, "version", "health safety policy lock"),
+                "health safety policy version");
+        requireHealthSafetyLockEquals(
+                HEALTH_SAFETY_POLICY_PATH,
+                string(entry, "resource-path", "health safety policy lock"),
+                "health safety policy path");
+        var expectedHash = string(entry, "content-hash", "health safety policy lock");
+        if (!expectedHash.matches("[0-9a-f]{64}")) {
+            throw new IllegalStateException("health safety policy lock hash is invalid");
+        }
+        requireHealthSafetyLockEquals(
+                safetyProperties.lockedContentHash(),
+                expectedHash,
+                "hash");
+        requireHealthSafetyLockEquals(
+                safetyProperties.contentHash(),
+                expectedHash,
+                "hash");
+        return expectedHash;
     }
 
     private VersionedRef yamlRef(Map<String, Object> profile, String key) {
@@ -433,6 +492,12 @@ public class VersionedResourceRegistry {
     private static void requireLockEquals(String expected, String actual, String field) {
         if (!expected.equals(actual)) {
             throw new IllegalStateException("classifier prompt lock " + field + " mismatch");
+        }
+    }
+
+    private static void requireHealthSafetyLockEquals(String expected, String actual, String field) {
+        if (!expected.equals(actual)) {
+            throw new IllegalStateException("health safety policy lock " + field + " mismatch");
         }
     }
 

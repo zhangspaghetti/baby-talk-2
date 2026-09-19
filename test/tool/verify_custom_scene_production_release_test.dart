@@ -87,6 +87,26 @@ void main() {
     );
   });
 
+  test('rejects a missing safety classifier route', () async {
+    final root = await _createFixture(
+      productionValues: _productionValues.replaceFirst(
+        '  custom-scene-safety-classifier: [dashscope-qwen]\n',
+        '  custom-scene-safety-classifier: []\n',
+      ),
+    );
+    addTearDown(() => root.delete(recursive: true));
+
+    final report = verifier.scanCustomSceneProductionReleaseGate(
+      projectRoot: root.path,
+    );
+
+    expect(report.passes, isFalse);
+    expect(
+      report.violations.map((value) => value.rule),
+      contains('production_helm_profile'),
+    );
+  });
+
   test('rejects runtime template that disables agentic custom scene', () async {
     final root = await _createFixture(
       practiceAiTemplate: _practiceAiTemplate.replaceFirst(

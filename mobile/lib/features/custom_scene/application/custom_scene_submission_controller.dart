@@ -43,6 +43,28 @@ class _CustomSceneOperationToken {
   final int accountGeneration;
 }
 
+class _CustomSceneDraftCleanupSnapshot {
+  const _CustomSceneDraftCleanupSnapshot({
+    required this.draftId,
+    required this.clientRequestId,
+    required this.expectedAccountContext,
+  });
+
+  factory _CustomSceneDraftCleanupSnapshot.fromDraft(
+    CustomSceneStoredDraft draft,
+  ) {
+    return _CustomSceneDraftCleanupSnapshot(
+      draftId: draft.draftId,
+      clientRequestId: draft.requestIdentity.clientRequestId,
+      expectedAccountContext: draft.expectedAccountContext,
+    );
+  }
+
+  final String draftId;
+  final String clientRequestId;
+  final String? expectedAccountContext;
+}
+
 /// An app-level route command. `custom_scene` never imports a Care Turn screen.
 class CustomSceneCareTurnHandoff {
   CustomSceneCareTurnHandoff({required String generatedContentId})
@@ -1036,6 +1058,7 @@ class CustomSceneSubmissionController extends ChangeNotifier {
     if (!_isOperationCurrent(operationToken)) {
       return;
     }
+    final cleanupSnapshot = _CustomSceneDraftCleanupSnapshot.fromDraft(draft);
     _operationEpoch += 1;
     final safetyToken = _CustomSceneOperationToken(
       operationEpoch: _operationEpoch,
@@ -1057,7 +1080,35 @@ class CustomSceneSubmissionController extends ChangeNotifier {
         safetyNotice: safety,
       ),
     );
-    await _clearExactDraftIntentIfOwned(draft, operationToken: safetyToken);
+    await _clearExactDraftSnapshot(cleanupSnapshot);
+  }
+
+  /// Health notices can synchronously invalidate the operation when the user
+  /// taps 修改描述 from the listener. Cleanup still targets only the exact
+  /// request that produced the notice, independent of the live operation token.
+  Future<void> _clearExactDraftSnapshot(
+    _CustomSceneDraftCleanupSnapshot snapshot,
+  ) async {
+    try {
+      await _draftStore.deleteIfMatches(
+        draftId: snapshot.draftId,
+        clientRequestId: snapshot.clientRequestId,
+        expectedAccountContext: snapshot.expectedAccountContext,
+        now: _clock().toUtc(),
+      );
+    } on Object {
+      // Best effort cleanup must not replace the primary safety state.
+    }
+    try {
+      await _draftContinuationCoordinator
+          .clearAuthenticationContinuationIfMatches(
+            draftId: snapshot.draftId,
+            clientRequestId: snapshot.clientRequestId,
+            expectedAccountContext: snapshot.expectedAccountContext,
+          );
+    } on Object {
+      // Best effort cleanup must not replace the primary safety state.
+    }
   }
 
   _CustomSceneOperationToken _captureOperationToken() {

@@ -6,6 +6,7 @@ babytalk:
       classifier-prompt:
         version: custom-scene-safety-classifier-v1
         resource-path: config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt
+      locked-content-hash: 7efe85daa60cfdb29bc4400a4666519c342f585a3486e2bfd23d1cbad1fbac27
       templates:
         health-emergency-v1:
           action: emergency
