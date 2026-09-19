@@ -1,11 +1,17 @@
 package com.zhangspaghetti.babytalk.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.config.ApiVersionInterceptor;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedAudioResponse;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedSpeechSynthesisPort;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -22,6 +28,7 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -69,6 +76,9 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    @MockitoBean
+    private GeneratedSpeechSynthesisPort speechSynthesisPort;
+
     @LocalServerPort
     private int port;
 
@@ -78,6 +88,8 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
     void resetTables() {
         resetDatabase(jdbcTemplate);
         httpClient = HttpClient.newHttpClient();
+        when(speechSynthesisPort.synthesize(any()))
+                .thenReturn(new GeneratedAudioResponse(FAKE_MP3_BYTES, "audio/mpeg", "generated-tts-v1"));
     }
 
     @Test
@@ -141,6 +153,7 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
             assertThat(audio.statusCode()).isEqualTo(404);
             assertThat(readJson(audio.body()).get("code").asText()).isEqualTo("generated_audio_not_found");
         }
+        verify(speechSynthesisPort, never()).synthesize(any());
     }
 
     private TokenView authenticate(String phoneNumber, String installationId) throws Exception {

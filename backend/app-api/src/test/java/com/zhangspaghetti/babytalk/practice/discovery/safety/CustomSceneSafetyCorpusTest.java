@@ -16,7 +16,6 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import ch.qos.logback.classic.Logger;
@@ -33,7 +32,6 @@ import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfigura
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryRequest;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
-import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedSpeechSynthesisPort;
 import com.zhangspaghetti.babytalk.profile.BabyProfileMapper;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import com.zhangspaghetti.babytalk.web.ContractException;
@@ -41,11 +39,13 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,6 +61,18 @@ class CustomSceneSafetyCorpusTest {
             "宝宝洗澡一直躲水 evidence-secret account-secret installation-secret provider-payload token-secret";
     private static final String SENSITIVE_EXCEPTION =
             "provider payload secret-evidence account-secret installation-secret token-secret trace-secret";
+    private static final List<String> SENSITIVE_PIECES = List.of(
+            SENSITIVE_INPUT,
+            SENSITIVE_EXCEPTION,
+            "宝宝洗澡一直躲水",
+            "evidence-secret",
+            "account-secret",
+            "installation-secret",
+            "provider-payload",
+            "provider payload",
+            "secret-evidence",
+            "token-secret",
+            "trace-secret");
     private static final Set<String> ALLOWED_TAG_KEYS = Set.of(
             "result_type", "template_id", "policy_version", "failure_kind");
     private static final Map<String, Set<String>> ALLOWED_TAG_VALUES = Map.of(
@@ -82,7 +94,7 @@ class CustomSceneSafetyCorpusTest {
     private final AuthConsentSyncService authConsentSyncService = mock(AuthConsentSyncService.class);
     private final BabyProfileMapper babyProfileMapper = mock(BabyProfileMapper.class);
     private final PracticeGeneratedContentService generatedContentService = mock(PracticeGeneratedContentService.class);
-    private final GeneratedSpeechSynthesisPort audioSynthesisPort = mock(GeneratedSpeechSynthesisPort.class);
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private ThreadPoolTaskExecutor executor;
     private SimpleMeterRegistry meterRegistry;
     private CustomSceneSafetyMetrics metrics;
@@ -103,7 +115,7 @@ class CustomSceneSafetyCorpusTest {
     }
 
     @Test
-    void fixedCorpusUsesRealDiscoveryAdmissionAndBlocksEveryHealthPath() {
+    void fixedCorpusUsesRealDiscoveryAdmissionAndBlocksEveryHealthPath() throws Exception {
         var cases = List.of(
                 new CorpusCase("宝宝拉肚子哭闹怎么办", HEALTH_SAFETY, "health-concern-v1", false),
                 new CorpusCase("宝宝拉稀，一直闹，咋办", HEALTH_SAFETY, "health-concern-v1", false),
@@ -122,7 +134,7 @@ class CustomSceneSafetyCorpusTest {
                 new CorpusCase("宝宝不对劲，不知道怎么了", HEALTH_SAFETY, "health-uncertain-v1", false));
 
         for (var corpusCase : cases) {
-            clearInvocations(generatedContentService, audioSynthesisPort);
+            clearInvocations(generatedContentService);
             var discoveryService = discoveryService(policy(corpusClassifier()));
             var request = request(corpusCase.prompt());
             if (corpusCase.ordinary()) {
@@ -132,7 +144,6 @@ class CustomSceneSafetyCorpusTest {
                 verify(generatedContentService).requireCustomSceneGenerationAvailable();
                 verify(generatedContentService).generateCustomScene(any(), admission.capture());
                 assertThat(admission.getValue()).isNotNull();
-                verifyNoInteractions(audioSynthesisPort);
                 continue;
             }
 
@@ -146,6 +157,13 @@ class CustomSceneSafetyCorpusTest {
             assertThat(v2.safety().templateId()).isEqualTo(corpusCase.templateId());
             assertThat(v2.safety().policyVersion()).isEqualTo(POLICY_VERSION);
             assertThat(v2.safety().locale()).isEqualTo("zh-CN");
+            var v2Json = objectMapper.writeValueAsString(v2);
+            var v2Node = objectMapper.readTree(v2Json);
+            assertThat(v2Node.has("generatedContentId")).isFalse();
+            assertThat(v2Node.has("scene")).isFalse();
+            assertThat(v2Node.has("english")).isFalse();
+            assertThat(v2Node.has("starter")).isFalse();
+            assertThat(v2Node.has("audio")).isFalse();
 
             var v1Failure = catchThrowable(() -> discoveryService.discover(request, null));
             assertThat(v1Failure).isInstanceOf(ContractException.class);
@@ -156,13 +174,52 @@ class CustomSceneSafetyCorpusTest {
             assertThat(contract.toString()).doesNotContain(corpusCase.prompt());
             verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
             verify(generatedContentService, never()).generateCustomScene(any(), any());
-            verifyNoInteractions(audioSynthesisPort);
         }
     }
 
     @Test
+    @Timeout(3)
+    void enabledFailureMetricsRecordTimeoutAndLegacyBypassWithNoClassifierCall() {
+        var classifierCalls = new AtomicInteger();
+        var timeoutPolicy = policy(request -> {
+            classifierCalls.incrementAndGet();
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+            return new CustomSceneSafetyClassifier.SemanticResult(ORDINARY_SCENE, List.of());
+        }, Duration.ofMillis(20));
+
+        var timeoutDecision = timeoutPolicy.assess(canonicalizer.derive("宝宝洗澡一直躲水"), "m7_11");
+        assertThat(timeoutDecision.resultType())
+                .isEqualTo(CustomSceneSafetyDecision.ResultType.ASSESSMENT_UNAVAILABLE);
+        assertThat(classifierCalls).hasValue(1);
+        assertThat(meterRegistry.get(CustomSceneSafetyMetrics.FAILURE_COUNTER)
+                .tag(CustomSceneSafetyMetrics.FAILURE_KIND_TAG, "classifier_timeout")
+                .counter().count()).isOne();
+        assertThat(meterRegistry.get(CustomSceneSafetyMetrics.CLASSIFIER_TIMER)
+                .tag(CustomSceneSafetyMetrics.POLICY_VERSION_TAG, POLICY_VERSION)
+                .timer().count()).isOne();
+        assertThat(meterRegistry.get(CustomSceneSafetyMetrics.CLASSIFIER_TIMER)
+                .tag(CustomSceneSafetyMetrics.POLICY_VERSION_TAG, POLICY_VERSION)
+                .timer().totalTime(TimeUnit.NANOSECONDS)).isPositive();
+
+        var legacyDecision = policy(request -> {
+            classifierCalls.incrementAndGet();
+            return new CustomSceneSafetyClassifier.SemanticResult(ORDINARY_SCENE, List.of());
+        }).assess(canonicalizer.derive("宝宝洗澡一直躲水"), "legacy", "custom_scene", "m7_11");
+        assertThat(legacyDecision.resultType())
+                .isEqualTo(CustomSceneSafetyDecision.ResultType.ASSESSMENT_UNAVAILABLE);
+        assertThat(classifierCalls).hasValue(1);
+        assertThat(meterRegistry.get(CustomSceneSafetyMetrics.FAILURE_COUNTER)
+                .tag(CustomSceneSafetyMetrics.FAILURE_KIND_TAG, "blocked_legacy_bypass")
+                .counter().count()).isOne();
+    }
+
+    @Test
     void privacyBoundaryCapturesLogsExceptionsAndAllMetricTagsWithoutSensitiveData() {
-        var logger = (Logger) LoggerFactory.getLogger(CustomSceneSafetyPolicy.class);
+        var logger = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
         var appender = new ListAppender<ILoggingEvent>();
         appender.start();
         logger.addAppender(appender);
@@ -173,10 +230,15 @@ class CustomSceneSafetyCorpusTest {
         try {
             var thrown = catchThrowable(() -> failingDiscovery.discover(request(SENSITIVE_INPUT), null));
             assertThat(thrown).isInstanceOf(ContractException.class);
-            assertThat(thrown.toString()).doesNotContain(SENSITIVE_INPUT, SENSITIVE_EXCEPTION);
             assertThat(thrown).isNotSameAs(providerFailure);
-            assertThat(appender.list).allSatisfy(event ->
-                    assertThat(event.toString()).doesNotContain(SENSITIVE_INPUT, SENSITIVE_EXCEPTION));
+            var contract = (ContractException) thrown;
+            assertNoSensitiveData(contract.toString());
+            assertNoSensitiveData(contract.getMessage());
+            assertNoSensitiveData(contract.details().toString());
+            assertNoSensitiveData(String.valueOf(contract.getCause()));
+            appender.list.forEach(event -> assertNoSensitiveData(event.toString()));
+            // This safety path deliberately has no logger boundary; prove that no event was emitted.
+            assertThat(appender.list).isEmpty();
             assertMetersArePrivate();
         } finally {
             logger.detachAppender(appender);
@@ -210,20 +272,33 @@ class CustomSceneSafetyCorpusTest {
 
     private void assertMetersArePrivate() {
         for (var meter : meterRegistry.getMeters()) {
-            assertThat(meter.getId().toString()).doesNotContain(SENSITIVE_INPUT, SENSITIVE_EXCEPTION);
+            assertNoSensitiveData(meter.getId().toString());
             meter.getId().getTags().forEach(tag -> {
                 assertThat(ALLOWED_TAG_KEYS).contains(tag.getKey());
                 assertThat(ALLOWED_TAG_VALUES.get(tag.getKey())).contains(tag.getValue());
-                assertThat(tag.getValue()).doesNotContain(
-                        "evidence-secret", "account-secret", "installation-secret",
-                        "provider-payload", "token-secret", "trace-secret");
+                assertNoSensitiveData(tag.getKey());
+                assertNoSensitiveData(tag.getValue());
             });
         }
+    }
+
+    private void assertNoSensitiveData(String value) {
+        assertThat(value).isNotNull();
+        SENSITIVE_PIECES.forEach(piece -> assertThat(value).doesNotContain(piece));
     }
 
     private CustomSceneSafetyPolicy policy(CustomSceneSafetyClassifier classifier) {
         return new CustomSceneSafetyPolicy(
                 emergencyRules, classifier, templates, executor, safetyProperties, metrics);
+    }
+
+    private CustomSceneSafetyPolicy policy(
+            CustomSceneSafetyClassifier classifier,
+            Duration classifierTimeout
+    ) {
+        return new CustomSceneSafetyPolicy(
+                emergencyRules, classifier, templates, executor,
+                classifierTimeout, POLICY_VERSION, metrics);
     }
 
     private PracticeDiscoveryService discoveryService(CustomSceneSafetyPolicy safetyPolicy) {
