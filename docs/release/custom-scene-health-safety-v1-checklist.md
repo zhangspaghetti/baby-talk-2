@@ -17,6 +17,7 @@
 - [ ] Attach v1 and v2 HTTP contract results, including Chinese-only health responses and the absence of generated content, English, starter, and audio fields.
 - [ ] Attach epoch-1 read, registration, handoff, and audio rejection results.
 - [ ] Attach deterministic corpus output with the expected result/template for every acceptance prompt and zero generation/provider calls for health and emergency cases.
+- [ ] Verify captured safety-package logs, exception contracts, meter IDs, and meter tags contain no raw input, evidence, account, installation, provider, trace, or token values; tag keys and values remain on the fixed allowlists.
 - [ ] With fixed provider, model, prompt, and policy versions, run every core health and emergency prompt five times. Store aggregate pass/fail counts only; do not persist prompts, evidence, provider payloads, account identifiers, installation identifiers, or tokens.
 - [ ] Record the rollback revision and verify it retains health safety routing before any rollout.
 

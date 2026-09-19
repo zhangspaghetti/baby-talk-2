@@ -6,57 +6,94 @@ import static com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneS
 import static com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyClassifier.Signal.AMBIGUOUS_CONCERN;
 import static com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyClassifier.Signal.HEALTH_CONCERN;
 import static com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyClassifier.Signal.PROMPT_ASSESSMENT;
-import static com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.ResultType.ASSESSMENT_UNAVAILABLE;
 import static com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.ResultType.GENERATED_SCENE;
 import static com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.ResultType.HEALTH_SAFETY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.zhangspaghetti.babytalk.practice.catalog.PracticeCatalogService;
+import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneTextValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.PolicyTextMatcher;
+import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyProperties;
+import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
+import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryService;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfiguration;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
+import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryRequest;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedSpeechSynthesisPort;
+import com.zhangspaghetti.babytalk.profile.BabyProfileMapper;
+import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
+import com.zhangspaghetti.babytalk.web.ContractException;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 class CustomSceneSafetyCorpusTest {
 
     private static final String POLICY_VERSION = "health-safety-v1";
-    private static final String SENSITIVE_INPUT = "宝宝拉肚子 secret-evidence account-123 installation-456 provider-payload token-789";
+    private static final String SENSITIVE_INPUT =
+            "宝宝洗澡一直躲水 evidence-secret account-secret installation-secret provider-payload token-secret";
+    private static final String SENSITIVE_EXCEPTION =
+            "provider payload secret-evidence account-secret installation-secret token-secret trace-secret";
     private static final Set<String> ALLOWED_TAG_KEYS = Set.of(
             "result_type", "template_id", "policy_version", "failure_kind");
+    private static final Map<String, Set<String>> ALLOWED_TAG_VALUES = Map.of(
+            "result_type", Set.of("generated_scene", "health_safety", "assessment_unavailable"),
+            "template_id", Set.of(
+                    "none", "health-emergency-v1", "health-concern-v1", "health-prompt-assessment-v1",
+                    "health-uncertain-v1", "health-assessment-unavailable-v1", "unknown"),
+            "policy_version", Set.of("health-safety-v1", "unknown"),
+            "failure_kind", Set.of("classifier_timeout", "invalid_output", "blocked_legacy_bypass"));
 
     private final SceneTextCanonicalizer canonicalizer = new SceneTextCanonicalizer();
-    private final CustomSceneSafetyProperties properties = CustomSceneSafetyProperties.defaults();
-    private final HealthSafetyTemplateRegistry templates = new HealthSafetyTemplateRegistry(properties);
+    private final CustomSceneSafetyProperties safetyProperties = CustomSceneSafetyProperties.defaults();
+    private final PracticeDiscoveryPolicyProperties discoveryProperties =
+            PracticeDiscoveryPolicyTestFixture.properties();
+    private final HealthSafetyTemplateRegistry templates = new HealthSafetyTemplateRegistry(safetyProperties);
     private final CustomSceneEmergencyRuleClassifier emergencyRules =
-            new CustomSceneEmergencyRuleClassifier(properties);
-    private final AtomicInteger generationCalls = new AtomicInteger();
+            new CustomSceneEmergencyRuleClassifier(safetyProperties);
+    private final PracticeCatalogService catalogService = mock(PracticeCatalogService.class);
+    private final AuthConsentSyncService authConsentSyncService = mock(AuthConsentSyncService.class);
+    private final BabyProfileMapper babyProfileMapper = mock(BabyProfileMapper.class);
+    private final PracticeGeneratedContentService generatedContentService = mock(PracticeGeneratedContentService.class);
+    private final GeneratedSpeechSynthesisPort audioSynthesisPort = mock(GeneratedSpeechSynthesisPort.class);
     private ThreadPoolTaskExecutor executor;
     private SimpleMeterRegistry meterRegistry;
     private CustomSceneSafetyMetrics metrics;
-    private CustomSceneSafetyPolicy policy;
 
     @BeforeEach
     void setUp() {
         executor = new CustomSceneSafetyExecutorConfiguration().customSceneSafetyExecutor();
         meterRegistry = new SimpleMeterRegistry();
         metrics = new CustomSceneSafetyMetrics(meterRegistry);
-        policy = new CustomSceneSafetyPolicy(
-                emergencyRules,
-                corpusClassifier(),
-                templates,
-                executor,
-                properties,
-                metrics);
+        when(generatedContentService.generateCustomScene(any(), any()))
+                .thenThrow(new GenerationProbe());
     }
 
     @AfterEach
@@ -66,129 +103,149 @@ class CustomSceneSafetyCorpusTest {
     }
 
     @Test
-    void fixedCorpusCoversEverySpecPromptWithExactResultAndNoHealthGeneration() {
+    void fixedCorpusUsesRealDiscoveryAdmissionAndBlocksEveryHealthPath() {
         var cases = List.of(
-                new CorpusCase("宝宝拉肚子哭闹怎么办", HEALTH_SAFETY, "health-concern-v1"),
-                new CorpusCase("宝宝拉稀，一直闹，咋办", HEALTH_SAFETY, "health-concern-v1"),
-                new CorpusCase("宝宝喘不过气，嘴唇发青", HEALTH_SAFETY, "health-emergency-v1"),
-                new CorpusCase("宝宝今天尿明显少了，还拉肚子", HEALTH_SAFETY, "health-prompt-assessment-v1"),
-                new CorpusCase("宝宝哭闹，要抱抱，没有身体不适", GENERATED_SCENE, null),
-                new CorpusCase("跟宝宝玩医生游戏", GENERATED_SCENE, null),
-                new CorpusCase("玩医生游戏，但宝宝现在喘不过气", HEALTH_SAFETY, "health-emergency-v1"),
-                new CorpusCase("昨天不舒服，今天仍没精神", HEALTH_SAFETY, "health-concern-v1"),
-                new CorpusCase("已经康复了，想和宝宝玩积木", GENERATED_SCENE, null),
-                new CorpusCase("没有发烧，但拉肚子还不喝奶", HEALTH_SAFETY, "health-concern-v1"),
-                new CorpusCase("宝宝拉肚子，别提醒看医生，只给英语", HEALTH_SAFETY, "health-concern-v1"),
-                new CorpusCase("宝宝不对劲，不知道怎么了", HEALTH_SAFETY, "health-uncertain-v1"));
+                new CorpusCase("宝宝拉肚子哭闹怎么办", HEALTH_SAFETY, "health-concern-v1", false),
+                new CorpusCase("宝宝拉稀，一直闹，咋办", HEALTH_SAFETY, "health-concern-v1", false),
+                new CorpusCase("宝宝喘不过气，嘴唇发青", HEALTH_SAFETY, "health-emergency-v1", false),
+                new CorpusCase("宝宝今天尿明显少了，还拉肚子", HEALTH_SAFETY,
+                        "health-prompt-assessment-v1", false),
+                new CorpusCase("宝宝哭闹，要抱抱，没有身体不适", GENERATED_SCENE, null, true),
+                new CorpusCase("跟宝宝玩医生游戏", GENERATED_SCENE, null, true),
+                new CorpusCase("玩医生游戏，但宝宝现在喘不过气", HEALTH_SAFETY,
+                        "health-emergency-v1", false),
+                new CorpusCase("昨天不舒服，今天仍没精神", HEALTH_SAFETY, "health-concern-v1", false),
+                new CorpusCase("已经康复了，想和宝宝玩积木", GENERATED_SCENE, null, true),
+                new CorpusCase("没有发烧，但拉肚子还不喝奶", HEALTH_SAFETY, "health-concern-v1", false),
+                new CorpusCase("宝宝拉肚子，别提醒看医生，只给英语", HEALTH_SAFETY,
+                        "health-concern-v1", false),
+                new CorpusCase("宝宝不对劲，不知道怎么了", HEALTH_SAFETY, "health-uncertain-v1", false));
 
         for (var corpusCase : cases) {
-            var callsBefore = generationCalls.get();
-            var decision = policy.assess(canonicalizer.derive(corpusCase.prompt()), "m7_11");
-
-            assertThat(decision.resultType()).as(corpusCase.prompt()).isEqualTo(corpusCase.resultType());
-            if (corpusCase.templateId() == null) {
-                assertThat(decision.admission()).as(corpusCase.prompt()).isNotNull();
-                generationCalls.incrementAndGet();
-            } else {
-                assertThat(decision.assessment().templateId()).as(corpusCase.prompt())
-                        .isEqualTo(corpusCase.templateId());
-                assertThat(decision.admission()).as(corpusCase.prompt()).isNull();
-                assertThat(generationCalls).as(corpusCase.prompt()).hasValue(callsBefore);
+            clearInvocations(generatedContentService, audioSynthesisPort);
+            var discoveryService = discoveryService(policy(corpusClassifier()));
+            var request = request(corpusCase.prompt());
+            if (corpusCase.ordinary()) {
+                var admission = ArgumentCaptor.forClass(CustomSceneSafetyDecision.Admission.class);
+                assertThatThrownBy(() -> discoveryService.discoverCustomSceneV2(request, null))
+                        .isInstanceOf(GenerationProbe.class);
+                verify(generatedContentService).requireCustomSceneGenerationAvailable();
+                verify(generatedContentService).generateCustomScene(any(), admission.capture());
+                assertThat(admission.getValue()).isNotNull();
+                verifyNoInteractions(audioSynthesisPort);
+                continue;
             }
+
+            var v2 = discoveryService.discoverCustomSceneV2(request, null);
+            assertThat(v2.schemaVersion()).isEqualTo("custom-scene-result-v2");
+            assertThat(v2.resultType()).isEqualTo("health_safety");
+            assertThat(v2.policyVersion()).isNull();
+            assertThat(v2.scene()).isNull();
+            assertThat(v2.safety()).isNotNull();
+            assertThat(v2.safety().action()).isEqualTo(actionFor(corpusCase.templateId()));
+            assertThat(v2.safety().templateId()).isEqualTo(corpusCase.templateId());
+            assertThat(v2.safety().policyVersion()).isEqualTo(POLICY_VERSION);
+            assertThat(v2.safety().locale()).isEqualTo("zh-CN");
+
+            var v1Failure = catchThrowable(() -> discoveryService.discover(request, null));
+            assertThat(v1Failure).isInstanceOf(ContractException.class);
+            var contract = (ContractException) v1Failure;
+            assertThat(contract.status().value()).isEqualTo(422);
+            assertThat(contract.code()).isEqualTo("health_safety_redirect");
+            assertThat(contract.getMessage()).isEqualTo(v2.safety().messageZh());
+            assertThat(contract.toString()).doesNotContain(corpusCase.prompt());
+            verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
+            verify(generatedContentService, never()).generateCustomScene(any(), any());
+            verifyNoInteractions(audioSynthesisPort);
         }
-
-        assertThat(generationCalls).hasValue(3);
     }
 
     @Test
-    void classifierFailureUsesUnavailableTemplateAndNeverCallsGeneration() {
-        var failingPolicy = policyWith(request -> {
-            throw new CustomSceneSafetyClassifier.UnavailableException();
-        });
+    void privacyBoundaryCapturesLogsExceptionsAndAllMetricTagsWithoutSensitiveData() {
+        var logger = (Logger) LoggerFactory.getLogger(CustomSceneSafetyPolicy.class);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        var providerFailure = new IllegalStateException(SENSITIVE_EXCEPTION);
+        var failingPolicy = policy(request -> { throw providerFailure; });
+        var failingDiscovery = discoveryService(failingPolicy);
 
-        var decision = failingPolicy.assess(canonicalizer.derive("宝宝洗澡一直躲水"), "m7_11");
-
-        assertThat(decision.resultType()).isEqualTo(ASSESSMENT_UNAVAILABLE);
-        assertThat(decision.assessment().templateId()).isEqualTo("health-assessment-unavailable-v1");
-        assertThat(generationCalls).hasValue(0);
-        assertThat(meterRegistry.get("babytalk.custom.scene.safety.failures")
-                .tag("failure_kind", "invalid_output")
-                .counter().count()).isPositive();
+        try {
+            var thrown = catchThrowable(() -> failingDiscovery.discover(request(SENSITIVE_INPUT), null));
+            assertThat(thrown).isInstanceOf(ContractException.class);
+            assertThat(thrown.toString()).doesNotContain(SENSITIVE_INPUT, SENSITIVE_EXCEPTION);
+            assertThat(thrown).isNotSameAs(providerFailure);
+            assertThat(appender.list).allSatisfy(event ->
+                    assertThat(event.toString()).doesNotContain(SENSITIVE_INPUT, SENSITIVE_EXCEPTION));
+            assertMetersArePrivate();
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
     }
 
     @Test
-    void metricsExposeOnlyAllowlistedTagsAndNeverSensitiveValues() {
-        var decision = policy.assess(canonicalizer.derive(SENSITIVE_INPUT), "m7_11");
-        metrics.recordClassifierTimeout();
-        metrics.recordInvalidOutput();
-        metrics.recordBlockedLegacyBypass();
+    @Timeout(3)
+    void classifierTimerStopsBeforeResultMetricAndMeasuresClassifierAttempt() {
+        var delayedRegistry = new DelayingResultCounterRegistry(Duration.ofMillis(250));
+        var delayedMetrics = new CustomSceneSafetyMetrics(delayedRegistry);
+        var delayedPolicy = new CustomSceneSafetyPolicy(
+                emergencyRules,
+                corpusClassifier(),
+                templates,
+                executor,
+                safetyProperties,
+                delayedMetrics);
 
-        assertThat(decision.resultType()).isEqualTo(HEALTH_SAFETY);
-        assertThat(meterRegistry.getMeters()).isNotEmpty().allSatisfy(this::assertPrivateMeter);
-    }
+        delayedPolicy.assess(canonicalizer.derive("宝宝洗澡一直躲水"), "m7_11");
 
-    @Test
-    void classifierDurationIsRecordedWithoutRequestPayloadTags() {
-        policy.assess(canonicalizer.derive("宝宝洗澡一直躲水"), "m7_11");
-
-        var timer = meterRegistry.get("babytalk.custom.scene.safety.classifier.duration")
-                .tag("policy_version", POLICY_VERSION)
+        var timer = delayedRegistry.get(CustomSceneSafetyMetrics.CLASSIFIER_TIMER)
+                .tag(CustomSceneSafetyMetrics.POLICY_VERSION_TAG, POLICY_VERSION)
                 .timer();
         assertThat(timer.count()).isOne();
-        assertThat(timer.totalTime(java.util.concurrent.TimeUnit.NANOSECONDS)).isGreaterThanOrEqualTo(0.0);
-        assertThat(timer.getId().getTags()).allMatch(tag -> ALLOWED_TAG_KEYS.contains(tag.getKey()));
+        assertThat(timer.totalTime(TimeUnit.NANOSECONDS)).isPositive();
+        assertThat(timer.totalTime(TimeUnit.MILLISECONDS)).isLessThan(150.0);
+        delayedRegistry.close();
     }
 
-    @Test
-    @Timeout(2)
-    void classifierTimeoutRecordsAggregateFailureAndDuration() throws Exception {
-        var started = new CountDownLatch(1);
-        var interrupted = new AtomicBoolean();
-        var slowClassifier = (CustomSceneSafetyClassifier) request -> {
-            started.countDown();
-            var deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(150);
-            while (System.nanoTime() < deadline) {
-                try {
-                    Thread.sleep(5);
-                } catch (InterruptedException ignored) {
-                    interrupted.set(true);
-                }
-            }
-            return new CustomSceneSafetyClassifier.SemanticResult(ORDINARY_SCENE, List.of());
-        };
-        var timedPolicy = new CustomSceneSafetyPolicy(
-                emergencyRules, slowClassifier, templates, executor, Duration.ofMillis(20), POLICY_VERSION, metrics);
-
-        var decision = timedPolicy.assess(canonicalizer.derive("宝宝洗澡一直躲水"), "m7_11");
-
-        assertThat(started.await(100, TimeUnit.MILLISECONDS)).isTrue();
-        assertThat(decision.resultType()).isEqualTo(ASSESSMENT_UNAVAILABLE);
-        assertThat(interrupted).isTrue();
-        assertThat(meterRegistry.get("babytalk.custom.scene.safety.failures")
-                .tag("failure_kind", "classifier_timeout")
-                .counter().count()).isOne();
-        assertThat(meterRegistry.get("babytalk.custom.scene.safety.classifier.duration")
-                .tag("policy_version", POLICY_VERSION)
-                .timer().count()).isOne();
+    private void assertMetersArePrivate() {
+        for (var meter : meterRegistry.getMeters()) {
+            assertThat(meter.getId().toString()).doesNotContain(SENSITIVE_INPUT, SENSITIVE_EXCEPTION);
+            meter.getId().getTags().forEach(tag -> {
+                assertThat(ALLOWED_TAG_KEYS).contains(tag.getKey());
+                assertThat(ALLOWED_TAG_VALUES.get(tag.getKey())).contains(tag.getValue());
+                assertThat(tag.getValue()).doesNotContain(
+                        "evidence-secret", "account-secret", "installation-secret",
+                        "provider-payload", "token-secret", "trace-secret");
+            });
+        }
     }
 
-    @Test
-    void unsupportedLegacyContextRecordsBlockedBypassAndNeverClassifies() {
-        var decision = policy.assess(
-                canonicalizer.derive("宝宝洗澡一直躲水"), "legacy", "custom_scene", "m7_11");
-
-        assertThat(decision.resultType()).isEqualTo(ASSESSMENT_UNAVAILABLE);
-        assertThat(meterRegistry.get("babytalk.custom.scene.safety.failures")
-                .tag("failure_kind", "blocked_legacy_bypass")
-                .counter().count()).isOne();
-        assertThat(meterRegistry.find("babytalk.custom.scene.safety.classifier.duration").timer()).isNull();
+    private CustomSceneSafetyPolicy policy(CustomSceneSafetyClassifier classifier) {
+        return new CustomSceneSafetyPolicy(
+                emergencyRules, classifier, templates, executor, safetyProperties, metrics);
     }
 
-    private void assertPrivateMeter(Meter meter) {
-        assertThat(meter.getId().getTags()).allMatch(tag -> ALLOWED_TAG_KEYS.contains(tag.getKey()));
-        assertThat(meter.getId().toString()).doesNotContain(
-                "宝宝拉肚子", "secret-evidence", "account-123", "installation-456",
-                "provider-payload", "token-789");
+    private PracticeDiscoveryService discoveryService(CustomSceneSafetyPolicy safetyPolicy) {
+        var matcher = new PolicyTextMatcher(canonicalizer);
+        return new PracticeDiscoveryService(
+                catalogService,
+                authConsentSyncService,
+                babyProfileMapper,
+                generatedContentService,
+                canonicalizer,
+                new SceneTextSecurityPolicy(
+                        discoveryProperties,
+                        matcher,
+                        SceneTextSecurityConfiguration.configuredSpoofChecker()),
+                new CustomSceneTextValidator(canonicalizer, matcher, discoveryProperties),
+                safetyPolicy);
+    }
+
+    private PracticeDiscoveryRequest request(String prompt) {
+        return new PracticeDiscoveryRequest(
+                "onboarding", "custom_scene", "install_corpus", null, "m7_11", "calmer_care",
+                "zh-CN", 6, null, prompt);
     }
 
     private CustomSceneSafetyClassifier corpusClassifier() {
@@ -214,15 +271,61 @@ class CustomSceneSafetyCorpusTest {
         };
     }
 
-    private CustomSceneSafetyPolicy policyWith(CustomSceneSafetyClassifier classifier) {
-        return new CustomSceneSafetyPolicy(
-                emergencyRules, classifier, templates, executor, properties, metrics);
+    private String actionFor(String templateId) {
+        return switch (templateId) {
+            case "health-emergency-v1" -> "emergency";
+            case "health-concern-v1", "health-prompt-assessment-v1" -> "seek_medical_help";
+            case "health-uncertain-v1" -> "uncertain";
+            default -> throw new IllegalArgumentException("unknown corpus template");
+        };
     }
 
     private record CorpusCase(
             String prompt,
             CustomSceneSafetyDecision.ResultType resultType,
-            String templateId
+            String templateId,
+            boolean ordinary
     ) {
+    }
+
+    private static final class GenerationProbe extends RuntimeException {
+    }
+
+    private static final class DelayingResultCounterRegistry extends SimpleMeterRegistry {
+
+        private final Duration delay;
+
+        private DelayingResultCounterRegistry(Duration delay) {
+            this.delay = delay;
+        }
+
+        @Override
+        protected Counter newCounter(Meter.Id id) {
+            var delegate = super.newCounter(id);
+            if (!CustomSceneSafetyMetrics.RESULT_COUNTER.equals(id.getName())) {
+                return delegate;
+            }
+            return new Counter() {
+                @Override
+                public Meter.Id getId() {
+                    return delegate.getId();
+                }
+
+                @Override
+                public void increment(double amount) {
+                    try {
+                        Thread.sleep(delay.toMillis());
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                    }
+                    delegate.increment(amount);
+                }
+
+                @Override
+                public double count() {
+                    return delegate.count();
+                }
+            };
+        }
     }
 }

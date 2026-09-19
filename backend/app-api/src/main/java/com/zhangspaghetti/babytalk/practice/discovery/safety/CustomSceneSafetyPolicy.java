@@ -166,13 +166,33 @@ public final class CustomSceneSafetyPolicy {
         try {
             submitted = executor.submit(() -> classifyInto(result, request));
             result.orTimeout(timeoutMillis(classifierTimeout), TimeUnit.MILLISECONDS);
-            var decision = mapSemantic(result.join(), forms, request.ageRange(), surface, mode);
+            CustomSceneSafetyClassifier.SemanticResult semanticResult;
+            try {
+                semanticResult = result.join();
+            } catch (RuntimeException failure) {
+                cancel(submitted, result);
+                metrics.recordClassifierDuration(timer);
+                timer = null;
+                if (hasCause(failure, TimeoutException.class)) {
+                    metrics.recordClassifierTimeout();
+                } else {
+                    metrics.recordInvalidOutput();
+                }
+                return record(unavailable());
+            }
+            metrics.recordClassifierDuration(timer);
+            timer = null;
+            var decision = mapSemantic(semanticResult, forms, request.ageRange(), surface, mode);
             if (decision.resultType() == CustomSceneSafetyDecision.ResultType.ASSESSMENT_UNAVAILABLE) {
                 metrics.recordInvalidOutput();
             }
             return record(decision);
         } catch (RuntimeException failure) {
             cancel(submitted, result);
+            if (timer != null) {
+                metrics.recordClassifierDuration(timer);
+                timer = null;
+            }
             if (hasCause(failure, TimeoutException.class)) {
                 metrics.recordClassifierTimeout();
             } else {
