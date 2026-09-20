@@ -52,6 +52,31 @@ class PracticeGenerationPrivacyVerifierTest(unittest.TestCase):
         self.assertTrue(any("securityText use outside approved" in failure for failure in failures))
         self.assertTrue(any("riskSignals use outside approved" in failure for failure in failures))
 
+    def test_security_text_is_allowed_only_in_named_security_boundary_classes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            safety_root = root / "backend/app-api/src/main/java/com/example/practice/discovery/safety"
+            safety_root.mkdir(parents=True)
+            for filename in (
+                "CustomSceneEmergencyRuleClassifier.java",
+                "CustomSceneSafetyDecision.java",
+            ):
+                (safety_root / filename).write_text("String securityText;\n", encoding="utf-8")
+            (safety_root / "UnapprovedSecurityBoundary.java").write_text(
+                "String securityText;\n", encoding="utf-8"
+            )
+            failures = VERIFIER.collect_violations(root)
+
+        self.assertFalse(any("CustomSceneEmergencyRuleClassifier.java" in failure
+                             and "securityText use outside approved" in failure
+                             for failure in failures))
+        self.assertFalse(any("CustomSceneSafetyDecision.java" in failure
+                             and "securityText use outside approved" in failure
+                             for failure in failures))
+        self.assertTrue(any("UnapprovedSecurityBoundary.java" in failure
+                            and "securityText use outside approved" in failure
+                            for failure in failures))
+
     def test_security_and_risk_snake_case_are_rejected_in_current_migration_and_mapper_xml(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

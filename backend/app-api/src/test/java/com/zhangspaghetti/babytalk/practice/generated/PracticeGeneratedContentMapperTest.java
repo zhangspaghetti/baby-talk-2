@@ -15,7 +15,9 @@ import com.zhangspaghetti.babytalk.practice.generated.model.PracticeEvidenceBund
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGenerationAttemptEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeJudgeResultEntity;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -176,6 +178,15 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findPlayableOwnedActiveBundleUtterance(
                 legacy.generatedContentId(), legacy.phraseSlug(), legacy.accountId(), 2)).isNull();
         assertThat(queries.findApprovedUtterances(legacy.generatedContentId(), 2)).isEmpty();
+    }
+
+    @Test
+    void promotedRowsNeverResolveThroughActiveReadAudioOrApprovedUtteranceQueries() {
+        var mapper = queryMapperXml();
+
+        assertActiveOnlyQuery(mapper, "findApprovedUtterances", "c.status");
+        assertActiveOnlyQuery(mapper, "findPlayableApprovedUtterance", "c.status");
+        assertActiveOnlyQuery(mapper, "findActiveByGeneratedContentId", "status");
     }
 
     @Test
@@ -1180,6 +1191,33 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             insertCarePathSupport(row.generatedContentId(), "no_response", 5);
             insertCarePathSupport(row.generatedContentId(), "other", 6);
         });
+    }
+
+    private void assertActiveOnlyQuery(String mapper, String selectId, String statusColumn) {
+        var query = queryMapperSelect(mapper, selectId);
+        assertThat(query)
+                .as(selectId)
+                .contains("and " + statusColumn + " = 'active'")
+                .doesNotContain("promoted");
+    }
+
+    private String queryMapperXml() {
+        try (var stream = getClass().getResourceAsStream(
+                "/mapper/practice/generated/PracticeGeneratedContentQueryMapper.xml")) {
+            assertThat(stream).as("PracticeGeneratedContentQueryMapper.xml resource").isNotNull();
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new AssertionError("could not read PracticeGeneratedContentQueryMapper.xml", exception);
+        }
+    }
+
+    private String queryMapperSelect(String mapper, String selectId) {
+        var startMarker = "<select id=\"" + selectId + "\"";
+        var start = mapper.indexOf(startMarker);
+        var end = start < 0 ? -1 : mapper.indexOf("</select>", start);
+        assertThat(start).as(selectId + " start").isGreaterThanOrEqualTo(0);
+        assertThat(end).as(selectId + " end").isGreaterThan(start);
+        return mapper.substring(start, end + "</select>".length());
     }
 
     private void insertCarePathStarter(String generatedContentId, String utteranceId) {

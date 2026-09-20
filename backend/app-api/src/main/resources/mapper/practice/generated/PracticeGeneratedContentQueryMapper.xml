@@ -105,7 +105,7 @@
         from practice_generated_content_utterances u
         join practice_generated_content c on c.generated_content_id = u.generated_content_id
         where c.generated_content_id = #{generatedContentId}
-          and c.status in ('active', 'promoted')
+          and c.status = 'active'
           and c.content_refresh_epoch = #{contentRefreshEpoch}
           and u.approval_status = 'approved'
           and u.approved_content_version = c.content_version
@@ -133,7 +133,7 @@
         from practice_generated_content_utterances u
         join practice_generated_content c on c.generated_content_id = u.generated_content_id
         where c.generated_content_id = #{generatedContentId}
-          and c.status in ('active', 'promoted')
+          and c.status = 'active'
           and c.content_refresh_epoch = #{contentRefreshEpoch}
           and u.utterance_id = #{utteranceId}
           and u.approval_status = 'approved'
@@ -253,7 +253,7 @@
         where generated_content_id = #{generatedContentId}
           and owner_key_version = #{ownerKeyVersion}
           and content_refresh_epoch = #{contentRefreshEpoch}
-          and status in ('active', 'promoted')
+          and status = 'active'
           and (owner_scope &lt;&gt; 'installation'
                or retention_expires_at &gt; #{reusableAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})
     </select>

@@ -39,6 +39,10 @@ SECURITY_TEXT_APPROVED = {
     "PolicyTextMatcher.java",
     "EvidenceSanitizer.java",
     "CustomSceneGeneratedContentValidator.java",
+    # Reads canonical securityText only for emergency-rule classification.
+    "CustomSceneEmergencyRuleClassifier.java",
+    # Hashes canonical securityText into an opaque admission digest/context token.
+    "CustomSceneSafetyDecision.java",
 }
 CURRENT_GENERATED_CONTENT_MIGRATION = "V27__upgrade_practice_generated_content_agentic_contract.sql"
 GENERATED_AUDIO_JAVA_ROOT = "backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/generated/audio"
