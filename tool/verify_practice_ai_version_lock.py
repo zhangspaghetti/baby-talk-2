@@ -14,6 +14,15 @@ ROOT = Path(__file__).resolve().parent.parent
 RESOURCE_ROOT = ROOT / "backend/app-api/src/main/resources/config/practice-ai"
 PROFILE_ROOT = RESOURCE_ROOT / "profiles"
 LOCK_PATH = RESOURCE_ROOT / "version-lock.yml"
+HEALTH_SAFETY_POLICY_VERSION = "health-safety-v1"
+HEALTH_SAFETY_POLICY_PATH = "config/practice-health-safety-v1.yml"
+HEALTH_SAFETY_POLICY_FILE = (
+    ROOT / "backend/app-api/src/main/resources" / HEALTH_SAFETY_POLICY_PATH
+)
+HEALTH_SAFETY_CLASSIFIER_PROMPT_VERSION = "custom-scene-safety-classifier-v1"
+HEALTH_SAFETY_CLASSIFIER_PROMPT_PATH = (
+    "config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt"
+)
 PROFILE_REFERENCE_KEYS = (
     "generator-prompt",
     "judge-prompt",
@@ -57,14 +66,94 @@ def required_string(mapping: dict, key: str, context: str) -> str:
     return value
 
 
+def required_mapping(mapping: dict, key: str, context: str) -> dict:
+    value = mapping.get(key)
+    if not isinstance(value, dict):
+        fail(f"{context} requires {key}")
+    return value
+
+
+def health_safety_content_hash(health_safety: dict) -> str:
+    """Match CustomSceneSafetyProperties.contentHash without self-referential lock field."""
+    classifier_prompt = required_mapping(
+        health_safety,
+        "classifier-prompt",
+        "health safety policy",
+    )
+    classifier_timeout = required_string(
+        health_safety,
+        "classifier-timeout",
+        "health safety policy",
+    ).strip()
+    if classifier_timeout.endswith("s") and classifier_timeout[:-1]:
+        classifier_timeout = f"PT{classifier_timeout[:-1]}S"
+    canonical = [
+        required_string(health_safety, "policy-version", "health safety policy").strip(),
+        classifier_timeout,
+        "|".join(
+            (
+                required_string(
+                    classifier_prompt,
+                    "version",
+                    "health safety policy classifier-prompt",
+                ).strip(),
+                required_string(
+                    classifier_prompt,
+                    "resource-path",
+                    "health safety policy classifier-prompt",
+                ).strip(),
+            )
+        ),
+    ]
+    templates = required_mapping(health_safety, "templates", "health safety policy")
+    for template_id in sorted(templates):
+        template = required_mapping(
+            templates,
+            template_id,
+            "health safety policy template",
+        )
+        canonical.append(
+            "|".join(
+                (
+                    template_id,
+                    required_string(template, "action", template_id).strip(),
+                    required_string(template, "locale", template_id).strip(),
+                    required_string(template, "title-zh", template_id).strip(),
+                    required_string(template, "message-zh", template_id).strip(),
+                )
+            )
+        )
+    emergency_signals = required_mapping(
+        health_safety,
+        "emergency-signals",
+        "health safety policy",
+    )
+    for signal_id in sorted(emergency_signals):
+        markers = emergency_signals[signal_id]
+        if not isinstance(markers, list) or any(not isinstance(marker, str) for marker in markers):
+            fail(f"health safety policy emergency signal {signal_id} requires string markers")
+        normalized_markers: list[str] = []
+        for marker in markers:
+            normalized_marker = marker.strip().lower()
+            if normalized_marker not in normalized_markers:
+                normalized_markers.append(normalized_marker)
+        canonical.append(signal_id + "|" + "\x1f".join(normalized_markers))
+    return hashlib.sha256(("\n".join(canonical) + "\n").encode("utf-8")).hexdigest()
+
+
 def scanned_resources() -> list[dict]:
     resources_by_path: dict[str, dict] = {}
 
-    def add_resource(version: str, resource_path: str, resolved: Path) -> None:
+    def add_resource(
+        version: str,
+        resource_path: str,
+        resolved: Path,
+        content_hash: str | None = None,
+    ) -> None:
         entry = {
             "version": version,
             "resource-path": resource_path,
-            "content-hash": resource_hash(resolved),
+            "content-hash": content_hash or resource_hash(resolved),
         }
         existing = resources_by_path.get(resource_path)
         if existing is not None and existing != entry:
@@ -95,6 +184,56 @@ def scanned_resources() -> list[dict]:
                 fail(f"version mismatch for {key}")
             add_resource(version, resource_path, resolved)
 
+    health_policy = load_yaml(HEALTH_SAFETY_POLICY_FILE)
+    health_practice = required_mapping(
+        required_mapping(health_policy, "babytalk", "health safety policy"),
+        "practice",
+        "health safety policy",
+    )
+    health_safety = required_mapping(
+        health_practice,
+        "health-safety",
+        "health safety policy",
+    )
+    policy_version = required_string(
+        health_safety,
+        "policy-version",
+        "health safety policy",
+    )
+    if policy_version != HEALTH_SAFETY_POLICY_VERSION:
+        fail("health safety policy version mismatch")
+    add_resource(
+        policy_version,
+        HEALTH_SAFETY_POLICY_PATH,
+        HEALTH_SAFETY_POLICY_FILE,
+        health_safety_content_hash(health_safety),
+    )
+
+    classifier_prompt = required_mapping(
+        health_safety,
+        "classifier-prompt",
+        "health safety policy",
+    )
+    classifier_version = required_string(
+        classifier_prompt,
+        "version",
+        "health safety policy classifier-prompt",
+    )
+    classifier_path = required_string(
+        classifier_prompt,
+        "resource-path",
+        "health safety policy classifier-prompt",
+    )
+    if (
+        classifier_version != HEALTH_SAFETY_CLASSIFIER_PROMPT_VERSION
+        or classifier_path != HEALTH_SAFETY_CLASSIFIER_PROMPT_PATH
+    ):
+        fail("version mismatch for classifier-prompt")
+    classifier_resource = RESOURCE_ROOT / classifier_path.removeprefix("config/practice-ai/")
+    if classifier_resource.stem != classifier_version:
+        fail("version mismatch for classifier-prompt")
+    add_resource(classifier_version, classifier_path, classifier_resource)
+
     resources = list(resources_by_path.values())
     resources.sort(key=lambda item: (item["version"], item["resource-path"]))
     hashes_by_version: dict[str, set[str]] = {}
@@ -121,12 +260,15 @@ def load_lock(path: Path) -> list[dict]:
 
 def compare_base_lock(base_lock: Path, current: list[dict]) -> None:
     base_entries = load_lock(base_lock)
-    current_by_version = {entry["version"]: entry["content-hash"] for entry in current}
+    current_by_version = {entry["version"]: entry for entry in current}
     for entry in base_entries:
         version = entry["version"]
         if version not in current_by_version:
             fail(f"existing version disappeared: {version}")
-        if current_by_version[version] != entry["content-hash"]:
+        current_entry = current_by_version[version]
+        if current_entry["resource-path"] != entry["resource-path"]:
+            fail(f"existing version path changed: {version}")
+        if current_entry["content-hash"] != entry["content-hash"]:
             fail(f"existing version hash changed: {version}")
 
 
