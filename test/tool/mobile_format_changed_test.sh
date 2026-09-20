@@ -3,6 +3,16 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 temporary_root=''
+trusted_temp_base='/tmp'
+canonical_repo_root=''
+canonical_temp_base=''
+
+git_local_env_vars="$(git -C "$repo_root" rev-parse --local-env-vars)"
+while IFS= read -r git_local_env_var; do
+  if [[ -n "$git_local_env_var" ]]; then
+    unset "$git_local_env_var"
+  fi
+done <<<"$git_local_env_vars"
 
 fail() {
   printf 'mobile-format-test: %s\n' "$*" >&2
@@ -13,9 +23,29 @@ cleanup() {
   local status=$?
   trap - EXIT
   if [[ -n "$temporary_root" ]]; then
+    verify_fixture_path "$temporary_root"
     rm -rf -- "$temporary_root"
   fi
   exit "$status"
+}
+
+verify_fixture_path() {
+  local fixture_path="$1"
+  local canonical_fixture_path
+  [[ -d "$fixture_path" ]] || fail "fixture path is missing: $fixture_path"
+  canonical_fixture_path="$(cd "$fixture_path" && pwd -P)" \
+    || fail "cannot canonicalize fixture path: $fixture_path"
+  case "$canonical_fixture_path/" in
+    "$canonical_repo_root/"*)
+      fail "fixture path overlaps repository: $canonical_fixture_path"
+      ;;
+  esac
+  case "$canonical_fixture_path/" in
+    "$canonical_temp_base/"*) ;;
+    *)
+      fail "fixture path escaped trusted temporary base: $canonical_fixture_path"
+      ;;
+  esac
 }
 
 make_fixture() {
@@ -53,6 +83,7 @@ make_fixture() {
     '  fi' \
     'done' >"$fixture/bin/dart"
   chmod +x "$fixture/bin/dart"
+  verify_fixture_path "$fixture"
   (
     cd "$fixture"
     git init -q
@@ -190,7 +221,15 @@ test_many_changed_dart_files_still_reject_unformatted_source() {
   fi
 }
 
-temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/babytalk-mobile-format-test.XXXXXX")"
+canonical_repo_root="$(cd "$repo_root" && pwd -P)"
+canonical_temp_base="$(cd "$trusted_temp_base" && pwd -P)"
+case "$canonical_temp_base/" in
+  "$canonical_repo_root/"*)
+    fail "trusted temporary base overlaps repository: $canonical_temp_base"
+    ;;
+esac
+temporary_root="$(mktemp -d "$canonical_temp_base/babytalk-mobile-format-test.XXXXXX")"
+verify_fixture_path "$temporary_root"
 trap cleanup EXIT
 
 test_baseline_must_equal_actual_debt
