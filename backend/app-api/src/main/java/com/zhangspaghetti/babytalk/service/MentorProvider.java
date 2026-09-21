@@ -36,8 +36,13 @@ public interface MentorProvider {
 
     record ProviderResponse(
             String responseText,
-            String responseSummary
+            String responseSummary,
+            boolean safetyShortCircuit
     ) {
+
+        public ProviderResponse(String responseText, String responseSummary) {
+            this(responseText, responseSummary, false);
+        }
     }
 
     class ProviderTimeoutException extends RuntimeException {

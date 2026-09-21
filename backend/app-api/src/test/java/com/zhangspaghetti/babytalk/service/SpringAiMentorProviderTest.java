@@ -327,6 +327,7 @@ class SpringAiMentorProviderTest {
 
             assertThat(response.responseText()).isEqualTo(
                     "你描述的是宝宝的健康问题。仅凭这段描述，无法判断原因或严重程度，请联系儿科医生进行评估。如果宝宝出现呼吸困难、叫不醒或抽搐，请立即联系当地急救服务。");
+            assertThat(response.safetyShortCircuit()).isTrue();
             verify(palaceHybridRetrievalService, never()).retrieve(any());
             verify(chatClient, never()).prompt();
             verify(requestSpec, never()).tools(any());

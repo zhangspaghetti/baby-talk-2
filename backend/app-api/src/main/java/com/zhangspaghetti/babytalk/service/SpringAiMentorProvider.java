@@ -147,7 +147,7 @@ public class SpringAiMentorProvider implements MentorProvider {
     private ProviderResponse fixedSafetyResponse(
             CustomSceneSafetyProperties.Template template
     ) {
-        return new ProviderResponse(template.messageZh(), summarize(template.messageZh()));
+        return new ProviderResponse(template.messageZh(), summarize(template.messageZh()), true);
     }
 
     private String mentorAgeRange(Integer childAgeMonths) {
