@@ -424,5 +424,4 @@ class PracticeLocalDataSource {
         (incoming.utteranceId == null ||
             existing.utteranceId == incoming.utteranceId);
   }
-
 }

@@ -247,7 +247,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                             ),
 
                             const SizedBox(height: 24),
-
                           ],
                         ),
                       ),

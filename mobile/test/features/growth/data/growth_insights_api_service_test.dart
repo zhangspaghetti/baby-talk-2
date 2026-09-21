@@ -10,29 +10,32 @@ import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/growth/data/remote/growth_insights_api_service.dart';
 
 void main() {
-  test('fetches server-confirmed growth insights with account Bearer token', () async {
-    final adapter = _RecordingDioAdapter();
-    final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080'));
-    dio.httpClientAdapter = adapter;
-    final service = GrowthInsightsApiService(
-      dio: dio,
-      authenticatedApiClient: AuthenticatedApiClient(
-        apiService: _NoRefreshAccountApiService(),
-      ),
-      sessionLoader: () async => _session(),
-      persistRefreshedSession: (session) async => session,
-    );
+  test(
+    'fetches server-confirmed growth insights with account Bearer token',
+    () async {
+      final adapter = _RecordingDioAdapter();
+      final dio = Dio(BaseOptions(baseUrl: 'http://localhost:8080'));
+      dio.httpClientAdapter = adapter;
+      final service = GrowthInsightsApiService(
+        dio: dio,
+        authenticatedApiClient: AuthenticatedApiClient(
+          apiService: _NoRefreshAccountApiService(),
+        ),
+        sessionLoader: () async => _session(),
+        persistRefreshedSession: (session) async => session,
+      );
 
-    final payload = await service.fetchInsights('week');
+      final payload = await service.fetchInsights('week');
 
-    expect(payload.stats.totalEvents, 7);
-    expect(adapter.request.path, '/api/v1/growth/insights');
-    expect(adapter.request.queryParameters['period'], 'week');
-    expect(
-      adapter.request.headers[authorizationHeaderName],
-      'Bearer access-live',
-    );
-  });
+      expect(payload.stats.totalEvents, 7);
+      expect(adapter.request.path, '/api/v1/growth/insights');
+      expect(adapter.request.queryParameters['period'], 'week');
+      expect(
+        adapter.request.headers[authorizationHeaderName],
+        'Bearer access-live',
+      );
+    },
+  );
 }
 
 AccountSession _session() => AccountSession(
