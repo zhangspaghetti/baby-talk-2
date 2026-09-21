@@ -2,6 +2,7 @@ package com.zhangspaghetti.babytalk.config;
 
 import com.zhangspaghetti.babytalk.palace.PalaceHybridRetrievalService;
 import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyPolicy;
 import com.zhangspaghetti.babytalk.service.DevMentorProvider;
 import com.zhangspaghetti.babytalk.service.MentorProvider;
 import com.zhangspaghetti.babytalk.service.SpringAiMentorProvider;
@@ -21,6 +22,7 @@ public class MentorProviderConfiguration {
     public MentorProvider mentorProvider(MentorProperties properties,
                                          ObjectProvider<PalaceToolProvider> palaceToolProviderProvider,
                                          ObjectProvider<PalaceHybridRetrievalService> palaceHybridRetrievalServiceProvider,
+                                         CustomSceneSafetyPolicy customSceneSafetyPolicy,
                                          ObjectProvider<MessageChatMemoryAdvisor> chatMemoryAdvisorProvider) {
         return switch (properties.providerMode().toLowerCase()) {
             case "dev" -> new DevMentorProvider(properties);
@@ -28,6 +30,7 @@ public class MentorProviderConfiguration {
                     properties,
                     palaceToolProviderProvider.getIfAvailable(),
                     palaceHybridRetrievalServiceProvider.getIfAvailable(),
+                    customSceneSafetyPolicy,
                     chatMemoryAdvisorProvider.getIfAvailable());
             default -> throw new MentorProvider.ProviderUnavailableException(
                     "不支持的 mentor provider mode: `%s`，可选值: dev, github-models, openai"
@@ -35,9 +38,25 @@ public class MentorProviderConfiguration {
         };
     }
 
+    /** Compatibility seam for focused unit tests and callers that predate the shared safety gate. */
+    public MentorProvider mentorProvider(
+            MentorProperties properties,
+            ObjectProvider<PalaceToolProvider> palaceToolProviderProvider,
+            ObjectProvider<PalaceHybridRetrievalService> palaceHybridRetrievalServiceProvider,
+            ObjectProvider<MessageChatMemoryAdvisor> chatMemoryAdvisorProvider
+    ) {
+        return mentorProvider(
+                properties,
+                palaceToolProviderProvider,
+                palaceHybridRetrievalServiceProvider,
+                null,
+                chatMemoryAdvisorProvider);
+    }
+
     private SpringAiMentorProvider buildSpringAiProvider(MentorProperties properties,
                                                           PalaceToolProvider palaceToolProvider,
                                                           PalaceHybridRetrievalService palaceHybridRetrievalService,
+                                                          CustomSceneSafetyPolicy customSceneSafetyPolicy,
                                                           MessageChatMemoryAdvisor chatMemoryAdvisor) {
         var apiKey = properties.aiApiKey();
         if (apiKey == null || apiKey.isBlank()) {
@@ -58,7 +77,7 @@ public class MentorProviderConfiguration {
         var chatClient = clientBuilder.build();
 
         return new SpringAiMentorProvider(chatClient, properties,
-                palaceToolProvider, palaceHybridRetrievalService);
+                palaceToolProvider, palaceHybridRetrievalService, customSceneSafetyPolicy);
     }
 
     OpenAiChatOptions openAiOptions(MentorProperties properties) {

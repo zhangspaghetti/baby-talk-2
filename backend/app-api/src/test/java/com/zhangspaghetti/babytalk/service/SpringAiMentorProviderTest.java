@@ -16,6 +16,10 @@ import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
 import com.zhangspaghetti.babytalk.palace.QueryTrace;
 import com.zhangspaghetti.babytalk.palace.RetrievalRequest;
 import com.zhangspaghetti.babytalk.palace.RetrievalResult;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyAssessment;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyPolicy;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.HealthSafetyTemplateRegistry;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
@@ -39,6 +43,7 @@ class SpringAiMentorProviderTest {
     private CallResponseSpec callResponseSpec;
     private PalaceToolProvider palaceToolProvider;
     private PalaceHybridRetrievalService palaceHybridRetrievalService;
+    private CustomSceneSafetyPolicy customSceneSafetyPolicy;
 
     @BeforeEach
     void setUpChatClient() {
@@ -47,6 +52,7 @@ class SpringAiMentorProviderTest {
         callResponseSpec = mock(CallResponseSpec.class);
         palaceToolProvider = mock(PalaceToolProvider.class);
         palaceHybridRetrievalService = mock(PalaceHybridRetrievalService.class);
+        customSceneSafetyPolicy = mock(CustomSceneSafetyPolicy.class);
 
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
@@ -296,6 +302,61 @@ class SpringAiMentorProviderTest {
 
     @Nested
     class SearchModeAgentic {
+
+        @Test
+        void healthConcernReturnsFixedChineseSafetyTemplateBeforeSearchOrLlm() {
+            var props = makeProperties("agentic");
+            var template = new HealthSafetyTemplateRegistry().template("health-concern-v1");
+            when(customSceneSafetyPolicy.assess(any(), anyString()))
+                    .thenReturn(CustomSceneSafetyDecision.health(
+                            new CustomSceneSafetyAssessment(
+                                    CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
+                                    CustomSceneSafetyAssessment.Action.SEEK_MEDICAL_HELP,
+                                    "health-concern-v1",
+                                    "health-safety-v1"),
+                            template));
+            var provider = new SpringAiMentorProvider(
+                    chatClient, props, palaceToolProvider, palaceHybridRetrievalService, customSceneSafetyPolicy);
+            when(palaceHybridRetrievalService.retrieve(any()))
+                    .thenReturn(sampleRetrievalResult("不应被健康求助读取的证据"));
+            when(callResponseSpec.content()).thenReturn("模型回复不应被返回");
+
+            var response = provider.respond(new MentorProvider.ProviderRequest(
+                    "corr-health", "install-001", "home", "single_turn",
+                    "宝宝拉肚子怎么办？", "宝宝拉肚子", true, java.time.Instant.now(), null, 18));
+
+            assertThat(response.responseText()).isEqualTo(
+                    "你描述的是宝宝的健康问题。仅凭这段描述，无法判断原因或严重程度，请联系儿科医生进行评估。如果宝宝出现呼吸困难、叫不醒或抽搐，请立即联系当地急救服务。");
+            verify(palaceHybridRetrievalService, never()).retrieve(any());
+            verify(chatClient, never()).prompt();
+            verify(requestSpec, never()).tools(any());
+        }
+
+        @Test
+        void uncertainHealthConcernUsesFixedTemplateWhenDecisionCarriesNoCopy() {
+            var props = makeProperties("agentic");
+            when(customSceneSafetyPolicy.assess(any(), anyString()))
+                    .thenReturn(CustomSceneSafetyDecision.health(
+                            new CustomSceneSafetyAssessment(
+                                    CustomSceneSafetyAssessment.Intent.UNCERTAIN,
+                                    CustomSceneSafetyAssessment.Action.UNCERTAIN,
+                                    "health-uncertain-v1",
+                                    "health-safety-v1")));
+            var provider = new SpringAiMentorProvider(
+                    chatClient, props, palaceToolProvider, palaceHybridRetrievalService, customSceneSafetyPolicy);
+            when(callResponseSpec.content()).thenReturn("模型回复不应被返回");
+
+            var response = provider.respond(new MentorProvider.ProviderRequest(
+                    "corr-uncertain", "install-001", "home", "single_turn",
+                    "宝宝有点不对劲，我不知道怎么回事", "宝宝不对劲", true,
+                    java.time.Instant.now(), null, 18));
+
+            assertThat(response.responseText()).isEqualTo(
+                    "现有信息不足以判断宝宝的情况。请联系儿科医生说明你的担忧。如果你认为宝宝情况严重，或出现呼吸困难、叫不醒、抽搐，请立即寻求紧急医疗帮助。");
+            verify(palaceHybridRetrievalService, never()).retrieve(any());
+            verify(chatClient, never()).prompt();
+            verify(requestSpec, never()).tools(any());
+        }
 
         @Test
         void agenticModeCallsToolsAndInjectsHybridEvidence() {
