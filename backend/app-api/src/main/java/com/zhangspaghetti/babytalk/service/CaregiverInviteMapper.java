@@ -9,6 +9,10 @@ public interface CaregiverInviteMapper {
 
     CaregiverInviteRepository.HouseholdMemberRow findActiveMembershipByAccount(@Param("accountId") String accountId);
 
+    CaregiverInviteRepository.GenerationAccessStateRow findGenerationAccessStateByAccount(
+            @Param("accountId") String accountId
+    );
+
     CaregiverInviteRepository.HouseholdMemberRow findMembershipByHouseholdAndAccount(
             @Param("householdId") String householdId,
             @Param("accountId") String accountId

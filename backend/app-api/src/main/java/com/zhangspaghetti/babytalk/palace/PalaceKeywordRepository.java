@@ -50,7 +50,7 @@ public class PalaceKeywordRepository {
      */
     public List<ChunkResult> searchByKeywords(String keywords, String wing, String room, int limit) {
         if (keywords == null || keywords.isBlank()) {
-            log.debug("关键词检索: keywords 为空，返回空列表");
+            log.debug("event=palace_keyword_search_skipped reason=empty_keywords");
             return Collections.emptyList();
         }
 
@@ -59,21 +59,36 @@ public class PalaceKeywordRepository {
         String normalizedRoom = room == null || room.isBlank() ? null : room.trim().toLowerCase();
         String trimmedKeywords = keywords.trim();
 
-        log.info("关键词检索: keywords='{}', wing='{}', room='{}', limit={}",
-                keywords, wing, room, safeLimit);
+        int keywordsLength = safeTextLength(trimmedKeywords);
+        log.info(
+                "event=palace_keyword_search_started keywordsLength={} hasWingFilter={} hasRoomFilter={} limit={}",
+                keywordsLength,
+                normalizedWing != null,
+                normalizedRoom != null,
+                safeLimit);
+        try {
+            List<ChunkResult> results = palaceKeywordMapper.searchByKeywords(
+                            trimmedKeywords,
+                            normalizedWing,
+                            normalizedRoom,
+                            safeLimit
+                    )
+                    .stream()
+                    .map(this::mapChunkResult)
+                    .toList();
 
-        List<ChunkResult> results = palaceKeywordMapper.searchByKeywords(
-                        trimmedKeywords,
-                        normalizedWing,
-                        normalizedRoom,
-                        safeLimit
-                )
-                .stream()
-                .map(this::mapChunkResult)
-                .toList();
-
-        log.info("关键词检索完成: 返回 {} 条结果", results.size());
-        return results;
+            log.info(
+                    "event=palace_keyword_search_complete keywordsLength={} resultCount={}",
+                    keywordsLength,
+                    results.size());
+            return results;
+        } catch (RuntimeException exception) {
+            log.error(
+                    "event=palace_keyword_search_failed keywordsLength={} exceptionType={}",
+                    keywordsLength,
+                    exception.getClass().getSimpleName());
+            throw exception;
+        }
     }
 
     /**
@@ -84,15 +99,16 @@ public class PalaceKeywordRepository {
      */
     public Optional<ChunkResult> readChunkById(UUID id) {
         if (id == null) {
-            log.debug("readChunkById: id 为 null，返回 empty");
+            log.debug("event=palace_chunk_read_skipped reason=missing_id");
             return Optional.empty();
         }
 
         ChunkRow row = palaceKeywordMapper.readChunkById(id);
         if (row == null) {
-            log.debug("readChunkById: 未找到 id={}", id);
+            log.debug("event=palace_chunk_read_complete found=false");
             return Optional.empty();
         }
+        log.debug("event=palace_chunk_read_complete found=true");
         return Optional.of(mapChunkResult(row));
     }
 
@@ -108,9 +124,15 @@ public class PalaceKeywordRepository {
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            log.warn("metadata JSON 解析失败: {}", e.getMessage());
+            log.warn(
+                    "event=palace_keyword_metadata_parse_failed exceptionType={}",
+                    e.getClass().getSimpleName());
             return Collections.emptyMap();
         }
+    }
+
+    private int safeTextLength(String value) {
+        return value == null ? 0 : value.codePointCount(0, value.length());
     }
 
     /**

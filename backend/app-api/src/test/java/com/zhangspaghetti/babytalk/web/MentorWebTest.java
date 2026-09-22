@@ -385,7 +385,7 @@ class MentorWebTest extends AbstractIntegrationTest {
                                 """))
                 .andExpect(status().isUpgradeRequired())
                 .andExpect(header().string(ApiVersionInterceptor.MIN_VERSION_HEADER, "1.2.0"))
-                .andExpect(jsonPath("$.code").value("app_version_unsupported"));
+                .andExpect(jsonPath("$.code").value("app_version_required"));
 
         var auditCount = jdbcTemplate.queryForObject("select count(*) from mentor_audit_logs", Integer.class);
         assertThat(auditCount).isZero();

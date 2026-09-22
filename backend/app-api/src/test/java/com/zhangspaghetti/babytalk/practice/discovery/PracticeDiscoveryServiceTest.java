@@ -4,15 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
-import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
-import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryRequest;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.MomentResponse;
 import com.zhangspaghetti.babytalk.practice.discovery.dto.PracticeDiscoveryResponse.SceneResponse;
@@ -26,9 +22,6 @@ import com.zhangspaghetti.babytalk.profile.BabyProfileMapper;
 import com.zhangspaghetti.babytalk.profile.model.BabyProfileRow;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import com.zhangspaghetti.babytalk.web.ContractException;
-import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyAssessment;
-import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
-import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyPolicy;
 import java.lang.reflect.Constructor;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -38,7 +31,6 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -59,18 +51,6 @@ class PracticeDiscoveryServiceTest {
     @Mock
     private BabyProfileMapper babyProfileMapper;
 
-    @Mock
-    private PracticeGeneratedContentService generatedContentService;
-
-    @Mock
-    private SceneTextCanonicalizer sceneTextCanonicalizer;
-
-    @Mock
-    private SceneTextSecurityPolicy sceneTextSecurityPolicy;
-
-    @Mock
-    private CustomSceneSafetyPolicy customSceneSafetyPolicy;
-
     private PracticeDiscoveryService service;
 
     @BeforeEach
@@ -78,8 +58,7 @@ class PracticeDiscoveryServiceTest {
         service = new PracticeDiscoveryService(
                 catalogMapper,
                 authConsentSyncService,
-                babyProfileMapper,
-                generatedContentService
+                babyProfileMapper
         );
     }
 
@@ -437,402 +416,6 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
-    void customSceneModeHydratesGeneratedRow() {
-        var generated = generatedRow("pgc_service_generated");
-        stubApprovedBundle(generated);
-        when(generatedContentService.generateCustomScene(any(), any()))
-                .thenReturn(generated);
-
-        var response = service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                "install_1",
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), null);
-
-        assertThat(response.source()).isEqualTo("generated");
-        assertThat(response.generatedContentId()).isEqualTo("pgc_service_generated");
-        assertThat(response.starter().source()).isEqualTo("generated");
-        assertThat(response.starter().sceneId()).startsWith("gen_scene_");
-        assertThat(response.starter().activityId()).startsWith("gen_activity_");
-        assertThat(response.starter().phraseId()).startsWith("gen_phrase_");
-        assertThat(response.scenes().get(0).reasonCode()).isEqualTo("custom_scene_match");
-        verify(catalogMapper, never()).findSpaces(any(), eq(50));
-    }
-
-    @Test
-    void customSceneSafetyAssessmentReceivesExactSurfaceAndMode() {
-        var forms = new SceneTextForms(
-                "洗澡后哄睡",
-                "洗澡后哄睡",
-                new SceneTextRiskSignals(false, false, false, false));
-        when(sceneTextCanonicalizer.derive("洗澡后哄睡")).thenReturn(forms);
-        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
-        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.GENERATED_SCENE);
-        when(decision.admission()).thenReturn(
-                org.mockito.Mockito.mock(CustomSceneSafetyDecision.Admission.class));
-        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
-                .thenReturn(decision);
-        var generated = generatedRow("pgc_surface_mode_bound");
-        stubApprovedBundle(generated);
-        when(generatedContentService.generateCustomScene(any(), any())).thenReturn(generated);
-
-        safetyAwareService().discoverCustomSceneV2(
-                new PracticeDiscoveryRequest(
-                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
-                        "zh-CN", 6, null, "洗澡后哄睡"), null);
-
-        verify(customSceneSafetyPolicy).assess(forms, "onboarding", "custom_scene", "m7_11");
-    }
-
-    @Test
-    void v2HealthDecisionReturnsSafetyWithoutTouchingGeneration() {
-        var forms = new SceneTextForms(
-                "宝宝拉肚子哭闹怎么办",
-                "宝宝拉肚子哭闹怎么办",
-                new SceneTextRiskSignals(false, false, false, false));
-        when(sceneTextCanonicalizer.derive("宝宝拉肚子哭闹怎么办")).thenReturn(forms);
-        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
-        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.HEALTH_SAFETY);
-        when(decision.assessment()).thenReturn(new CustomSceneSafetyAssessment(
-                CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
-                CustomSceneSafetyAssessment.Action.SEEK_MEDICAL_HELP,
-                "health-concern-v1",
-                "health-safety-v1"));
-        when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
-                "seek_medical_help", "zh-CN", "先关注宝宝的身体状况", "请联系儿科医生进行评估。"));
-        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
-                .thenReturn(decision);
-
-        var response = safetyAwareService().discoverCustomSceneV2(
-                new PracticeDiscoveryRequest(
-                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
-                        "zh-CN", 6, null, "宝宝拉肚子哭闹怎么办"),
-                null);
-
-        assertThat(response.resultType()).isEqualTo("health_safety");
-        assertThat(response.policyVersion()).isNull();
-        assertThat(response.scene()).isNull();
-        assertThat(response.safety().templateId()).isEqualTo("health-concern-v1");
-        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    @Test
-    void v1HealthDecisionUsesFixedErrorContractWithoutGeneration() {
-        var forms = new SceneTextForms(
-                "宝宝拉肚子哭闹怎么办",
-                "宝宝拉肚子哭闹怎么办",
-                new SceneTextRiskSignals(false, false, false, false));
-        when(sceneTextCanonicalizer.derive("宝宝拉肚子哭闹怎么办")).thenReturn(forms);
-        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
-        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.HEALTH_SAFETY);
-        when(decision.assessment()).thenReturn(new CustomSceneSafetyAssessment(
-                CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
-                CustomSceneSafetyAssessment.Action.SEEK_MEDICAL_HELP,
-                "health-concern-v1",
-                "health-safety-v1"));
-        when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
-                "seek_medical_help", "zh-CN", "先关注宝宝的身体状况", "固定健康提示。"));
-        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
-                .thenReturn(decision);
-
-        assertThatThrownBy(() -> safetyAwareService().discover(new PracticeDiscoveryRequest(
-                "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
-                "zh-CN", 6, null, "宝宝拉肚子哭闹怎么办"), null))
-                .isInstanceOf(ContractException.class)
-                .satisfies(error -> {
-                    var contract = (ContractException) error;
-                    assertThat(contract.status()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
-                    assertThat(contract.code()).isEqualTo("health_safety_redirect");
-                    assertThat(contract.getMessage()).isEqualTo("固定健康提示。");
-                    assertThat(contract.details().toString()).doesNotContain("宝宝拉肚子哭闹怎么办");
-                });
-        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    @Test
-    void assessmentUnavailableReturnsV2EnvelopeAndV1503WithoutGeneration() {
-        var forms = new SceneTextForms(
-                "洗澡后哄睡",
-                "洗澡后哄睡",
-                new SceneTextRiskSignals(false, false, false, false));
-        when(sceneTextCanonicalizer.derive("洗澡后哄睡")).thenReturn(forms);
-        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
-        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.ASSESSMENT_UNAVAILABLE);
-        when(decision.assessment()).thenReturn(new CustomSceneSafetyAssessment(
-                CustomSceneSafetyAssessment.Intent.UNCERTAIN,
-                CustomSceneSafetyAssessment.Action.UNCERTAIN,
-                "health-assessment-unavailable-v1",
-                "health-safety-v1"));
-        when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
-                "uncertain", "zh-CN", "暂时无法判断这段描述", "暂时无法完成判断。"));
-        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
-                .thenReturn(decision);
-        var request = new PracticeDiscoveryRequest(
-                "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
-                "zh-CN", 6, null, "洗澡后哄睡");
-
-        var v2 = safetyAwareService().discoverCustomSceneV2(request, null);
-
-        assertThat(v2.resultType()).isEqualTo("assessment_unavailable");
-        assertThat(v2.policyVersion()).isNull();
-        assertThat(v2.scene()).isNull();
-        assertThat(v2.safety().templateId()).isEqualTo("health-assessment-unavailable-v1");
-
-        assertThatThrownBy(() -> safetyAwareService().discover(request, null))
-                .isInstanceOf(ContractException.class)
-                .satisfies(error -> {
-                    var contract = (ContractException) error;
-                    assertThat(contract.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-                    assertThat(contract.code()).isEqualTo("health_assessment_unavailable");
-                });
-        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    @Test
-    void v2CatalogModeRejectsBeforeModeSpecificFields() {
-        assertThatThrownBy(() -> safetyAwareService().discoverCustomSceneV2(
-                new PracticeDiscoveryRequest(
-                        "onboarding", "catalog", "install_1", null, "m7_11", "calmer_care",
-                        "zh-CN", 6, null, "洗澡后哄睡"),
-                null))
-                .isInstanceOf(ContractException.class)
-                .satisfies(error -> {
-                    var contract = (ContractException) error;
-                    assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
-                    assertThat(contract.code()).isEqualTo("unsupported_surface_mode");
-                });
-        verifyNoInteractions(authConsentSyncService, babyProfileMapper, customSceneSafetyPolicy);
-        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    @Test
-    void inconsistentSafetyTemplateFailsClosedBeforeGeneration() {
-        var forms = new SceneTextForms(
-                "洗澡后哄睡",
-                "洗澡后哄睡",
-                new SceneTextRiskSignals(false, false, false, false));
-        when(sceneTextCanonicalizer.derive("洗澡后哄睡")).thenReturn(forms);
-        var decision = org.mockito.Mockito.mock(CustomSceneSafetyDecision.class);
-        when(decision.resultType()).thenReturn(CustomSceneSafetyDecision.ResultType.HEALTH_SAFETY);
-        when(decision.assessment()).thenReturn(new CustomSceneSafetyAssessment(
-                CustomSceneSafetyAssessment.Intent.REAL_HEALTH_CONCERN,
-                CustomSceneSafetyAssessment.Action.SEEK_MEDICAL_HELP,
-                "health-concern-v1",
-                "health-safety-v1"));
-        when(decision.template()).thenReturn(new com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties.Template(
-                "uncertain", "zh-CN", "模板不一致", "模板不一致。"));
-        when(customSceneSafetyPolicy.assess(forms, "onboarding", "custom_scene", "m7_11"))
-                .thenReturn(decision);
-
-        assertThatThrownBy(() -> safetyAwareService().discoverCustomSceneV2(
-                new PracticeDiscoveryRequest(
-                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
-                        "zh-CN", 6, null, "洗澡后哄睡"),
-                null))
-                .isInstanceOf(ContractException.class)
-                .satisfies(error -> {
-                    var contract = (ContractException) error;
-                    assertThat(contract.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
-                    assertThat(contract.code()).isEqualTo("health_assessment_unavailable");
-                });
-        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    @Test
-    void invalidCustomSceneTextFailsBeforeSafetyAssessment() {
-        assertInvalidCustomSceneText(null);
-        assertInvalidCustomSceneText("abc");
-        assertInvalidCustomSceneText("澡".repeat(81));
-        assertInvalidCustomSceneText("👨‍👩‍👧‍👦".repeat(23));
-    }
-
-    @Test
-    void compatibilityConstructorRejectsOverlongTextBeforeSafetyAssessment() {
-        var canonicalizer = new SceneTextCanonicalizer();
-        var properties = PracticeDiscoveryPolicyTestFixture.properties();
-        var compatibilityService = new PracticeDiscoveryService(
-                catalogMapper,
-                authConsentSyncService,
-                babyProfileMapper,
-                generatedContentService,
-                canonicalizer,
-                new SceneTextSecurityPolicy(
-                        properties,
-                        new PolicyTextMatcher(canonicalizer),
-                        SceneTextSecurityConfiguration.configuredSpoofChecker()),
-                customSceneSafetyPolicy);
-
-        assertThatThrownBy(() -> compatibilityService.discoverCustomSceneV2(
-                new PracticeDiscoveryRequest(
-                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
-                        "zh-CN", 6, null, "澡".repeat(81)),
-                null))
-                .isInstanceOf(ContractException.class)
-                .satisfies(error -> assertThat(((ContractException) error).code())
-                        .isEqualTo("invalid_custom_scene_text"));
-        verify(customSceneSafetyPolicy, never()).assess(any(), any());
-        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    private void assertInvalidCustomSceneText(String text) {
-        assertThatThrownBy(() -> realSafetyAwareService().discoverCustomSceneV2(
-                new PracticeDiscoveryRequest(
-                        "onboarding", "custom_scene", "install_1", null, "m7_11", "calmer_care",
-                        "zh-CN", 6, null, text),
-                null))
-                .isInstanceOf(ContractException.class)
-                .satisfies(error -> {
-                    var contract = (ContractException) error;
-                    assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
-                    assertThat(contract.code()).isEqualTo("invalid_custom_scene_text");
-                });
-        verify(customSceneSafetyPolicy, never()).assess(any(), any());
-        verify(generatedContentService, never()).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    private PracticeDiscoveryService safetyAwareService() {
-        return new PracticeDiscoveryService(
-                catalogMapper,
-                authConsentSyncService,
-                babyProfileMapper,
-                generatedContentService,
-                sceneTextCanonicalizer,
-                sceneTextSecurityPolicy,
-                customSceneSafetyPolicy);
-    }
-
-    private PracticeDiscoveryService realSafetyAwareService() {
-        var canonicalizer = new SceneTextCanonicalizer();
-        var matcher = new PolicyTextMatcher(canonicalizer);
-        var properties = PracticeDiscoveryPolicyTestFixture.properties();
-        return new PracticeDiscoveryService(
-                catalogMapper,
-                authConsentSyncService,
-                babyProfileMapper,
-                generatedContentService,
-                canonicalizer,
-                new SceneTextSecurityPolicy(
-                        properties, matcher, SceneTextSecurityConfiguration.configuredSpoofChecker()),
-                new CustomSceneTextValidator(canonicalizer, matcher, properties),
-                customSceneSafetyPolicy);
-    }
-
-    @Test
-    void customSceneCoachTipConcatenatesPersistedFieldsDirectly() {
-        assertThat(discoverGeneratedCoachTip("看着宝宝。", "慢慢说一遍。"))
-                .isEqualTo("看着宝宝。 慢慢说一遍。");
-        assertThat(discoverGeneratedCoachTip("轻声说。", "轻声说。"))
-                .isEqualTo("轻声说。 轻声说。");
-    }
-
-    @Test
-    void acceptedAuthenticatedCustomSceneUsesAccountOwnerWithoutBabyProfileIdOrInstallationId() {
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_accepted", "生成自定义练习场景"))
-                .thenReturn(new AuthConsentSyncService.ConsumerSessionView(
-                        "acct_custom_scene_owner",
-                        "sess_accepted",
-                        "install_1",
-                        "accepted"
-                ));
-        var generated = generatedRow("pgc_service_generated_account");
-        stubApprovedBundle(generated);
-        when(generatedContentService.generateCustomScene(any(), any()))
-                .thenReturn(generated);
-        var captor = ArgumentCaptor.forClass(PracticeGeneratedContentService.CustomSceneDiscoveryRequest.class);
-
-        var response = service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                null,
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), "sess_accepted");
-
-        assertThat(response.profileMode()).isEqualTo("authenticated_request");
-        verify(generatedContentService).generateCustomScene(captor.capture(), any());
-        assertThat(captor.getValue().accountId()).isEqualTo("acct_custom_scene_owner");
-        assertThat(captor.getValue().profileId()).isNull();
-        assertThat(captor.getValue().installationId()).isNull();
-    }
-
-    @Test
-    void disabledCustomSceneFailsBeforeJwtConsentOrProfileLookup() {
-        var failure = new ContractException(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "generation_unavailable",
-                "自定义场景生成当前不可用。"
-        );
-        doThrow(failure).when(generatedContentService).requireCustomSceneGenerationAvailable();
-
-        assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                "install_1",
-                "babyprof_1",
-                null,
-                null,
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), "sess_disabled"))
-                .isSameAs(failure);
-
-        verify(generatedContentService).requireCustomSceneGenerationAvailable();
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-        verifyNoInteractions(authConsentSyncService, babyProfileMapper);
-    }
-
-    @Test
-    void authenticatedCustomScenePropagatesConsentRequiredInsteadOfUsingInstallationScope() {
-        var failure = new ContractException(
-                HttpStatus.CONFLICT,
-                "consent_required",
-                "当前账号尚未完成同意。"
-        );
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_required", "生成自定义练习场景"))
-                .thenThrow(failure);
-
-        assertThatThrownBy(() -> service.discover(customSceneRequest("_bad"), "sess_required"))
-                .isSameAs(failure);
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    @Test
-    void authenticatedCustomScenePropagatesConsentRevokedInsteadOfUsingInstallationScope() {
-        var failure = new ContractException(
-                HttpStatus.FORBIDDEN,
-                "consent_revoked",
-                "同意已撤回。"
-        );
-        when(authConsentSyncService.requireAcceptedConsumerSession("sess_revoked", "生成自定义练习场景"))
-                .thenThrow(failure);
-
-        assertThatThrownBy(() -> service.discover(customSceneRequest(), "sess_revoked"))
-                .isSameAs(failure);
-        verify(generatedContentService, never()).generateCustomScene(any(), any());
-    }
-
-    @Test
     void invalidOrMissingSurfaceRejected() {
         assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
                 null,
@@ -915,6 +498,29 @@ class PracticeDiscoveryServiceTest {
     }
 
     @Test
+    void customSceneDiscoveryModeIsRemovedWithoutCatalogOrProfileLookup() {
+        assertThatThrownBy(() -> service.discover(new PracticeDiscoveryRequest(
+                "onboarding",
+                "custom_scene",
+                "install_1",
+                null,
+                "m7_11",
+                "calmer_care",
+                "zh-CN",
+                6,
+                null,
+                "洗澡后哄睡"
+        ), null))
+                .isInstanceOf(ContractException.class)
+                .satisfies(error -> {
+                    var contract = (ContractException) error;
+                    assertThat(contract.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(contract.code()).isEqualTo("invalid_discovery_mode");
+                });
+        verifyNoInteractions(catalogMapper, authConsentSyncService, babyProfileMapper);
+    }
+
+    @Test
     void serviceConstructorDoesNotDependOnAiOrMentorTypes() {
         assertThat(List.of(PracticeDiscoveryService.class.getDeclaredConstructors()).stream()
                 .map(Constructor::getParameterTypes)
@@ -959,137 +565,6 @@ class PracticeDiscoveryServiceTest {
                 "trace_1",
                 null
         );
-    }
-
-    private PracticeDiscoveryRequest customSceneRequest() {
-        return customSceneRequest(null);
-    }
-
-    private PracticeDiscoveryRequest customSceneRequest(String installationId) {
-        return new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                installationId,
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        );
-    }
-
-    private PracticeGeneratedContentEntity generatedRow(String generatedContentId) {
-        var row = new PracticeGeneratedContentEntity();
-        row.setGeneratedContentId(generatedContentId);
-        row.setOwnerScope("installation");
-        row.setOwnerKey("owner_service_generated");
-        row.setOwnerKeyVersion("v1");
-        row.setInstallationRefHash("install_1");
-        row.setSurface("onboarding");
-        row.setMode("custom_scene");
-        row.setRequestFingerprint("fp_service_generated");
-        row.setAgeRange("m7_11");
-        row.setParentGoal("calmer_care");
-        row.setLocale("zh-CN");
-        row.setSpaceSlug("gen_scene_abc1234567890");
-        row.setActivitySlug("gen_activity_abc1234567890");
-        row.setPhraseSlug("gen_phrase_abc1234567890");
-        row.setSpaceTitleZh("日常照护");
-        row.setActivityTitleZh("洗澡安抚");
-        row.setSceneTagEn("Bath care");
-        row.setTprActionZh("看着宝宝");
-        row.setDeliveryGuidanceZh("慢慢说一遍。");
-        row.setEnglishText("Warm water.");
-        row.setChineseText("水暖暖的。");
-        row.setPronunciationHint("warm water");
-        row.setDifficulty("starter");
-        row.setGenerationSource("agentic_search");
-        row.setStatus("active");
-        row.setContentVersion(1);
-        row.setGenerationStartedAt(NOW_DB);
-        row.setCreatedAt(NOW_DB);
-        row.setUpdatedAt(NOW_DB);
-        return row;
-    }
-
-    private String discoverGeneratedCoachTip(String tprActionZh, String deliveryGuidanceZh) {
-        var row = generatedRow("pgc_service_generated_tip");
-        row.setTprActionZh(tprActionZh);
-        row.setDeliveryGuidanceZh(deliveryGuidanceZh);
-        stubApprovedBundle(row);
-        when(generatedContentService.generateCustomScene(any(), any())).thenReturn(row);
-        var response = service.discover(new PracticeDiscoveryRequest(
-                "onboarding",
-                "custom_scene",
-                "install_1",
-                null,
-                "m7_11",
-                "calmer_care",
-                "zh-CN",
-                6,
-                null,
-                "洗澡后哄睡"
-        ), null);
-        return response.moments().get(0).coachTip();
-    }
-
-    private void stubApprovedBundle(PracticeGeneratedContentEntity row) {
-        when(generatedContentService.findApprovedUtterances(row.generatedContentId()))
-                .thenReturn(List.of(
-                        approvedUtterance(row, "starter", null, 1,
-                                row.englishText(), row.chineseText(), row.pronunciationHint(),
-                                row.tprActionZh(), row.deliveryGuidanceZh()),
-                        approvedUtterance(row, "reaction_support", "cooperating", 2,
-                                "We can do this together.", "我们一起做。", "we can do this together",
-                                "一起做动作。", "轻声邀请。"),
-                        approvedUtterance(row, "reaction_support", "hesitant", 3,
-                                "You can try slowly.", "你可以慢慢试。", "you can try slowly",
-                                "把物品放近。", "留出等待。"),
-                        approvedUtterance(row, "reaction_support", "resisting", 4,
-                                "It is okay to pause.", "可以先停一下。", "it is okay to pause",
-                                "手掌向外停一停。", "接住拒绝。"),
-                        approvedUtterance(row, "reaction_support", "no_response", 5,
-                                "I will wait with you.", "我陪你等一等。", "i will wait with you",
-                                "安静停留。", "不重复追问。"),
-                        approvedUtterance(row, "reaction_support", "other", 6,
-                                "We can take a pause.", "我们先停一会儿。", "we can take a pause",
-                                "做深呼吸动作。", "平静收束。")));
-    }
-
-    private PracticeGeneratedContentUtteranceEntity approvedUtterance(
-            PracticeGeneratedContentEntity row,
-            String role,
-            String reaction,
-            int displayOrder,
-            String englishText,
-            String chineseText,
-            String pronunciationHint,
-            String tprActionZh,
-            String deliveryGuidanceZh
-    ) {
-        var utterance = new PracticeGeneratedContentUtteranceEntity();
-        utterance.setUtteranceId(row.generatedContentId() + "_" + displayOrder);
-        utterance.setGeneratedContentId(row.generatedContentId());
-        utterance.setRole(role);
-        utterance.setReactionType(reaction);
-        utterance.setEnglishText(englishText);
-        utterance.setChineseText(chineseText);
-        utterance.setPronunciationHint(pronunciationHint);
-        utterance.setTprActionZh(tprActionZh);
-        utterance.setDeliveryGuidanceZh(deliveryGuidanceZh);
-        utterance.setDifficulty("starter");
-        utterance.setDisplayOrder(displayOrder);
-        utterance.setApprovalStatus("approved");
-        utterance.setApprovedContentVersion(row.contentVersion());
-        utterance.setBundleSchemaVersion("custom-scene-generated-output-v1");
-        utterance.setProviderOrigin("provider_generated");
-        utterance.setProviderName("test-provider");
-        utterance.setProviderModelName("test-model");
-        utterance.setProviderAttemptNumber(1);
-        utterance.setCreatedAt(NOW_DB);
-        return utterance;
     }
 
     private PracticeSpaceRow space(String spaceId, int sortOrder) {

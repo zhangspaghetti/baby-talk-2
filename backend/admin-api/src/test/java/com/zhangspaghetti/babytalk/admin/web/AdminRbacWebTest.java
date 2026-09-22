@@ -98,7 +98,10 @@ class AdminRbacWebTest {
         mockMvc.perform(get("/api/admin/permissions")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.USERS_READ)));
+                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.USERS_READ)))
+                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.PRACTICE_READ)))
+                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.PRACTICE_WRITE)))
+                .andExpect(jsonPath("$[*].permissionCode", hasItem(AdminPermissionCatalog.PRACTICE_PUBLISH)));
 
         mockMvc.perform(post("/api/admin/roles")
                         .header(HttpHeaders.AUTHORIZATION, bearer(superAdmin.accessToken()))

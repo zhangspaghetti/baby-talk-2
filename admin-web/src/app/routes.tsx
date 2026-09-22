@@ -1,6 +1,7 @@
 import { lazy, type ComponentType, type LazyExoticComponent, type ReactNode } from 'react';
 import {
   BarChartOutlined,
+  FormOutlined,
   HomeOutlined,
   ReadOutlined,
   SafetyCertificateOutlined,
@@ -23,6 +24,9 @@ export const ADMIN_ROUTE_PERMISSION_CODES = [
   'kg:review',
   'mentor:audit',
   'distribution:read',
+  'practice:read',
+  'practice:write',
+  'practice:publish',
 ] as const;
 
 export type AdminRoutePermissionCode = (typeof ADMIN_ROUTE_PERMISSION_CODES)[number];
@@ -32,7 +36,8 @@ export type AdminWorkspaceRouteKey =
   | 'admin-accounts'
   | 'knowledge-ops'
   | 'mentor-safety'
-  | 'distribution-stats';
+  | 'distribution-stats'
+  | 'preset-scenes';
 export type AdminWorkspaceNavVisibility = 'primary' | 'hidden';
 export type AdminForbiddenReason = 'missing-permission' | 'no-accessible-route';
 
@@ -58,6 +63,7 @@ const AdminAccountsPage = lazy(() => import('../pages/AdminAccountsPage'));
 const KnowledgeOpsPage = lazy(() => import('../pages/KnowledgeOpsPage'));
 const MentorAuditPage = lazy(() => import('../pages/MentorAuditPage'));
 const DistributionStatsPage = lazy(() => import('../pages/DistributionStatsPage'));
+const PresetScenesPage = lazy(() => import('../pages/PresetScenesPage'));
 
 export const adminWorkspaceRoutes = defineAdminWorkspaceRoutes([
   {
@@ -131,6 +137,18 @@ export const adminWorkspaceRoutes = defineAdminWorkspaceRoutes([
     defaultLandingWeight: 60,
     testId: 'workspace-link-distribution-stats',
     component: DistributionStatsPage,
+  },
+  {
+    key: 'preset-scenes',
+    path: '/practice/preset-scenes',
+    title: 'Preset Scenes',
+    description: '预置场景草稿、发布版本与回滚。',
+    icon: <FormOutlined />,
+    requiredPermissions: ['practice:read'],
+    navVisibility: 'primary',
+    defaultLandingWeight: 65,
+    testId: 'workspace-link-preset-scenes',
+    component: PresetScenesPage,
   },
 ] as const);
 

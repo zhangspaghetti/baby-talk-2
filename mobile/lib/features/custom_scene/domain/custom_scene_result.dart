@@ -1,4 +1,4 @@
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 
 sealed class CustomSceneResult {
   const CustomSceneResult();

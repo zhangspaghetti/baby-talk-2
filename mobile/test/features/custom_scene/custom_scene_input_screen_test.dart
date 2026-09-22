@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
@@ -10,12 +11,14 @@ import 'package:mobile/features/custom_scene/application/custom_scene_draft_cont
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 void main() {
   testWidgets(
@@ -463,6 +466,164 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('custom-scene-input-scroll')), findsOneWidget);
   });
+
+  testWidgets('shared-profile failure offers household status recovery', (
+    tester,
+  ) async {
+    final controller = _ImmediateSubmissionController()
+      ..publishFailure(CustomSceneFailureKind.sharedProfileUnavailable);
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => CustomSceneInputScreen(
+            routeArgs: const CustomSceneRouteArgs(
+              entrySource: CustomSceneEntrySource.scene,
+            ),
+            controller: controller,
+          ),
+        ),
+        GoRoute(
+          path: '/account',
+          builder: (_, _) => const Scaffold(body: Text('家庭状态页')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: AppTheme.build(),
+        routerConfig: router,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('共享宝宝档案尚未准备好，请让主照护者先完成档案'), findsOneWidget);
+    expect(find.text('查看家庭状态'), findsOneWidget);
+    await tester.tap(find.text('查看家庭状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('家庭状态页'), findsOneWidget);
+  });
+
+  testWidgets('household access failure offers household status recovery', (
+    tester,
+  ) async {
+    final controller = _ImmediateSubmissionController()
+      ..publishFailure(CustomSceneFailureKind.householdAccessRequired);
+    await _pumpWithRecoveryRouter(tester, controller, '/account', '家庭状态页');
+
+    expect(find.text('查看家庭状态'), findsOneWidget);
+    await tester.tap(find.text('查看家庭状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('家庭状态页'), findsOneWidget);
+  });
+
+  testWidgets('personal profile failure offers baby profile recovery', (
+    tester,
+  ) async {
+    final controller = _ImmediateSubmissionController()
+      ..publishFailure(CustomSceneFailureKind.profileUnavailable);
+    await _pumpWithRecoveryRouter(
+      tester,
+      controller,
+      '/me/settings/baby-profile',
+      '宝宝档案页',
+    );
+
+    expect(find.text('完善宝宝档案'), findsOneWidget);
+    await tester.tap(find.text('完善宝宝档案'));
+    await tester.pumpAndSettle();
+    expect(find.text('宝宝档案页'), findsOneWidget);
+  });
+
+  testWidgets('renders every typed submission message through localization', (
+    tester,
+  ) async {
+    const cases = <(CustomSceneSubmissionMessageKey, String)>[
+      (
+        CustomSceneSubmissionMessageKey.anotherDraftPending,
+        '当前已有另一段描述待处理，请先完成或取消。',
+      ),
+      (CustomSceneSubmissionMessageKey.authenticationRequired, '请先登录后再生成。'),
+      (CustomSceneSubmissionMessageKey.restoreUnavailable, '暂时无法恢复这次描述，请重新填写。'),
+      (CustomSceneSubmissionMessageKey.accountChanged, '账号已切换，请重新填写描述。'),
+      (CustomSceneSubmissionMessageKey.unknownOutcome, '结果尚未确认，请重试以继续。'),
+      (
+        CustomSceneSubmissionMessageKey.previousRequestUnknown,
+        '上次请求的结果尚未确认，请重试以继续。',
+      ),
+      (CustomSceneSubmissionMessageKey.retryUnavailable, '暂时无法继续，请重新填写描述。'),
+      (CustomSceneSubmissionMessageKey.handoffRouteFailed, '暂时无法打开照护内容，请再试一次。'),
+      (CustomSceneSubmissionMessageKey.saveUnavailable, '暂时无法保存描述，请稍后再试。'),
+      (
+        CustomSceneSubmissionMessageKey.preparedContentSaveFailed,
+        '内容已准备好，但暂时无法保存。请重试以继续。',
+      ),
+      (CustomSceneSubmissionMessageKey.requestTerminal, '这次生成已结束，请重新生成。'),
+      (CustomSceneSubmissionMessageKey.draftExpired, '这次描述已过期，请重新填写。'),
+      (
+        CustomSceneSubmissionMessageKey.draftRecoveryUnavailable,
+        '暂时无法恢复这次描述，请稍后再试。',
+      ),
+      (CustomSceneSubmissionMessageKey.draftInconsistent, '暂时无法恢复这次描述，请重新填写。'),
+    ];
+
+    for (final (key, copy) in cases) {
+      final controller = _ImmediateSubmissionController()..publishMessage(key);
+      await _pump(
+        tester,
+        CustomSceneInputScreen(
+          routeArgs: const CustomSceneRouteArgs(
+            entrySource: CustomSceneEntrySource.scene,
+          ),
+          controller: controller,
+        ),
+      );
+      expect(find.text(copy), findsOneWidget, reason: key.name);
+      controller.dispose();
+    }
+  });
+}
+
+Future<void> _pumpWithRecoveryRouter(
+  WidgetTester tester,
+  _ImmediateSubmissionController controller,
+  String destination,
+  String destinationLabel,
+) async {
+  final router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, _) => CustomSceneInputScreen(
+          routeArgs: const CustomSceneRouteArgs(
+            entrySource: CustomSceneEntrySource.scene,
+          ),
+          controller: controller,
+        ),
+      ),
+      GoRoute(
+        path: destination,
+        builder: (_, _) => Scaffold(body: Text(destinationLabel)),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+  await tester.pumpWidget(
+    MaterialApp.router(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      theme: AppTheme.build(),
+      routerConfig: router,
+    ),
+  );
+  await tester.pump();
 }
 
 Future<void> _pump(
@@ -482,7 +643,13 @@ Future<void> _pump(
   return tester.pumpWidget(
     MediaQuery(
       data: MediaQueryData(textScaler: textScaler),
-      child: MaterialApp(theme: AppTheme.build(), home: resolved),
+      child: MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: AppTheme.build(),
+        home: resolved,
+      ),
     ),
   );
 }
@@ -531,14 +698,18 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
   void publishUnknownOutcome() {
     _testState = const CustomSceneSubmissionState(
       phase: CustomSceneSubmissionPhase.unknownOutcome,
-      message: '结果尚未确认，请重试以继续。',
+      message: CustomSceneSubmissionMessage(
+        CustomSceneSubmissionMessageKey.unknownOutcome,
+      ),
     );
   }
 
   void publishTerminalFailure() {
     _testState = const CustomSceneSubmissionState(
       phase: CustomSceneSubmissionPhase.recoverableError,
-      message: '这次生成已结束，请重新生成。',
+      message: CustomSceneSubmissionMessage(
+        CustomSceneSubmissionMessageKey.requestTerminal,
+      ),
       canCancelRetainedDraft: true,
     );
   }
@@ -567,6 +738,20 @@ class _ImmediateSubmissionController extends CustomSceneSubmissionController {
       phase: CustomSceneSubmissionPhase.assessmentUnavailable,
       message: healthAssessmentUnavailableNotice.messageZh,
       safetyNotice: healthAssessmentUnavailableNotice,
+    );
+  }
+
+  void publishMessage(CustomSceneSubmissionMessageKey key) {
+    _testState = CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.recoverableError,
+      message: CustomSceneSubmissionMessage(key),
+    );
+  }
+
+  void publishFailure(CustomSceneFailureKind kind) {
+    _testState = CustomSceneSubmissionState(
+      phase: CustomSceneSubmissionPhase.recoverableError,
+      failure: CustomSceneFailure(kind: kind, retryable: false),
     );
   }
 
@@ -649,6 +834,7 @@ GeneratedCareMoment _moment() {
     sceneTag: 'bath',
     coachTip: '慢慢来',
     source: 'generated',
+    inputSource: SceneGenerationSourceType.custom,
     starter: utterance(
       'starter',
       role: GeneratedCareUtteranceRole.starter,

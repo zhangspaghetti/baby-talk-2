@@ -6,6 +6,8 @@ import 'package:mobile/features/practice/data/services/asset_phrase_service.dart
 
 enum PracticeRouteEntrySource { inApp, shareReentry, inviteReentry }
 
+enum PracticeEntryKind { preset, generated, onboarding, invalid }
+
 abstract interface class PracticeRouteTarget {
   String get scopeLabel;
 
@@ -18,12 +20,14 @@ class PracticeRouteArgs implements PracticeRouteTarget {
     required this.activityId,
     this.shareToken,
     this.entrySource = PracticeRouteEntrySource.inApp,
+    this.publishedVersion,
   });
 
   final String spaceId;
   final String activityId;
   final String? shareToken;
   final PracticeRouteEntrySource entrySource;
+  final int? publishedVersion;
 
   String get normalizedSpaceId => spaceId.trim();
   String get normalizedActivityId => activityId.trim();
@@ -33,7 +37,9 @@ class PracticeRouteArgs implements PracticeRouteTarget {
   String get scopeLabel => '$normalizedSpaceId/$normalizedActivityId';
 
   bool get isValid =>
-      normalizedSpaceId.isNotEmpty && normalizedActivityId.isNotEmpty;
+      normalizedSpaceId.isNotEmpty &&
+      normalizedActivityId.isNotEmpty &&
+      (publishedVersion == null || publishedVersion! > 0);
 
   bool isSupportedBy(SeedContentBundle content) {
     for (final space in content.spaces) {
@@ -55,6 +61,7 @@ class PracticeRouteArgs implements PracticeRouteTarget {
       activityId: normalizedActivityId,
       shareToken: normalizedShareToken,
       entrySource: entrySource,
+      publishedVersion: publishedVersion,
     );
   }
 
@@ -63,6 +70,7 @@ class PracticeRouteArgs implements PracticeRouteTarget {
     required String? activityId,
     String? shareToken,
     PracticeRouteEntrySource entrySource = PracticeRouteEntrySource.inApp,
+    int? publishedVersion,
   }) {
     final resolvedSpaceId = (spaceId ?? '').trim();
     final resolvedActivityId = (activityId ?? '').trim();
@@ -74,6 +82,7 @@ class PracticeRouteArgs implements PracticeRouteTarget {
       activityId: resolvedActivityId,
       shareToken: _trimToNull(shareToken),
       entrySource: entrySource,
+      publishedVersion: publishedVersion,
     );
   }
 
@@ -99,6 +108,20 @@ class PracticeRouteArgs implements PracticeRouteTarget {
     return value;
   }
 }
+
+/// Explicit in-gate fallback identity. It preserves the original preset route
+/// while telling the session loader to use Task 2's bundled-only seam.
+class GenericFallbackPracticeRouteArgs {
+  const GenericFallbackPracticeRouteArgs({required this.presetArgs});
+
+  final PracticeRouteArgs presetArgs;
+
+  bool get isValid => presetArgs.isValid;
+
+  String get scopeLabel => 'generic-fallback:${presetArgs.scopeLabel}';
+}
+
+typedef PracticeGenericFallbackArgs = GenericFallbackPracticeRouteArgs;
 
 /// The generated Care Turn route carries only durable approved-content
 /// identity. The formal Practice resolver supplies all display content.
@@ -189,6 +212,19 @@ class PracticeRouteEntry {
   bool get hasValidArgs =>
       (args != null || generatedArgs != null || onboardingArgs != null) &&
       errorMessage == null;
+
+  PracticeEntryKind get kind {
+    if (args != null) {
+      return PracticeEntryKind.preset;
+    }
+    if (generatedArgs != null) {
+      return PracticeEntryKind.generated;
+    }
+    if (onboardingArgs != null) {
+      return PracticeEntryKind.onboarding;
+    }
+    return PracticeEntryKind.invalid;
+  }
 
   bool get isGeneratedCareTurn => generatedArgs != null;
 

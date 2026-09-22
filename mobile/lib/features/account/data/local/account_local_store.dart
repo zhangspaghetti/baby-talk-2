@@ -182,6 +182,38 @@ class AccountLocalSnapshot {
   }
 }
 
+enum AccountLocalSnapshotReadStatus { available, unavailable }
+
+/// Distinguishes an explicitly stored account state from a failed local read.
+///
+/// [AccountLocalSnapshot.signedOut] is a valid, successfully read state; it
+/// must not be used as the fallback for storage, format, or secure-storage
+/// failures because downstream privacy transitions have different semantics.
+class AccountLocalSnapshotReadResult {
+  const AccountLocalSnapshotReadResult._({
+    required this.snapshot,
+    required this.status,
+  });
+
+  const AccountLocalSnapshotReadResult.available(AccountLocalSnapshot snapshot)
+    : this._(
+        snapshot: snapshot,
+        status: AccountLocalSnapshotReadStatus.available,
+      );
+
+  AccountLocalSnapshotReadResult.unavailable()
+    : this._(
+        snapshot: AccountLocalSnapshot.signedOut,
+        status: AccountLocalSnapshotReadStatus.unavailable,
+      );
+
+  final AccountLocalSnapshot snapshot;
+  final AccountLocalSnapshotReadStatus status;
+
+  bool get wasReadSuccessfully =>
+      status == AccountLocalSnapshotReadStatus.available;
+}
+
 class AccountLocalStore {
   AccountLocalStore({
     FlutterSecureStorage? secureStorage,

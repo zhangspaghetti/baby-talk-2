@@ -5,6 +5,7 @@ import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedCon
 import java.time.OffsetDateTime;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Param;
 
 @Mapper
@@ -17,7 +18,13 @@ public interface PracticeGeneratedContentQueryMapper {
             @Param("generatedContentId") String generatedContentId,
             @Param("contentRefreshEpoch") int contentRefreshEpoch);
 
-    PracticeGeneratedContentEntity findActiveOwnedByAccountId(
+    @Options(flushCache = Options.FlushCachePolicy.TRUE)
+    PracticeGeneratedContentEntity findActiveAccessibleByAccountId(
+            @Param("generatedContentId") String generatedContentId,
+            @Param("accountId") String accountId);
+
+    @Options(flushCache = Options.FlushCachePolicy.TRUE)
+    List<PracticeGeneratedContentUtteranceEntity> findApprovedAccessibleActiveBundleUtterances(
             @Param("generatedContentId") String generatedContentId,
             @Param("accountId") String accountId);
 
@@ -26,7 +33,8 @@ public interface PracticeGeneratedContentQueryMapper {
             @Param("utteranceId") String utteranceId,
             @Param("contentRefreshEpoch") int contentRefreshEpoch);
 
-    PracticeGeneratedContentUtteranceEntity findPlayableOwnedActiveBundleUtterance(
+    @Options(flushCache = Options.FlushCachePolicy.TRUE)
+    PracticeGeneratedContentUtteranceEntity findPlayableAccessibleActiveBundleUtterance(
             @Param("generatedContentId") String generatedContentId,
             @Param("utteranceId") String utteranceId,
             @Param("accountId") String accountId,

@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
-import 'package:mobile/features/care_entry/data/guest_onboarding_audio_api.dart';
+import 'package:mobile/core/network/api_version.dart';
+import 'package:mobile/features/care_entry/data/guest_onboarding_audio_api.dart'
+    show GuestAudioCapabilityVault;
 import 'package:mobile/features/care_entry/domain/care_entry_models.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 
@@ -10,6 +12,12 @@ const String defaultGuestOnboardingApiBaseUrl = String.fromEnvironment(
   'BABY_TALK_API_BASE_URL',
   defaultValue: 'http://127.0.0.1:8080',
 );
+const String defaultGuestOnboardingConversationApiVersion =
+    defaultAppApiVersion;
+// Kept as a source-compatible alias for callers that imported this name from
+// the conversation transport before the shared version moved to core.
+const String defaultGuestOnboardingApiVersion =
+    defaultGuestOnboardingConversationApiVersion;
 
 final class GuestOnboardingConversationApiException implements Exception {
   const GuestOnboardingConversationApiException(this.code);
@@ -26,7 +34,7 @@ final class GuestOnboardingConversationApi
     required GuestAudioCapabilityVault audioCapabilities,
     Dio? dio,
     String? baseUrl,
-    this.appVersion = defaultGuestOnboardingApiVersion,
+    this.appVersion = defaultGuestOnboardingConversationApiVersion,
   }) : _audioCapabilities = audioCapabilities,
        _dio =
            dio ??

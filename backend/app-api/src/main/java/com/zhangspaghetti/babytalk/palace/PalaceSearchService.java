@@ -42,14 +42,32 @@ public class PalaceSearchService {
         String filterExpression = buildFilterExpression(wing, room);
         if (filterExpression != null) {
             builder.filterExpression(filterExpression);
-            log.info("向量检索: query='{}', topK={}, filter='{}'", query, topK, filterExpression);
-        } else {
-            log.info("向量检索: query='{}', topK={}, 无过滤条件", query, topK);
         }
 
-        List<Document> results = vectorStore.similaritySearch(builder.build());
-        log.info("检索完成: 返回 {} 条结果", results.size());
-        return results;
+        int queryLength = safeTextLength(query);
+        log.info(
+                "event=palace_vector_search_started queryLength={} topK={} filterPresent={}",
+                queryLength,
+                topK,
+                filterExpression != null);
+        try {
+            List<Document> results = vectorStore.similaritySearch(builder.build());
+            log.info(
+                    "event=palace_vector_search_complete queryLength={} resultCount={}",
+                    queryLength,
+                    results.size());
+            return results;
+        } catch (RuntimeException exception) {
+            log.error(
+                    "event=palace_vector_search_failed queryLength={} exceptionType={}",
+                    queryLength,
+                    exception.getClass().getSimpleName());
+            throw exception;
+        }
+    }
+
+    private int safeTextLength(String value) {
+        return value == null ? 0 : value.codePointCount(0, value.length());
     }
 
     /**

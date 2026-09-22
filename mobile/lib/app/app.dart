@@ -39,6 +39,7 @@ import 'package:mobile/features/practice/presentation/garden_growth_notifier.dar
 import 'package:mobile/features/practice/presentation/practice_continuity_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 import 'package:mobile/features/practice/presentation/practice_session_notifier.dart';
+import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show
@@ -153,6 +154,7 @@ class BabyTalkApp extends ConsumerStatefulWidget {
     required this.bootState,
     this.audioControllerFactory,
     this.completedSnapshotLoader,
+    this.presetSceneDefinitionLoader,
     this.shareUriStream,
     this.shareReentryCoordinator,
     this.inviteReentryCoordinator,
@@ -163,6 +165,7 @@ class BabyTalkApp extends ConsumerStatefulWidget {
   final AppBootState bootState;
   final PracticeAudioControllerFactory? audioControllerFactory;
   final OnboardingCompletedSnapshotLoader? completedSnapshotLoader;
+  final PresetSceneDefinitionLoader? presetSceneDefinitionLoader;
   final Stream<Uri>? shareUriStream;
   final ShareReentryCoordinator? shareReentryCoordinator;
   final InviteReentryCoordinator? inviteReentryCoordinator;
@@ -196,7 +199,6 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
       goRouterProvider: () => _currentRouter,
       mountedCheck: () => mounted,
       launchDestinationProvider: () => _resolvedLaunchState?.destination,
-      seedContentProvider: () => widget.bootState.content,
       householdNotifierLookup: _lookupNotifier<HouseholdNotifier>,
       continuityNotifierLookup: _lookupNotifier<PracticeContinuityNotifier>,
       gardenGrowthNotifierLookup: _lookupNotifier<GardenGrowthNotifier>,
@@ -440,10 +442,28 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           path: AppRouteNames.practice,
           builder: (context, state) {
             final routeEntry = PracticeRouteEntry.fromObject(state.extra);
-            return PracticeSessionScreen(
-              routeEntry: routeEntry,
-              audioControllerFactory: widget.audioControllerFactory,
-            );
+            return switch (routeEntry.kind) {
+              PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
+                key: ValueKey('preset-gate:${routeEntry.scopeLabel}'),
+                routeEntry: routeEntry,
+                presetDefinitionLoader: widget.presetSceneDefinitionLoader,
+                fallbackBuilder: (context, entry) => PracticeSessionScreen(
+                  routeEntry: entry,
+                  audioControllerFactory: widget.audioControllerFactory,
+                  genericFallbackArgs: entry.args == null
+                      ? null
+                      : GenericFallbackPracticeRouteArgs(
+                          presetArgs: entry.args!,
+                        ),
+                ),
+              ),
+              PracticeEntryKind.generated ||
+              PracticeEntryKind.onboarding ||
+              PracticeEntryKind.invalid => PracticeSessionScreen(
+                routeEntry: routeEntry,
+                audioControllerFactory: widget.audioControllerFactory,
+              ),
+            };
           },
         ),
         GoRoute(
@@ -494,7 +514,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           builder: (context, state) => buildAccountRoute(state.extra),
         ),
         GoRoute(
-          path: '/me/settings',
+          path: AppRouteNames.meSettings,
           builder: (context, state) => const SettingsScreen(),
           routes: [
             GoRoute(
@@ -524,7 +544,7 @@ class _BabyTalkAppState extends ConsumerState<BabyTalkApp> {
           ],
         ),
         GoRoute(
-          path: '/me/growth',
+          path: AppRouteNames.meGrowth,
           builder: (context, state) =>
               const GardenGrowthCombinedScreen(initialTab: GrowthTab.growth),
         ),

@@ -1,12 +1,5 @@
-import {
-  ApiError,
-  clearStoredSession,
-  loadStoredSession,
-  persistStoredSession,
-  requestJson,
-  toApiError,
-} from './authClient';
-import { authApi } from '../auth/auth-api';
+import { ApiError, loadStoredSession, requestJson, toApiError } from './authClient';
+import { refreshAdminSessionOnce } from '../auth/admin-session-refresh';
 
 export const OVERVIEW_DOMAIN_KEYS = [
   'knowledge_ingestion',
@@ -111,8 +104,6 @@ type ParsedSseEvent = {
   data: string;
   id?: string;
 };
-
-let inFlightStreamRefresh: Promise<void> | null = null;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -371,52 +362,6 @@ function toStreamNetworkError(error: unknown): ApiError {
   return toApiError(error);
 }
 
-function toSessionResetBanner(error: ApiError) {
-  if (error.code === 'invalid_response_payload') {
-    return {
-      type: 'error' as const,
-      message: '管理员身份响应异常，已清理本地会话，请重新登录。',
-      code: error.code,
-    };
-  }
-
-  return {
-    type: error.status === 401 ? ('warning' as const) : ('error' as const),
-    message: error.message,
-    code: error.code,
-  };
-}
-
-async function refreshStreamSession(): Promise<void> {
-  if (inFlightStreamRefresh) {
-    return inFlightStreamRefresh;
-  }
-
-  const refreshToken = loadStoredSession()?.refreshToken;
-  if (!refreshToken) {
-    const apiError = new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
-    clearStoredSession(toSessionResetBanner(apiError));
-    throw apiError;
-  }
-
-  const refreshPromise = authApi
-    .refresh(refreshToken)
-    .then((nextSession) => {
-      persistStoredSession(nextSession);
-    })
-    .catch((error: unknown) => {
-      const apiError = toApiError(error);
-      clearStoredSession(toSessionResetBanner(apiError));
-      throw apiError;
-    })
-    .finally(() => {
-      inFlightStreamRefresh = null;
-    });
-
-  inFlightStreamRefresh = refreshPromise;
-  return refreshPromise;
-}
-
 async function requestOverviewStreamResponse(input: {
   lastEventId?: string;
   signal: AbortSignal;
@@ -427,13 +372,19 @@ async function requestOverviewStreamResponse(input: {
     url.searchParams.set('sinceEventId', input.lastEventId);
   }
 
+  const headers: Record<string, string> = {
+    Accept: 'text/event-stream',
+  };
+  const accessToken = loadStoredSession()?.accessToken;
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   let response: Response;
   try {
     response = await fetch(url.toString(), {
       method: 'GET',
-      headers: {
-        Accept: 'text/event-stream',
-      },
+      headers,
       credentials: 'include',
       cache: 'no-store',
       signal: input.signal,
@@ -443,7 +394,7 @@ async function requestOverviewStreamResponse(input: {
   }
 
   if (response.status === 401 && input.retried !== true) {
-    await refreshStreamSession();
+    await refreshAdminSessionOnce();
     return requestOverviewStreamResponse({
       ...input,
       retried: true,

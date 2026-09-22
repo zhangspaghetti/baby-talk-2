@@ -14,6 +14,7 @@ enum LocalSensitiveDataTarget {
   authContinuation,
   customSceneDraft,
   generatedCareMoments,
+  presetSceneCatalog,
   generatedAudioMemory,
   onboardingSnapshot,
   onboardingCareTurnContinuation,

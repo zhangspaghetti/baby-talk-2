@@ -9,6 +9,10 @@ import 'package:mobile/features/account/data/repositories/account_repository.dar
 import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/domain/models/account_session.dart';
 import 'package:mobile/features/account/presentation/account_notifier.dart';
+import 'package:mobile/features/household/data/local/household_local_store.dart';
+import 'package:mobile/features/household/data/repositories/household_repository.dart';
+import 'package:mobile/features/household/domain/models/household_role.dart';
+import 'package:mobile/features/household/presentation/household_notifier.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
@@ -131,6 +135,13 @@ void main() {
               ),
             ),
             accountNotifierProvider.overrideWith((ref) => accountNotifier),
+            householdNotifierProvider.overrideWith(
+              (ref) => HouseholdNotifier(
+                repository: _StaticHouseholdRepository(
+                  snapshot: HouseholdLocalSnapshot.empty,
+                ),
+              ),
+            ),
           ],
           child: MaterialApp.router(
             locale: const Locale('zh'),
@@ -207,6 +218,115 @@ void main() {
       expect(find.text('138****8000'), findsOneWidget);
       expect(find.byKey(const Key('me-account-syncing')), findsOneWidget);
     });
+
+    testWidgets('shows primary caregiver household identity', (tester) async {
+      await _pumpMeScreen(
+        tester,
+        householdSnapshot: const HouseholdLocalSnapshot(
+          householdId: 'household_primary',
+          role: HouseholdRole.primaryCaregiver,
+        ),
+      );
+
+      expect(find.text('主照护者'), findsOneWidget);
+      expect(find.text('使用家庭共享宝宝档案'), findsNothing);
+    });
+
+    testWidgets(
+      'shows caregiver household identity and shared profile detail',
+      (tester) async {
+        await _pumpMeScreen(
+          tester,
+          householdSnapshot: const HouseholdLocalSnapshot(
+            householdId: 'household_caregiver',
+            role: HouseholdRole.caregiver,
+          ),
+        );
+
+        expect(find.text('次照护者'), findsOneWidget);
+        expect(find.text('使用家庭共享宝宝档案'), findsOneWidget);
+      },
+    );
+
+    testWidgets('shows household identity sync before membership loads', (
+      tester,
+    ) async {
+      final loadingNotifier = HouseholdNotifier(
+        repository: _StaticHouseholdRepository(
+          snapshot: HouseholdLocalSnapshot.empty,
+        ),
+      );
+      await _pumpMeScreen(tester, householdNotifier: loadingNotifier);
+      expect(find.text('家庭身份同步中'), findsOneWidget);
+      expect(find.text('尚未加入共享家庭'), findsNothing);
+    });
+
+    testWidgets('shows no membership after household state loads', (
+      tester,
+    ) async {
+      final noMembershipNotifier = HouseholdNotifier(
+        repository: _StaticHouseholdRepository(
+          snapshot: HouseholdLocalSnapshot.empty,
+        ),
+      );
+      await noMembershipNotifier.initialize();
+      await _pumpMeScreen(tester, householdNotifier: noMembershipNotifier);
+      expect(find.text('尚未加入共享家庭'), findsOneWidget);
+      expect(find.text('家庭身份同步中'), findsNothing);
+    });
+
+    testWidgets('does not claim no membership for a local-load error', (
+      tester,
+    ) async {
+      await _pumpMeScreen(
+        tester,
+        householdSnapshot: const HouseholdLocalSnapshot(
+          lastPhase: 'local_store_unavailable',
+          lastVisibleError: '本地家庭状态暂时不可用。',
+        ),
+      );
+
+      expect(find.text('尚未加入共享家庭'), findsNothing);
+      expect(find.text('家庭身份暂时不可用'), findsOneWidget);
+      expect(find.text('家庭状态读取失败，请稍后重试。'), findsOneWidget);
+    });
+
+    testWidgets('hides stale role while household refresh is in flight', (
+      tester,
+    ) async {
+      final notifier = _HouseholdNotifierIdentityStub(
+        isLoading: true,
+        hasLoaded: true,
+        value: const HouseholdLocalSnapshot(
+          householdId: 'household_stale',
+          role: HouseholdRole.caregiver,
+        ),
+      );
+
+      await _pumpMeScreen(tester, householdNotifier: notifier);
+      expect(find.text('次照护者'), findsNothing);
+      expect(find.text('家庭身份同步中'), findsOneWidget);
+      expect(find.text('家庭状态正在更新，暂不显示上一份身份。'), findsOneWidget);
+    });
+
+    testWidgets('hides stale role after a household refresh error', (
+      tester,
+    ) async {
+      await _pumpMeScreen(
+        tester,
+        householdSnapshot: const HouseholdLocalSnapshot(
+          householdId: 'household_stale',
+          role: HouseholdRole.caregiver,
+          lastPhase: 'shared_context_offline',
+          lastVisibleError: '当前离线，已保留最近一次稳定状态。',
+        ),
+      );
+
+      expect(find.text('次照护者'), findsNothing);
+      expect(find.text('尚未加入共享家庭'), findsNothing);
+      expect(find.text('家庭身份暂时不可用'), findsOneWidget);
+      expect(find.text('家庭状态正在更新，暂不显示上一份身份。'), findsOneWidget);
+    });
   });
 }
 
@@ -217,6 +337,8 @@ Future<void> _pumpMeScreen(
   VoidCallback? onOpenGarden,
   VoidCallback? onOpenGrowth,
   AccountLocalSnapshot? accountSnapshot,
+  HouseholdLocalSnapshot? householdSnapshot,
+  HouseholdNotifier? householdNotifier,
 }) async {
   final snapshot = gardenSnapshot ?? GardenGrowthSnapshot.empty();
   final accountNotifier = AccountNotifier(
@@ -225,7 +347,16 @@ Future<void> _pumpMeScreen(
     ),
   );
   await accountNotifier.initialize();
-
+  final resolvedHouseholdNotifier =
+      householdNotifier ??
+      HouseholdNotifier(
+        repository: _StaticHouseholdRepository(
+          snapshot: householdSnapshot ?? HouseholdLocalSnapshot.empty,
+        ),
+      );
+  if (householdNotifier == null || householdSnapshot != null) {
+    await resolvedHouseholdNotifier.initialize();
+  }
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -233,6 +364,9 @@ Future<void> _pumpMeScreen(
           return _StubGardenGrowthNotifier(snapshot: snapshot);
         }),
         accountNotifierProvider.overrideWith((ref) => accountNotifier),
+        householdNotifierProvider.overrideWith(
+          (ref) => resolvedHouseholdNotifier,
+        ),
       ],
       child: MaterialApp(
         locale: const Locale('zh'),
@@ -462,4 +596,35 @@ class _StaticAccountRepository implements AccountRepository {
 
   @override
   Future<void> close() async {}
+}
+
+class _StaticHouseholdRepository extends Fake implements HouseholdRepository {
+  _StaticHouseholdRepository({required this.snapshot});
+
+  final HouseholdLocalSnapshot snapshot;
+
+  @override
+  Future<HouseholdLocalSnapshot> loadSnapshot() async => snapshot;
+
+  @override
+  Future<void> close() async {}
+}
+
+class _HouseholdNotifierIdentityStub extends HouseholdNotifier {
+  _HouseholdNotifierIdentityStub({
+    required this.isLoading,
+    required this.hasLoaded,
+    required this.value,
+  }) : super(repository: _StaticHouseholdRepository(snapshot: value));
+
+  @override
+  final bool isLoading;
+
+  @override
+  final bool hasLoaded;
+
+  final HouseholdLocalSnapshot value;
+
+  @override
+  HouseholdLocalSnapshot get snapshot => value;
 }

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_clearance.dart';
 import 'package:mobile/features/account/data/local/account_local_store.dart';
@@ -581,8 +583,12 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
       if (_disposed) {
         return;
       }
+      final changed =
+          _snapshotFingerprint(_snapshot) != _snapshotFingerprint(nextSnapshot);
       _snapshot = nextSnapshot;
-      _bumpRuntimeToken();
+      if (changed) {
+        _bumpRuntimeToken();
+      }
       if (announceIdleNoop || _snapshot.lastVisibleError != null) {
         _submissionMessage = _buildActionMessage('已刷新账号与同步状态');
       }
@@ -960,6 +966,10 @@ class AccountNotifier extends ChangeNotifier with WidgetsBindingObserver {
 
   void _bumpRuntimeToken() {
     _runtimeChangeToken += 1;
+  }
+
+  String _snapshotFingerprint(AccountLocalSnapshot snapshot) {
+    return jsonEncode(snapshot.toJsonMap());
   }
 
   @override

@@ -190,6 +190,348 @@ abstract class AppLocalizations {
   /// **'照护入口暂时不可用。'**
   String get practiceEntryUnavailable;
 
+  /// No description provided for @customSceneTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述一下此刻'**
+  String get customSceneTitle;
+
+  /// No description provided for @customSceneTodayEntryPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'不是正在发生的事？'**
+  String get customSceneTodayEntryPrompt;
+
+  /// No description provided for @customSceneSceneEntryPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'没找到正在发生的场景？'**
+  String get customSceneSceneEntryPrompt;
+
+  /// No description provided for @customSceneDescribeMoment.
+  ///
+  /// In zh, this message translates to:
+  /// **'描述一下此刻'**
+  String get customSceneDescribeMoment;
+
+  /// No description provided for @customSceneHeading.
+  ///
+  /// In zh, this message translates to:
+  /// **'说说现在正在发生什么'**
+  String get customSceneHeading;
+
+  /// No description provided for @customSceneDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'写下你想回应的此刻，我们会帮你准备一句自然的表达。'**
+  String get customSceneDescription;
+
+  /// No description provided for @customSceneFieldLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'此刻发生了什么？'**
+  String get customSceneFieldLabel;
+
+  /// No description provided for @customSceneFieldHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如：洗澡时宝宝不想碰水。'**
+  String get customSceneFieldHint;
+
+  /// No description provided for @customScenePrivacyNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'请不要填写姓名、电话、地址或其他私密信息。'**
+  String get customScenePrivacyNote;
+
+  /// No description provided for @customScenePrivacySemantics.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐私说明：请不要填写姓名、电话、地址或其他私密信息。'**
+  String get customScenePrivacySemantics;
+
+  /// No description provided for @customSceneEmptyInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先描述一下此刻。'**
+  String get customSceneEmptyInput;
+
+  /// No description provided for @customSceneSubmit.
+  ///
+  /// In zh, this message translates to:
+  /// **'帮我准备一句'**
+  String get customSceneSubmit;
+
+  /// No description provided for @customScenePreparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备…'**
+  String get customScenePreparing;
+
+  /// No description provided for @customSceneContinueAfterLogin.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录后继续'**
+  String get customSceneContinueAfterLogin;
+
+  /// No description provided for @customSceneConfirmResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续确认结果'**
+  String get customSceneConfirmResult;
+
+  /// No description provided for @customSceneOpenPrepared.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开已准备内容'**
+  String get customSceneOpenPrepared;
+
+  /// No description provided for @customSceneCancelRetainedDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消并重新开始'**
+  String get customSceneCancelRetainedDraft;
+
+  /// No description provided for @customSceneAbandonPrepared.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃这条内容'**
+  String get customSceneAbandonPrepared;
+
+  /// No description provided for @customSceneViewExisting.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看已有场景'**
+  String get customSceneViewExisting;
+
+  /// No description provided for @customSceneUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'这个入口正在准备中。'**
+  String get customSceneUnavailable;
+
+  /// No description provided for @customSceneAbandonTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃已准备内容？'**
+  String get customSceneAbandonTitle;
+
+  /// No description provided for @customSceneAbandonBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃后需要重新描述，才会准备新内容。'**
+  String get customSceneAbandonBody;
+
+  /// No description provided for @customSceneCancelTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消这次描述？'**
+  String get customSceneCancelTitle;
+
+  /// No description provided for @customSceneCancelBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消后需要重新描述，才会准备新内容。'**
+  String get customSceneCancelBody;
+
+  /// No description provided for @customSceneKeep.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续保留'**
+  String get customSceneKeep;
+
+  /// No description provided for @customSceneConfirmAbandon.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认放弃'**
+  String get customSceneConfirmAbandon;
+
+  /// No description provided for @customSceneConfirmCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认取消'**
+  String get customSceneConfirmCancel;
+
+  /// No description provided for @customSceneViewHouseholdStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看家庭状态'**
+  String get customSceneViewHouseholdStatus;
+
+  /// No description provided for @customSceneCompleteProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'完善宝宝档案'**
+  String get customSceneCompleteProfile;
+
+  /// No description provided for @customSceneAuthenticationRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先登录后再生成。'**
+  String get customSceneAuthenticationRequired;
+
+  /// No description provided for @customSceneProfileUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账号还没有可用于生成的宝宝档案；主照护者请先完成档案，次照护者请先加入共享照护家庭并接受邀请。'**
+  String get customSceneProfileUnavailable;
+
+  /// No description provided for @customSceneHouseholdAccessRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。'**
+  String get customSceneHouseholdAccessRequired;
+
+  /// No description provided for @customSceneSharedProfileUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享宝宝档案尚未准备好，请让主照护者先完成档案'**
+  String get customSceneSharedProfileUnavailable;
+
+  /// No description provided for @customScenePresetSceneUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'预置场景暂不可用，请稍后再试。'**
+  String get customScenePresetSceneUnavailable;
+
+  /// No description provided for @customSceneInvalidDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'请调整描述后再试。'**
+  String get customSceneInvalidDraft;
+
+  /// No description provided for @customSceneRequestConflict.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次描述已变更，请重新开始生成。'**
+  String get customSceneRequestConflict;
+
+  /// No description provided for @customSceneRequestTerminal.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次生成已结束，请重新生成。'**
+  String get customSceneRequestTerminal;
+
+  /// No description provided for @customSceneGenerationInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在生成，请稍候。'**
+  String get customSceneGenerationInProgress;
+
+  /// No description provided for @customSceneRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'尝试次数较多，请稍后再试。'**
+  String get customSceneRateLimited;
+
+  /// No description provided for @customSceneUnavailableError.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在暂时无法生成，请稍后再试。'**
+  String get customSceneUnavailableError;
+
+  /// No description provided for @customSceneTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待超时，请稍后再试。'**
+  String get customSceneTimeout;
+
+  /// No description provided for @customSceneNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络暂不可用，请检查后重试。'**
+  String get customSceneNetwork;
+
+  /// No description provided for @customSceneMalformedResponse.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务响应异常，请稍后再试。'**
+  String get customSceneMalformedResponse;
+
+  /// No description provided for @customSceneRejected.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段描述暂时无法生成，请换个说法。'**
+  String get customSceneRejected;
+
+  /// No description provided for @customSceneUnexpected.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法生成，请稍后再试。'**
+  String get customSceneUnexpected;
+
+  /// No description provided for @customSceneSubmissionAnotherDraftPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前已有另一段描述待处理，请先完成或取消。'**
+  String get customSceneSubmissionAnotherDraftPending;
+
+  /// No description provided for @customSceneSubmissionRestoreUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请重新填写。'**
+  String get customSceneSubmissionRestoreUnavailable;
+
+  /// No description provided for @customSceneSubmissionAccountChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号已切换，请重新填写描述。'**
+  String get customSceneSubmissionAccountChanged;
+
+  /// No description provided for @customSceneSubmissionUnknownOutcome.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果尚未确认，请重试以继续。'**
+  String get customSceneSubmissionUnknownOutcome;
+
+  /// No description provided for @customSceneSubmissionPreviousRequestUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次请求的结果尚未确认，请重试以继续。'**
+  String get customSceneSubmissionPreviousRequestUnknown;
+
+  /// No description provided for @customSceneSubmissionRetryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法继续，请重新填写描述。'**
+  String get customSceneSubmissionRetryUnavailable;
+
+  /// No description provided for @customSceneSubmissionHandoffRouteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法打开照护内容，请再试一次。'**
+  String get customSceneSubmissionHandoffRouteFailed;
+
+  /// No description provided for @customSceneSubmissionSaveUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法保存描述，请稍后再试。'**
+  String get customSceneSubmissionSaveUnavailable;
+
+  /// No description provided for @customSceneSubmissionPreparedContentSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容已准备好，但暂时无法保存。请重试以继续。'**
+  String get customSceneSubmissionPreparedContentSaveFailed;
+
+  /// No description provided for @customSceneSubmissionDraftExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次描述已过期，请重新填写。'**
+  String get customSceneSubmissionDraftExpired;
+
+  /// No description provided for @customSceneSubmissionDraftRecoveryUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请稍后再试。'**
+  String get customSceneSubmissionDraftRecoveryUnavailable;
+
+  /// No description provided for @customSceneSubmissionDraftInconsistent.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时无法恢复这次描述，请重新填写。'**
+  String get customSceneSubmissionDraftInconsistent;
+
   /// No description provided for @bootErrorUnknown.
   ///
   /// In zh, this message translates to:
@@ -1087,6 +1429,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'次照护者'**
   String get householdCaregiver;
+
+  /// No description provided for @meHouseholdCaregiverDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用家庭共享宝宝档案'**
+  String get meHouseholdCaregiverDetail;
+
+  /// No description provided for @meHouseholdIdentityLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭身份同步中'**
+  String get meHouseholdIdentityLoading;
+
+  /// No description provided for @meHouseholdIdentityNoMembership.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未加入共享家庭'**
+  String get meHouseholdIdentityNoMembership;
+
+  /// No description provided for @meHouseholdIdentityUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭身份暂时不可用'**
+  String get meHouseholdIdentityUnavailable;
+
+  /// No description provided for @meHouseholdIdentityReadError.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭状态读取失败，请稍后重试。'**
+  String get meHouseholdIdentityReadError;
+
+  /// No description provided for @meHouseholdIdentityStale.
+  ///
+  /// In zh, this message translates to:
+  /// **'家庭状态正在更新，暂不显示上一份身份。'**
+  String get meHouseholdIdentityStale;
 
   /// No description provided for @householdMember.
   ///
@@ -3817,6 +4195,120 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'双语'**
   String get settingsLanguageBilingual;
+
+  /// No description provided for @presetGenerationProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在为宝宝准备个性化练习…'**
+  String get presetGenerationProgress;
+
+  /// No description provided for @presetGenerationUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'个性化练习暂时不可用，请重试。'**
+  String get presetGenerationUnavailable;
+
+  /// No description provided for @presetGenerationGenericFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用通用内容'**
+  String get presetGenerationGenericFallback;
+
+  /// No description provided for @sceneGenerationAuthenticationRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先登录后再生成。'**
+  String get sceneGenerationAuthenticationRequired;
+
+  /// No description provided for @sceneGenerationProfileUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'宝宝档案暂不可用，请先完善宝宝档案后再试。'**
+  String get sceneGenerationProfileUnavailable;
+
+  /// No description provided for @sceneGenerationSharedProfileUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享宝宝档案暂不可用，请让主照护者先完成档案后再试。'**
+  String get sceneGenerationSharedProfileUnavailable;
+
+  /// No description provided for @sceneGenerationHouseholdAccessRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。'**
+  String get sceneGenerationHouseholdAccessRequired;
+
+  /// No description provided for @sceneGenerationPresetUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'预置场景暂不可用，请稍后再试。'**
+  String get sceneGenerationPresetUnavailable;
+
+  /// No description provided for @sceneGenerationInvalidInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'请调整场景描述后再试。'**
+  String get sceneGenerationInvalidInput;
+
+  /// No description provided for @sceneGenerationRequestConflict.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次场景描述已变更，请重新开始生成。'**
+  String get sceneGenerationRequestConflict;
+
+  /// No description provided for @sceneGenerationRequestTerminal.
+  ///
+  /// In zh, this message translates to:
+  /// **'这次生成已结束，请使用新的请求重新生成。'**
+  String get sceneGenerationRequestTerminal;
+
+  /// No description provided for @sceneGenerationInProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'场景正在生成，请稍后查看。'**
+  String get sceneGenerationInProgress;
+
+  /// No description provided for @sceneGenerationRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成次数过多，请稍后再试。'**
+  String get sceneGenerationRateLimited;
+
+  /// No description provided for @sceneGenerationUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成服务暂不可用，请稍后再试。'**
+  String get sceneGenerationUnavailable;
+
+  /// No description provided for @sceneGenerationTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成超时，请稍后重试。'**
+  String get sceneGenerationTimeout;
+
+  /// No description provided for @sceneGenerationNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络暂不可用，请检查后重试。'**
+  String get sceneGenerationNetwork;
+
+  /// No description provided for @sceneGenerationMalformedResponse.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成响应异常，请稍后再试。'**
+  String get sceneGenerationMalformedResponse;
+
+  /// No description provided for @sceneGenerationRejected.
+  ///
+  /// In zh, this message translates to:
+  /// **'这段场景描述暂不适合生成，请调整后再试。'**
+  String get sceneGenerationRejected;
+
+  /// No description provided for @sceneGenerationUnexpected.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成失败，请稍后再试。'**
+  String get sceneGenerationUnexpected;
 
   /// No description provided for @mentorBubbleCaption.
   ///

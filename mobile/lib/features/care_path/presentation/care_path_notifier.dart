@@ -52,12 +52,16 @@ class CarePathNotifier extends ChangeNotifier {
   Future<void> startMoment({
     required String spaceId,
     required String activityId,
+    bool bundledOnly = false,
   }) {
     return _runSnapshotOperation(
       busyPhase: CareTurnPhase.loading,
       replaceRunning: true,
-      loader: () =>
-          _repository.startMoment(spaceId: spaceId, activityId: activityId),
+      loader: () => _repository.startMoment(
+        spaceId: spaceId,
+        activityId: activityId,
+        bundledOnly: bundledOnly,
+      ),
     );
   }
 

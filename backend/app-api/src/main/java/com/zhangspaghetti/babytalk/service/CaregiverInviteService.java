@@ -232,7 +232,7 @@ public class CaregiverInviteService {
                     .orElseThrow(() -> {
                         recordEventSafely(eventRow(null, null, session.accountId(), "shared_context", null, null,
                                 "role_not_allowed", "household_membership_missing", now));
-                        return new ContractException(HttpStatus.FORBIDDEN, "role_not_allowed", "当前账号尚未加入共享家庭。");
+                        return new ContractException(HttpStatus.FORBIDDEN, "household_membership_missing", "当前账号尚未加入共享家庭。");
                     });
             refreshSharedContextProjectionOrThrow(
                     membership.householdId(),

@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
-import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneGeneratedContentValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneGeneratedContentValidator;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryCustomSceneProperties;
 import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyTestFixture;
 import com.zhangspaghetti.babytalk.practice.generated.internal.PracticeGenerationAuditTestAccess;
@@ -71,6 +71,127 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     @AfterEach
     void cleanGeneratedContentFixturesAfterTest() {
         cleanGeneratedContentFixtures();
+    }
+
+    @Test
+    void unifiedSceneSourceColumnsExistForGeneratedContentMapping() {
+        assertThat(jdbcTemplate.queryForObject(
+                """
+                select count(*)
+                from information_schema.columns
+                where table_schema = current_schema()
+                  and table_name = 'practice_generated_content'
+                  and column_name in (
+                      'input_source', 'preset_activity_id', 'preset_scene_version_id',
+                      'profile_version', 'household_context_version'
+                  )
+                """,
+                Integer.class)).isEqualTo(5);
+    }
+
+    @Test
+    void unifiedSceneSourcesRoundTripThroughCommandAndQueryWhileLegacyRowsRemainReadable() {
+        var custom = row("pgc_repo_unified_custom")
+                .profile("acct_pgc_repo_unified_custom", "profile_pgc_repo_unified_custom")
+                .mode("scene_generation")
+                .inputSource("custom")
+                .profileVersion(7)
+                .householdContextVersion("2026-W36")
+                .build();
+
+        insertAccount(custom.accountId());
+        insertProfile(custom.accountId(), custom.profileId());
+        var reservation = repository.reserveDraft(custom);
+        assertThat(reservation.inserted()).isTrue();
+        var customLoaded = queries.findByGeneratedContentId(custom.generatedContentId());
+        assertThat(customLoaded).isNotNull();
+        assertThat(customLoaded.inputSource()).isEqualTo("custom");
+        assertThat(customLoaded.presetActivityId()).isNull();
+        assertThat(customLoaded.presetSceneVersionId()).isNull();
+        assertThat(customLoaded.profileVersion()).isEqualTo(7);
+        assertThat(customLoaded.householdContextVersion()).isEqualTo("2026-W36");
+
+        long activityId = jdbcTemplate.queryForObject(
+                "select id from practice_activities where slug = 'bath_time'", Long.class);
+        long versionId = jdbcTemplate.queryForObject(
+                "select version_id from practice_preset_scene_versions"
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                activityId);
+        var preset = row("pgc_repo_unified_preset")
+                .profile("acct_pgc_repo_unified_preset", "profile_pgc_repo_unified_preset")
+                .mode("scene_generation")
+                .inputSource("preset")
+                .presetIds(activityId, versionId)
+                .profileVersion(8)
+                .householdContextVersion("2026-W36")
+                .active()
+                .build();
+        insert(preset);
+
+        var presetLoaded = queries.findByGeneratedContentId(preset.generatedContentId());
+        assertThat(presetLoaded).isNotNull();
+        assertThat(presetLoaded.inputSource()).isEqualTo("preset");
+        assertThat(presetLoaded.presetActivityId()).isEqualTo(activityId);
+        assertThat(presetLoaded.presetSceneVersionId()).isEqualTo(versionId);
+        assertThat(presetLoaded.profileVersion()).isEqualTo(8);
+        assertThat(presetLoaded.householdContextVersion()).isEqualTo("2026-W36");
+
+        var legacy = row("pgc_repo_unified_legacy").build();
+        insert(legacy);
+        var legacyLoaded = queries.findByGeneratedContentId(legacy.generatedContentId());
+        assertThat(legacyLoaded).isNotNull();
+        assertThat(legacyLoaded.mode()).isEqualTo("custom_scene");
+        assertThat(legacyLoaded.inputSource()).isNull();
+        assertThat(legacyLoaded.presetActivityId()).isNull();
+        assertThat(legacyLoaded.presetSceneVersionId()).isNull();
+    }
+
+    @Test
+    void activationKeepsCanonicalCustomTextButClearsPresetText() {
+        var custom = row("pgc_repo_activate_custom")
+                .profile("acct_pgc_repo_activate_custom", "profile_pgc_repo_activate_custom")
+                .mode("scene_generation")
+                .inputSource("custom")
+                .profileVersion(7)
+                .householdContextVersion("2026-W36")
+                .active()
+                .build();
+        custom.setStatus("generating");
+        custom.setNormalizedSceneText("洗澡后哄睡");
+        custom.setGenerationStartedAt(NOW_DB);
+        custom.setGenerationExpiresAt(NOW_DB.plusMinutes(5));
+        insert(custom);
+
+        assertThat(commands.activate(custom)).isPresent();
+        assertThat(queries.findByGeneratedContentId(custom.generatedContentId()).normalizedSceneText())
+                .isEqualTo("洗澡后哄睡");
+
+        var activityId = jdbcTemplate.queryForObject(
+                "select id from practice_activities where slug = 'bath_time'", Long.class);
+        var versionId = jdbcTemplate.queryForObject(
+                "select version_id from practice_preset_scene_versions"
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                activityId);
+        var preset = row("pgc_repo_activate_preset")
+                .profile("acct_pgc_repo_activate_preset", "profile_pgc_repo_activate_preset")
+                .mode("scene_generation")
+                .inputSource("preset")
+                .presetIds(activityId, versionId)
+                .profileVersion(8)
+                .householdContextVersion("2026-W36")
+                .active()
+                .build();
+        preset.setStatus("generating");
+        preset.setNormalizedSceneText("preset:" + activityId + ":" + versionId);
+        preset.setGenerationStartedAt(NOW_DB);
+        preset.setGenerationExpiresAt(NOW_DB.plusMinutes(5));
+        insert(preset);
+
+        assertThat(commands.activate(preset)).isPresent();
+        assertThat(queries.findByGeneratedContentId(preset.generatedContentId()).normalizedSceneText())
+                .isNull();
     }
 
     @Test
@@ -175,7 +296,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 legacy.requestFingerprint(), legacy.generationProfileVersion(), 2)).isNull();
         assertThat(queries.findActiveByGeneratedContentId(
                 legacy.generatedContentId(), legacy.ownerKeyVersion(), 2, WALL_CLOCK_NOW_DB)).isNull();
-        assertThat(queries.findPlayableOwnedActiveBundleUtterance(
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
                 legacy.generatedContentId(), legacy.phraseSlug(), legacy.accountId(), 2)).isNull();
         assertThat(queries.findApprovedUtterances(legacy.generatedContentId(), 2)).isEmpty();
     }
@@ -256,10 +377,14 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                         "utt_resisting_" + complete.generatedContentId(),
                         "utt_no_response_" + complete.generatedContentId(),
                         "utt_other_" + complete.generatedContentId());
-        assertThat(queries.findActiveOwnedByAccountId(
+        assertThat(queries.findActiveAccessibleByAccountId(
                 complete.generatedContentId(), complete.accountId())).isNotNull();
-        assertThat(queries.findActiveOwnedByAccountId(
+        assertThat(queries.findActiveAccessibleByAccountId(
                 complete.generatedContentId(), "acct_pgc_repo_other")).isNull();
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                complete.generatedContentId(), complete.accountId())).hasSize(6);
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                complete.generatedContentId(), "acct_pgc_repo_other")).isEmpty();
         assertThat(queries.findPlayableApprovedUtterance(
                 complete.generatedContentId(), complete.phraseSlug(), 2))
                 .extracting(value -> value.englishText())
@@ -270,6 +395,147 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThatThrownBy(() -> transaction().executeWithoutResult(status ->
                 insertCarePathSupport(complete.generatedContentId(), "other", 6)))
                 .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void profileBundleIsReadableByActiveHouseholdMembersButRevocationCutsOnlyIndirectAccess() {
+        var ownerAccountId = "acct_pgc_repo_household_owner";
+        var caregiverAAccountId = "acct_pgc_repo_household_a";
+        var caregiverBAccountId = "acct_pgc_repo_household_b";
+        var primaryRequesterAccountId = "acct_pgc_repo_household_primary";
+        var outsiderAccountId = "acct_pgc_repo_household_outsider";
+        var crossHouseholdAccountId = "acct_pgc_repo_household_cross";
+        var profileContent = row("pgc_repo_household_profile")
+                .profile(ownerAccountId, "profile_pgc_repo_household")
+                .surface("care_path")
+                .active()
+                .build();
+        var accountContent = row("pgc_repo_household_account")
+                .account(ownerAccountId)
+                .surface("care_path")
+                .active()
+                .build();
+        var installationContent = row("pgc_repo_household_installation")
+                .surface("care_path")
+                .active()
+                .build();
+
+        insertActiveCarePathBundle(profileContent);
+        insertActiveCarePathBundle(accountContent);
+        insertActiveCarePathBundle(installationContent);
+        insertHousehold("household_pgc_repo_access", ownerAccountId, "active");
+        insertMember("household_pgc_repo_access", ownerAccountId, "primary_caregiver", "active");
+        insertMember("household_pgc_repo_access", caregiverAAccountId, "caregiver", "active");
+        insertMember("household_pgc_repo_access", caregiverBAccountId, "caregiver", "active");
+        insertMember("household_pgc_repo_access", primaryRequesterAccountId, "primary_caregiver", "active");
+        insertHousehold("household_pgc_repo_cross", crossHouseholdAccountId, "active");
+        insertMember("household_pgc_repo_cross", crossHouseholdAccountId, "primary_caregiver", "active");
+
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), ownerAccountId)).isNotNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverAAccountId)).isNotNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverBAccountId)).isNotNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), primaryRequesterAccountId)).isNotNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), outsiderAccountId)).isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), crossHouseholdAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId, 2))
+                .isNotNull();
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                profileContent.generatedContentId(), caregiverAAccountId)).hasSize(6);
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId, 2))
+                .isNotNull();
+
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
+                "household_pgc_repo_access", caregiverAAccountId);
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverAAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId, 2))
+                .isNull();
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                profileContent.generatedContentId(), caregiverAAccountId)).isEmpty();
+
+        jdbcTemplate.update(
+                "update households set status = 'revoked' where household_id = ?",
+                "household_pgc_repo_access");
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverBAccountId)).isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), primaryRequesterAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId, 2))
+                .isNull();
+        assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
+                profileContent.generatedContentId(), caregiverBAccountId)).isEmpty();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId, 2))
+                .isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), ownerAccountId)).isNotNull();
+
+        jdbcTemplate.update(
+                "update households set status = 'active' where household_id = ?",
+                "household_pgc_repo_access");
+        jdbcTemplate.update(
+                "update household_members set status = 'active' where household_id = ? and account_id = ?",
+                "household_pgc_repo_access", caregiverAAccountId);
+        jdbcTemplate.update(
+                "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
+                "household_pgc_repo_access", ownerAccountId);
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), caregiverBAccountId)).isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), primaryRequesterAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId, 2))
+                .isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                profileContent.generatedContentId(), ownerAccountId)).isNotNull();
+
+        var inactiveProfileContent = row("pgc_repo_household_inactive")
+                .profile(ownerAccountId, profileContent.profileId())
+                .surface("care_path")
+                .rejected()
+                .build();
+        insert(inactiveProfileContent);
+        assertThat(queries.findActiveAccessibleByAccountId(
+                inactiveProfileContent.generatedContentId(), ownerAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                inactiveProfileContent.generatedContentId(), "utt_missing", ownerAccountId, 2)).isNull();
+
+        assertThat(queries.findActiveAccessibleByAccountId(
+                accountContent.generatedContentId(), caregiverBAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                accountContent.generatedContentId(), accountContent.phraseSlug(), caregiverBAccountId, 2))
+                .isNull();
+        assertThat(queries.findActiveAccessibleByAccountId(
+                installationContent.generatedContentId(), caregiverBAccountId)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                installationContent.generatedContentId(), installationContent.phraseSlug(), caregiverBAccountId, 2))
+                .isNull();
+    }
+
+    @Test
+    void consumerQueriesShareOneAccountAccessFragment() throws Exception {
+        var xml = new String(
+                new org.springframework.core.io.ClassPathResource(
+                        "mapper/practice/generated/PracticeGeneratedContentQueryMapper.xml")
+                        .getInputStream()
+                        .readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(xml.split("<sql id=\"accountCanAccessProfileContent\">", -1).length - 1)
+                .isEqualTo(1);
+        assertThat(xml.split("<include refid=\"accountCanAccessProfileContent\"/>", -1).length - 1)
+                .isEqualTo(3);
     }
 
     @Test
@@ -499,7 +765,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         var retryingRepository = new PracticeGeneratedContentService(
                 queryMapper,
                 commandPort,
-                org.mockito.Mockito.mock(CustomSceneGenerator.class),
+                org.mockito.Mockito.mock(SceneContentGenerator.class),
                 validator(),
                 PracticeDiscoveryCustomSceneProperties.enabledForTest("fake"),
                 PracticeDiscoveryPolicyTestFixture.properties(),
@@ -1220,6 +1486,26 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         return mapper.substring(start, end + "</select>".length());
     }
 
+    private void insertActiveCarePathBundle(PracticeGeneratedContentEntity row) {
+        row.setStatus("generating");
+        row.setNormalizedSceneText("洗澡前宝宝有点紧张");
+        row.setGenerationStartedAt(NOW_DB);
+        row.setGenerationExpiresAt(NOW_DB.plusMinutes(5));
+        insert(row);
+        transaction().executeWithoutResult(status -> {
+            insertCarePathStarter(row.generatedContentId(), row.phraseSlug());
+            insertCarePathSupport(row.generatedContentId(), "cooperating", 2);
+            insertCarePathSupport(row.generatedContentId(), "hesitant", 3);
+            insertCarePathSupport(row.generatedContentId(), "resisting", 4);
+            insertCarePathSupport(row.generatedContentId(), "no_response", 5);
+            insertCarePathSupport(row.generatedContentId(), "other", 6);
+            jdbcTemplate.update(
+                    "update practice_generated_content set status = 'active', normalized_scene_text = null"
+                            + " where generated_content_id = ?",
+                    row.generatedContentId());
+        });
+    }
+
     private void insertCarePathStarter(String generatedContentId, String utteranceId) {
         insertCarePathUtterance(generatedContentId, utteranceId, "starter", null, 1);
     }
@@ -1275,6 +1561,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 insert into practice_generated_content (
                     generated_content_id, owner_scope, owner_key, owner_key_version,
                     account_id, installation_ref_hash, profile_id, surface, mode,
+                    input_source, preset_activity_id, preset_scene_version_id, profile_version,
+                    household_context_version,
                     request_fingerprint, client_request_id, client_request_fingerprint,
                     normalized_scene_text, age_range, parent_goal, locale,
                     space_slug, activity_slug, phrase_slug, space_title_zh, activity_title_zh,
@@ -1289,6 +1577,8 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 ) values (
                     :generatedContentId, :ownerScope, :ownerKey, :ownerKeyVersion,
                     :accountId, :installationRefHash, :profileId, :surface, :mode,
+                    :inputSource, :presetActivityId, :presetSceneVersionId, :profileVersion,
+                    :householdContextVersion,
                     :requestFingerprint, :clientRequestId, :clientRequestFingerprint,
                     :normalizedSceneText, :ageRange, :parentGoal, :locale,
                     :spaceSlug, :activitySlug, :phraseSlug, :spaceTitleZh, :activityTitleZh,
@@ -1305,9 +1595,9 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 new BeanPropertySqlParameterSource(row));
     }
 
-    private CustomSceneGeneratedContentValidator validator() {
+    private SceneGeneratedContentValidator validator() {
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
-        return new CustomSceneGeneratedContentValidator(
+        return new SceneGeneratedContentValidator(
                 policy,
                 new com.zhangspaghetti.babytalk.practice.discovery.CustomSceneIntentClassifier(policy));
     }
@@ -1384,6 +1674,29 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 Timestamp.from(NOW));
     }
 
+    private void insertHousehold(String householdId, String ownerAccountId, String status) {
+        insertAccount(ownerAccountId);
+        jdbcTemplate.update(
+                "insert into households (household_id, owner_account_id, status, created_at, revoked_at)"
+                        + " values (?, ?, ?, ?, null)",
+                householdId,
+                ownerAccountId,
+                status,
+                Timestamp.from(NOW));
+    }
+
+    private void insertMember(String householdId, String accountId, String role, String status) {
+        insertAccount(accountId);
+        jdbcTemplate.update(
+                "insert into household_members (household_id, account_id, role, status, invited_by_account_id, joined_at, last_accepted_at)"
+                        + " values (?, ?, ?, ?, null, ?, null)",
+                householdId,
+                accountId,
+                role,
+                status,
+                Timestamp.from(NOW));
+    }
+
     private void cleanGeneratedContentFixtures() {
         jdbcTemplate.update(
                 """
@@ -1408,6 +1721,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         private String profileId;
         private String surface = "onboarding";
         private String mode = "custom_scene";
+        private String inputSource;
+        private Long presetActivityId;
+        private Long presetSceneVersionId;
+        private Integer profileVersion;
+        private String householdContextVersion;
         private String requestFingerprint;
         private String clientRequestId;
         private String clientRequestFingerprint;
@@ -1503,6 +1821,27 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
 
         RowBuilder mode(String mode) {
             this.mode = mode;
+            return this;
+        }
+
+        RowBuilder inputSource(String inputSource) {
+            this.inputSource = inputSource;
+            return this;
+        }
+
+        RowBuilder presetIds(Long presetActivityId, Long presetSceneVersionId) {
+            this.presetActivityId = presetActivityId;
+            this.presetSceneVersionId = presetSceneVersionId;
+            return this;
+        }
+
+        RowBuilder profileVersion(Integer profileVersion) {
+            this.profileVersion = profileVersion;
+            return this;
+        }
+
+        RowBuilder householdContextVersion(String householdContextVersion) {
+            this.householdContextVersion = householdContextVersion;
             return this;
         }
 
@@ -1646,6 +1985,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             row.setProfileId(profileId);
             row.setSurface(surface);
             row.setMode(mode);
+            row.setInputSource(inputSource);
+            row.setPresetActivityId(presetActivityId);
+            row.setPresetSceneVersionId(presetSceneVersionId);
+            row.setProfileVersion(profileVersion);
+            row.setHouseholdContextVersion(householdContextVersion);
             row.setRequestFingerprint(requestFingerprint);
             row.setClientRequestId(clientRequestId);
             row.setClientRequestFingerprint(clientRequestFingerprint);

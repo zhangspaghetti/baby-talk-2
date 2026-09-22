@@ -291,6 +291,9 @@ main() {
   stage 'practice-generation-privacy' 'python3 tool/verify_practice_generation_privacy.py'
   python3 tool/verify_practice_generation_privacy.py
 
+  stage 'client-version-contract' 'python3 -m unittest test/ci/test_client_version_contract.py'
+  python3 -m unittest test/ci/test_client_version_contract.py
+
   stage 'root-dart-dependencies' 'flutter pub get'
   flutter pub get
 

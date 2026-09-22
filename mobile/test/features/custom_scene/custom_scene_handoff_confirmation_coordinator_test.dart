@@ -8,7 +8,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_handoff_co
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
 
 void main() {

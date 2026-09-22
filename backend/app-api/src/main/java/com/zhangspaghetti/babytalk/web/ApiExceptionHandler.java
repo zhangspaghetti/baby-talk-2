@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.web;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -21,6 +22,12 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class ApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(com.zhangspaghetti.babytalk.practice.scene.SceneGenerationRequest.InvalidSceneSourceException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidSceneSource() {
+        return ResponseEntity.badRequest()
+                .body(errorBody(HttpStatus.BAD_REQUEST, "invalid_scene_source", "场景来源不合法。", Map.of()));
+    }
 
     @ExceptionHandler(ContractException.class)
     public ResponseEntity<Map<String, Object>> handleContract(ContractException exception) {
@@ -44,7 +51,14 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Map<String, Object>> handleUnreadableBody(HttpMessageNotReadableException exception) {
+    public ResponseEntity<Map<String, Object>> handleUnreadableBody(
+            HttpMessageNotReadableException exception,
+            HttpServletRequest request
+    ) {
+        if (request != null && "/api/v1/practice/scene-generations".equals(request.getRequestURI())) {
+            return ResponseEntity.badRequest()
+                    .body(errorBody(HttpStatus.BAD_REQUEST, "invalid_scene_source", "场景来源不合法。", Map.of()));
+        }
         return ResponseEntity.badRequest()
                 .body(errorBody(HttpStatus.BAD_REQUEST, "invalid_request_body", "请求体必须是合法 JSON object。", Map.of()));
     }

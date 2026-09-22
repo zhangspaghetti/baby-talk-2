@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.practice.preset.PresetSceneCatalogMapper">
+
+    <resultMap id="publishedPresetSceneMap"
+               type="com.zhangspaghetti.babytalk.practice.preset.PresetSceneCatalogService$PublishedPresetScene">
+        <constructor>
+            <arg column="activity_id" javaType="_long"/>
+            <arg column="version_id" javaType="_long"/>
+            <arg column="published_version" javaType="_int"/>
+            <arg column="preset_scene_id" javaType="java.lang.String"/>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="title" javaType="java.lang.String"/>
+            <arg column="summary" javaType="java.lang.String"/>
+            <arg column="scene_tag" javaType="java.lang.String"/>
+            <arg column="coach_tip" javaType="java.lang.String"/>
+            <arg column="sort_order" javaType="_int"/>
+            <arg column="generation_brief" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="publishedPresetSceneColumns">
+        a.id as activity_id,
+        v.version_id,
+        v.version as published_version,
+        a.slug as preset_scene_id,
+        s.slug as space_id,
+        v.title_zh as title,
+        v.summary_zh as summary,
+        v.scene_tag_en as scene_tag,
+        v.coach_tip_zh as coach_tip,
+        v.sort_order,
+        v.generation_brief
+    </sql>
+
+    <select id="findPublished" resultMap="publishedPresetSceneMap">
+        select <include refid="publishedPresetSceneColumns"/>
+        from practice_activities a
+        join practice_spaces s on s.id = a.space_id
+        join practice_preset_scene_versions v
+          on v.version_id = a.current_published_version_id
+         and v.activity_id = a.id
+        where v.state = 'published'
+          and v.enabled = true
+        order by v.sort_order asc, a.slug asc, a.id asc, v.version_id asc
+    </select>
+
+    <select id="findPublishedBySceneId" resultMap="publishedPresetSceneMap">
+        select <include refid="publishedPresetSceneColumns"/>
+        from practice_activities a
+        join practice_spaces s on s.id = a.space_id
+        join practice_preset_scene_versions v
+          on v.version_id = a.current_published_version_id
+         and v.activity_id = a.id
+        where a.slug = #{presetSceneId}
+          and v.state = 'published'
+          and v.enabled = true
+    </select>
+</mapper>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContextMapper">
+
+    <resultMap id="weeklyReactionCountsMap"
+               type="com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContextMapper$WeeklyReactionCounts">
+        <constructor>
+            <arg column="recent_practice_count" javaType="_int"/>
+            <arg column="cooperating_count" javaType="_int"/>
+            <arg column="hesitant_count" javaType="_int"/>
+            <arg column="resisting_count" javaType="_int"/>
+            <arg column="no_response_count" javaType="_int"/>
+            <arg column="other_count" javaType="_int"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="activityCountMap"
+               type="com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContextMapper$ActivityCount">
+        <constructor>
+            <arg column="space_id" javaType="java.lang.String"/>
+            <arg column="activity_id" javaType="java.lang.String"/>
+            <arg column="event_count" javaType="_int"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findWeeklyReactionCounts" resultMap="weeklyReactionCountsMap">
+        select count(*)::integer as recent_practice_count,
+               count(*) filter (where ie.reaction_type = 'cooperating')::integer as cooperating_count,
+               count(*) filter (where ie.reaction_type = 'hesitant')::integer as hesitant_count,
+               count(*) filter (where ie.reaction_type = 'resisting')::integer as resisting_count,
+               count(*) filter (where ie.reaction_type = 'no_response')::integer as no_response_count,
+               count(*) filter (where ie.reaction_type = 'other')::integer as other_count
+        from interaction_events ie
+        <choose>
+            <when test="householdId != null">
+                join household_members hm on hm.account_id = ie.account_id
+                join households h on h.household_id = hm.household_id
+                where hm.household_id = #{householdId}
+                  and hm.status = 'active'
+                  and h.status = 'active'
+            </when>
+            <otherwise>
+                where ie.account_id = #{ownerAccountId}
+            </otherwise>
+        </choose>
+          and ie.client_timestamp &gt;= #{weekStart,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+          and ie.client_timestamp &lt;= #{now,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+    </select>
+
+    <select id="findTopWeeklyActivities" resultMap="activityCountMap">
+        select ie.space_id,
+               ie.activity_id,
+               count(*)::integer as event_count
+        from interaction_events ie
+        <choose>
+            <when test="householdId != null">
+                join household_members hm on hm.account_id = ie.account_id
+                join households h on h.household_id = hm.household_id
+                where hm.household_id = #{householdId}
+                  and hm.status = 'active'
+                  and h.status = 'active'
+            </when>
+            <otherwise>
+                where ie.account_id = #{ownerAccountId}
+            </otherwise>
+        </choose>
+          and ie.client_timestamp &gt;= #{weekStart,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+          and ie.client_timestamp &lt;= #{now,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler}
+        group by ie.space_id, ie.activity_id
+        order by count(*) desc, ie.space_id asc, ie.activity_id asc
+        limit 5
+    </select>
+</mapper>

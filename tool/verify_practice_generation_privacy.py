@@ -38,13 +38,18 @@ SECURITY_TEXT_APPROVED = {
     "SceneTextSecurityPolicy.java",
     "PolicyTextMatcher.java",
     "EvidenceSanitizer.java",
-    "CustomSceneGeneratedContentValidator.java",
+    "SceneGeneratedContentValidator.java",
     # Reads canonical securityText only for emergency-rule classification.
     "CustomSceneEmergencyRuleClassifier.java",
     # Hashes canonical securityText into an opaque admission digest/context token.
     "CustomSceneSafetyDecision.java",
 }
 CURRENT_GENERATED_CONTENT_MIGRATION = "V27__upgrade_practice_generated_content_agentic_contract.sql"
+LEGACY_GENERATED_CONTENT_MIGRATION = "V25__create_practice_generated_content.sql"
+GENERATED_CONTENT_MIGRATION_ROOT = "backend/db-migration/src/main/resources/db/migration"
+BACKEND_MODULES_ROOT = "backend"
+GENERATED_CONTENT_TABLE_PATTERN = re.compile(r"\bpractice_generated_content(?:\b|_)", re.IGNORECASE)
+COACH_TIP_PATTERN = re.compile(r"\bcoach_tip_zh\b", re.IGNORECASE)
 GENERATED_AUDIO_JAVA_ROOT = "backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/generated/audio"
 GENERATED_AUDIO_PERSISTENCE_MARKERS = (
     "PracticeGeneratedContentCommands",
@@ -107,9 +112,59 @@ def find_forbidden_fields(paths: list[Path]) -> list[str]:
     return failures
 
 
+def generated_content_migration_paths(root: Path) -> list[Path]:
+    return [
+        path
+        for path in files_under(root, GENERATED_CONTENT_MIGRATION_ROOT, (".sql",))
+        if GENERATED_CONTENT_TABLE_PATTERN.search(text(path))
+    ]
+
+
+def production_mapper_paths(root: Path) -> list[Path]:
+    backend_root = root / BACKEND_MODULES_ROOT
+    if not backend_root.exists():
+        return []
+
+    paths = []
+    for path in backend_root.rglob("*.xml"):
+        if "target" in path.parts or not any(parent.name == "mapper" for parent in path.parents):
+            continue
+        parts = path.parts
+        try:
+            source_index = parts.index("src")
+            main_index = parts.index("main", source_index + 1)
+            resources_index = parts.index("resources", main_index + 1)
+        except ValueError:
+            continue
+        if source_index < main_index < resources_index:
+            paths.append(path)
+    return sorted(paths)
+
+
+def generated_content_coach_tip_failures(path: Path, source: str) -> list[str]:
+    if not COACH_TIP_PATTERN.search(source):
+        return []
+    if path.name == LEGACY_GENERATED_CONTENT_MIGRATION:
+        # V25 is immutable history. Its initial generated-content shape is
+        # intentionally retained for Flyway replay and is replaced by V27.
+        return []
+    if path.name == CURRENT_GENERATED_CONTENT_MIGRATION:
+        failures = []
+        for line_number, line in enumerate(source.splitlines(), start=1):
+            if not COACH_TIP_PATTERN.search(line):
+                continue
+            if re.search(r"\bdrop\s+column\s+coach_tip_zh\b", line, re.IGNORECASE):
+                continue
+            if re.search(r"\bcoalesce\s*\(\s*coach_tip_zh\b", line, re.IGNORECASE):
+                continue
+            failures.append(
+                f"{path}:L{line_number}: generated-content migration must not retain coach_tip_zh")
+        return failures
+    return [f"{path}: generated-content migration must not retain coach_tip_zh"]
+
+
 def collect_violations(root: Path) -> list[str]:
     java_root = "backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice"
-    mapper_root = "backend/app-api/src/main/resources/mapper/practice"
     migration = root / "backend/db-migration/src/main/resources/db/migration" / CURRENT_GENERATED_CONTENT_MIGRATION
     generated_mapper = root / "backend/app-api/src/main/resources/mapper/practice/generated"
     query_mapper = generated_mapper / "PracticeGeneratedContentQueryMapper.xml"
@@ -118,8 +173,10 @@ def collect_violations(root: Path) -> list[str]:
 
     failures: list[str] = []
     java_paths = custom_scene_java_paths(root)
-    production_paths = java_paths + files_under(root, mapper_root, (".xml",))
-    if migration.exists():
+    mapper_paths = production_mapper_paths(root)
+    generated_migration_paths = generated_content_migration_paths(root)
+    production_paths = java_paths + mapper_paths + generated_migration_paths
+    if migration.exists() and migration not in generated_migration_paths:
         production_paths.append(migration)
     failures.extend(find_forbidden_fields(production_paths))
 
@@ -130,9 +187,16 @@ def collect_violations(root: Path) -> list[str]:
             if marker in source:
                 failures.append(f"{path}: generated audio must not persist through {marker}")
 
-    for path in files_under(root, mapper_root, (".xml",)):
-        if path.exists() and re.search(r"\bcoach_tip_zh\b", text(path), re.IGNORECASE):
-            failures.append(f"{path}: coach_tip_zh must be composed at response time, never persisted")
+    # Preset catalog/version rows legitimately retain coach_tip_zh and compose
+    # coachTip at the public catalog boundary. Identify generated persistence
+    # by the table it operates on, not by a fixed directory name.
+    for path in mapper_paths:
+        source = text(path)
+        if GENERATED_CONTENT_TABLE_PATTERN.search(source):
+            failures.extend(generated_content_coach_tip_failures(path, source))
+
+    for path in generated_migration_paths:
+        failures.extend(generated_content_coach_tip_failures(path, text(path)))
 
     for path in java_paths:
         source = text(path)

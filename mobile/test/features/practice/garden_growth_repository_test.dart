@@ -5,14 +5,23 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_care_turn_resume_marker_store.dart';
+import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/local/interaction_event_entity.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
+import 'package:mobile/features/practice/data/remote/preset_scene_catalog_api.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/garden_growth_snapshot.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
+import 'package:mobile/features/practice/domain/models/preset_scene_definition.dart';
 import '../../support/isar_test_library.dart';
+import '../../support/generated_care_moment_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +37,7 @@ void main() {
     late PracticeLocalDataSource localDataSource;
     late PracticeRepository practiceRepository;
     late GardenGrowthRepository repository;
+    late GeneratedPracticeContentRegistry generatedRegistry;
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp(
@@ -37,6 +47,15 @@ void main() {
         directory: tempDir.path,
         name: 'garden_growth_${DateTime.now().microsecondsSinceEpoch}',
       );
+      generatedRegistry = GeneratedPracticeContentRegistry(
+        store: GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        ),
+        resumeStore: GeneratedCareTurnResumeMarkerStore(
+          directoryResolver: () async => tempDir,
+        ),
+        accountContextLoader: () async => 'garden_account',
+      );
       practiceRepository = PracticeRepository(
         assetPhraseService: AssetPhraseService(bundle: rootBundle),
         localDataSource: localDataSource,
@@ -44,6 +63,7 @@ void main() {
           directoryResolver: () async => tempDir,
           idGenerator: () => 'install_garden_growth_test',
         ),
+        contentResolver: generatedRegistry,
       );
       repository = GardenGrowthRepository(
         practiceRepository: practiceRepository,
@@ -70,6 +90,211 @@ void main() {
       expect(snapshot.latestImpact, isNull);
       expect(snapshot.milestones.where((item) => item.isAchieved), isEmpty);
     });
+
+    test(
+      'preset generated events use stable Garden activity projection',
+      () async {
+        final preset = generatedCareMomentFixture(
+          generatedContentId: 'garden_preset_generated',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await generatedRegistry.register(
+          accountContext: 'garden_account',
+          moment: preset,
+        );
+        for (var day = 1; day <= 7; day += 1) {
+          await localDataSource.appendInteractionEvent(
+            InteractionEventPayload.validated(
+              localEventId: 'garden_preset_event_$day',
+              installationId: 'install_garden_growth_test',
+              spaceId: 'daily_care',
+              activityId: 'bath_time',
+              phraseId: preset.starter.phraseId,
+              reactionType: BabyReactionType
+                  .values[(day - 1) % BabyReactionType.values.length],
+              clientTimestamp: DateTime.utc(2026, 4, day, 8),
+              generatedContentId: preset.generatedContentId,
+              utteranceId: preset.starter.utteranceId,
+            ),
+          );
+        }
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'garden_preset_wrong_phrase',
+            installationId: 'install_garden_growth_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: 'not_in_generated_bundle',
+            reactionType: BabyReactionType.cooperating,
+            clientTimestamp: DateTime.utc(2026, 4, 8, 8),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: 'wrong_phrase_utterance',
+          ),
+        );
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'garden_preset_wrong_utterance',
+            installationId: 'install_garden_growth_test',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            phraseId: preset.starter.phraseId,
+            reactionType: BabyReactionType.hesitant,
+            clientTimestamp: DateTime.utc(2026, 4, 9, 8),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: 'not_in_generated_bundle',
+          ),
+        );
+
+        final snapshot = await repository.buildSnapshot();
+        final dailyCare = snapshot.spaces.firstWhere(
+          (space) => space.spaceId == 'daily_care',
+        );
+        final bath = dailyCare.activities.firstWhere(
+          (activity) => activity.activityId == 'bath_time',
+        );
+
+        expect(snapshot.knownEvents, 7);
+        expect(snapshot.skippedUnknownContentEvents, 2);
+        expect(
+          snapshot.spaces.map((space) => space.spaceId),
+          isNot(contains('generated_${preset.generatedContentId}')),
+        );
+        expect(dailyCare.totalKnownEvents, 7);
+        expect(bath.totalEvents, 7);
+        expect(snapshot.latestImpact?.activityId, 'bath_time');
+        expect(snapshot.latestImpact?.phraseTitle, preset.starter.english);
+        expect(snapshot.diaryEntries, hasLength(7));
+        expect(
+          snapshot.milestones
+              .where((milestone) => milestone.isAchieved)
+              .map((milestone) => milestone.id),
+          contains('streak_7'),
+        );
+      },
+    );
+
+    test(
+      'remote-only preset events use published metadata in stable Garden projection',
+      () async {
+        final remoteCatalog = PresetSceneCatalogRepository(
+          api: _GardenPresetSceneCatalogApi(<PresetSceneDefinition>[
+            PresetSceneDefinition(
+              presetSceneId: 'remote_only',
+              publishedVersion: 2,
+              spaceId: 'remote_space',
+              title: 'Remote activity',
+              summary: 'Remote summary',
+              sceneTag: 'remote',
+              coachTip: 'Remote tip',
+              sortOrder: 0,
+            ),
+          ]),
+          store: PresetSceneCatalogStore(
+            directoryResolver: () async => tempDir,
+          ),
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final remotePracticeRepository = PracticeRepository(
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+          localDataSource: localDataSource,
+          installationIdService: InstallationIdService(
+            directoryResolver: () async => tempDir,
+            idGenerator: () => 'install_garden_growth_test',
+          ),
+          contentResolver: generatedRegistry,
+          presetSceneCatalogRepository: remoteCatalog,
+        );
+        final remoteGarden = GardenGrowthRepository(
+          practiceRepository: remotePracticeRepository,
+          assetPhraseService: AssetPhraseService(bundle: rootBundle),
+        );
+        final preset = generatedCareMomentFixture(
+          generatedContentId: 'garden_remote_only_generated',
+          spaceId: 'remote_space',
+          activityId: 'remote_only',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'remote_only',
+          presetSceneVersion: 2,
+        );
+        await generatedRegistry.register(
+          accountContext: 'garden_account',
+          moment: preset,
+        );
+        for (var day = 1; day <= 7; day += 1) {
+          await localDataSource.appendInteractionEvent(
+            InteractionEventPayload.validated(
+              localEventId: 'garden_remote_preset_event_$day',
+              installationId: 'install_garden_growth_test',
+              spaceId: 'remote_space',
+              activityId: 'remote_only',
+              phraseId: preset.starter.phraseId,
+              reactionType: BabyReactionType
+                  .values[(day - 1) % BabyReactionType.values.length],
+              clientTimestamp: DateTime.utc(2026, 5, day, 8),
+              generatedContentId: preset.generatedContentId,
+              utteranceId: preset.starter.utteranceId,
+            ),
+          );
+        }
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'garden_remote_wrong_phrase',
+            installationId: 'install_garden_growth_test',
+            spaceId: 'remote_space',
+            activityId: 'remote_only',
+            phraseId: 'not_in_generated_bundle',
+            reactionType: BabyReactionType.cooperating,
+            clientTimestamp: DateTime.utc(2026, 5, 8, 8),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: 'wrong_phrase_utterance',
+          ),
+        );
+        await localDataSource.appendInteractionEvent(
+          InteractionEventPayload.validated(
+            localEventId: 'garden_remote_wrong_utterance',
+            installationId: 'install_garden_growth_test',
+            spaceId: 'remote_space',
+            activityId: 'remote_only',
+            phraseId: preset.starter.phraseId,
+            reactionType: BabyReactionType.hesitant,
+            clientTimestamp: DateTime.utc(2026, 5, 9, 8),
+            generatedContentId: preset.generatedContentId,
+            utteranceId: 'not_in_generated_bundle',
+          ),
+        );
+
+        final snapshot = await remoteGarden.buildSnapshot();
+        final remoteSpace = snapshot.spaces.singleWhere(
+          (space) => space.spaceId == 'remote_space',
+        );
+        final remoteActivity = remoteSpace.activities.single;
+
+        expect(snapshot.knownEvents, 7);
+        expect(snapshot.skippedUnknownContentEvents, 2);
+        expect(
+          snapshot.spaces.map((space) => space.spaceId),
+          isNot(contains('generated_${preset.generatedContentId}')),
+        );
+        expect(remoteSpace.totalKnownEvents, 7);
+        expect(remoteActivity.activityId, 'remote_only');
+        expect(remoteActivity.title, 'Remote activity');
+        expect(remoteActivity.totalEvents, 7);
+        expect(snapshot.latestImpact?.spaceId, 'remote_space');
+        expect(snapshot.latestImpact?.activityId, 'remote_only');
+        expect(snapshot.latestImpact?.phraseTitle, preset.starter.english);
+        expect(snapshot.diaryEntries, hasLength(7));
+        expect(
+          snapshot.milestones
+              .where((milestone) => milestone.isAchieved)
+              .map((milestone) => milestone.id),
+          contains('streak_7'),
+        );
+      },
+    );
 
     test('本地事件 + bootstrap + unknown phrase + 损坏事件会被稳定投影并降级暴露', () async {
       await practiceRepository.recordReaction(
@@ -194,4 +419,13 @@ void main() {
       expect(streak14.remainingHint, '还差2天');
     });
   });
+}
+
+class _GardenPresetSceneCatalogApi extends PresetSceneCatalogApi {
+  _GardenPresetSceneCatalogApi(this.scenes);
+
+  final List<PresetSceneDefinition> scenes;
+
+  @override
+  Future<List<PresetSceneDefinition>> fetchPublishedScenes() async => scenes;
 }

@@ -115,21 +115,24 @@ class _BabyProfileScreenState extends ConsumerState<BabyProfileScreen> {
               _buildSection(
                 colors,
                 title: '出生日期（选填）',
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    _selectedBirthDate != null
-                        ? '${_selectedBirthDate!.year}-${_padZero(_selectedBirthDate!.month)}-${_padZero(_selectedBirthDate!.day)}'
-                        : '点击选择',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: _selectedBirthDate != null
-                          ? colors.textPrimary
-                          : colors.textMuted,
+                child: Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      _selectedBirthDate != null
+                          ? '${_selectedBirthDate!.year}-${_padZero(_selectedBirthDate!.month)}-${_padZero(_selectedBirthDate!.day)}'
+                          : '点击选择',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: _selectedBirthDate != null
+                            ? colors.textPrimary
+                            : colors.textMuted,
+                      ),
                     ),
+                    trailing: Icon(Icons.calendar_today, color: colors.accent),
+                    onTap: _pickBirthDate,
                   ),
-                  trailing: Icon(Icons.calendar_today, color: colors.accent),
-                  onTap: _pickBirthDate,
                 ),
               ),
 

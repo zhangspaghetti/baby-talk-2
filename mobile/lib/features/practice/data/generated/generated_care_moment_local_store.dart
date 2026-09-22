@@ -1,22 +1,33 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:crypto/crypto.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:path_provider/path_provider.dart';
 
 typedef GeneratedCareMomentDirectoryResolver = Future<Directory> Function();
+typedef GeneratedCareMomentFileExists = Future<bool> Function(File file);
+typedef GeneratedCareMomentFileDelete = Future<void> Function(File file);
+typedef GeneratedCareMomentFileRename =
+    Future<File> Function(File source, String targetPath);
+typedef GeneratedCareMomentFileWrite =
+    Future<void> Function(File file, String contents, {required bool flush});
 
 class StoredGeneratedCareMoment {
   StoredGeneratedCareMoment({
     required String accountContext,
-    required GeneratedCareMoment moment,
+    required this.moment,
     String? safetyPolicyVersion,
     int? contentRefreshEpoch,
+    String? householdScopeFingerprint,
   }) : accountContext = _requiredString(accountContext, 'accountContext'),
-       moment = moment,
        safetyPolicyVersion = safetyPolicyVersion ?? moment.safetyPolicyVersion,
-       contentRefreshEpoch = contentRefreshEpoch ?? moment.contentRefreshEpoch {
+       contentRefreshEpoch = contentRefreshEpoch ?? moment.contentRefreshEpoch,
+       householdScopeFingerprint = _optionalHouseholdScopeFingerprint(
+         householdScopeFingerprint,
+       ) {
     if (this.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
         this.contentRefreshEpoch != generatedCareMomentContentRefreshEpoch ||
         moment.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
@@ -35,6 +46,7 @@ class StoredGeneratedCareMoment {
   final GeneratedCareMoment moment;
   final String safetyPolicyVersion;
   final int contentRefreshEpoch;
+  final String? householdScopeFingerprint;
 }
 
 /// Public diagnostics deliberately omit account context and generated text.
@@ -61,13 +73,29 @@ class GeneratedCareMomentLocalStore {
     GeneratedCareMomentDirectoryResolver? directoryResolver,
     this.fileName = 'generated_care_moments.json',
     DateTime Function()? clock,
+    GeneratedCareMomentFileExists? existsFile,
+    GeneratedCareMomentFileDelete? deleteFile,
+    GeneratedCareMomentFileRename? renameFile,
+    GeneratedCareMomentFileWrite? writeFile,
   }) : _directoryResolver = directoryResolver ?? getApplicationSupportDirectory,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _existsFile = existsFile ?? _defaultExists,
+       _deleteFile = deleteFile ?? _defaultDelete,
+       _renameFile = renameFile ?? _defaultRename,
+       _writeFile = writeFile ?? _defaultWrite;
 
-  static const _storeSchemaVersion = 2;
+  static const _storeSchemaVersion = 4;
+  static const _legacySourceStoreSchemaVersion = 2;
+  static const _legacyScopeStoreSchemaVersion = 3;
+  static final Map<String, Future<void>> _sharedMutationTails =
+      <String, Future<void>>{};
 
   final GeneratedCareMomentDirectoryResolver _directoryResolver;
   final DateTime Function() _clock;
+  final GeneratedCareMomentFileExists _existsFile;
+  final GeneratedCareMomentFileDelete _deleteFile;
+  final GeneratedCareMomentFileRename _renameFile;
+  final GeneratedCareMomentFileWrite _writeFile;
   final String fileName;
   Future<void> _mutationTail = Future<void>.value();
 
@@ -104,11 +132,14 @@ class GeneratedCareMomentLocalStore {
   /// during the atomic transition; this only drops metadata for this scope.
   Future<void> purgeQuarantinedForAccount(String accountContext) {
     final normalized = _requiredString(accountContext, 'accountContext');
-    final scopeFingerprint = _fingerprint(normalized);
+    final scopeFingerprints = <String>{
+      _fingerprint(normalized),
+      _legacyFingerprint(normalized),
+    };
     return _enqueueMutation(() async {
       final state = await _readState();
       final retainedDiagnostics = state.diagnostics
-          .where((entry) => entry.scopeFingerprint != scopeFingerprint)
+          .where((entry) => !scopeFingerprints.contains(entry.scopeFingerprint))
           .toList(growable: false);
       if (retainedDiagnostics.length != state.diagnostics.length) {
         await _writeState(state.records, retainedDiagnostics);
@@ -119,6 +150,10 @@ class GeneratedCareMomentLocalStore {
   Future<void> clearForAccount(String accountContext) {
     final normalized = _requiredString(accountContext, 'accountContext');
     final scopeFingerprint = _fingerprint(normalized);
+    final scopeFingerprints = <String>{
+      scopeFingerprint,
+      _legacyFingerprint(normalized),
+    };
     return _enqueueMutation(() async {
       final state = await _readState();
       // Remove accepted textual/derived content before its quarantine metadata.
@@ -126,13 +161,45 @@ class GeneratedCareMomentLocalStore {
           .where((record) => record.accountContext != normalized)
           .toList(growable: false);
       final retainedDiagnostics = state.diagnostics
-          .where((entry) => entry.scopeFingerprint != scopeFingerprint)
+          .where((entry) => !scopeFingerprints.contains(entry.scopeFingerprint))
           .toList(growable: false);
       if (retainedRecords.isEmpty && retainedDiagnostics.isEmpty) {
         await _deleteIfExists();
         return;
       }
-      await _writeState(retainedRecords, retainedDiagnostics);
+      await _writeState(
+        retainedRecords,
+        retainedDiagnostics,
+        clearIntent: _ClearIntent.account(scopeFingerprint),
+      );
+    });
+  }
+
+  Future<void> clearForHouseholdScope(String householdScope) {
+    return clearForHouseholdScopeFingerprint(
+      householdScopeFingerprint(householdScope),
+    );
+  }
+
+  Future<void> clearForHouseholdScopeFingerprint(String scopeFingerprint) {
+    _requireHouseholdScopeFingerprint(scopeFingerprint);
+    return _enqueueMutation(() async {
+      final file = await _resolveFile();
+      if (!await file.parent.exists()) {
+        return;
+      }
+      try {
+        await _writeFile(
+          File('${file.path}.clear'),
+          _ClearIntent.household(scopeFingerprint).markerValue,
+          flush: true,
+        );
+      } on Object {
+        throw const GeneratedCareMomentLocalStoreException();
+      }
+      // _readState consumes the durable marker, applies the targeted filter,
+      // and removes the marker only after its replacement is complete.
+      await _readState();
     });
   }
 
@@ -144,7 +211,42 @@ class GeneratedCareMomentLocalStore {
     final File file;
     try {
       file = await _resolveFile();
-      if (!await file.exists()) {
+      final clearMarker = File('${file.path}.clear');
+      final pendingClearIntent = await _readClearIntent(clearMarker);
+      final clearIntent =
+          pendingClearIntent?.kind == _ClearScopeKind.lifecycle &&
+              await _existsFile(file)
+          ? null
+          : pendingClearIntent;
+      final clearInProgress = clearIntent != null;
+      final clearScopeFingerprint = clearIntent?.scopeFingerprint;
+      if (pendingClearIntent?.kind == _ClearScopeKind.lifecycle &&
+          clearIntent != null) {
+        await _deleteIfExists();
+        return const _StoreState.empty();
+      }
+      if (clearScopeFingerprint == null &&
+          clearInProgress &&
+          !await _existsFile(file)) {
+        // A failed clear owns this artifact. Never resurrect private content
+        // from its backup; cleanup remains best effort but fail-closed.
+        await _deleteFileIfExists(File('${file.path}.tmp'));
+        await _deleteFileIfExists(File('${file.path}.bak'));
+        await _deleteFileIfExists(clearMarker);
+        return const _StoreState.empty();
+      }
+      if (!await _existsFile(file)) {
+        final restored = await _restoreBackupIfNeeded(file);
+        if (!restored && clearScopeFingerprint != null) {
+          // An account-scoped intent must not degrade to an empty read: the
+          // backup may still contain another account that must be preserved.
+          throw const GeneratedCareMomentLocalStoreException();
+        }
+      }
+      if (!await _existsFile(file)) {
+        if (clearIntent != null) {
+          await _deleteFileIfExists(clearMarker);
+        }
         return const _StoreState.empty();
       }
       final raw = await file.readAsString();
@@ -152,20 +254,38 @@ class GeneratedCareMomentLocalStore {
       try {
         decoded = jsonDecode(raw);
       } on Object {
-        return _quarantineWholeFile(raw, 'invalid_store_json', 'unknown', 0);
+        return _quarantineWholeFile(
+          raw,
+          'invalid_store_json',
+          'unknown',
+          0,
+          clearIntent: clearIntent,
+        );
       }
       if (decoded is! Map) {
-        return _quarantineWholeFile(raw, 'invalid_store_root', 'unknown', 0);
+        return _quarantineWholeFile(
+          raw,
+          'invalid_store_root',
+          'unknown',
+          0,
+          clearIntent: clearIntent,
+        );
       }
       final root = _stringKeyedMap(decoded, 'generated care moment root');
       final schemaVersion = root['schemaVersion'];
-      if (schemaVersion != _storeSchemaVersion) {
+      final isLegacySourceSchema =
+          schemaVersion == _legacySourceStoreSchemaVersion;
+      final isLegacyScopeSchema =
+          schemaVersion == _legacyScopeStoreSchemaVersion;
+      final isLegacySchema = isLegacySourceSchema || isLegacyScopeSchema;
+      if (schemaVersion != _storeSchemaVersion && !isLegacySchema) {
         return _quarantineWholeFile(
           raw,
           'unsupported_store_schema',
           schemaVersion?.toString() ?? 'unknown',
           _recordCount(root),
           accountContexts: _accountContextsFromRoot(root),
+          clearIntent: clearIntent,
         );
       }
       _requireExactKeys(root, const <String>{
@@ -175,7 +295,13 @@ class GeneratedCareMomentLocalStore {
       });
       final encodedDiagnostics = root['quarantineDiagnostics'];
       if (encodedDiagnostics is! List) {
-        return _quarantineWholeFile(raw, 'invalid_quarantine_metadata', '2', 0);
+        return _quarantineWholeFile(
+          raw,
+          'invalid_quarantine_metadata',
+          schemaVersion.toString(),
+          0,
+          clearIntent: clearIntent,
+        );
       }
       final diagnostics = <_QuarantineEntry>[
         for (final entry in encodedDiagnostics)
@@ -183,14 +309,24 @@ class GeneratedCareMomentLocalStore {
       ];
       final encodedRecords = root['records'];
       if (encodedRecords is! List) {
-        return _quarantineWholeFile(raw, 'invalid_store_records', '2', 0);
+        return _quarantineWholeFile(
+          raw,
+          'invalid_store_records',
+          schemaVersion.toString(),
+          0,
+          clearIntent: clearIntent,
+        );
       }
       final parsed = <StoredGeneratedCareMoment>[];
       final quarantined = <_QuarantineEntry>[...diagnostics];
       for (final entry in encodedRecords) {
         try {
           parsed.add(
-            _decodeRecord(_stringKeyedMap(entry, 'generated care moment')),
+            _decodeRecord(
+              _stringKeyedMap(entry, 'generated care moment'),
+              allowLegacyMissingInputSource: isLegacySourceSchema,
+              allowLegacyMissingHouseholdScope: isLegacySchema,
+            ),
           );
         } on Object {
           quarantined.add(
@@ -217,11 +353,56 @@ class GeneratedCareMomentLocalStore {
           generatedCareMomentSchemaVersion,
           parsed.length,
           accountContexts: parsed.map((record) => record.accountContext),
+          clearIntent: clearIntent,
         );
       }
-      if (quarantined.length != diagnostics.length) {
-        final state = _StoreState(parsed, quarantined);
-        await _writeState(state.records, state.diagnostics);
+      final retainedRecords = clearIntent == null
+          ? parsed
+          : clearIntent.kind == _ClearScopeKind.household
+          ? parsed
+                .where(
+                  (record) =>
+                      record.householdScopeFingerprint !=
+                      clearIntent.scopeFingerprint,
+                )
+                .toList(growable: false)
+          : parsed
+                .where(
+                  (record) =>
+                      _fingerprint(record.accountContext) !=
+                      clearIntent.scopeFingerprint,
+                )
+                .toList(growable: false);
+      final legacyScopeFingerprints =
+          clearIntent == null || clearIntent.kind == _ClearScopeKind.household
+          ? const <String>{}
+          : parsed
+                .where(
+                  (record) =>
+                      _fingerprint(record.accountContext) ==
+                      clearIntent.scopeFingerprint,
+                )
+                .map((record) => _legacyFingerprint(record.accountContext))
+                .toSet();
+      final retainedDiagnostics =
+          clearIntent == null || clearIntent.kind == _ClearScopeKind.household
+          ? quarantined
+          : quarantined
+                .where(
+                  (entry) =>
+                      entry.scopeFingerprint != clearIntent.scopeFingerprint &&
+                      !legacyScopeFingerprints.contains(entry.scopeFingerprint),
+                )
+                .toList(growable: false);
+      if (clearIntent != null ||
+          quarantined.length != diagnostics.length ||
+          isLegacySchema) {
+        final state = _StoreState(retainedRecords, retainedDiagnostics);
+        await _writeState(
+          state.records,
+          state.diagnostics,
+          clearIntent: clearIntent,
+        );
         return state;
       }
       return _StoreState(parsed, diagnostics);
@@ -232,12 +413,38 @@ class GeneratedCareMomentLocalStore {
     }
   }
 
+  Future<_ClearIntent?> _readClearIntent(File marker) async {
+    if (!await _existsFile(marker)) {
+      return null;
+    }
+    final raw = await marker.readAsString();
+    if (raw == 'clear') {
+      return const _ClearIntent.lifecycle();
+    }
+    const prefix = 'account:';
+    if (raw.startsWith(prefix)) {
+      final scopeFingerprint = raw.substring(prefix.length);
+      if (RegExp(r'^[0-9a-f]{16}$').hasMatch(scopeFingerprint)) {
+        return _ClearIntent.account(scopeFingerprint);
+      }
+    }
+    const householdPrefix = 'household:';
+    if (raw.startsWith(householdPrefix)) {
+      final scopeFingerprint = raw.substring(householdPrefix.length);
+      if (RegExp(r'^[0-9a-f]{64}$').hasMatch(scopeFingerprint)) {
+        return _ClearIntent.household(scopeFingerprint);
+      }
+    }
+    throw const FormatException('invalid generated content clear intent');
+  }
+
   Future<_StoreState> _quarantineWholeFile(
     String raw,
     String reasonCode,
     String schemaVersion,
     int recordCount, {
     Iterable<String>? accountContexts,
+    _ClearIntent? clearIntent,
   }) async {
     final scopes = (accountContexts ?? const <String>[])
         .map((value) => value.trim())
@@ -264,8 +471,16 @@ class GeneratedCareMomentLocalStore {
               ),
           ];
     const records = <StoredGeneratedCareMoment>[];
-    final diagnostics = entries;
-    await _writeState(records, diagnostics);
+    final diagnostics =
+        clearIntent == null || clearIntent.kind == _ClearScopeKind.household
+        ? entries
+        : entries
+              .where(
+                (entry) =>
+                    entry.scopeFingerprint != clearIntent.scopeFingerprint,
+              )
+              .toList(growable: false);
+    await _writeState(records, diagnostics, clearIntent: clearIntent);
     return _StoreState(records, diagnostics);
   }
 
@@ -290,15 +505,27 @@ class GeneratedCareMomentLocalStore {
 
   Future<void> _writeState(
     List<StoredGeneratedCareMoment> records,
-    List<_QuarantineEntry> diagnostics,
-  ) async {
+    List<_QuarantineEntry> diagnostics, {
+    _ClearIntent? clearIntent,
+  }) async {
     File? temporaryFile;
+    File? backupFile;
+    File? clearMarker;
+    var backupCreated = false;
     try {
       final file = await _resolveFile();
       temporaryFile = File('${file.path}.tmp');
+      backupFile = File('${file.path}.bak');
       await file.parent.create(recursive: true);
+      clearMarker = File('${file.path}.clear');
+      if (clearIntent == null) {
+        await _deleteFileIfExists(clearMarker);
+      } else {
+        await _writeFile(clearMarker, clearIntent.markerValue, flush: true);
+      }
       await _deleteFileIfExists(temporaryFile);
-      await temporaryFile.writeAsString(
+      await _writeFile(
+        temporaryFile,
         jsonEncode(<String, Object?>{
           'schemaVersion': _storeSchemaVersion,
           'records': records.map(_encodeRecord).toList(growable: false),
@@ -308,11 +535,38 @@ class GeneratedCareMomentLocalStore {
         }),
         flush: true,
       );
-      if (Platform.isWindows && await file.exists()) {
-        await file.delete();
+
+      // Recover an interrupted prior replacement before rotating current
+      // last-good target into its backup.
+      if (!await _existsFile(file) && await _existsFile(backupFile)) {
+        await _renameFile(backupFile, file.path);
       }
-      await temporaryFile.rename(file.path);
+      await _deleteFileIfExists(backupFile);
+      if (await _existsFile(file)) {
+        await _renameFile(file, backupFile.path);
+        backupCreated = true;
+      }
+      await _renameFile(temporaryFile, file.path);
+      await _deleteFileIfExists(backupFile);
+      backupCreated = false;
+      await _deleteFileIfExists(clearMarker);
     } on Object {
+      if (backupFile != null && temporaryFile != null) {
+        try {
+          final file = await _resolveFile();
+          final backupExists = await _existsFile(backupFile);
+          final fileExists = await _existsFile(file);
+          if (backupExists && (backupCreated || !fileExists)) {
+            if (fileExists) {
+              await _deleteFileIfExists(file);
+            }
+            await _renameFile(backupFile, file.path);
+            backupCreated = false;
+          }
+        } on Object {
+          // Preserve backup for a later recovery attempt if restore is blocked.
+        }
+      }
       if (temporaryFile != null) {
         try {
           await _deleteFileIfExists(temporaryFile);
@@ -327,17 +581,122 @@ class GeneratedCareMomentLocalStore {
   Future<void> _deleteIfExists() async {
     try {
       final file = await _resolveFile();
+      final clearMarker = File('${file.path}.clear');
+      final temporaryFile = File('${file.path}.tmp');
+      final backupFile = File('${file.path}.bak');
+      final markerExists = await _existsFile(clearMarker);
+      final hasArtifacts =
+          markerExists ||
+          await _existsFile(file) ||
+          await _existsFile(temporaryFile) ||
+          await _existsFile(backupFile);
+      if (!hasArtifacts) {
+        return;
+      }
+      if (!markerExists) {
+        await _writeFile(clearMarker, 'clear', flush: true);
+      }
+      await _deleteFileIfExists(temporaryFile);
+      await _deleteFileIfExists(backupFile);
       await _deleteFileIfExists(file);
-      await _deleteFileIfExists(File('${file.path}.tmp'));
+      await _deleteFileIfExists(clearMarker);
     } on Object {
       throw const GeneratedCareMomentLocalStoreException();
     }
   }
 
+  Future<bool> _restoreBackupIfNeeded(File file) async {
+    final backup = File('${file.path}.bak');
+    if (await _existsFile(file)) {
+      return true;
+    }
+    if (!await _existsFile(backup)) {
+      return true;
+    }
+    try {
+      await _renameFile(backup, file.path);
+      return true;
+    } on Object {
+      // Leave backup in place for a later read/retry.
+      return await _existsFile(file);
+    }
+  }
+
   Future<T> _enqueueMutation<T>(Future<T> Function() mutation) {
-    final running = _mutationTail.then((_) => mutation());
+    final running = _mutationTail.then((_) => _enqueueSharedMutation(mutation));
     _mutationTail = running.then<void>((_) {}, onError: (_, _) {});
     return running;
+  }
+
+  Future<T> _enqueueSharedMutation<T>(Future<T> Function() mutation) async {
+    final file = await _resolveFile();
+    final key = _sharedPathKey(file);
+    final previous = _sharedMutationTails[key] ?? Future<void>.value();
+    final current = previous.then((_) => mutation());
+    // Keep completed tails so an operation whose directory resolver finishes
+    // late still joins the same path lock instead of racing a new writer.
+    _sharedMutationTails[key] = current.then<void>((_) {}, onError: (_, _) {});
+    return current;
+  }
+
+  String _sharedPathKey(File file) {
+    // Lexical canonicalization works before the support directory exists and
+    // joins dot/separator/case aliases deterministically. Realpath/symlink
+    // resolution is intentionally unavailable here; production keeps one
+    // store singleton per isolate, while cross-isolate access needs an OS lock.
+    final path = _canonicalizeLexicalPath(file.absolute.path);
+    return Platform.isWindows ? path.toLowerCase() : path;
+  }
+
+  String _canonicalizeLexicalPath(String rawPath) {
+    final path = Platform.isWindows ? rawPath.replaceAll('\\', '/') : rawPath;
+    String prefix;
+    String remainder;
+    if (RegExp(r'^[A-Za-z]:/').hasMatch(path)) {
+      prefix = path.substring(0, 3);
+      remainder = path.substring(3);
+    } else if (path.startsWith('//')) {
+      if (Platform.isWindows) {
+        prefix = '//';
+        remainder = path.substring(2);
+      } else {
+        prefix = '/';
+        remainder = path.replaceFirst(RegExp(r'^/+'), '');
+      }
+    } else if (path.startsWith('/')) {
+      prefix = '/';
+      remainder = path.substring(1);
+    } else {
+      prefix = '';
+      remainder = path;
+    }
+
+    final segments = <String>[];
+    for (final segment in remainder.split('/')) {
+      if (segment.isEmpty || segment == '.') {
+        continue;
+      }
+      if (segment == '..') {
+        if (segments.isNotEmpty && segments.last != '..') {
+          segments.removeLast();
+        } else if (prefix.isEmpty) {
+          segments.add(segment);
+        }
+        continue;
+      }
+      segments.add(segment);
+    }
+    final joined = segments.join('/');
+    if (prefix == '/') {
+      return joined.isEmpty ? '/' : '/$joined';
+    }
+    if (prefix == '//') {
+      return joined.isEmpty ? '//' : '//$joined';
+    }
+    if (prefix.isNotEmpty) {
+      return '$prefix$joined';
+    }
+    return joined.isEmpty ? '.' : joined;
   }
 
   Future<File> _resolveFile() async {
@@ -346,8 +705,8 @@ class GeneratedCareMomentLocalStore {
   }
 
   Future<void> _deleteFileIfExists(File file) async {
-    if (await file.exists()) {
-      await file.delete();
+    if (await _existsFile(file)) {
+      await _deleteFile(file);
     }
   }
 }
@@ -359,6 +718,18 @@ class GeneratedCareMomentLocalStoreException implements Exception {
   String toString() => 'Generated care moment storage unavailable.';
 }
 
+Future<bool> _defaultExists(File file) => file.exists();
+
+Future<void> _defaultDelete(File file) => file.delete();
+
+Future<File> _defaultRename(File source, String targetPath) {
+  return source.rename(targetPath);
+}
+
+Future<void> _defaultWrite(File file, String contents, {required bool flush}) {
+  return file.writeAsString(contents, flush: flush);
+}
+
 class _StoreState {
   const _StoreState(this.records, this.diagnostics);
 
@@ -368,6 +739,29 @@ class _StoreState {
 
   final List<StoredGeneratedCareMoment> records;
   final List<_QuarantineEntry> diagnostics;
+}
+
+enum _ClearScopeKind { lifecycle, account, household }
+
+class _ClearIntent {
+  const _ClearIntent.lifecycle()
+    : kind = _ClearScopeKind.lifecycle,
+      scopeFingerprint = null;
+
+  const _ClearIntent.account(this.scopeFingerprint)
+    : kind = _ClearScopeKind.account;
+
+  const _ClearIntent.household(this.scopeFingerprint)
+    : kind = _ClearScopeKind.household;
+
+  final _ClearScopeKind kind;
+  final String? scopeFingerprint;
+
+  String get markerValue => switch (kind) {
+    _ClearScopeKind.lifecycle => 'clear',
+    _ClearScopeKind.account => 'account:$scopeFingerprint',
+    _ClearScopeKind.household => 'household:$scopeFingerprint',
+  };
 }
 
 class _QuarantineEntry {
@@ -459,6 +853,10 @@ Map<String, Object?> _encodeRecord(StoredGeneratedCareMoment record) {
     'sceneTag': moment.sceneTag,
     'coachTip': moment.coachTip,
     'source': moment.source,
+    'inputSource': moment.inputSource.wireValue,
+    'presetSceneId': moment.presetSceneId,
+    'presetSceneVersion': moment.presetSceneVersion,
+    'householdScopeFingerprint': record.householdScopeFingerprint,
     'starter': _encodeUtterance(moment.starter),
     'reactionSupports': <String, Object?>{
       for (final reaction in BabyReactionType.values)
@@ -467,8 +865,12 @@ Map<String, Object?> _encodeRecord(StoredGeneratedCareMoment record) {
   };
 }
 
-StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
-  _requireExactKeys(json, const <String>{
+StoredGeneratedCareMoment _decodeRecord(
+  Map<String, dynamic> json, {
+  required bool allowLegacyMissingInputSource,
+  required bool allowLegacyMissingHouseholdScope,
+}) {
+  final expectedKeys = <String>{
     'accountContext',
     'schemaVersion',
     'safetyPolicyVersion',
@@ -484,7 +886,14 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
     'source',
     'starter',
     'reactionSupports',
-  });
+    if (!allowLegacyMissingInputSource) ...<String>[
+      'inputSource',
+      'presetSceneId',
+      'presetSceneVersion',
+    ],
+    if (!allowLegacyMissingHouseholdScope) 'householdScopeFingerprint',
+  };
+  _requireExactKeys(json, expectedKeys);
   final supports = _stringKeyedMap(
     json['reactionSupports'],
     'reactionSupports',
@@ -509,10 +918,24 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
       contentRefreshEpoch != generatedCareMomentContentRefreshEpoch) {
     throw const FormatException('unsupported generated care moment provenance');
   }
+  final inputSource = allowLegacyMissingInputSource
+      ? SceneGenerationSourceType.custom
+      : SceneGenerationSourceType.parse(
+          _requiredString(json['inputSource'], 'inputSource'),
+        );
+  final presetSceneId = allowLegacyMissingInputSource
+      ? null
+      : _optionalString(json['presetSceneId'], 'presetSceneId');
+  final presetSceneVersion = allowLegacyMissingInputSource
+      ? null
+      : _optionalInt(json['presetSceneVersion'], 'presetSceneVersion');
   return StoredGeneratedCareMoment(
     accountContext: _requiredString(json['accountContext'], 'accountContext'),
     safetyPolicyVersion: safetyPolicyVersion,
     contentRefreshEpoch: contentRefreshEpoch,
+    householdScopeFingerprint: allowLegacyMissingHouseholdScope
+        ? null
+        : _optionalHouseholdScopeFingerprint(json['householdScopeFingerprint']),
     moment: GeneratedCareMoment(
       schemaVersion: _requiredString(json['schemaVersion'], 'schemaVersion'),
       safetyPolicyVersion: safetyPolicyVersion,
@@ -529,6 +952,9 @@ StoredGeneratedCareMoment _decodeRecord(Map<String, dynamic> json) {
       sceneTag: _requiredString(json['sceneTag'], 'sceneTag'),
       coachTip: _requiredString(json['coachTip'], 'coachTip'),
       source: source,
+      inputSource: inputSource,
+      presetSceneId: presetSceneId,
+      presetSceneVersion: presetSceneVersion,
       starter: _decodeUtterance(_stringKeyedMap(json['starter'], 'starter')),
       reactionSupports: GeneratedReactionSupportMap(
         <BabyReactionType, GeneratedCareUtterance>{
@@ -659,6 +1085,33 @@ String _requiredString(Object? value, String name) {
   return value.trim();
 }
 
+String? _optionalHouseholdScopeFingerprint(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! String || !RegExp(r'^[0-9a-f]{64}$').hasMatch(value)) {
+    throw const FormatException('invalid household scope fingerprint');
+  }
+  return value;
+}
+
+String? _optionalString(Object? value, String name) {
+  if (value == null) {
+    return null;
+  }
+  return _requiredString(value, name);
+}
+
+int? _optionalInt(Object? value, String name) {
+  if (value == null) {
+    return null;
+  }
+  if (value is! int) {
+    throw FormatException('invalid generated care moment $name');
+  }
+  return value;
+}
+
 int _requiredNonNegativeInt(Object? value, String name) {
   if (value is! int || value < 0) {
     throw FormatException('invalid generated care moment $name');
@@ -712,5 +1165,35 @@ String _fingerprint(String value) {
     hash = (hash ^ codeUnit) * 1099511628211;
     hash &= 0xffffffffffffffff;
   }
+  final unsignedHash = hash < 0
+      ? BigInt.from(hash) + (BigInt.one << 64)
+      : BigInt.from(hash);
+  return unsignedHash.toRadixString(16).padLeft(16, '0');
+}
+
+String _legacyFingerprint(String value) {
+  var hash = 1469598103934665603;
+  for (final codeUnit in value.codeUnits) {
+    hash = (hash ^ codeUnit) * 1099511628211;
+    hash &= 0xffffffffffffffff;
+  }
   return hash.toRadixString(16).padLeft(16, '0').substring(0, 16);
+}
+
+String householdScopeFingerprint(String householdScope) {
+  final normalized = householdScope.trim();
+  if (normalized.isEmpty) {
+    throw ArgumentError.value(householdScope, 'householdScope', '不能为空。');
+  }
+  return sha256.convert(utf8.encode(normalized)).toString();
+}
+
+void _requireHouseholdScopeFingerprint(String value) {
+  if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(value)) {
+    throw ArgumentError.value(
+      value,
+      'scopeFingerprint',
+      'household scope fingerprint is invalid.',
+    );
+  }
 }

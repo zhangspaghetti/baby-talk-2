@@ -21,10 +21,12 @@ class PracticeSessionScreen extends ConsumerWidget {
     super.key,
     required this.routeEntry,
     this.audioControllerFactory,
+    this.genericFallbackArgs,
   });
 
   final PracticeRouteEntry routeEntry;
   final PracticeAudioController Function()? audioControllerFactory;
+  final GenericFallbackPracticeRouteArgs? genericFallbackArgs;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,12 +38,23 @@ class PracticeSessionScreen extends ConsumerWidget {
         ),
       );
     }
+    final genericFallbackArgs = this.genericFallbackArgs;
+    if (genericFallbackArgs != null &&
+        (routeEntry.kind != PracticeEntryKind.preset ||
+            !genericFallbackArgs.isValid ||
+            genericFallbackArgs.presetArgs.scopeLabel !=
+                routeEntry.args?.scopeLabel)) {
+      return PracticeFallbackScaffold(
+        message: _careTurnFallbackCopy(l.practiceInvalidParams),
+      );
+    }
 
     final repositoryValue = ref.watch(practiceRepositoryProvider);
     return repositoryValue.when(
       data: (_) => _PracticeSessionBody(
         routeEntry: routeEntry,
         audioControllerFactory: audioControllerFactory,
+        genericFallbackArgs: genericFallbackArgs,
       ),
       loading: () => const _PracticeLoadingScaffold(),
       error: (error, stackTrace) => PracticeFallbackScaffold(
@@ -80,10 +93,12 @@ class _PracticeSessionBody extends ConsumerStatefulWidget {
   const _PracticeSessionBody({
     required this.routeEntry,
     required this.audioControllerFactory,
+    required this.genericFallbackArgs,
   });
 
   final PracticeRouteEntry routeEntry;
   final PracticeAudioController Function()? audioControllerFactory;
+  final GenericFallbackPracticeRouteArgs? genericFallbackArgs;
 
   @override
   ConsumerState<_PracticeSessionBody> createState() =>
@@ -116,13 +131,25 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
         widget.audioControllerFactory == null) {
       _careAudioController = _createCareAudioController();
     }
-    if (_routeScopeKey(oldWidget.routeEntry) !=
-        _routeScopeKey(widget.routeEntry)) {
+    if (_routeScopeKey(
+          oldWidget.routeEntry,
+          fallbackArgs: oldWidget.genericFallbackArgs,
+        ) !=
+        _routeScopeKey(
+          widget.routeEntry,
+          fallbackArgs: widget.genericFallbackArgs,
+        )) {
       _scheduleStartMoment();
     }
   }
 
-  String _routeScopeKey(PracticeRouteEntry routeEntry) {
+  String _routeScopeKey(
+    PracticeRouteEntry routeEntry, {
+    required GenericFallbackPracticeRouteArgs? fallbackArgs,
+  }) {
+    if (fallbackArgs != null) {
+      return fallbackArgs.scopeLabel;
+    }
     return routeEntry.scopeLabel;
   }
 
@@ -130,8 +157,13 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     final generatedContentId =
         widget.routeEntry.generatedArgs?.generatedContentId;
     final onboardingArgs = widget.routeEntry.onboardingArgs;
-    final normalized = widget.routeEntry.args?.normalized();
-    final scopeKey = _routeScopeKey(widget.routeEntry);
+    final normalized =
+        widget.genericFallbackArgs?.presetArgs.normalized() ??
+        widget.routeEntry.args?.normalized();
+    final scopeKey = _routeScopeKey(
+      widget.routeEntry,
+      fallbackArgs: widget.genericFallbackArgs,
+    );
     if (_requestedMomentKey == scopeKey && _completedMomentKey == scopeKey) {
       return;
     }
@@ -167,6 +199,7 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
         future = notifier.startMoment(
           spaceId: normalized.normalizedSpaceId,
           activityId: normalized.normalizedActivityId,
+          bundledOnly: widget.genericFallbackArgs != null,
         );
       } else {
         return;
@@ -193,8 +226,13 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     final generatedContentId =
         widget.routeEntry.generatedArgs?.generatedContentId;
     final onboardingArgs = widget.routeEntry.onboardingArgs;
-    final normalizedArgs = widget.routeEntry.args?.normalized();
-    final scopeKey = _routeScopeKey(widget.routeEntry);
+    final normalizedArgs =
+        widget.genericFallbackArgs?.presetArgs.normalized() ??
+        widget.routeEntry.args?.normalized();
+    final scopeKey = _routeScopeKey(
+      widget.routeEntry,
+      fallbackArgs: widget.genericFallbackArgs,
+    );
     final bool hasMatchingSnapshot;
     if (onboardingArgs != null) {
       final hasExactSupport =
@@ -261,6 +299,7 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
       onQuietExit: onboardingArgs == null
           ? () => Navigator.of(context).maybePop()
           : () => context.go(AppRouteNames.shell),
+      title: widget.genericFallbackArgs == null ? null : '通用内容',
     );
   }
 
@@ -296,7 +335,10 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
 
   bool _isInteractiveGeneratedStarterReady(String generatedContentId) {
     final routeContentId = widget.routeEntry.generatedArgs?.generatedContentId;
-    final scopeKey = _routeScopeKey(widget.routeEntry);
+    final scopeKey = _routeScopeKey(
+      widget.routeEntry,
+      fallbackArgs: widget.genericFallbackArgs,
+    );
     final notifier = ref.read(carePathNotifierProvider);
     return GeneratedCareTurnHandoffReadiness.isReady(
       routeContentId: routeContentId,

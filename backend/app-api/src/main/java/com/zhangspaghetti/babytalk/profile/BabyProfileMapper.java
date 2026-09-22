@@ -12,6 +12,12 @@ public interface BabyProfileMapper extends BaseMapper<BabyProfileRow> {
 
     BabyProfileRow findByAccountId(@Param("accountId") String accountId);
 
+    /**
+     * Resolves the owning account's profile only through an active caregiver
+     * membership in that owner's active household.
+     */
+    BabyProfileRow findSharedByHouseholdMemberAccountId(@Param("accountId") String accountId);
+
     int updateIfVersionMatches(
             @Param("accountId") String accountId,
             @Param("expectedVersion") int expectedVersion,

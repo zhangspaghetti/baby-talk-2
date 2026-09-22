@@ -14,6 +14,12 @@ while IFS= read -r git_local_env_var; do
   fi
 done <<<"$git_local_env_vars"
 
+parent_head_before="$(git -C "$repo_root" rev-parse HEAD)"
+parent_config_before="$(git -C "$repo_root" config --local --list | sha256sum | awk '{print $1}')"
+parent_index_path="$(git -C "$repo_root" rev-parse --git-path index)"
+parent_status_before="$(git -C "$repo_root" status --porcelain=v1 --untracked-files=all)"
+parent_index_before="$(git -C "$repo_root" hash-object -- "$parent_index_path")"
+
 fail() {
   printf 'mobile-format-test: %s\n' "$*" >&2
   exit 1
@@ -23,27 +29,34 @@ cleanup() {
   local status=$?
   trap - EXIT
   if [[ -n "$temporary_root" ]]; then
-    verify_fixture_path "$temporary_root"
+    verify_temporary_root_is_safe
     rm -rf -- "$temporary_root"
   fi
+  assert_parent_repository_unchanged
   exit "$status"
 }
 
-verify_fixture_path() {
-  local fixture_path="$1"
-  local canonical_fixture_path
-  [[ -d "$fixture_path" ]] || fail "fixture path is missing: $fixture_path"
-  canonical_fixture_path="$(cd "$fixture_path" && pwd -P)" \
-    || fail "cannot canonicalize fixture path: $fixture_path"
-  case "$canonical_fixture_path/" in
+verify_temporary_root_is_safe() {
+  local canonical_temporary_root
+  [[ -n "$temporary_root" ]] || return 0
+  [[ -d "$temporary_root" ]] \
+    || fail "temporary root is missing: $temporary_root"
+  canonical_temporary_root="$(cd "$temporary_root" && pwd -P)" \
+    || fail "cannot canonicalize temporary root: $temporary_root"
+  case "$canonical_temp_base/" in
     "$canonical_repo_root/"*)
-      fail "fixture path overlaps repository: $canonical_fixture_path"
+      fail "trusted temporary base overlaps repository: $canonical_temp_base"
       ;;
   esac
-  case "$canonical_fixture_path/" in
+  case "$canonical_temporary_root/" in
+    "$canonical_repo_root/"*)
+      fail "temporary root overlaps repository: $canonical_temporary_root"
+      ;;
+  esac
+  case "$canonical_temporary_root/" in
     "$canonical_temp_base/"*) ;;
     *)
-      fail "fixture path escaped trusted temporary base: $canonical_fixture_path"
+      fail "temporary root escaped trusted base: $canonical_temporary_root"
       ;;
   esac
 }
@@ -83,7 +96,6 @@ make_fixture() {
     '  fi' \
     'done' >"$fixture/bin/dart"
   chmod +x "$fixture/bin/dart"
-  verify_fixture_path "$fixture"
   (
     cd "$fixture"
     git init -q
@@ -91,19 +103,65 @@ make_fixture() {
     git config user.name 'format gate test'
     git config core.autocrlf false
   )
+  assert_parent_repository_unchanged
   printf '%s' "$fixture"
+}
+
+commit_fixture() {
+  local fixture="$1"
+  local message="$2"
+  (
+    cd "$fixture"
+    git add .
+    git commit -qm "$message"
+    git rev-parse --verify HEAD >/dev/null
+  )
+  assert_parent_repository_unchanged
 }
 
 expect_failure() {
   local fixture="$1"
   local base_ref="$2"
+  local output_file="$3"
+  local expected_message="${4:-}"
   if (
     cd "$fixture"
     PATH="$fixture/bin:$PATH" MOBILE_FORMAT_BASE_REF="$base_ref" \
-      bash ci/mobile-format-changed.sh >/dev/null 2>&1
+      bash ci/mobile-format-changed.sh
   ); then
     fail "expected formatter gate failure in $fixture"
+  fi >"$output_file" 2>&1
+  if [[ -n "$expected_message" ]]; then
+    grep -Fq "$expected_message" "$output_file" \
+      || fail "formatter gate failure did not mention: $expected_message"
   fi
+  assert_parent_repository_unchanged
+}
+
+assert_parent_repository_unchanged() {
+  local parent_head_after
+  local parent_config_after
+  local parent_index_after
+  local parent_status_after
+  parent_head_after="$(git -C "$repo_root" rev-parse HEAD)"
+  parent_config_after="$(git -C "$repo_root" config --local --list | sha256sum | awk '{print $1}')"
+  parent_index_after="$(git -C "$repo_root" hash-object -- "$parent_index_path")"
+  parent_status_after="$(git -C "$repo_root" status --porcelain=v1 --untracked-files=all)"
+  [[ "$parent_head_after" == "$parent_head_before" ]] \
+    || fail "parent HEAD changed: before=$parent_head_before after=$parent_head_after"
+  [[ "$parent_config_after" == "$parent_config_before" ]] \
+    || fail 'parent Git config changed during fixture setup'
+  [[ "$parent_index_after" == "$parent_index_before" ]] \
+    || fail 'parent Git index changed during fixture setup'
+  [[ "$parent_status_after" == "$parent_status_before" ]] \
+    || fail 'parent worktree status changed during fixture setup'
+}
+
+test_fixture_git_operations_preserve_parent_repository() {
+  local fixture
+  fixture="$(make_fixture inherited_git_env)"
+  : >"$fixture/ci/mobile-format-baseline.txt"
+  commit_fixture "$fixture" 'fixture setup under inherited Git environment'
 }
 
 test_baseline_must_equal_actual_debt() {
@@ -111,33 +169,29 @@ test_baseline_must_equal_actual_debt() {
   fixture="$(make_fixture exact)"
   printf '%s\n' 'void main() {}' >"$fixture/mobile/lib/foo.dart"
   printf '%s\n' 'mobile/lib/foo.dart' >"$fixture/ci/mobile-format-baseline.txt"
-  (
-    cd "$fixture"
-    git add .
-    git commit -qm 'fixture baseline contains repaired file'
-  )
+  commit_fixture "$fixture" 'fixture baseline contains repaired file'
 
-  expect_failure "$fixture" HEAD
+  expect_failure "$fixture" HEAD "$temporary_root/exact.out"
 }
 
 test_baseline_cannot_expand_after_base() {
   local fixture
   fixture="$(make_fixture monotonic)"
-  : >"$fixture/ci/mobile-format-baseline.txt"
-  (
-    cd "$fixture"
-    git add .
-    git commit -qm 'fixture base baseline'
-  )
   printf '%s\n' 'void main() { /* unformatted */ }' >"$fixture/mobile/lib/foo.dart"
+  printf '%s\n' 'void main() { /* unformatted */ }' >"$fixture/mobile/lib/bar.dart"
   printf '%s\n' 'mobile/lib/foo.dart' >"$fixture/ci/mobile-format-baseline.txt"
-  (
-    cd "$fixture"
-    git add .
-    git commit -qm 'fixture expands baseline'
-  )
+  commit_fixture "$fixture" 'fixture base baseline contains one debt file'
+  printf '%s\n' 'void main() { /* unformatted */ }' >"$fixture/mobile/lib/foo.dart"
+  printf '%s\n' 'mobile/lib/foo.dart' 'mobile/lib/bar.dart' \
+    >"$fixture/ci/mobile-format-baseline.txt"
+  commit_fixture "$fixture" 'fixture expands baseline'
 
-  expect_failure "$fixture" HEAD~1
+  local output_file="$temporary_root/monotonic.out"
+  expect_failure "$fixture" HEAD~1 "$output_file" \
+    'mobile-format: formatter baseline may only shrink:'
+  if grep -Fq 'dart-format-stub: unformatted changed Dart file' "$output_file"; then
+    fail 'monotonic baseline fixture failed from changed-Dart formatting instead of baseline expansion'
+  fi
 }
 
 write_many_changed_dart_files() {
@@ -163,7 +217,9 @@ write_many_changed_dart_files() {
     cd "$fixture"
     git add mobile/lib
     git commit -qm 'fixture adds many changed Dart files'
+    git rev-parse --verify HEAD >/dev/null
   )
+  assert_parent_repository_unchanged
 }
 
 run_large_changed_file_gate() {
@@ -186,7 +242,9 @@ test_many_changed_dart_files_are_checked_in_bounded_batches() {
     cd "$fixture"
     git add .
     git commit -qm 'fixture base with empty baseline'
+    git rev-parse --verify HEAD >/dev/null
   )
+  assert_parent_repository_unchanged
   write_many_changed_dart_files "$fixture" 320
   output_file="$temporary_root/bounded-batches.out"
 
@@ -207,7 +265,9 @@ test_many_changed_dart_files_still_reject_unformatted_source() {
     cd "$fixture"
     git add .
     git commit -qm 'fixture base with empty baseline'
+    git rev-parse --verify HEAD >/dev/null
   )
+  assert_parent_repository_unchanged
   write_many_changed_dart_files "$fixture" 320 320
   output_file="$temporary_root/bounded-unformatted.out"
 
@@ -223,17 +283,14 @@ test_many_changed_dart_files_still_reject_unformatted_source() {
 
 canonical_repo_root="$(cd "$repo_root" && pwd -P)"
 canonical_temp_base="$(cd "$trusted_temp_base" && pwd -P)"
-case "$canonical_temp_base/" in
-  "$canonical_repo_root/"*)
-    fail "trusted temporary base overlaps repository: $canonical_temp_base"
-    ;;
-esac
 temporary_root="$(mktemp -d "$canonical_temp_base/babytalk-mobile-format-test.XXXXXX")"
-verify_fixture_path "$temporary_root"
+verify_temporary_root_is_safe
 trap cleanup EXIT
 
+test_fixture_git_operations_preserve_parent_repository
 test_baseline_must_equal_actual_debt
 test_baseline_cannot_expand_after_base
 test_many_changed_dart_files_are_checked_in_bounded_batches
 test_many_changed_dart_files_still_reject_unformatted_source
+assert_parent_repository_unchanged
 printf '%s\n' 'mobile-format-test: pass'

@@ -1,6 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
-import { authApi, parseAdminIdentity, toApiError, ApiError } from './auth-api';
-import { clearStoredSession, loadStoredSession, persistStoredSession, type AuthBannerState } from './session-store';
+import { ApiError, parseAdminIdentity, toApiError } from './auth-api';
+import { refreshAdminSessionOnce } from './admin-session-refresh';
+import { loadStoredSession } from './session-store';
 
 export type JsonRequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -21,8 +22,6 @@ const protectedTransport = axios.create({
     Accept: 'application/json',
   },
 });
-
-let inFlightRefresh: Promise<void> | null = null;
 
 protectedTransport.interceptors.request.use((config) => {
   const headers = axios.AxiosHeaders.from(config.headers ?? {});
@@ -54,7 +53,7 @@ protectedTransport.interceptors.response.use(
       throw apiError;
     }
 
-    await refreshSession();
+    await refreshAdminSessionOnce();
     config._adminRetried = true;
 
     try {
@@ -64,51 +63,6 @@ protectedTransport.interceptors.response.use(
     }
   },
 );
-
-async function refreshSession(): Promise<void> {
-  if (inFlightRefresh) {
-    return inFlightRefresh;
-  }
-
-  const refreshToken = loadStoredSession()?.refreshToken;
-  if (!refreshToken) {
-    const apiError = new ApiError(401, 'admin_session_invalid', '管理员会话已失效，请重新登录。');
-    clearStoredSession(toSessionResetBanner(apiError));
-    throw apiError;
-  }
-
-  inFlightRefresh = authApi
-    .refresh(refreshToken)
-    .then((nextSession) => {
-      persistStoredSession(nextSession);
-    })
-    .catch((error) => {
-      const apiError = toApiError(error);
-      clearStoredSession(toSessionResetBanner(apiError));
-      throw apiError;
-    })
-    .finally(() => {
-      inFlightRefresh = null;
-    });
-
-  return inFlightRefresh;
-}
-
-function toSessionResetBanner(error: ApiError): AuthBannerState {
-  if (error.code === 'invalid_response_payload') {
-    return {
-      type: 'error',
-      message: '管理员身份响应异常，已清理本地会话，请重新登录。',
-      code: error.code,
-    };
-  }
-
-  return {
-    type: error.status === 401 ? 'warning' : 'error',
-    message: error.message,
-    code: error.code,
-  };
-}
 
 export async function requestJson(path: string, init: JsonRequestOptions = {}): Promise<unknown> {
   try {

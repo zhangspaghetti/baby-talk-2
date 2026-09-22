@@ -14,7 +14,7 @@ public class DisabledCustomSceneQualityJudge implements CustomSceneQualityJudge 
 
     @Override
     public com.zhangspaghetti.babytalk.practice.generated.quality.SuggestedJudgeResult judge(JudgeRequest request) {
-        throw new CustomSceneGenerator.GenerationUnavailableException(
-                CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_DISABLED);
+        throw new SceneContentGenerator.GenerationUnavailableException(
+                SceneContentGenerator.GenerationUnavailableReason.PROVIDER_DISABLED);
     }
 }

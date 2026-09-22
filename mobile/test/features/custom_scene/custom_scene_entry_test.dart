@@ -1,32 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
-import 'package:mobile/features/household/domain/models/household_role.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 void main() {
-  test(
-    'secondary caregiver cannot open account-profile custom scene entry',
-    () {
-      expect(
-        isCustomSceneEntryAllowedForRole(HouseholdRole.caregiver),
-        isFalse,
-      );
-      expect(
-        isCustomSceneEntryAllowedForRole(HouseholdRole.primaryCaregiver),
-        isTrue,
-      );
-      // An unresolved role must not block a first-launch primary account.
-      expect(isCustomSceneEntryAllowedForRole(null), isTrue);
-    },
-  );
-
   test('Today entry remains lower priority than an open matching moment', () {
     expect(
       shouldOfferCustomSceneFromToday(
@@ -75,15 +60,16 @@ void main() {
   ) async {
     final opened = <CustomSceneEntrySource>[];
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.build(),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: DiscoverScreen(
-            customSceneEnabled: true,
-            catalogLoader: () async => _catalog(),
-            customSceneEntryOpener: (_, source) async => opened.add(source),
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: DiscoverScreen(
+              catalogLoader: () async => _catalog(),
+              customSceneEntryOpener: (_, source) async => opened.add(source),
+            ),
           ),
         ),
       ),
@@ -113,6 +99,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: CustomSceneEntryLink(
             source: CustomSceneEntrySource.scene,
@@ -152,6 +140,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: CustomSceneEntryLink(
             source: CustomSceneEntrySource.today,
@@ -188,22 +178,23 @@ void main() {
     (tester) async {
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.build(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: DiscoverScreen(
-              customSceneEnabled: true,
-              catalogLoader: () async => _catalog(),
-              customSceneEntryOpener: (_, _) async {},
-            ),
-            bottomNavigationBar: Semantics(
-              key: const Key('test-bottom-navigation'),
-              container: true,
-              button: true,
-              label: '底部导航',
-              child: const SizedBox(height: 56),
+        ProviderScope(
+          child: MaterialApp(
+            theme: AppTheme.build(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: DiscoverScreen(
+                catalogLoader: () async => _catalog(),
+                customSceneEntryOpener: (_, _) async {},
+              ),
+              bottomNavigationBar: Semantics(
+                key: const Key('test-bottom-navigation'),
+                container: true,
+                button: true,
+                label: '底部导航',
+                child: const SizedBox(height: 56),
+              ),
             ),
           ),
         ),
@@ -251,14 +242,14 @@ void main() {
   ) async {
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.build(),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: DiscoverScreen(
-            customSceneEnabled: false,
-            catalogLoader: () async => _catalog(),
+      ProviderScope(
+        overrides: [customSceneFeatureEnabledProvider.overrideWithValue(false)],
+        child: MaterialApp(
+          theme: AppTheme.build(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: DiscoverScreen(catalogLoader: () async => _catalog()),
           ),
         ),
       ),
@@ -275,18 +266,16 @@ void main() {
   });
 
   testWidgets(
-    'secondary caregiver catalog hides account-profile custom scene',
+    'secondary caregiver catalog keeps shared-profile custom scene visible',
     (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.build(),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: DiscoverScreen(
-              customSceneEnabled: true,
-              customSceneEntryAllowed: false,
-              catalogLoader: () async => _catalog(),
+        ProviderScope(
+          child: MaterialApp(
+            theme: AppTheme.build(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: DiscoverScreen(catalogLoader: () async => _catalog()),
             ),
           ),
         ),
@@ -297,7 +286,7 @@ void main() {
         find.byKey(const Key('discover-phrase-card-bath_time')),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('custom-scene-entry-scene')), findsNothing);
+      expect(find.byKey(const Key('custom-scene-entry-scene')), findsOneWidget);
     },
   );
 

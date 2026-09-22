@@ -12,7 +12,7 @@ import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 
 void main() {
@@ -227,6 +227,109 @@ void main() {
           harness.controller.state.phase,
           CustomSceneSubmissionPhase.readyForHandoff,
         );
+      },
+    );
+
+    test(
+      'shared-profile unavailable failure also clears the unsent draft',
+      () async {
+        final repository = _FakeRepository((_) async {
+          throw const CustomSceneFailure(
+            kind: CustomSceneFailureKind.sharedProfileUnavailable,
+            retryable: false,
+          );
+        });
+        final harness = _harness(
+          tempDir: tempDir,
+          clock: () => now,
+          repository: repository,
+          registrar: _FakeRegistrar(),
+          handoff: _FakeHandoffSink(),
+        );
+
+        await harness.controller.submit(_draft());
+
+        expect(
+          harness.controller.state.phase,
+          CustomSceneSubmissionPhase.recoverableError,
+        );
+        expect(
+          (await harness.draftStore.readResult(now: now)).status,
+          CustomSceneDraftReadStatus.notFound,
+        );
+      },
+    );
+
+    test(
+      'household and preset unavailable failures clear unsent drafts',
+      () async {
+        for (final kind in const <CustomSceneFailureKind>[
+          CustomSceneFailureKind.householdAccessRequired,
+          CustomSceneFailureKind.presetSceneUnavailable,
+        ]) {
+          final repository = _FakeRepository((_) async {
+            throw CustomSceneFailure(kind: kind, retryable: false);
+          });
+          final harness = _harness(
+            tempDir: tempDir,
+            clock: () => now,
+            repository: repository,
+            registrar: _FakeRegistrar(),
+            handoff: _FakeHandoffSink(),
+          );
+
+          await harness.controller.submit(_draft());
+
+          expect(
+            harness.controller.state.phase,
+            CustomSceneSubmissionPhase.recoverableError,
+          );
+          expect(
+            (await harness.draftStore.readResult(now: now)).status,
+            CustomSceneDraftReadStatus.notFound,
+          );
+        }
+      },
+    );
+
+    test(
+      'network and in-progress failures retain request for reconciliation',
+      () async {
+        for (final kind in const <CustomSceneFailureKind>[
+          CustomSceneFailureKind.network,
+          CustomSceneFailureKind.generationInProgress,
+        ]) {
+          final repository = _FakeRepository((_) async {
+            throw CustomSceneFailure(kind: kind, retryable: true);
+          });
+          final harness = _harness(
+            tempDir: tempDir,
+            clock: () => now,
+            repository: repository,
+            registrar: _FakeRegistrar(),
+            handoff: _FakeHandoffSink(),
+          );
+
+          await harness.controller.submit(
+            CustomSceneDraft(
+              text: '宝宝洗澡时一直躲水。',
+              entrySource: CustomSceneEntrySource.today,
+              requestIdentity: CustomSceneRequestIdentity(
+                clientRequestId: 'request_${kind.name}',
+              ),
+            ),
+          );
+
+          expect(
+            harness.controller.state.phase,
+            CustomSceneSubmissionPhase.unknownOutcome,
+          );
+          expect(
+            (await harness.draftStore.readResult(now: now)).draft?.state,
+            CustomSceneStoredDraftState.unknownOutcome,
+          );
+          await harness.controller.cancel();
+        }
       },
     );
 
@@ -1073,6 +1176,7 @@ GeneratedCareMoment _moment() {
     sceneTag: 'bath',
     coachTip: '慢慢来',
     source: 'generated',
+    inputSource: SceneGenerationSourceType.custom,
     starter: utterance(
       'starter',
       role: GeneratedCareUtteranceRole.starter,

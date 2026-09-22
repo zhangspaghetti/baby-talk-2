@@ -16,10 +16,11 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('@ant-design/pro-components') || id.includes('@ant-design/pro-utils') || id.includes('@ant-design/pro-provider')) {
-              return 'vendor-pro-components';
-            }
-            if (id.includes('node_modules/@ant-design') || id.includes('node_modules/antd') || id.includes('node_modules/rc-')) {
+            if (
+              id.includes('node_modules/@ant-design') ||
+              id.includes('node_modules/antd') ||
+              id.includes('node_modules/rc-')
+            ) {
               return 'vendor-antd';
             }
           },

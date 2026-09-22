@@ -258,6 +258,7 @@ class CareTurnSnapshot {
     required this.message,
     this.failureKind,
     this.onboardingContinuation,
+    this.bundledOnly = false,
   });
 
   final CareMoment moment;
@@ -270,6 +271,7 @@ class CareTurnSnapshot {
   final String? message;
   final CareTurnFailureKind? failureKind;
   final OnboardingCareTurnHandoff? onboardingContinuation;
+  final bool bundledOnly;
 
   CareTurnSnapshot copyWith({
     CareMoment? moment,
@@ -282,6 +284,7 @@ class CareTurnSnapshot {
     Object? message = _unset,
     Object? failureKind = _unset,
     Object? onboardingContinuation = _unset,
+    bool? bundledOnly,
   }) {
     return CareTurnSnapshot(
       moment: moment ?? this.moment,
@@ -308,6 +311,7 @@ class CareTurnSnapshot {
       onboardingContinuation: identical(onboardingContinuation, _unset)
           ? this.onboardingContinuation
           : onboardingContinuation as OnboardingCareTurnHandoff?,
+      bundledOnly: bundledOnly ?? this.bundledOnly,
     );
   }
 
@@ -324,7 +328,8 @@ class CareTurnSnapshot {
             other.latestGardenImpact == latestGardenImpact &&
             other.message == message &&
             other.failureKind == failureKind &&
-            other.onboardingContinuation == onboardingContinuation;
+            other.onboardingContinuation == onboardingContinuation &&
+            other.bundledOnly == bundledOnly;
   }
 
   @override
@@ -339,6 +344,7 @@ class CareTurnSnapshot {
     message,
     failureKind,
     onboardingContinuation,
+    bundledOnly,
   );
 }
 

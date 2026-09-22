@@ -36,14 +36,23 @@ public class GeneratedUtteranceAudioService {
     @Transactional(readOnly = true)
     public GeneratedUtteranceAudio synthesize(String generatedContentId, String utteranceId, String sessionId) {
         var session = authConsentSyncService.requireAcceptedConsumerSession(sessionId, "播放已批准的自定义场景语音");
+        var accountId = session == null ? null : session.accountId();
+        if (accountId == null || accountId.isBlank()) {
+            throw audioNotFound();
+        }
         var contentId = requireSafeId(generatedContentId);
         var approvedUtteranceId = requireSafeId(utteranceId);
-        var utterance = queryMapper.findPlayableOwnedActiveBundleUtterance(
-                contentId, approvedUtteranceId, session.accountId(), CONTENT_REFRESH_EPOCH);
+        var utterance = queryMapper.findPlayableAccessibleActiveBundleUtterance(
+                contentId, approvedUtteranceId, accountId, CONTENT_REFRESH_EPOCH);
         if (utterance == null) {
             throw audioNotFound();
         }
-        return synthesizeApproved(contentId, approvedUtteranceId, utterance.englishText());
+        var response = synthesizeApprovedResponse(contentId, approvedUtteranceId, utterance.englishText());
+        if (queryMapper.findPlayableAccessibleActiveBundleUtterance(
+                contentId, approvedUtteranceId, accountId, CONTENT_REFRESH_EPOCH) == null) {
+            throw audioNotFound();
+        }
+        return toAudio(contentId, approvedUtteranceId, response);
     }
 
     /** Synthesizes an onboarding utterance only after the current active content query succeeds. */
@@ -71,12 +80,21 @@ public class GeneratedUtteranceAudioService {
         if (approvedEnglishText == null || approvedEnglishText.isBlank()) {
             throw audioNotFound();
         }
+        return toAudio(
+                contentId,
+                approvedUtteranceId,
+                synthesizeApprovedResponse(contentId, approvedUtteranceId, approvedEnglishText));
+    }
+
+    private GeneratedAudioResponse synthesizeApprovedResponse(
+            String generatedContentId,
+            String utteranceId,
+            String approvedEnglishText
+    ) {
         try {
-            var response = validateResponse(speechSynthesisPort.synthesize(
+            return validateResponse(speechSynthesisPort.synthesize(
                     new GeneratedSpeechSynthesisPort.GeneratedSpeechRequest(
-                            contentId, approvedUtteranceId, approvedEnglishText)));
-            return new GeneratedUtteranceAudio(
-                    response.bytes(), response.mimeType(), response.voiceVersion(), properties.configurationIdentity());
+                            generatedContentId, utteranceId, approvedEnglishText)));
         } catch (ContractException exception) {
             throw exception;
         } catch (GeneratedSpeechSynthesisException exception) {
@@ -84,6 +102,15 @@ public class GeneratedUtteranceAudioService {
         } catch (RuntimeException exception) {
             throw providerFailure(GeneratedSpeechSynthesisException.unavailable(exception));
         }
+    }
+
+    private GeneratedUtteranceAudio toAudio(
+            String generatedContentId,
+            String utteranceId,
+            GeneratedAudioResponse response
+    ) {
+        return new GeneratedUtteranceAudio(
+                response.bytes(), response.mimeType(), response.voiceVersion(), properties.configurationIdentity());
     }
 
     private GeneratedAudioResponse validateResponse(GeneratedAudioResponse response) {

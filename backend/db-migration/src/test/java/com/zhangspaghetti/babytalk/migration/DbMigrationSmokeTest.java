@@ -2,13 +2,17 @@ package com.zhangspaghetti.babytalk.migration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +32,7 @@ import org.testcontainers.utility.DockerImageName;
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
         properties = {
                 "babytalk.candidate.id=btqa-migration-test",
-                "babytalk.candidate.required-migration-version=36"
+                "babytalk.candidate.required-migration-version=38"
         }
 )
 class DbMigrationSmokeTest {
@@ -40,6 +44,10 @@ class DbMigrationSmokeTest {
     private static final String V35_INVITE_TOKEN_PRIVACY_SCHEMA = "flyway_v35_invite_token_privacy";
     private static final String V36_INTERACTION_EVENT_PRIVACY_SCHEMA = "flyway_v36_interaction_event_privacy";
     private static final String V36_DUPLICATE_GUARD_SCHEMA = "flyway_v36_duplicate_guard";
+    private static final String V37_PRESET_SCENE_SCHEMA = "flyway_v37_preset_scene_schema";
+    private static final String V37_IMMUTABILITY_SCHEMA = "flyway_v37_immutability";
+    private static final String V38_UNIFIED_SCENE_SCHEMA = "flyway_v38_unified_scene_schema";
+    private static final String V38_LEGACY_PRESET_SCHEMA = "flyway_v38_legacy_preset_schema";
 
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
@@ -169,7 +177,10 @@ class DbMigrationSmokeTest {
                 "kg:read",
                 "kg:review",
                 "mentor:audit",
-                "distribution:read");
+                "distribution:read",
+                "practice:read",
+                "practice:write",
+                "practice:publish");
         List<String> seededPermissionCodes = jdbcTemplate.queryForList(
                 """
                 select permission_code
@@ -188,6 +199,380 @@ class DbMigrationSmokeTest {
                 """,
                 Integer.class);
         assertThat(seededSuperAdminGrants).isEqualTo(expectedPermissionCodes.size());
+    }
+
+    @Test
+    void flywayV37CreatesVersionedPresetSceneSchemaAndSeedsPublishedScenes() {
+        Flyway v36 = flywayFor(V37_PRESET_SCENE_SCHEMA, "36");
+        v36.migrate();
+        assertThat(v36.info().current().getVersion().getVersion()).isEqualTo("36");
+
+        Flyway v37 = flywayFor(V37_PRESET_SCENE_SCHEMA, "37");
+        v37.migrate();
+        assertThat(v37.info().current().getVersion().getVersion()).isEqualTo("37");
+
+        assertThat(tableExists(V37_PRESET_SCENE_SCHEMA, "practice_preset_scene_versions")).isTrue();
+        assertThat(tableExists(V37_PRESET_SCENE_SCHEMA, "practice_preset_scene_audit")).isTrue();
+        assertThat(columnExists(
+                V37_PRESET_SCENE_SCHEMA,
+                "practice_activities",
+                "current_published_version_id")).isTrue();
+        assertThat(indexExists(
+                V37_PRESET_SCENE_SCHEMA,
+                "uq_practice_preset_scene_versions_one_draft")).isTrue();
+        assertThat(columnExists(V37_PRESET_SCENE_SCHEMA, "practice_preset_scene_versions", "generation_brief"))
+                .isTrue();
+        assertThat(queryInt(
+                "select count(*) from " + V37_PRESET_SCENE_SCHEMA
+                        + ".practice_preset_scene_versions where state='published' and version=1"))
+                .isEqualTo(5);
+        assertThat(queryInt(
+                "select count(*) from " + V37_PRESET_SCENE_SCHEMA
+                        + ".admin_permissions where permission_code like 'practice:%'"))
+                .isEqualTo(3);
+        assertThat(jdbcTemplate.queryForList(
+                "select a.slug from " + V37_PRESET_SCENE_SCHEMA
+                        + ".practice_activities a join " + V37_PRESET_SCENE_SCHEMA
+                        + ".practice_preset_scene_versions v on v.activity_id = a.id "
+                        + "where v.state = 'published' and v.version = 1 order by a.slug",
+                String.class))
+                .containsExactly(
+                        "bath_time",
+                        "bedtime",
+                        "diaper_change",
+                        "feeding_time",
+                        "post_cry_soothing");
+        assertThat(queryInt(
+                """
+                select count(*)
+                from %s.practice_activities a
+                join %s.practice_preset_scene_versions v
+                  on v.activity_id = a.id
+                 and v.version_id = a.current_published_version_id
+                where v.state = 'published'
+                """.formatted(V37_PRESET_SCENE_SCHEMA, V37_PRESET_SCENE_SCHEMA)))
+                .isEqualTo(5);
+    }
+
+    @Test
+    void flywayV37EnforcesOneDraftAndPublishedVersionImmutability() {
+        Flyway v37 = flywayFor(V37_IMMUTABILITY_SCHEMA, "37");
+        v37.migrate();
+
+        Long activityId = jdbcTemplate.queryForObject(
+                "select id from " + V37_IMMUTABILITY_SCHEMA + ".practice_activities where slug = 'bath_time'",
+                Long.class);
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-31T12:00:00Z"));
+        String versionsTable = V37_IMMUTABILITY_SCHEMA + ".practice_preset_scene_versions";
+        String nullVersionPublishedInsert = """
+                insert into %s (
+                    activity_id, version, state, title_zh, summary_zh, scene_tag_en, coach_tip_zh,
+                    sort_order, generation_brief, enabled, created_at, updated_at, published_at
+                ) values (?, null, 'published', '非法已发布版本', '摘要', 'Bath time', '提示',
+                    1, '生成文案', true, ?, ?, ?)
+                """.formatted(versionsTable);
+        assertThatThrownBy(() -> jdbcTemplate.update(nullVersionPublishedInsert, activityId, now, now, now))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        String draftInsert = """
+                insert into %s (
+                    activity_id, version, state, title_zh, summary_zh, scene_tag_en, coach_tip_zh,
+                    sort_order, generation_brief, enabled, created_at, updated_at
+                ) values (?, null, 'draft', '洗澡时间草稿', '草稿摘要', 'Bath time', '草稿提示',
+                    1, '草稿生成文案', true, ?, ?)
+                """.formatted(versionsTable);
+        jdbcTemplate.update(draftInsert, activityId, now, now);
+
+        assertThatThrownBy(() -> jdbcTemplate.update(draftInsert, activityId, now, now))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        Long draftVersionId = jdbcTemplate.queryForObject(
+                "select version_id from " + versionsTable
+                        + " where activity_id = ? and state = 'draft'",
+                Long.class,
+                activityId);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + V37_IMMUTABILITY_SCHEMA
+                        + ".practice_activities set current_published_version_id = ? where id = ?",
+                draftVersionId,
+                activityId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        Long publishedVersionId = jdbcTemplate.queryForObject(
+                "select version_id from " + versionsTable
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                activityId);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + versionsTable + " set title_zh = '不应更新' where version_id = ?",
+                publishedVersionId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "delete from " + versionsTable + " where version_id = ?",
+                publishedVersionId))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void flywayV38AddsUnifiedSceneSourcesAndRejectsInvalidPresetShapes() {
+        Flyway v37 = flywayFor(V38_UNIFIED_SCENE_SCHEMA, "37");
+        v37.migrate();
+        assertThat(v37.info().current().getVersion().getVersion()).isEqualTo("37");
+        insertV37LegacyCustomScene(V38_UNIFIED_SCENE_SCHEMA);
+
+        Flyway v38 = flywayFor(V38_UNIFIED_SCENE_SCHEMA, "38");
+        v38.migrate();
+        assertThat(v38.info().current().getVersion().getVersion()).isEqualTo("38");
+        assertThat(jdbcTemplate.queryForObject(
+                "select input_source from " + V38_UNIFIED_SCENE_SCHEMA
+                        + ".practice_generated_content where generated_content_id = 'pgc_v38_legacy_backfill'",
+                String.class)).isEqualTo("custom");
+
+        assertThat(columnExists(V38_UNIFIED_SCENE_SCHEMA, "practice_generated_content", "input_source"))
+                .isTrue();
+        assertThat(columnExists(
+                V38_UNIFIED_SCENE_SCHEMA, "practice_generated_content", "preset_activity_id"))
+                .isTrue();
+        assertThat(columnExists(
+                V38_UNIFIED_SCENE_SCHEMA, "practice_generated_content", "preset_scene_version_id"))
+                .isTrue();
+        assertThat(columnExists(V38_UNIFIED_SCENE_SCHEMA, "practice_generated_content", "profile_version"))
+                .isTrue();
+        assertThat(columnExists(
+                V38_UNIFIED_SCENE_SCHEMA, "practice_generated_content", "household_context_version"))
+                .isTrue();
+
+        String schema = V38_UNIFIED_SCENE_SCHEMA;
+        String activityTable = schema + ".practice_activities";
+        String versionsTable = schema + ".practice_preset_scene_versions";
+        long bathActivityId = jdbcTemplate.queryForObject(
+                "select id from " + activityTable + " where slug = 'bath_time'", Long.class);
+        long bathVersionId = jdbcTemplate.queryForObject(
+                "select version_id from " + versionsTable
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                bathActivityId);
+        long bedtimeActivityId = jdbcTemplate.queryForObject(
+                "select id from " + activityTable + " where slug = 'bedtime'", Long.class);
+        long bedtimeVersionId = jdbcTemplate.queryForObject(
+                "select version_id from " + versionsTable
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                bedtimeActivityId);
+        insertV38Profile(schema, "acct_v38_shape", "profile_v38_shape");
+
+        assertThatThrownBy(() -> insertV38GeneratedContent(
+                schema,
+                "pgc_v38_preset_missing_ids",
+                "preset",
+                null,
+                null,
+                "2026-W36",
+                "space-v38-missing",
+                "activity-v38-missing",
+                "phrase-v38-missing"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("chk_practice_generated_content_scene_generation_shape");
+        assertThatThrownBy(() -> insertV38GeneratedContent(
+                schema,
+                "pgc_v38_custom_with_ids",
+                "custom",
+                bathActivityId,
+                bathVersionId,
+                "2026-W36",
+                "space-v38-custom-with-ids",
+                "activity-v38-custom-with-ids",
+                "phrase-v38-custom-with-ids"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("chk_practice_generated_content_scene_generation_shape");
+        assertThatThrownBy(() -> insertV38GeneratedContent(
+                schema,
+                "pgc_v38_cross_activity_version",
+                "preset",
+                bathActivityId,
+                bedtimeVersionId,
+                "2026-W36",
+                "space-v38-cross-pair",
+                "activity-v38-cross-pair",
+                "phrase-v38-cross-pair"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("fk_practice_generated_content_preset_scene");
+
+        insertV38GeneratedContent(
+                schema,
+                "pgc_v38_preset_week_36",
+                "preset",
+                bathActivityId,
+                bathVersionId,
+                "2026-W36",
+                "space-v38-stable",
+                "activity-v38-stable",
+                "phrase-v38-week-36");
+        insertV38GeneratedContent(
+                schema,
+                "pgc_v38_preset_week_37",
+                "preset",
+                bathActivityId,
+                bathVersionId,
+                "2026-W37",
+                "space-v38-stable",
+                "activity-v38-stable",
+                "phrase-v38-week-37");
+        insertV38GeneratedContent(
+                schema,
+                "pgc_v38_custom_active_text",
+                "custom",
+                null,
+                null,
+                "2026-W38",
+                "space-v38-custom-text",
+                "activity-v38-custom-text",
+                "phrase-v38-custom-text");
+        assertThat(jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set normalized_scene_text = 'custom scene text'"
+                        + " where generated_content_id = 'pgc_v38_custom_active_text'"))
+                .isEqualTo(1);
+        assertThat(assertConstraintViolation(() -> jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set normalized_scene_text = null"
+                        + " where generated_content_id = 'pgc_v38_custom_active_text'")))
+                .isEqualTo("chk_practice_generated_content_terminal_input_cleared");
+        assertThat(assertConstraintViolation(() -> jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set normalized_scene_text = 'preset scene text'"
+                        + " where generated_content_id = 'pgc_v38_preset_week_36'")))
+                .isEqualTo("chk_practice_generated_content_terminal_input_cleared");
+        assertThat(jdbcTemplate.queryForObject(
+                "select normalized_scene_text from " + schema
+                        + ".practice_generated_content"
+                        + " where generated_content_id = 'pgc_v38_custom_active_text'",
+                String.class))
+                .isEqualTo("custom scene text");
+        assertThat(jdbcTemplate.queryForObject(
+                "select normalized_scene_text from " + schema
+                        + ".practice_generated_content"
+                        + " where generated_content_id = 'pgc_v38_preset_week_36'",
+                String.class))
+                .isNull();
+        insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_draft_transient",
+                "custom",
+                "draft",
+                "draft transient input",
+                null,
+                null,
+                "2026-W38",
+                "space-v38-draft",
+                "activity-v38-draft",
+                "phrase-v38-draft");
+        insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_generating_transient",
+                "custom",
+                "generating",
+                "generating transient input",
+                null,
+                null,
+                "2026-W38",
+                "space-v38-generating",
+                "activity-v38-generating",
+                "phrase-v38-generating");
+        assertThat(assertConstraintViolation(() -> insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_active_without_source",
+                null,
+                "active",
+                null,
+                null,
+                null,
+                "2026-W38",
+                "space-v38-no-source",
+                "activity-v38-no-source",
+                "phrase-v38-no-source")))
+                .isEqualTo("chk_practice_generated_content_scene_generation_shape");
+        assertThat(assertConstraintViolation(() -> insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_rejected_text",
+                "custom",
+                "rejected",
+                "terminal text",
+                null,
+                null,
+                "2026-W38",
+                "space-v38-rejected",
+                "activity-v38-rejected",
+                "phrase-v38-rejected")))
+                .isEqualTo("chk_practice_generated_content_terminal_input_cleared");
+        assertThat(assertConstraintViolation(() -> insertV38GeneratedContentState(
+                schema,
+                "pgc_v38_expired_text",
+                "preset",
+                "expired",
+                "terminal text",
+                bathActivityId,
+                bathVersionId,
+                "2026-W38",
+                "space-v38-expired",
+                "activity-v38-expired",
+                "phrase-v38-expired")))
+                .isEqualTo("chk_practice_generated_content_terminal_input_cleared");
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from " + schema
+                        + ".practice_generated_content where activity_slug = 'activity-v38-stable'",
+                Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void customScenePresetRowsStillParticipateInActiveSlugUniqueness() {
+        Flyway v38 = flywayFor(V38_LEGACY_PRESET_SCHEMA, "38");
+        v38.migrate();
+        assertThat(v38.info().current().getVersion().getVersion()).isEqualTo("38");
+
+        String schema = V38_LEGACY_PRESET_SCHEMA;
+        String activityTable = schema + ".practice_activities";
+        String versionsTable = schema + ".practice_preset_scene_versions";
+        long activityId = jdbcTemplate.queryForObject(
+                "select id from " + activityTable + " where slug = 'bath_time'", Long.class);
+        long versionId = jdbcTemplate.queryForObject(
+                "select version_id from " + versionsTable
+                        + " where activity_id = ? and state = 'published' and version = 1",
+                Long.class,
+                activityId);
+        insertV38Profile(schema, "acct_v38_shape", "profile_v38_shape");
+
+        insertV38GeneratedContent(
+                schema,
+                "pgc_v38_legacy_slug_first",
+                "preset",
+                activityId,
+                versionId,
+                "2026-W36",
+                "space-v38-legacy-stable",
+                "activity-v38-legacy-stable",
+                "phrase-v38-legacy-stable");
+        jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set mode = 'custom_scene'"
+                        + " where generated_content_id = 'pgc_v38_legacy_slug_first'");
+
+        insertV38GeneratedContent(
+                schema,
+                "pgc_v38_legacy_slug_second",
+                "preset",
+                activityId,
+                versionId,
+                "2026-W37",
+                "space-v38-legacy-stable",
+                "activity-v38-legacy-stable",
+                "phrase-v38-legacy-stable");
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "update " + schema
+                        + ".practice_generated_content set mode = 'custom_scene'"
+                        + " where generated_content_id = 'pgc_v38_legacy_slug_second'"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("uq_practice_generated_content_active_space_slug");
     }
 
     @Test
@@ -655,7 +1040,12 @@ class DbMigrationSmokeTest {
                         "content_refresh_epoch",
                         "generation_error_retryable",
                         "client_request_id",
-                        "client_request_fingerprint");
+                        "client_request_fingerprint",
+                        "input_source",
+                        "preset_activity_id",
+                        "preset_scene_version_id",
+                        "profile_version",
+                        "household_context_version");
 
         assertThat(columnNamesFor("practice_generated_content_attempts"))
                 .containsExactly(
@@ -788,6 +1178,9 @@ class DbMigrationSmokeTest {
         assertThat(indexExists("idx_practice_generated_content_installation_cleanup")).isTrue();
         assertThat(indexExists("idx_practice_generated_content_stale_draft_cleanup")).isTrue();
         assertThat(indexExists("idx_practice_generated_content_account_cleanup")).isTrue();
+        assertThat(indexExists("idx_interaction_events_account_client_timestamp")).isTrue();
+        assertThat(indexDefinition("idx_interaction_events_account_client_timestamp"))
+                .containsIgnoringCase("(account_id, client_timestamp)");
         assertThat(indexDefinition("uq_practice_generated_content_live_fingerprint"))
                 .containsIgnoringCase("owner_key_version")
                 .containsIgnoringCase("generation_profile_version")
@@ -831,6 +1224,9 @@ class DbMigrationSmokeTest {
                 "uq_baby_profiles_profile_account",
                 "fk_practice_generated_content_account",
                 "fk_practice_generated_content_profile_owner",
+                "fk_practice_generated_content_preset_scene",
+                "chk_practice_generated_content_input_source",
+                "chk_practice_generated_content_scene_generation_shape",
                 "chk_practice_generated_content_status",
                 "chk_practice_generated_content_client_request_id",
                 "chk_practice_generated_content_client_request_fingerprint",
@@ -969,10 +1365,19 @@ class DbMigrationSmokeTest {
                 .generationAttemptLimit(6)
                 .build());
 
-        for (String terminalStatus : List.of("active", "rejected", "expired")) {
-            assertPracticeGeneratedContentRejected(generatedContentFixture("pgc_db_terminal_text_" + terminalStatus)
+        insertGeneratedContent(generatedContentFixture("pgc_db_active_custom_text")
+                .status("active")
+                .normalizedSceneText("custom rows retain canonical text")
+                .build());
+        assertThat(jdbcTemplate.queryForObject(
+                "select normalized_scene_text from practice_generated_content"
+                        + " where generated_content_id = 'pgc_db_active_custom_text'",
+                String.class))
+                .isEqualTo("custom rows retain canonical text");
+        for (String terminalStatus : List.of("rejected", "expired")) {
+            insertGeneratedContent(generatedContentFixture("pgc_db_legacy_terminal_text_" + terminalStatus)
                     .status(terminalStatus)
-                    .normalizedSceneText("terminal rows must clear display text")
+                    .normalizedSceneText("legacy rows retain historical text")
                     .build());
         }
 
@@ -1454,6 +1859,28 @@ class DbMigrationSmokeTest {
                 tableName);
     }
 
+    private boolean columnExists(String schemaName, String tableName, String columnName) {
+        Boolean exists = jdbcTemplate.queryForObject(
+                """
+                select exists(
+                    select 1
+                    from information_schema.columns
+                    where table_schema = ?
+                      and table_name = ?
+                      and column_name = ?
+                )
+                """,
+                Boolean.class,
+                schemaName,
+                tableName,
+                columnName);
+        return Boolean.TRUE.equals(exists);
+    }
+
+    private int queryInt(String sql) {
+        return jdbcTemplate.queryForObject(sql, Integer.class);
+    }
+
     private String columnDataType(String tableName, String columnName) {
         return jdbcTemplate.queryForObject(
                 """
@@ -1747,9 +2174,175 @@ class DbMigrationSmokeTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    private String assertConstraintViolation(Runnable operation) {
+        var failure = catchThrowable(() -> operation.run());
+        assertThat(failure).isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(sqlState(failure)).isEqualTo("23514");
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            Matcher matcher = Pattern.compile("constraint \\\"([^\\\"]+)\\\"")
+                    .matcher(String.valueOf(cause.getMessage()));
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
+        throw new AssertionError("PostgreSQL check constraint name was not reported", failure);
+    }
+
+    private String sqlState(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sqlException && sqlException.getSQLState() != null) {
+                return sqlException.getSQLState();
+            }
+        }
+        return null;
+    }
+
     private void assertSqlRejected(String sql, Object... arguments) {
         assertThatThrownBy(() -> jdbcTemplate.update(sql, arguments))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private void insertV38Profile(String schema, String accountId, String profileId) {
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-31T12:00:00Z"));
+        jdbcTemplate.update(
+                ("""
+                insert into %s.accounts (
+                    account_id, phone_lookup_ref, phone_mask, status, latest_consent_status,
+                    created_at, deleted_at
+                ) values (?, ?, '138****8038', 'active', 'accepted', ?, null)
+                """).formatted(schema),
+                accountId,
+                "v38-phone-ref-" + accountId,
+                now);
+        jdbcTemplate.update(
+                ("""
+                insert into %s.baby_profiles (
+                    profile_id, account_id, baby_name, age_range, parent_goal, onboarding_state,
+                    version, created_at, updated_at
+                ) values (?, ?, null, 'm7_11', 'calmer_care', 'draft', 1, ?, ?)
+                """).formatted(schema),
+                profileId,
+                accountId,
+                now,
+                now);
+    }
+
+    private void insertV37LegacyCustomScene(String schema) {
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-31T12:00:00Z"));
+        jdbcTemplate.update(
+                ("""
+                insert into %s.practice_generated_content (
+                    generated_content_id, owner_scope, owner_key, owner_key_version,
+                    account_id, installation_ref_hash, profile_id, surface, mode,
+                    request_fingerprint, normalized_scene_text, age_range, parent_goal, locale,
+                    status, generation_profile_version, generation_profile_hash, rubric_version,
+                    rubric_content_hash, evidence_policy_version, evidence_policy_content_hash,
+                    provider_routing_policy_version, provider_routing_policy_hash,
+                    generation_attempt_limit, content_refresh_epoch, content_version,
+                    generation_error_code, generation_error_retryable, generation_started_at,
+                    generation_expires_at, retention_expires_at, created_at, updated_at
+                ) values (
+                    'pgc_v38_legacy_backfill', 'installation', 'hmac_v38_legacy', 'v1',
+                    null, 'install_v38_legacy', null, 'onboarding', 'custom_scene',
+                    'fp_v38_legacy_backfill', 'legacy scene input', 'm7_11', 'calmer_care', 'zh-CN',
+                    'draft', 'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
+                    'evidence-policy-v1', repeat('c', 64), 'routing-policy-v1', repeat('d', 64),
+                    3, 1, 1, null, null, null, ?, null, ?, ?
+                )
+                """).formatted(schema),
+                Timestamp.from(now.toInstant().plusSeconds(300)),
+                now,
+                now);
+    }
+
+    private void insertV38GeneratedContent(
+            String schema,
+            String generatedContentId,
+            String inputSource,
+            Long presetActivityId,
+            Long presetSceneVersionId,
+            String householdContextVersion,
+            String spaceSlug,
+            String activitySlug,
+            String phraseSlug
+    ) {
+        insertV38GeneratedContentState(
+                schema,
+                generatedContentId,
+                inputSource,
+                "active",
+                "custom".equals(inputSource) ? "custom scene input" : null,
+                presetActivityId,
+                presetSceneVersionId,
+                householdContextVersion,
+                spaceSlug,
+                activitySlug,
+                phraseSlug);
+    }
+
+    private void insertV38GeneratedContentState(
+            String schema,
+            String generatedContentId,
+            String inputSource,
+            String status,
+            String normalizedSceneText,
+            Long presetActivityId,
+            Long presetSceneVersionId,
+            String householdContextVersion,
+            String spaceSlug,
+            String activitySlug,
+            String phraseSlug
+    ) {
+        Timestamp now = Timestamp.from(Instant.parse("2026-08-31T12:00:00Z"));
+        boolean terminal = List.of("rejected", "expired").contains(status);
+        boolean transientGeneration = List.of("draft", "generating").contains(status);
+        jdbcTemplate.update(
+                ("""
+                insert into %s.practice_generated_content (
+                    generated_content_id, owner_scope, owner_key, owner_key_version,
+                    account_id, installation_ref_hash, profile_id, surface, mode,
+                    input_source, preset_activity_id, preset_scene_version_id, profile_version,
+                    household_context_version, request_fingerprint, normalized_scene_text,
+                    age_range, parent_goal, locale, space_slug, activity_slug, phrase_slug,
+                    space_title_zh, activity_title_zh, scene_tag_en, tpr_action_zh,
+                    delivery_guidance_zh, english_text, chinese_text, pronunciation_hint,
+                    difficulty, generation_source, status, generation_profile_version,
+                    generation_profile_hash, rubric_version, rubric_content_hash,
+                    evidence_policy_version, evidence_policy_content_hash,
+                    provider_routing_policy_version, provider_routing_policy_hash,
+                    generation_attempt_limit, content_refresh_epoch, content_version,
+                    generation_error_code, generation_error_retryable, generation_started_at,
+                    generation_expires_at, retention_expires_at, created_at, updated_at
+                ) values (
+                    ?, 'profile', 'hmac_v38_owner', 'v1', 'acct_v38_shape', null,
+                    'profile_v38_shape', 'onboarding', 'scene_generation', ?, ?, ?, ?, ?,
+                    ?, ?, 'm7_11', 'calmer_care', 'zh-CN', ?, ?, ?,
+                    '日常照护', '洗澡时间', 'Bath time', '轻轻拍水。', '慢一点重复说。',
+                    'Warm water.', '水暖暖的。', 'warm water', 'starter', 'agentic_search',
+                    ?, 'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
+                    'evidence-policy-v1', repeat('c', 64), 'routing-policy-v1', repeat('d', 64),
+                    3, 1, 1, ?, ?, ?, ?, ?, ?, ?
+                )
+                """).formatted(schema),
+                generatedContentId,
+                inputSource,
+                presetActivityId,
+                presetSceneVersionId,
+                1,
+                householdContextVersion,
+                "fp_v38_" + generatedContentId,
+                normalizedSceneText,
+                spaceSlug,
+                activitySlug,
+                phraseSlug,
+                status,
+                terminal ? "generation_failed" : null,
+                terminal ? Boolean.TRUE : null,
+                "generating".equals(status) ? now : null,
+                transientGeneration ? Timestamp.from(now.toInstant().plusSeconds(300)) : null,
+                terminal ? Timestamp.from(now.toInstant().plusSeconds(86400)) : null,
+                now,
+                now);
     }
 
     private void insertGeneratedContent(GeneratedContentFixture fixture) {

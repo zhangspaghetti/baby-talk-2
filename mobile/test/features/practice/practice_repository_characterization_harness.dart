@@ -6,6 +6,7 @@ import 'package:isar/isar.dart';
 import 'package:mobile/core/device/installation_id_service.dart';
 import 'package:mobile/features/practice/data/local/practice_local_data_source.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/domain/models/interaction_event_payload.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
@@ -41,6 +42,7 @@ class PracticeRepositoryCharacterizationHarness {
 
   static Future<PracticeRepositoryCharacterizationHarness> create({
     String installationId = practiceCharacterizationInstallationId,
+    PresetSceneCatalogRepository? presetSceneCatalogRepository,
   }) async {
     final tempDir = await Directory.systemTemp.createTemp(
       'practice_repository_characterization_',
@@ -56,6 +58,7 @@ class PracticeRepositoryCharacterizationHarness {
         directoryResolver: () async => tempDir,
         idGenerator: () => installationId,
       ),
+      presetSceneCatalogRepository: presetSceneCatalogRepository,
     );
     return PracticeRepositoryCharacterizationHarness(
       tempDir: tempDir,

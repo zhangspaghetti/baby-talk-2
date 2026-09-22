@@ -43,7 +43,7 @@ public class ApiVersionInterceptor implements HandlerInterceptor {
                 writeError(
                         response,
                         426,
-                        "app_version_unsupported",
+                        "app_version_required",
                         "客户端版本过旧，请升级后再试。",
                         Map.of("providedVersion", providedVersion)
                 );

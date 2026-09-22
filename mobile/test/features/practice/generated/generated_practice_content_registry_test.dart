@@ -18,8 +18,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_submission
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
-import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/data/generated/generated_care_moment_local_store.dart';
@@ -77,6 +76,7 @@ void main() {
     late GeneratedCareMomentLocalStore store;
     late GeneratedCareTurnResumeMarkerStore resumeStore;
     late GeneratedPracticeContentRegistry registry;
+    String? householdScope;
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('generated_care_moment_');
@@ -86,11 +86,13 @@ void main() {
       );
       resumeStore = GeneratedCareTurnResumeMarkerStore(
         directoryResolver: () async => tempDir,
+        householdScopeLoader: () async => householdScope,
       );
       registry = GeneratedPracticeContentRegistry(
         store: store,
         resumeStore: resumeStore,
         accountContextLoader: () async => accountContext,
+        householdScopeLoader: () async => householdScope,
       );
     });
 
@@ -218,6 +220,1026 @@ void main() {
           );
           expect(await store.readAll(), isEmpty);
         }
+      },
+    );
+
+    test(
+      'persists preset source metadata while keeping both sources resolvable',
+      () async {
+        final custom = _moment('custom_round_trip');
+        final preset = _moment(
+          'preset_round_trip',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 7,
+        );
+        await registry.register(accountContext: accountContext, moment: custom);
+        await registry.register(accountContext: accountContext, moment: preset);
+
+        final restartedRegistry = GeneratedPracticeContentRegistry(
+          store: GeneratedCareMomentLocalStore(
+            directoryResolver: () async => tempDir,
+          ),
+          resumeStore: resumeStore,
+          accountContextLoader: () async => accountContext,
+        );
+
+        final resolvedCustom = await restartedRegistry.resolveGeneratedContent(
+          generatedContentId: custom.generatedContentId,
+        );
+        final resolvedPreset = await restartedRegistry.resolveGeneratedContent(
+          generatedContentId: preset.generatedContentId,
+        );
+
+        expect(resolvedCustom?.inputSource, SceneGenerationSourceType.custom);
+        expect(resolvedCustom?.presetSceneId, isNull);
+        expect(resolvedPreset?.inputSource, SceneGenerationSourceType.preset);
+        expect(resolvedPreset?.presetSceneId, 'bath_time');
+        expect(resolvedPreset?.presetSceneVersion, 7);
+        expect(
+          (await restartedRegistry.resolveActivity(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+          ))?.inputSource,
+          SceneGenerationSourceType.preset,
+        );
+        expect(
+          (await restartedRegistry.listGeneratedActivities()).map(
+            (activity) => activity.generatedContentId,
+          ),
+          <String>[custom.generatedContentId],
+        );
+      },
+    );
+
+    test(
+      'persists household scope fingerprints and clears only revoked household content',
+      () async {
+        householdScope = 'household_a';
+        final householdCustom = _moment('household_a_custom');
+        final householdPreset = _moment(
+          'household_a_preset',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(
+          accountContext: accountContext,
+          moment: householdCustom,
+        );
+        await registry.register(
+          accountContext: accountContext,
+          moment: householdPreset,
+        );
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: householdCustom.generatedContentId,
+          confirmedAt: DateTime.utc(2026, 8, 9),
+        );
+
+        householdScope = null;
+        accountContext = 'standalone_account';
+        final standalone = _moment('standalone_history');
+        await registry.register(
+          accountContext: accountContext,
+          moment: standalone,
+        );
+
+        householdScope = 'household_b';
+        accountContext = 'account_b';
+        final retained = _moment('household_b_custom');
+        await registry.register(
+          accountContext: accountContext,
+          moment: retained,
+        );
+        await resumeStore.write(
+          accountContext: accountContext,
+          generatedContentId: retained.generatedContentId,
+          confirmedAt: DateTime.utc(2026, 8, 9),
+        );
+
+        await registry.clearForHouseholdScope('household_a');
+
+        final records = await store.readAll();
+        expect(
+          records.map((record) => record.moment.generatedContentId),
+          containsAll(<String>[
+            standalone.generatedContentId,
+            retained.generatedContentId,
+          ]),
+        );
+        expect(
+          records.map((record) => record.moment.generatedContentId),
+          isNot(contains(householdCustom.generatedContentId)),
+        );
+        expect(
+          records.map((record) => record.moment.generatedContentId),
+          isNot(contains(householdPreset.generatedContentId)),
+        );
+        expect((await resumeStore.readForAccount('account_a')), isNull);
+        expect(
+          (await resumeStore.readForAccount('account_b'))?.generatedContentId,
+          retained.generatedContentId,
+        );
+        final raw = await File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        ).readAsString();
+        expect(raw, isNot(contains('household_a')));
+        expect(raw, contains('householdScopeFingerprint'));
+      },
+    );
+
+    test(
+      'retries generated household cleanup from a durable marker after replacement failure',
+      () async {
+        final first = _moment('household_clear_retry_a');
+        final second = _moment('household_clear_retry_b');
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_a',
+            householdScopeFingerprint: householdScopeFingerprint('household_a'),
+            moment: first,
+          ),
+        );
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_b',
+            householdScopeFingerprint: householdScopeFingerprint('household_b'),
+            moment: second,
+          ),
+        );
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final temporary = Directory('${file.path}.tmp');
+        await temporary.create();
+
+        await expectLater(
+          store.clearForHouseholdScope('household_a'),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isTrue);
+        expect(
+          await File('${file.path}.clear').readAsString(),
+          startsWith('household:'),
+        );
+
+        await temporary.delete();
+        final recovered = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        expect(
+          (await recovered.readAll()).map(
+            (record) => record.moment.generatedContentId,
+          ),
+          <String>[second.generatedContentId],
+        );
+        expect(await File('${file.path}.clear').exists(), isFalse);
+      },
+    );
+
+    test(
+      'does not classify generated content when household snapshot read fails',
+      () async {
+        final failingRegistry = GeneratedPracticeContentRegistry(
+          store: store,
+          resumeStore: resumeStore,
+          accountContextLoader: () async => accountContext,
+          householdScopeLoader: () async {
+            throw const FormatException('household snapshot unavailable');
+          },
+        );
+
+        await expectLater(
+          failingRegistry.register(
+            accountContext: accountContext,
+            moment: _moment('household_scope_read_failure'),
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
+      'migrates legacy records without inputSource as custom history',
+      () async {
+        final moment = _moment('legacy_custom_round_trip');
+        await registry.register(accountContext: accountContext, moment: moment);
+
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root['schemaVersion'] = 2;
+        for (final value in root['records'] as List<dynamic>) {
+          (value as Map<String, dynamic>)
+            ..remove('inputSource')
+            ..remove('presetSceneId')
+            ..remove('presetSceneVersion')
+            ..remove('householdScopeFingerprint');
+        }
+        await file.writeAsString(jsonEncode(root));
+
+        final resolved = await registry.resolveGeneratedContent(
+          generatedContentId: moment.generatedContentId,
+        );
+
+        expect(resolved?.inputSource, SceneGenerationSourceType.custom);
+        final migrated =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        expect(migrated['schemaVersion'], 4);
+        final migratedRecord =
+            (migrated['records'] as List<dynamic>).single
+                as Map<String, dynamic>;
+        expect(migratedRecord['inputSource'], 'custom');
+        expect(migratedRecord['presetSceneId'], isNull);
+        expect(migratedRecord['presetSceneVersion'], isNull);
+        expect(migratedRecord['householdScopeFingerprint'], isNull);
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+      },
+    );
+
+    test(
+      'retains legacy schema file when migration replacement fails',
+      () async {
+        final moment = _moment('legacy_migration_failure');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root['schemaVersion'] = 2;
+        for (final value in root['records'] as List<dynamic>) {
+          (value as Map<String, dynamic>)
+            ..remove('inputSource')
+            ..remove('presetSceneId')
+            ..remove('presetSceneVersion')
+            ..remove('householdScopeFingerprint');
+        }
+        await file.writeAsString(jsonEncode(root));
+
+        var failNextReplacement = true;
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, targetPath) async {
+            if (failNextReplacement &&
+                source.path.endsWith('.tmp') &&
+                targetPath == file.path) {
+              failNextReplacement = false;
+              throw StateError('simulated migration rename failure');
+            }
+            return source.rename(targetPath);
+          },
+        );
+
+        await expectLater(
+          failingStore.readAll(),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        final retained =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        expect(retained['schemaVersion'], 2);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+
+        final recovered = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        expect(
+          (await recovered.readAll()).single.moment.inputSource,
+          SceneGenerationSourceType.custom,
+        );
+      },
+    );
+
+    test(
+      'keeps current bundles readable when replacement rename fails',
+      () async {
+        final first = _moment('replacement_before');
+        final second = _moment('replacement_after');
+        await registry.register(accountContext: accountContext, moment: first);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        var failNextReplacement = true;
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, targetPath) async {
+            if (failNextReplacement &&
+                source.path.endsWith('.tmp') &&
+                targetPath == file.path) {
+              failNextReplacement = false;
+              throw StateError('simulated replacement rename failure');
+            }
+            return source.rename(targetPath);
+          },
+        );
+
+        await expectLater(
+          failingStore.upsert(
+            StoredGeneratedCareMoment(
+              accountContext: accountContext,
+              moment: second,
+            ),
+          ),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        final retained =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        expect(retained['schemaVersion'], 4);
+        final retainedIds = (retained['records'] as List<dynamic>)
+            .map(
+              (value) => (value as Map<String, dynamic>)['generatedContentId'],
+            )
+            .toList(growable: false);
+        expect(retainedIds, <String>[first.generatedContentId]);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+      },
+    );
+
+    test(
+      'restores old bundles when rotating target reports failure after moving it',
+      () async {
+        final first = _moment('rotation_before');
+        final second = _moment('rotation_after');
+        await registry.register(accountContext: accountContext, moment: first);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        var failAfterMove = true;
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, targetPath) async {
+            if (failAfterMove && source.path == file.path) {
+              failAfterMove = false;
+              await source.rename(targetPath);
+              throw StateError('simulated rotation failure after move');
+            }
+            return source.rename(targetPath);
+          },
+        );
+
+        await expectLater(
+          failingStore.upsert(
+            StoredGeneratedCareMoment(
+              accountContext: accountContext,
+              moment: second,
+            ),
+          ),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isTrue);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(
+          (await GeneratedCareMomentLocalStore(
+            directoryResolver: () async => tempDir,
+          ).readAll()).single.moment.generatedContentId,
+          first.generatedContentId,
+        );
+      },
+    );
+
+    test(
+      'restores a backup left by an interrupted replacement before reading',
+      () async {
+        final moment = _moment('interrupted_replacement');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final backup = File('${file.path}.bak');
+        await file.rename(backup.path);
+
+        final recovered = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+
+        expect(
+          (await recovered.readAll()).single.moment.generatedContentId,
+          moment.generatedContentId,
+        );
+        expect(await backup.exists(), isFalse);
+      },
+    );
+
+    test(
+      'lifecycle clear removes backup so cleared bundles cannot resurrect',
+      () async {
+        final moment = _moment('clear_interrupted_replacement');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final backup = File('${file.path}.bak');
+        await file.rename(backup.path);
+
+        await store.clearForLifecycle();
+
+        expect(await file.exists(), isFalse);
+        expect(await backup.exists(), isFalse);
+        expect(await store.readAll(), isEmpty);
+      },
+    );
+
+    test(
+      'successful write removes stale clear marker before publishing state',
+      () async {
+        final first = _moment('clear_marker_stale_before_write');
+        final second = _moment('clear_marker_stale_after_write');
+        await registry.register(accountContext: accountContext, moment: first);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final marker = File('${file.path}.clear');
+        await marker.writeAsString('clear');
+
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: accountContext,
+            moment: second,
+          ),
+        );
+
+        expect(await marker.exists(), isFalse);
+        expect(await store.readAll(), hasLength(2));
+      },
+    );
+
+    test('clear keeps target when temporary-artifact deletion fails', () async {
+      final moment = _moment('clear_temp_delete_failure');
+      await registry.register(accountContext: accountContext, moment: moment);
+      final file = File(
+        '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+      );
+      final temporaryFile = File('${file.path}.tmp');
+      await temporaryFile.writeAsString('stale temporary content');
+      final failingStore = GeneratedCareMomentLocalStore(
+        directoryResolver: () async => tempDir,
+        deleteFile: (target) async {
+          if (target.path == temporaryFile.path) {
+            throw StateError('simulated temporary delete failure');
+          }
+          await target.delete();
+        },
+      );
+
+      await expectLater(
+        failingStore.clearForLifecycle(),
+        throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+      );
+      expect(await file.exists(), isTrue);
+      expect(await temporaryFile.exists(), isTrue);
+      expect(
+        (await GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        ).readAll()).single.moment.generatedContentId,
+        moment.generatedContentId,
+      );
+    });
+
+    test(
+      'account clear keeps target when temporary-artifact deletion fails',
+      () async {
+        final moment = _moment('account_clear_temp_delete_failure');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final temporaryFile = File('${file.path}.tmp');
+        await temporaryFile.writeAsString('stale temporary content');
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          deleteFile: (target) async {
+            if (target.path == temporaryFile.path) {
+              throw StateError(
+                'simulated account clear temporary delete failure',
+              );
+            }
+            await target.delete();
+          },
+        );
+
+        await expectLater(
+          failingStore.clearForAccount(accountContext),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isTrue);
+        expect(
+          (await GeneratedCareMomentLocalStore(
+            directoryResolver: () async => tempDir,
+          ).readAll()).single.moment.generatedContentId,
+          moment.generatedContentId,
+        );
+      },
+    );
+
+    test(
+      'account clear intent survives a target-to-backup crash and preserves other accounts',
+      () async {
+        final accountAMoment = _moment('partial_clear_account_a');
+        final accountBMoment = _moment('partial_clear_account_b');
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_a',
+            moment: accountAMoment,
+          ),
+        );
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_b',
+            moment: accountBMoment,
+          ),
+        );
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final backup = File('${file.path}.bak');
+        var crashAtRotation = true;
+        var restoreBlocked = true;
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          renameFile: (source, targetPath) async {
+            if (crashAtRotation && source.path == file.path) {
+              crashAtRotation = false;
+              await source.rename(targetPath);
+              throw StateError('simulated target-to-backup crash');
+            }
+            if (restoreBlocked && source.path == backup.path) {
+              throw StateError('simulated crash prevents backup restore');
+            }
+            return source.rename(targetPath);
+          },
+        );
+
+        await expectLater(
+          failingStore.clearForAccount('account_a'),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isFalse);
+        expect(await backup.exists(), isTrue);
+        expect(
+          await File('${file.path}.clear').readAsString(),
+          matches(RegExp(r'^account:[0-9a-f]{16}$')),
+        );
+
+        await expectLater(
+          failingStore.readAll(),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isFalse);
+        expect(await backup.exists(), isTrue);
+        expect(await File('${file.path}.clear').exists(), isTrue);
+
+        restoreBlocked = false;
+        await failingStore.clearForAccount('account_a');
+        final recovered = await failingStore.readAll();
+
+        expect(recovered.map((record) => record.accountContext), <String>[
+          'account_b',
+        ]);
+        expect(
+          recovered.single.moment.generatedContentId,
+          accountBMoment.generatedContentId,
+        );
+        expect(await file.exists(), isTrue);
+        expect(await backup.exists(), isFalse);
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+        expect(await File('${file.path}.clear').exists(), isFalse);
+      },
+    );
+
+    test(
+      'account clear intent keeps the old target when temp cleanup fails',
+      () async {
+        final accountAMoment = _moment('partial_clear_temp_account_a');
+        final accountBMoment = _moment('partial_clear_temp_account_b');
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_a',
+            moment: accountAMoment,
+          ),
+        );
+        await store.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: 'account_b',
+            moment: accountBMoment,
+          ),
+        );
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final temporaryFile = File('${file.path}.tmp');
+        await temporaryFile.writeAsString('stale temporary content');
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          deleteFile: (target) async {
+            if (target.path == temporaryFile.path) {
+              throw StateError('simulated partial clear temp delete failure');
+            }
+            await target.delete();
+          },
+        );
+
+        await expectLater(
+          failingStore.clearForAccount('account_a'),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isTrue);
+        expect(await temporaryFile.exists(), isTrue);
+        expect(
+          await File('${file.path}.clear').readAsString(),
+          matches(RegExp(r'^account:[0-9a-f]{16}$')),
+        );
+
+        final recoveredStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final recovered = await recoveredStore.readAll();
+        expect(recovered.map((record) => record.accountContext), <String>[
+          'account_b',
+        ]);
+        expect(await file.exists(), isTrue);
+        expect(await temporaryFile.exists(), isFalse);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(await File('${file.path}.clear').exists(), isFalse);
+      },
+    );
+
+    test(
+      'rejects truncated and malformed account clear marker fingerprints',
+      () async {
+        final moment = _moment('malformed_account_clear_marker');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final marker = File('${file.path}.clear');
+        final lower15 = List<String>.filled(15, 'a').join();
+        final lower16 = List<String>.filled(16, 'a').join();
+        final malformedMarkers = <String>[
+          'account:$lower15',
+          'account:-$lower15',
+          'account:${lower16.toUpperCase()}',
+          'account:${lower16}x',
+          'account:$lower16\n',
+          ' account:$lower16',
+          'account:not-a-fingerprint',
+        ];
+
+        for (final malformed in malformedMarkers) {
+          await marker.writeAsString(malformed);
+          await expectLater(
+            store.readAll(),
+            throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+          );
+          expect(await marker.readAsString(), malformed);
+          expect(await file.exists(), isTrue);
+        }
+      },
+    );
+
+    test(
+      'read ignores stale backup after clear fails before target deletion',
+      () async {
+        final moment = _moment('clear_backup_delete_failure');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final backup = File('${file.path}.bak');
+        await file.rename(backup.path);
+        final failingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+          deleteFile: (target) async {
+            if (target.path == backup.path) {
+              throw StateError('simulated backup delete failure');
+            }
+            await target.delete();
+          },
+        );
+
+        await expectLater(
+          failingStore.clearForLifecycle(),
+          throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+        );
+        expect(await file.exists(), isFalse);
+        expect(await backup.exists(), isTrue);
+        final recovered = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        expect(await recovered.readAll(), isEmpty);
+        expect(await backup.exists(), isFalse);
+      },
+    );
+
+    test('marker cleanup failure leaves no recoverable artifact', () async {
+      final moment = _moment('clear_marker_delete_failure');
+      await registry.register(accountContext: accountContext, moment: moment);
+      final file = File(
+        '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+      );
+      final marker = File('${file.path}.clear');
+      final failingStore = GeneratedCareMomentLocalStore(
+        directoryResolver: () async => tempDir,
+        deleteFile: (target) async {
+          if (target.path == marker.path) {
+            throw StateError('simulated clear marker delete failure');
+          }
+          await target.delete();
+        },
+      );
+
+      await expectLater(
+        failingStore.clearForLifecycle(),
+        throwsA(isA<GeneratedCareMomentLocalStoreException>()),
+      );
+      expect(await file.exists(), isFalse);
+      expect(await File('${file.path}.tmp').exists(), isFalse);
+      expect(await File('${file.path}.bak').exists(), isFalse);
+      expect(await marker.exists(), isTrue);
+      final recovered = GeneratedCareMomentLocalStore(
+        directoryResolver: () async => tempDir,
+      );
+      expect(await recovered.readAll(), isEmpty);
+      expect(await marker.exists(), isFalse);
+    });
+
+    test(
+      'lifecycle clear is idempotent when the store directory is absent',
+      () async {
+        final missingDirectory = Directory(
+          '${tempDir.path}${Platform.pathSeparator}missing_store_directory',
+        );
+        final missingStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => missingDirectory,
+        );
+
+        await missingStore.clearForLifecycle();
+
+        expect(await missingDirectory.exists(), isFalse);
+      },
+    );
+
+    test(
+      'serializes concurrent writes from separate store instances by path',
+      () async {
+        final firstStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final secondStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final first = _moment('cross_instance_first');
+        final second = _moment('cross_instance_second');
+
+        await Future.wait(<Future<void>>[
+          firstStore.upsert(
+            StoredGeneratedCareMoment(
+              accountContext: accountContext,
+              moment: first,
+            ),
+          ),
+          secondStore.upsert(
+            StoredGeneratedCareMoment(
+              accountContext: accountContext,
+              moment: second,
+            ),
+          ),
+        ]);
+
+        final records = await GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        ).readAll();
+        expect(
+          records.map((record) => record.moment.generatedContentId),
+          containsAll(<String>[
+            first.generatedContentId,
+            second.generatedContentId,
+          ]),
+        );
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${firstStore.fileName}',
+        );
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+      },
+    );
+
+    test('serializes concurrent writes from equivalent lexical paths', () async {
+      final canonicalPath = tempDir.path;
+      final aliasedPath = Platform.isWindows
+          ? '${tempDir.path.toUpperCase().replaceAll('\\', '/')}/PATH_ALIAS/..'
+          : '//${tempDir.path.substring(1)}${Platform.pathSeparator}path_alias${Platform.pathSeparator}..';
+      final firstStore = GeneratedCareMomentLocalStore(
+        directoryResolver: () async => Directory(canonicalPath),
+      );
+      final secondStore = GeneratedCareMomentLocalStore(
+        directoryResolver: () async => Directory(aliasedPath),
+      );
+      final first = _moment('equivalent_path_first');
+      final second = _moment('equivalent_path_second');
+
+      await Future.wait(<Future<void>>[
+        firstStore.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: accountContext,
+            moment: first,
+          ),
+        ),
+        secondStore.upsert(
+          StoredGeneratedCareMoment(
+            accountContext: accountContext,
+            moment: second,
+          ),
+        ),
+      ]);
+
+      final records = await GeneratedCareMomentLocalStore(
+        directoryResolver: () async => tempDir,
+      ).readAll();
+      expect(
+        records.map((record) => record.moment.generatedContentId),
+        containsAll(<String>[
+          first.generatedContentId,
+          second.generatedContentId,
+        ]),
+      );
+      final file = File(
+        '${tempDir.path}${Platform.pathSeparator}${firstStore.fileName}',
+      );
+      expect(await File('${file.path}.tmp').exists(), isFalse);
+      expect(await File('${file.path}.bak').exists(), isFalse);
+    });
+
+    test(
+      'serializes concurrent migration and clear without corrupt artifacts',
+      () async {
+        final moment = _moment('cross_instance_migration');
+        await registry.register(accountContext: accountContext, moment: moment);
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root['schemaVersion'] = 2;
+        for (final value in root['records'] as List<dynamic>) {
+          (value as Map<String, dynamic>)
+            ..remove('inputSource')
+            ..remove('presetSceneId')
+            ..remove('presetSceneVersion')
+            ..remove('householdScopeFingerprint');
+        }
+        await file.writeAsString(jsonEncode(root));
+        final firstStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+        final secondStore = GeneratedCareMomentLocalStore(
+          directoryResolver: () async => tempDir,
+        );
+
+        await Future.wait(<Future<void>>[
+          firstStore.readAll().then<void>((_) {}),
+          secondStore.clearForLifecycle(),
+        ]);
+
+        expect(await File('${file.path}.tmp').exists(), isFalse);
+        expect(await File('${file.path}.bak').exists(), isFalse);
+        expect(await File('${file.path}.clear').exists(), isFalse);
+        if (await file.exists()) {
+          final raw = await file.readAsString();
+          expect(() => jsonDecode(raw), returnsNormally);
+        }
+      },
+    );
+
+    test(
+      'resolves latest valid preset bundle by stable activity route',
+      () async {
+        final older = _moment(
+          'preset_route_older',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        final newer = _moment(
+          'preset_route_newer',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 2,
+        );
+        await registry.register(accountContext: accountContext, moment: older);
+        await registry.register(accountContext: accountContext, moment: newer);
+
+        final resolved = await registry.resolveActivity(
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+        );
+
+        expect(resolved?.generatedContentId, newer.generatedContentId);
+        expect(resolved?.presetSceneVersion, 2);
+        expect(
+          (await registry.resolvePublishedActivity(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            publishedVersion: 1,
+          ))?.generatedContentId,
+          older.generatedContentId,
+        );
+        expect(
+          (await registry.resolveActivity(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            publishedVersion: 1,
+            enabled: true,
+          ))?.generatedContentId,
+          older.generatedContentId,
+        );
+        expect(
+          await registry.resolveActivity(
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            publishedVersion: 1,
+            enabled: false,
+          ),
+          isNull,
+        );
+        expect(
+          (await registry.resolveGeneratedContent(
+            generatedContentId: older.generatedContentId,
+          ))?.presetSceneVersion,
+          1,
+        );
+      },
+    );
+
+    test(
+      'quarantines a preset record missing source identity instead of decoding custom',
+      () async {
+        final moment = _moment(
+          'malformed_preset_identity',
+          spaceId: 'daily_care',
+          activityId: 'bath_time',
+          inputSource: SceneGenerationSourceType.preset,
+          presetSceneId: 'bath_time',
+          presetSceneVersion: 1,
+        );
+        await registry.register(accountContext: accountContext, moment: moment);
+
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root['schemaVersion'] = 4;
+        final record =
+            (root['records'] as List<dynamic>).single as Map<String, dynamic>;
+        record['inputSource'] = 'preset';
+        record.remove('presetSceneId');
+        record.remove('presetSceneVersion');
+        await file.writeAsString(jsonEncode(root));
+
+        expect(
+          await registry.resolveGeneratedContent(
+            generatedContentId: moment.generatedContentId,
+          ),
+          isNull,
+        );
+        final diagnostics = await store.readQuarantineDiagnostics();
+        expect(diagnostics.single.reasonCode, 'invalid_generated_bundle');
+        expect(
+          await file.readAsString(),
+          isNot(contains(moment.starter.english)),
+        );
+      },
+    );
+
+    test(
+      'rejects preset source identity that disagrees with stable activity route',
+      () {
+        expect(
+          () => _moment(
+            'mismatched_preset_identity',
+            spaceId: 'daily_care',
+            activityId: 'bath_time',
+            inputSource: SceneGenerationSourceType.preset,
+            presetSceneId: 'feeding_time',
+            presetSceneVersion: 1,
+          ),
+          throwsArgumentError,
+        );
       },
     );
 
@@ -1297,11 +2319,17 @@ GeneratedCareMoment _moment(
   String generatedContentId, {
   String? spaceId,
   String? activityId,
+  SceneGenerationSourceType inputSource = SceneGenerationSourceType.custom,
+  String? presetSceneId,
+  int? presetSceneVersion,
 }) {
   return generatedCareMomentFixture(
     generatedContentId: generatedContentId,
     spaceId: spaceId,
     activityId: activityId,
+    inputSource: inputSource,
+    presetSceneId: presetSceneId,
+    presetSceneVersion: presetSceneVersion,
   );
 }
 
@@ -1343,12 +2371,9 @@ class _GeneratedMomentRepository implements CustomSceneRepository {
   int calls = 0;
 
   @override
-  Future<CustomSceneResult> generate(CustomSceneDraft draft) async {
+  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) async {
     calls += 1;
-    return GeneratedSceneResult(
-      moment,
-      policyVersion: generatedCareSafetyPolicyVersion,
-    );
+    return moment;
   }
 }
 
@@ -1393,6 +2418,18 @@ class _FailingGeneratedCareTurnResumeStore
   @override
   Future<void> clearForAccount(String accountContext) async {
     throw StateError('resume clear failed');
+  }
+
+  @override
+  Future<void> clearForHouseholdScope(String householdScope) async {
+    throw StateError('resume household clear failed');
+  }
+
+  @override
+  Future<void> clearForHouseholdScopeFingerprint(
+    String scopeFingerprint,
+  ) async {
+    throw StateError('resume household clear failed');
   }
 
   @override

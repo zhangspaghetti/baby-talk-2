@@ -9,7 +9,7 @@ import 'package:mobile/features/custom_scene/application/custom_scene_draft_cont
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 
 void main() {
   group('CustomSceneDraftContinuationCoordinator', () {

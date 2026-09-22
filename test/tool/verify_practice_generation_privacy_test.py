@@ -107,6 +107,89 @@ class PracticeGenerationPrivacyVerifierTest(unittest.TestCase):
 
         self.assertTrue(any("generated audio must not persist" in failure for failure in failures))
 
+    def test_preset_catalog_mapper_may_persist_coach_tip(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapper = root / "backend/app-api/src/main/resources/mapper/practice/PresetSceneCatalogMapper.xml"
+            mapper.parent.mkdir(parents=True)
+            mapper.write_text("select v.coach_tip_zh as coach_tip from practice_preset_scene_version v;\n", encoding="utf-8")
+            failures = VERIFIER.collect_violations(root)
+
+        self.assertFalse(any("PresetSceneCatalogMapper.xml" in failure and "coach_tip_zh" in failure
+                             for failure in failures))
+
+    def test_generated_content_mapper_coach_tip_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapper = root / "backend/app-api/src/main/resources/mapper/practice/generated/PracticeAuditMapper.xml"
+            mapper.parent.mkdir(parents=True)
+            mapper.write_text(
+                "select coach_tip_zh from practice_generated_content;\n",
+                encoding="utf-8")
+            failures = VERIFIER.collect_violations(root)
+
+        self.assertTrue(any("PracticeAuditMapper.xml" in failure and "coach_tip_zh" in failure
+                            for failure in failures))
+
+    def test_future_generated_migrations_reject_coach_tip(self) -> None:
+        for filename in ("V38__future_generated_content_change.sql", "V99__future_generated_content_change.sql"):
+            with self.subTest(filename=filename), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                migration = root / "backend/db-migration/src/main/resources/db/migration" / filename
+                migration.parent.mkdir(parents=True)
+                migration.write_text(
+                    "alter table practice_generated_content add column coach_tip_zh varchar(240);\n",
+                    encoding="utf-8")
+                failures = VERIFIER.collect_violations(root)
+
+            self.assertTrue(any(filename in failure and "coach_tip_zh" in failure for failure in failures))
+
+    def test_nonstandard_generated_content_mapper_rejects_coach_tip(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapper = root / "backend/app-api/src/main/resources/mapper/practice/archive/GeneratedContentMapper.xml"
+            mapper.parent.mkdir(parents=True)
+            mapper.write_text(
+                "select coach_tip_zh from practice_generated_content;\n",
+                encoding="utf-8")
+            failures = VERIFIER.collect_violations(root)
+
+        self.assertTrue(any("GeneratedContentMapper.xml" in failure and "coach_tip_zh" in failure
+                            for failure in failures))
+
+    def test_v27_generated_content_drop_of_coach_tip_is_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            migration = root / "backend/db-migration/src/main/resources/db/migration" / VERIFIER.CURRENT_GENERATED_CONTENT_MIGRATION
+            migration.parent.mkdir(parents=True)
+            migration.write_text(
+                "alter table practice_generated_content drop column coach_tip_zh;\n",
+                encoding="utf-8")
+            failures = VERIFIER.collect_violations(root)
+
+        self.assertFalse(any(VERIFIER.CURRENT_GENERATED_CONTENT_MIGRATION in failure
+                             and "coach_tip_zh" in failure
+                             and "drop" not in failure.lower()
+                             for failure in failures))
+
+    def test_cross_module_generated_content_mappers_reject_coach_tip(self) -> None:
+        mapper_paths = (
+            "backend/common/src/main/resources/mapper/account/AccountDataPurgeMapper.xml",
+            "backend/admin-api/src/main/resources/mapper/practice/GeneratedContentMapper.xml",
+        )
+        for relative_path in mapper_paths:
+            with self.subTest(relative_path=relative_path), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                mapper = root / relative_path
+                mapper.parent.mkdir(parents=True)
+                mapper.write_text(
+                    "delete from practice_generated_content where coach_tip_zh = #{coachTip};\n",
+                    encoding="utf-8")
+                failures = VERIFIER.collect_violations(root)
+
+            self.assertTrue(any(Path(relative_path).name in failure and "coach_tip_zh" in failure
+                                for failure in failures))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -14,7 +14,7 @@ public class DisabledCustomSceneRepairer implements CustomSceneRepairer {
 
     @Override
     public GeneratedCareMomentBundle repairCareMoment(RepairRequest request) {
-        throw new CustomSceneGenerator.GenerationUnavailableException(
-                CustomSceneGenerator.GenerationUnavailableReason.PROVIDER_DISABLED);
+        throw new SceneContentGenerator.GenerationUnavailableException(
+                SceneContentGenerator.GenerationUnavailableReason.PROVIDER_DISABLED);
     }
 }

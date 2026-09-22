@@ -99,6 +99,40 @@ void main() {
     );
     expect(find.textContaining('共享宝宝档案'), findsWidgets);
 
+    final revokedNotifier = _HouseholdNotifierStub(
+      snapshot: HouseholdLocalSnapshot(
+        lastPhase: 'revoke_invite_invalid_session',
+        lastVisibleError: '请先登录并完成同意。',
+        pendingClearHouseholdScopeFingerprint: List<String>.filled(
+          64,
+          'a',
+        ).join(),
+      ),
+    );
+    await _pumpApp(
+      tester,
+      HouseholdSharedContextCard(
+        surfaceKeyPrefix: 'revoked',
+        notifier: revokedNotifier,
+      ),
+    );
+    expect(
+      find.byKey(const Key('revoked-household-empty-state')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('revoked-household-role-chip')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('revoked-household-attribution-headline')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('revoked-household-profile-summary')),
+      findsNothing,
+    );
+
     final retryNotifier = _HouseholdNotifierStub(
       snapshot: const HouseholdLocalSnapshot(
         role: HouseholdRole.caregiver,

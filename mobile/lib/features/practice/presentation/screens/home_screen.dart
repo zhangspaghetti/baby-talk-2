@@ -187,9 +187,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     final carePathNotifier = ref.watch(carePathNotifierProvider);
     final carePathViewModel = carePathNotifier.viewModel;
     final customSceneEnabled = ref.watch(customSceneFeatureEnabledProvider);
-    final householdRole = ref.watch(householdNotifierProvider).snapshot.role;
-    final customSceneEntryAllowed =
-        customSceneEnabled && isCustomSceneEntryAllowedForRole(householdRole);
     final isInitialCarePathLoading =
         carePathViewModel.isLoading && carePathViewModel.moment == null;
 
@@ -234,7 +231,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
                               navigationError: _todayNavigationError,
                               onStart: _openCurrentCareMoment,
                               showCustomSceneEntry:
-                                  customSceneEntryAllowed &&
+                                  customSceneEnabled &&
                                   _shouldOfferCustomSceneToday(
                                     carePathViewModel,
                                   ),
@@ -317,11 +314,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
 
   Future<void> _openCurrentCareMoment() async {
     final moment = ref.read(carePathNotifierProvider).viewModel.moment;
-    final routeArgs = PracticeRouteArgs.maybeCreate(
-      spaceId: moment?.spaceId,
-      activityId: moment?.activityId,
-    );
-    if (routeArgs == null) {
+    final generatedContentId = moment?.generatedContentId?.trim();
+    final PracticeRouteTarget? routeTarget;
+    if (generatedContentId != null && generatedContentId.isNotEmpty) {
+      routeTarget = GeneratedCareTurnRouteArgs(
+        generatedContentId: generatedContentId,
+      );
+    } else {
+      routeTarget = PracticeRouteArgs.maybeCreate(
+        spaceId: moment?.spaceId,
+        activityId: moment?.activityId,
+      );
+    }
+    if (routeTarget == null) {
       setState(() {
         _todayNavigationError = '这个场景暂时打不开，请稍后再试。';
       });
@@ -333,7 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with RouteAware {
     });
 
     try {
-      await routeArgs.push<void>(context);
+      await routeTarget.push<void>(context);
     } catch (_) {
       if (!mounted) {
         return;

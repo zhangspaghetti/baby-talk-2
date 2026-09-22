@@ -527,6 +527,12 @@ final class _OnboardingPracticeRepository implements PracticeRepository {
   }) async => activity;
 
   @override
+  Future<PracticeActivitySnapshot> getBundledActivitySnapshot({
+    required String spaceId,
+    required String activityId,
+  }) async => activity;
+
+  @override
   Future<PracticeResumeInfo> getResumeInfo({
     required String spaceId,
     required String activityId,

@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:path_provider/path_provider.dart';
 
 typedef CustomSceneDraftDirectoryResolver = Future<Directory> Function();

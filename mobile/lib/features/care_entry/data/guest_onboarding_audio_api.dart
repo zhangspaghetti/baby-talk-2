@@ -4,13 +4,11 @@ import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:dio/dio.dart';
 import 'package:mobile/core/network/app_dio.dart';
+import 'package:mobile/core/network/api_version.dart';
 import 'package:mobile/features/care_entry/domain/onboarding_conversation_models.dart';
 
 const String onboardingAudioCapabilityHeader = 'X-Onboarding-Audio-Capability';
-const String defaultGuestOnboardingApiVersion = String.fromEnvironment(
-  'BABY_TALK_API_VERSION',
-  defaultValue: '1.2.0',
-);
+const String defaultGuestOnboardingApiVersion = defaultAppApiVersion;
 const String defaultGuestOnboardingAudioApiBaseUrl = String.fromEnvironment(
   'BABY_TALK_API_BASE_URL',
   defaultValue: 'http://127.0.0.1:8080',

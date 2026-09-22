@@ -15,7 +15,7 @@ BACKEND_ROOT = REPOSITORY_ROOT / "backend"
 FOCUSED_TESTS = ",".join(
     (
         "CompleteGeneratedBundleContractTest",
-        "AgenticCustomSceneGeneratorTest",
+        "AgenticSceneContentGeneratorTest",
         "AgenticCustomSceneQualityJudgeTest",
         "AgenticCustomSceneRepairerTest",
         "JudgeWireResponseStrictOutputTest",
@@ -25,11 +25,11 @@ FOCUSED_TESTS = ",".join(
         "PracticeAiSingleRequestContractTest",
         "VersionedResourceRegistryTest",
         "VersionedResourceRegistryApplicationConfigTest",
-        "CustomSceneAgenticGenerationIntegrationTest",
-        "CustomSceneGenerationOrchestratorTest",
+        "SceneAgenticGenerationIntegrationTest",
+        "SceneGenerationOrchestratorTest",
         "PracticeGeneratedContentServiceOrchestrationTest",
         "PracticeGeneratedContentStateMachineTest",
-        "CustomSceneGeneratedContentValidatorTest",
+        "SceneGeneratedContentValidatorTest",
         "JudgeVerdictCalculatorTest",
     )
 )
@@ -65,7 +65,7 @@ def application_profile_default(application: str) -> object:
 
 def verify_no_production_fallback() -> bool:
     adapter_contracts = {
-        "AgenticCustomSceneGenerator.java": (
+        "AgenticSceneContentGenerator.java": (
             "OperationRequest.ProviderFailureStage.PROVIDER_RESPONSE_BINDING",
             "OperationRequest.ProviderFailureStage.CONTENT_STRICT_PARSER",
             "structuredOutputCaller.callRaw(",
@@ -118,7 +118,7 @@ def verify_no_production_fallback() -> bool:
             if marker in source:
                 violations.append(f"{relative_path}: forbidden production fallback marker: {marker}")
 
-    orchestrator = (GENERATED_SOURCE_ROOT / "CustomSceneGenerationOrchestrator.java").read_text(
+    orchestrator = (GENERATED_SOURCE_ROOT / "SceneGenerationOrchestrator.java").read_text(
         encoding="utf-8"
     )
     required_orchestrator_markers = (
@@ -135,14 +135,14 @@ def verify_no_production_fallback() -> bool:
     for marker in required_orchestrator_markers:
         if marker not in orchestrator:
             violations.append(
-                f"CustomSceneGenerationOrchestrator.java: missing bounded safe diagnostic marker: {marker}"
+                f"SceneGenerationOrchestrator.java: missing bounded safe diagnostic marker: {marker}"
             )
     for marker in ("fakeFixture(", "fakeSupport", "fixedSupport", "genericSupport", "starterOnly"):
         if marker in orchestrator:
-            violations.append(f"CustomSceneGenerationOrchestrator.java: forbidden fallback marker: {marker}")
+            violations.append(f"SceneGenerationOrchestrator.java: forbidden fallback marker: {marker}")
 
     validator = (
-        GENERATED_SOURCE_ROOT.parent / "discovery" / "CustomSceneGeneratedContentValidator.java"
+        GENERATED_SOURCE_ROOT.parent / "discovery" / "SceneGeneratedContentValidator.java"
     ).read_text(encoding="utf-8")
     diagnostic = (
         GENERATED_SOURCE_ROOT / "quality" / "GeneratedOutputViolationDiagnostic.java"
@@ -164,7 +164,7 @@ def verify_no_production_fallback() -> bool:
     ).read_text(encoding="utf-8")
     for source_name, source, markers in (
         (
-            "CustomSceneGeneratedContentValidator.java",
+            "SceneGeneratedContentValidator.java",
             validator,
             (
                 "providerContentOverflows(",
@@ -284,7 +284,7 @@ def verify_no_production_fallback() -> bool:
         / "babytalk"
         / "practice"
         / "generated"
-        / "CustomSceneGenerationOrchestratorTest.java"
+        / "SceneGenerationOrchestratorTest.java"
     ).read_text(encoding="utf-8")
     for marker in (
         "rawWireOverflowFlowsThroughGeneratorGateAndWholeBundleRepair",
@@ -295,7 +295,7 @@ def verify_no_production_fallback() -> bool:
     ):
         if marker not in orchestrator_contract_test:
             violations.append(
-                f"CustomSceneGenerationOrchestratorTest.java: missing raw overflow coverage: {marker}"
+                f"SceneGenerationOrchestratorTest.java: missing raw overflow coverage: {marker}"
             )
 
     repairer = (GENERATED_SOURCE_ROOT / "AgenticCustomSceneRepairer.java").read_text(
@@ -389,7 +389,7 @@ def verify_no_production_fallback() -> bool:
         / "babytalk"
         / "practice"
         / "generated"
-        / "CustomSceneAgenticGenerationIntegrationTest.java"
+        / "SceneAgenticGenerationIntegrationTest.java"
     ).read_text(encoding="utf-8")
     for marker in (
         "judgeTprFailureRepairsWithEvidenceActionContractThenFreshJudgeActivates",
@@ -401,7 +401,7 @@ def verify_no_production_fallback() -> bool:
     ):
         if marker not in agentic_integration_test:
             violations.append(
-                "CustomSceneAgenticGenerationIntegrationTest.java: "
+                "SceneAgenticGenerationIntegrationTest.java: "
                 f"missing TPR repair consistency coverage: {marker}"
             )
 
@@ -442,7 +442,7 @@ def verify_no_production_fallback() -> bool:
 
     fake_fixture_allowlist = {
         str(Path("generated") / "GeneratedCareMomentBundle.java"),
-        str(Path("discovery") / "FakeCustomSceneGenerationService.java"),
+        str(Path("discovery") / "FakeSceneContentGenerator.java"),
     }
     practice_root = GENERATED_SOURCE_ROOT.parent
     for source_path in practice_root.rglob("*.java"):

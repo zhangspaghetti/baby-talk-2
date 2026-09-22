@@ -16,6 +16,7 @@ import 'package:mobile/core/local_data_lifecycle/local_sensitive_data_backup_pro
 import 'package:mobile/features/account/data/local/account_local_store.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
 import 'package:mobile/features/account/data/repositories/account_repository.dart';
+import 'package:mobile/features/account/domain/models/account_consent_state.dart';
 import 'package:mobile/features/account/data/services/account_api_service.dart';
 import 'package:mobile/features/account/data/services/authenticated_api_client.dart';
 import 'package:mobile/features/care_entry/data/file_onboarding_care_turn_continuation_store.dart';
@@ -23,10 +24,7 @@ import 'package:mobile/features/care_entry/presentation/care_entry_providers.dar
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/application/care_audio_session_coordinator.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_api.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_mapper.dart';
-import 'package:mobile/features/custom_scene/data/custom_scene_profile_context_resolver.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_repository_impl.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
@@ -57,6 +55,9 @@ import 'package:mobile/features/care_path/data/audio/generated_audio_repository.
 import 'package:mobile/features/practice/data/generated/generated_practice_content_registry.dart';
 import 'package:mobile/features/practice/data/repositories/garden_growth_repository.dart';
 import 'package:mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:mobile/features/practice/data/repositories/preset_scene_catalog_repository.dart';
+import 'package:mobile/features/practice/data/remote/preset_scene_catalog_api.dart';
+import 'package:mobile/features/practice/data/local/preset_scene_catalog_store.dart';
 import 'package:mobile/features/practice/data/services/asset_phrase_service.dart';
 import 'package:mobile/features/practice/data/services/dynamic_practice_api_service.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart';
@@ -76,6 +77,9 @@ import 'package:mobile/features/settings/data/repositories/settings_repository.d
 import 'package:mobile/features/settings/data/reminder_scheduler.dart';
 import 'package:mobile/features/settings/presentation/settings_notifier.dart';
 import 'package:mobile/features/share/presentation/share_notifier.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_api.dart';
+import 'package:mobile/features/scene_generation/data/scene_generation_repository_impl.dart';
+import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
 import 'package:mobile/app/share_reentry_coordinator.dart';
 import 'package:mobile/app/invite_reentry_coordinator.dart';
 
@@ -122,6 +126,12 @@ final dynamicPracticeApiServiceProvider = Provider<DynamicPracticeApiService>((
   return service;
 });
 
+final presetSceneCatalogApiProvider = Provider<PresetSceneCatalogApi>((ref) {
+  final service = PresetSceneCatalogApi();
+  ref.onDispose(service.close);
+  return service;
+});
+
 final householdApiServiceProvider = Provider<HouseholdApiService>((ref) {
   final service = HouseholdApiService(
     authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
@@ -138,8 +148,8 @@ final mentorApiServiceProvider = Provider<MentorApiService>((ref) {
   return service;
 });
 
-final customSceneApiProvider = Provider<CustomSceneApi>((ref) {
-  final service = CustomSceneApi(
+final sceneGenerationApiProvider = Provider<SceneGenerationApi>((ref) {
+  final service = SceneGenerationApi(
     authenticatedApiClient: ref.watch(authenticatedApiClientProvider),
   );
   ref.onDispose(service.close);
@@ -203,6 +213,29 @@ final assetPhraseServiceProvider = Provider<AssetPhraseService>((ref) {
   );
 });
 
+final householdLocalStoreProvider = Provider<HouseholdLocalStore>((ref) {
+  return HouseholdLocalStore(
+    directoryResolver: () => ref.read(appDirectoryProvider.future),
+  );
+});
+
+final presetSceneCatalogStoreProvider = Provider<PresetSceneCatalogStore>((
+  ref,
+) {
+  return PresetSceneCatalogStore(
+    directoryResolver: () => ref.read(appDirectoryProvider.future),
+  );
+});
+
+final presetSceneCatalogRepositoryProvider =
+    Provider<PresetSceneCatalogRepository>((ref) {
+      return PresetSceneCatalogRepository(
+        api: ref.watch(presetSceneCatalogApiProvider),
+        store: ref.watch(presetSceneCatalogStoreProvider),
+        assetPhraseService: ref.watch(assetPhraseServiceProvider),
+      );
+    });
+
 final generatedCareMomentLocalStoreProvider =
     Provider<GeneratedCareMomentLocalStore>((ref) {
       return GeneratedCareMomentLocalStore(
@@ -214,6 +247,8 @@ final generatedCareTurnResumeMarkerStoreProvider =
     Provider<GeneratedCareTurnResumeMarkerStore>((ref) {
       return GeneratedCareTurnResumeMarkerStore(
         directoryResolver: () => ref.read(appDirectoryProvider.future),
+        householdScopeLoader: () async =>
+            (await ref.read(householdLocalStoreProvider).read()).householdId,
       );
     });
 
@@ -225,6 +260,64 @@ final generatedPracticeContentRegistryProvider =
         accountContextLoader: () async {
           final snapshot = await AccountLocalStore().read();
           return snapshot.session?.accountId;
+        },
+        householdScopeLoader: () async =>
+            (await ref.read(householdLocalStoreProvider).read()).householdId,
+        currentAccessContextLoader: () async {
+          final AccountLocalSnapshot accountSnapshot;
+          try {
+            accountSnapshot = await AccountLocalStore().read();
+          } on Object {
+            return const GeneratedPracticeAccessContext.accountReadUnavailable();
+          }
+          final session = accountSnapshot.session;
+          if (session == null ||
+              accountSnapshot.consentState == AccountConsentState.localOnly ||
+              accountSnapshot.consentState == AccountConsentState.signedOut) {
+            return GeneratedPracticeAccessContext.denied(
+              accountContext: session?.accountId,
+              reason: GeneratedPracticeAccessDeniedReason.signedOut,
+            );
+          }
+          if (accountSnapshot.consentState == AccountConsentState.revoked) {
+            return GeneratedPracticeAccessContext.denied(
+              accountContext: session.accountId,
+              reason: GeneratedPracticeAccessDeniedReason.consentRevoked,
+            );
+          }
+          if (accountSnapshot.consentState == AccountConsentState.deleted) {
+            return GeneratedPracticeAccessContext.denied(
+              accountContext: session.accountId,
+              reason: GeneratedPracticeAccessDeniedReason.accountDeleted,
+            );
+          }
+          if (accountSnapshot.consentState !=
+              AccountConsentState.acceptedPendingSync) {
+            return GeneratedPracticeAccessContext.denied(
+              accountContext: session.accountId,
+              reason: GeneratedPracticeAccessDeniedReason.consentRequired,
+            );
+          }
+
+          final HouseholdLocalSnapshot householdSnapshot;
+          try {
+            householdSnapshot = await ref
+                .read(householdLocalStoreProvider)
+                .read();
+          } on Object {
+            return GeneratedPracticeAccessContext.householdReadUnavailable(
+              accountContext: session.accountId,
+            );
+          }
+          final householdId = householdSnapshot.householdId;
+          return GeneratedPracticeAccessContext.accepted(
+            accountContext: session.accountId,
+            householdScopeFingerprint: householdId == null
+                ? null
+                : householdScopeFingerprint(householdId),
+            pendingClearHouseholdScopeFingerprint:
+                householdSnapshot.pendingClearHouseholdScopeFingerprint,
+          );
         },
       );
     });
@@ -250,6 +343,9 @@ final practiceRepositoryProvider = FutureProvider<PracticeRepository>((
     localDataSource: localDataSource,
     dynamicPracticeApiService: dynamicPracticeApiService,
     contentResolver: ref.watch(generatedPracticeContentRegistryProvider),
+    presetSceneCatalogRepository: ref.watch(
+      presetSceneCatalogRepositoryProvider,
+    ),
     installationIdService: InstallationIdService(
       directoryResolver: () async => directory,
     ),
@@ -388,21 +484,40 @@ final babyProfileRepositoryProvider = Provider<BabyProfileRepository>((ref) {
 final customSceneRepositoryProvider = FutureProvider<CustomSceneRepository>((
   ref,
 ) async {
-  final accountRepository = await ref.watch(accountRepositoryProvider.future);
-  final practiceRepository = await ref.watch(practiceRepositoryProvider.future);
-  final settingsRepository = await ref.watch(settingsRepositoryProvider.future);
   return CustomSceneRepositoryImpl(
-    api: ref.watch(customSceneApiProvider),
-    mapper: const CustomSceneMapper(),
-    profileContextResolver: CustomSceneProfileContextResolver(
-      babyProfileRepository: ref.watch(babyProfileRepositoryProvider),
-      settingsRepository: settingsRepository,
+    sceneGenerationRepository: await ref.watch(
+      sceneGenerationRepositoryProvider.future,
     ),
-    accountSnapshotLoader: accountRepository.loadSnapshot,
-    persistRefreshedSession: accountRepository.persistRefreshedSession,
-    installationIdLoader: practiceRepository.ensureInstallationId,
   );
 });
+
+final sceneGenerationRepositoryProvider =
+    FutureProvider<SceneGenerationRepository>((ref) async {
+      final accountRepository = await ref.watch(
+        accountRepositoryProvider.future,
+      );
+      final practiceRepository = await ref.watch(
+        practiceRepositoryProvider.future,
+      );
+      final settingsRepository = await ref.watch(
+        settingsRepositoryProvider.future,
+      );
+      return SceneGenerationRepositoryImpl(
+        api: ref.watch(sceneGenerationApiProvider),
+        accountSnapshotLoader: accountRepository.loadSnapshot,
+        persistRefreshedSession: accountRepository.persistRefreshedSession,
+        localeLoader: () async {
+          final preferredLanguage = (await settingsRepository.readSettings())
+              .preferredLanguage
+              .trim();
+          return switch (preferredLanguage) {
+            'zh' || 'zh-CN' || 'en' || 'bilingual' => 'zh-CN',
+            _ => 'zh-CN',
+          };
+        },
+        installationIdLoader: practiceRepository.ensureInstallationId,
+      );
+    });
 
 final customSceneSubmissionControllerProvider =
     FutureProvider<CustomSceneSubmissionController>((ref) async {
@@ -494,14 +609,20 @@ final householdRepositoryProvider = FutureProvider<HouseholdRepository>((
   ref,
 ) async {
   final accountRepository = await ref.watch(accountRepositoryProvider.future);
-  final directory = await ref.watch(appDirectoryProvider.future);
   final householdApiService = ref.watch(householdApiServiceProvider);
 
   return HouseholdRepository(
-    localStore: HouseholdLocalStore(directoryResolver: () async => directory),
+    localStore: ref.watch(householdLocalStoreProvider),
     apiService: householdApiService,
     accountSnapshotLoader: accountRepository.loadSnapshot,
+    accountSnapshotReadResultLoader: accountRepository.loadSnapshotWithStatus,
     persistRefreshedSession: accountRepository.persistRefreshedSession,
+    clearGeneratedContentForHouseholdScope: ref
+        .watch(generatedPracticeContentRegistryProvider)
+        .clearForHouseholdScope,
+    clearGeneratedContentForHouseholdScopeFingerprint: ref
+        .watch(generatedPracticeContentRegistryProvider)
+        .clearForHouseholdScopeFingerprint,
   );
 });
 
@@ -597,6 +718,12 @@ final localSensitiveDataClearanceOrchestratorProvider =
       final generatedPracticeContentRegistry = ref.watch(
         generatedPracticeContentRegistryProvider,
       );
+      final presetSceneCatalogStore = ref.watch(
+        presetSceneCatalogStoreProvider,
+      );
+      final presetSceneCatalogRepository = ref.watch(
+        presetSceneCatalogRepositoryProvider,
+      );
       final generatedAudioMemoryCache = ref.watch(
         generatedAudioMemoryCacheProvider,
       );
@@ -617,6 +744,8 @@ final localSensitiveDataClearanceOrchestratorProvider =
         customSceneDraftContinuationCoordinator:
             customSceneDraftContinuationCoordinator,
         generatedPracticeContentRegistry: generatedPracticeContentRegistry,
+        presetSceneCatalogStore: presetSceneCatalogStore,
+        presetSceneCatalogRepository: presetSceneCatalogRepository,
         generatedAudioMemoryCache: generatedAudioMemoryCache,
         settingsLocalDataSource: settingsRepository.localDataSource,
         onboardingCareTurnContinuationClearance:

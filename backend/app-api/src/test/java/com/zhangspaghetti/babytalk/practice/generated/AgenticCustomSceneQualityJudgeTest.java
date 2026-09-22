@@ -23,7 +23,7 @@ import com.zhangspaghetti.babytalk.practice.agentic.config.PracticeAiReasoningEf
 import com.zhangspaghetti.babytalk.practice.agentic.config.QualityRubric;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedRef;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
-import com.zhangspaghetti.babytalk.practice.generated.CustomSceneGenerator.GeneratedPracticeContentCandidate;
+import com.zhangspaghetti.babytalk.practice.generated.SceneContentGenerator.GeneratedPracticeContentCandidate;
 import com.zhangspaghetti.babytalk.practice.generated.CustomSceneQualityJudge.JudgeRequest;
 import com.zhangspaghetti.babytalk.practice.generated.quality.DimensionResult;
 import com.zhangspaghetti.babytalk.practice.generated.quality.JudgeDimension;
@@ -66,7 +66,8 @@ class AgenticCustomSceneQualityJudgeTest {
                         "safetyConstraintTags",
                         "orderedSanitizedEvidenceSummaries",
                         "rubricVersion",
-                        "rubricContentHash")
+                        "rubricContentHash",
+                        "context")
                 .doesNotContain(
                         "securityText",
                         "rawEvidenceChunks",
@@ -138,6 +139,11 @@ class AgenticCustomSceneQualityJudgeTest {
                         "再停下来观察。",
                         "rubric-v1",
                         "9".repeat(64),
+                        "小满",
+                        "recentPracticeCount",
+                        "7",
+                        "hesitant",
+                        "daily_care/bath_time=7",
                         "agentic_search")
                 .doesNotContain(
                         "pgc_judge_test",
@@ -145,6 +151,9 @@ class AgenticCustomSceneQualityJudgeTest {
                         "rawEvidenceChunks",
                         "accountId",
                         "profileId",
+                        "actorRole",
+                        "primary_caregiver",
+                        "caregiver",
                         "deviceId",
                         "providerPrompt",
                         "providerResponse",
@@ -159,6 +168,7 @@ class AgenticCustomSceneQualityJudgeTest {
                 "displayText",
                 "ageRange",
                 "parentGoal",
+                "context",
                 "candidate",
                 "reactionSupports",
                 "strategyIds",
@@ -494,7 +504,10 @@ class AgenticCustomSceneQualityJudgeTest {
                 List.of("low_pressure"),
                 List.of("先轻声说。", "再停下来观察。"),
                 "rubric-v1",
-                "9".repeat(64));
+                "9".repeat(64),
+                new GenerationRequestContext(
+                        "小满", "m7_11", "calmer_care", "zh-CN", 7,
+                        "hesitant", "daily_care/bath_time=7"));
     }
 
     private AgenticCustomSceneQualityJudge.JudgeWireResponse passWire() {

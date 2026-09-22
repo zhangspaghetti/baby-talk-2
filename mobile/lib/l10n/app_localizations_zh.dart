@@ -57,6 +57,182 @@ class AppLocalizationsZh extends AppLocalizations {
   String get practiceEntryUnavailable => '照护入口暂时不可用。';
 
   @override
+  String get customSceneTitle => '描述一下此刻';
+
+  @override
+  String get customSceneTodayEntryPrompt => '不是正在发生的事？';
+
+  @override
+  String get customSceneSceneEntryPrompt => '没找到正在发生的场景？';
+
+  @override
+  String get customSceneDescribeMoment => '描述一下此刻';
+
+  @override
+  String get customSceneHeading => '说说现在正在发生什么';
+
+  @override
+  String get customSceneDescription => '写下你想回应的此刻，我们会帮你准备一句自然的表达。';
+
+  @override
+  String get customSceneFieldLabel => '此刻发生了什么？';
+
+  @override
+  String get customSceneFieldHint => '例如：洗澡时宝宝不想碰水。';
+
+  @override
+  String get customScenePrivacyNote => '请不要填写姓名、电话、地址或其他私密信息。';
+
+  @override
+  String get customScenePrivacySemantics => '隐私说明：请不要填写姓名、电话、地址或其他私密信息。';
+
+  @override
+  String get customSceneEmptyInput => '请先描述一下此刻。';
+
+  @override
+  String get customSceneSubmit => '帮我准备一句';
+
+  @override
+  String get customScenePreparing => '正在准备…';
+
+  @override
+  String get customSceneContinueAfterLogin => '登录后继续';
+
+  @override
+  String get customSceneConfirmResult => '继续确认结果';
+
+  @override
+  String get customSceneOpenPrepared => '打开已准备内容';
+
+  @override
+  String get customSceneCancelRetainedDraft => '取消并重新开始';
+
+  @override
+  String get customSceneAbandonPrepared => '放弃这条内容';
+
+  @override
+  String get customSceneViewExisting => '查看已有场景';
+
+  @override
+  String get customSceneUnavailable => '这个入口正在准备中。';
+
+  @override
+  String get customSceneAbandonTitle => '放弃已准备内容？';
+
+  @override
+  String get customSceneAbandonBody => '放弃后需要重新描述，才会准备新内容。';
+
+  @override
+  String get customSceneCancelTitle => '取消这次描述？';
+
+  @override
+  String get customSceneCancelBody => '取消后需要重新描述，才会准备新内容。';
+
+  @override
+  String get customSceneKeep => '继续保留';
+
+  @override
+  String get customSceneConfirmAbandon => '确认放弃';
+
+  @override
+  String get customSceneConfirmCancel => '确认取消';
+
+  @override
+  String get customSceneViewHouseholdStatus => '查看家庭状态';
+
+  @override
+  String get customSceneCompleteProfile => '完善宝宝档案';
+
+  @override
+  String get customSceneAuthenticationRequired => '请先登录后再生成。';
+
+  @override
+  String get customSceneProfileUnavailable =>
+      '当前账号还没有可用于生成的宝宝档案；主照护者请先完成档案，次照护者请先加入共享照护家庭并接受邀请。';
+
+  @override
+  String get customSceneHouseholdAccessRequired => '请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。';
+
+  @override
+  String get customSceneSharedProfileUnavailable => '共享宝宝档案尚未准备好，请让主照护者先完成档案';
+
+  @override
+  String get customScenePresetSceneUnavailable => '预置场景暂不可用，请稍后再试。';
+
+  @override
+  String get customSceneInvalidDraft => '请调整描述后再试。';
+
+  @override
+  String get customSceneRequestConflict => '这次描述已变更，请重新开始生成。';
+
+  @override
+  String get customSceneRequestTerminal => '这次生成已结束，请重新生成。';
+
+  @override
+  String get customSceneGenerationInProgress => '正在生成，请稍候。';
+
+  @override
+  String get customSceneRateLimited => '尝试次数较多，请稍后再试。';
+
+  @override
+  String get customSceneUnavailableError => '现在暂时无法生成，请稍后再试。';
+
+  @override
+  String get customSceneTimeout => '等待超时，请稍后再试。';
+
+  @override
+  String get customSceneNetwork => '网络暂不可用，请检查后重试。';
+
+  @override
+  String get customSceneMalformedResponse => '服务响应异常，请稍后再试。';
+
+  @override
+  String get customSceneRejected => '这段描述暂时无法生成，请换个说法。';
+
+  @override
+  String get customSceneUnexpected => '暂时无法生成，请稍后再试。';
+
+  @override
+  String get customSceneSubmissionAnotherDraftPending =>
+      '当前已有另一段描述待处理，请先完成或取消。';
+
+  @override
+  String get customSceneSubmissionRestoreUnavailable => '暂时无法恢复这次描述，请重新填写。';
+
+  @override
+  String get customSceneSubmissionAccountChanged => '账号已切换，请重新填写描述。';
+
+  @override
+  String get customSceneSubmissionUnknownOutcome => '结果尚未确认，请重试以继续。';
+
+  @override
+  String get customSceneSubmissionPreviousRequestUnknown =>
+      '上次请求的结果尚未确认，请重试以继续。';
+
+  @override
+  String get customSceneSubmissionRetryUnavailable => '暂时无法继续，请重新填写描述。';
+
+  @override
+  String get customSceneSubmissionHandoffRouteFailed => '暂时无法打开照护内容，请再试一次。';
+
+  @override
+  String get customSceneSubmissionSaveUnavailable => '暂时无法保存描述，请稍后再试。';
+
+  @override
+  String get customSceneSubmissionPreparedContentSaveFailed =>
+      '内容已准备好，但暂时无法保存。请重试以继续。';
+
+  @override
+  String get customSceneSubmissionDraftExpired => '这次描述已过期，请重新填写。';
+
+  @override
+  String get customSceneSubmissionDraftRecoveryUnavailable =>
+      '暂时无法恢复这次描述，请稍后再试。';
+
+  @override
+  String get customSceneSubmissionDraftInconsistent => '暂时无法恢复这次描述，请重新填写。';
+
+  @override
   String get bootErrorUnknown => '未知启动错误';
 
   @override
@@ -550,6 +726,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get householdCaregiver => '次照护者';
+
+  @override
+  String get meHouseholdCaregiverDetail => '使用家庭共享宝宝档案';
+
+  @override
+  String get meHouseholdIdentityLoading => '家庭身份同步中';
+
+  @override
+  String get meHouseholdIdentityNoMembership => '尚未加入共享家庭';
+
+  @override
+  String get meHouseholdIdentityUnavailable => '家庭身份暂时不可用';
+
+  @override
+  String get meHouseholdIdentityReadError => '家庭状态读取失败，请稍后重试。';
+
+  @override
+  String get meHouseholdIdentityStale => '家庭状态正在更新，暂不显示上一份身份。';
 
   @override
   String get householdMember => '家庭成员';
@@ -2044,6 +2238,65 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsLanguageBilingual => '双语';
+
+  @override
+  String get presetGenerationProgress => '正在为宝宝准备个性化练习…';
+
+  @override
+  String get presetGenerationUnavailable => '个性化练习暂时不可用，请重试。';
+
+  @override
+  String get presetGenerationGenericFallback => '使用通用内容';
+
+  @override
+  String get sceneGenerationAuthenticationRequired => '请先登录后再生成。';
+
+  @override
+  String get sceneGenerationProfileUnavailable => '宝宝档案暂不可用，请先完善宝宝档案后再试。';
+
+  @override
+  String get sceneGenerationSharedProfileUnavailable =>
+      '共享宝宝档案暂不可用，请让主照护者先完成档案后再试。';
+
+  @override
+  String get sceneGenerationHouseholdAccessRequired =>
+      '请先加入共享照护家庭并接受邀请，再使用共享宝宝档案。';
+
+  @override
+  String get sceneGenerationPresetUnavailable => '预置场景暂不可用，请稍后再试。';
+
+  @override
+  String get sceneGenerationInvalidInput => '请调整场景描述后再试。';
+
+  @override
+  String get sceneGenerationRequestConflict => '这次场景描述已变更，请重新开始生成。';
+
+  @override
+  String get sceneGenerationRequestTerminal => '这次生成已结束，请使用新的请求重新生成。';
+
+  @override
+  String get sceneGenerationInProgress => '场景正在生成，请稍后查看。';
+
+  @override
+  String get sceneGenerationRateLimited => '生成次数过多，请稍后再试。';
+
+  @override
+  String get sceneGenerationUnavailable => '生成服务暂不可用，请稍后再试。';
+
+  @override
+  String get sceneGenerationTimeout => '生成超时，请稍后重试。';
+
+  @override
+  String get sceneGenerationNetwork => '网络暂不可用，请检查后重试。';
+
+  @override
+  String get sceneGenerationMalformedResponse => '生成响应异常，请稍后再试。';
+
+  @override
+  String get sceneGenerationRejected => '这段场景描述暂不适合生成，请调整后再试。';
+
+  @override
+  String get sceneGenerationUnexpected => '生成失败，请稍后再试。';
 
   @override
   String get mentorBubbleCaption => '禾';

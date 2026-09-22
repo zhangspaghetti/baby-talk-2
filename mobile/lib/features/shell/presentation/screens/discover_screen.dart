@@ -45,15 +45,11 @@ class DiscoverScreen extends ConsumerStatefulWidget {
     this.catalogLoader,
     this.practiceOpener,
     this.customSceneEntryOpener,
-    this.customSceneEnabled = customSceneFeatureEnabledByDefault,
-    this.customSceneEntryAllowed = true,
   });
 
   final DiscoverCatalogLoader? catalogLoader;
   final DiscoverPracticeOpener? practiceOpener;
   final CustomSceneEntryOpener? customSceneEntryOpener;
-  final bool customSceneEnabled;
-  final bool customSceneEntryAllowed;
 
   @override
   ConsumerState<DiscoverScreen> createState() => _DiscoverScreenState();
@@ -89,6 +85,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final colors = context.appColors;
+    final customSceneEnabled = ref.watch(customSceneFeatureEnabledProvider);
     super.build(context);
     final theme = Theme.of(context);
 
@@ -198,9 +195,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     _DiscoverSceneList(
                       activities: filtered,
                       onOpenActivity: _openActivity,
-                      showCustomSceneEntry:
-                          widget.customSceneEnabled &&
-                          widget.customSceneEntryAllowed,
+                      showCustomSceneEntry: customSceneEnabled,
                       onOpenCustomScene: _openCustomScene,
                     ),
                 ],

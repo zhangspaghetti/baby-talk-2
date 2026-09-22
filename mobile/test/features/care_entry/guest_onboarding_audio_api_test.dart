@@ -27,7 +27,7 @@ void main() {
             options.headers['X-Onboarding-Audio-Capability'],
             'secret-capability',
           );
-          expect(options.headers['X-App-Version'], '1.2.0');
+          expect(options.headers['X-App-Version'], '1.3.0');
           return Response<dynamic>(
             requestOptions: options,
             statusCode: 200,

@@ -4,7 +4,7 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_api.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
-import 'package:mobile/features/custom_scene/domain/generated_care_moment.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 
 class GeneratedAudioRepositoryException implements Exception {
   const GeneratedAudioRepositoryException();

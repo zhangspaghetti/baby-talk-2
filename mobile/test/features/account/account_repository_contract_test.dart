@@ -41,6 +41,25 @@ void main() {
     },
   );
 
+  test(
+    'unchanged runtime snapshot does not invalidate account projections',
+    () async {
+      final repository = _ContractOnlyAccountRepository(
+        currentSnapshot: _signedInSnapshot(),
+      );
+      final notifier = AccountNotifier(repository: repository);
+      addTearDown(notifier.dispose);
+
+      await notifier.reload();
+      final tokenAfterLoad = notifier.runtimeChangeToken;
+      await notifier.refreshRuntimeState(
+        trigger: AccountRuntimeTrigger.appBoot,
+      );
+
+      expect(notifier.runtimeChangeToken, tokenAfterLoad);
+    },
+  );
+
   test('account session exit operations cancel the native reminder', () async {
     final operations = <String, Future<void> Function()>{
       'logout': () async {

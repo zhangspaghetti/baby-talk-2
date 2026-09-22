@@ -12,7 +12,16 @@ import 'package:mobile/features/custom_scene/presentation/custom_scene_input_scr
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/features/care_entry/presentation/screens/care_entry_onboarding_screen.dart';
 import 'package:mobile/features/shell/presentation/app_shell_screen.dart';
+import 'package:mobile/features/practice/presentation/preset_scene_generation_gate_screen.dart';
 import 'package:mobile/features/practice/presentation/screens/practice_session_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/about_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/baby_profile_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/caregiver_preferences_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/help_feedback_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/playback_preferences_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/reminder_settings_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/settings_screen.dart';
+import 'package:mobile/features/shell/presentation/screens/garden_growth_combined_screen.dart';
 import 'package:mobile/features/practice/presentation/practice_route_args.dart';
 
 GoRouter createAppRouter({
@@ -20,6 +29,7 @@ GoRouter createAppRouter({
   WidgetBuilder? onboardingBuilder,
   WidgetBuilder? accountBuilder,
   WidgetBuilder? shellBuilder,
+  PresetSceneDefinitionLoader? presetDefinitionLoader,
 }) {
   final resolvedOnboardingBuilder =
       onboardingBuilder ??
@@ -69,7 +79,18 @@ GoRouter createAppRouter({
         path: AppRouteNames.practice,
         builder: (context, state) {
           final routeEntry = PracticeRouteEntry.fromObject(state.extra);
-          return PracticeSessionScreen(routeEntry: routeEntry);
+          return switch (routeEntry.kind) {
+            PracticeEntryKind.preset => PresetSceneGenerationGateScreen(
+              key: ValueKey('preset-gate:${routeEntry.scopeLabel}'),
+              routeEntry: routeEntry,
+              presetDefinitionLoader: presetDefinitionLoader,
+            ),
+            PracticeEntryKind.generated ||
+            PracticeEntryKind.onboarding ||
+            PracticeEntryKind.invalid => PracticeSessionScreen(
+              routeEntry: routeEntry,
+            ),
+          };
         },
       ),
       GoRoute(
@@ -110,6 +131,41 @@ GoRouter createAppRouter({
         path: AppRouteNames.account,
         builder: (context, state) =>
             accountBuilder?.call(context) ?? buildAccountRoute(state.extra),
+      ),
+      GoRoute(
+        path: AppRouteNames.meSettings,
+        builder: (context, state) => const SettingsScreen(),
+        routes: [
+          GoRoute(
+            path: 'reminder',
+            builder: (context, state) => const ReminderSettingsScreen(),
+          ),
+          GoRoute(
+            path: 'baby-profile',
+            builder: (context, state) => const BabyProfileScreen(),
+          ),
+          GoRoute(
+            path: 'caregiver',
+            builder: (context, state) => const CaregiverPreferencesScreen(),
+          ),
+          GoRoute(
+            path: 'playback',
+            builder: (context, state) => const PlaybackPreferencesScreen(),
+          ),
+          GoRoute(
+            path: 'help',
+            builder: (context, state) => const HelpFeedbackScreen(),
+          ),
+          GoRoute(
+            path: 'about',
+            builder: (context, state) => const AboutScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRouteNames.meGrowth,
+        builder: (context, state) =>
+            const GardenGrowthCombinedScreen(initialTab: GrowthTab.growth),
       ),
     ],
     redirect: (context, state) {

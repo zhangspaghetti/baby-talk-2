@@ -43,6 +43,7 @@ class FullCiScriptContractTest(unittest.TestCase):
             "verify_practice_ai_version_lock.py --verify --base-lock",
             "verify_practice_generation_privacy_test.py",
             "verify_practice_generation_privacy.py",
+            "python3 -m unittest test/ci/test_client_version_contract.py",
             "stage 'root-dart-dependencies' 'flutter pub get'",
             "dart test test/tool/verify_practice_ai_helm_test.dart",
             "dart run tool/verify_practice_ai_helm.dart",
@@ -148,6 +149,8 @@ class FullCiScriptContractTest(unittest.TestCase):
             "verify_spring_ai_2_backend_platform",
             "verify_practice_ai_version_lock.py",
             "verify_practice_generation_privacy",
+            "client-version-contract",
+            "test_client_version_contract.py",
             "verify_practice_ai_helm",
             "dependency:tree",
             "backend-test.sh",
@@ -193,6 +196,19 @@ class FullCiScriptContractTest(unittest.TestCase):
         self.assertNotIn("stage 'mobile-test'", self.text)
         self.assertNotIn("cd mobile && flutter test", self.text)
 
+    def test_client_version_stage_delegates_to_behavioral_overlay_lint_contract(self) -> None:
+        client_contract = (REPO_ROOT / "test" / "ci" / "test_client_version_contract.py").read_text(
+            encoding="utf-8"
+        )
+        for marker in (
+            '"helm", "lint"',
+            '"helm", "template"',
+            "values-kind.yaml",
+            "values-kind-qa.yaml",
+            "values-production.yaml",
+        ):
+            self.assertIn(marker, client_contract)
+
     def test_stable_stage_markers_cover_every_gate_in_order(self) -> None:
         gate_ids = (
             "fetch-target",
@@ -205,6 +221,7 @@ class FullCiScriptContractTest(unittest.TestCase):
             "practice-ai-version-lock",
             "practice-generation-privacy-fixture",
             "practice-generation-privacy",
+            "client-version-contract",
             "root-dart-dependencies",
             "practice-ai-helm-fixture",
             "practice-ai-helm",

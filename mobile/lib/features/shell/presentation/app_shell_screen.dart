@@ -10,12 +10,10 @@ import 'package:mobile/app/router/app_route_contract.dart';
 import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/account/presentation/screens/account_settings_screen.dart';
-import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
 import 'package:mobile/features/household/domain/models/household_role.dart';
 import 'package:mobile/features/household/presentation/widgets/household_invite_card.dart';
 import 'package:mobile/features/household/presentation/widgets/household_shared_context_card.dart';
 import 'package:mobile/app/widgets/xiaohe_fab.dart';
-import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
 import 'package:mobile/features/onboarding/domain/models/onboarding_snapshot.dart';
 import 'package:mobile/features/onboarding/domain/models/stage_match.dart';
 import 'package:mobile/features/practice/presentation/garden_growth_notifier.dart'
@@ -30,12 +28,10 @@ class AppShellScreen extends ConsumerStatefulWidget {
   const AppShellScreen({
     super.key,
     this.onboardingSnapshot,
-    this.customSceneEnabled = customSceneFeatureEnabledByDefault,
     this.initialDestination = AppShellDestination.today,
   });
 
   final OnboardingSnapshot? onboardingSnapshot;
-  final bool customSceneEnabled;
   final AppShellDestination initialDestination;
 
   @override
@@ -75,10 +71,6 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         .watch(gardenFertilizerNotifierProvider)
         .view
         .hasPendingPacks;
-    final householdSnapshot = ref.watch(householdNotifierProvider).snapshot;
-    final customSceneEntryAllowed = isCustomSceneEntryAllowedForRole(
-      householdSnapshot.role,
-    );
 
     return Scaffold(
       key: const Key('shell-ready'),
@@ -147,10 +139,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                 onboardingSnapshot: widget.onboardingSnapshot,
                 embeddedInShell: true,
               ),
-              DiscoverScreen(
-                customSceneEnabled: widget.customSceneEnabled,
-                customSceneEntryAllowed: customSceneEntryAllowed,
-              ),
+              const DiscoverScreen(),
               GardenGrowthCombinedScreen(
                 initialTab: _gardenInitialTab,
                 onGoHome: () => setState(() => _selectedIndex = 0),

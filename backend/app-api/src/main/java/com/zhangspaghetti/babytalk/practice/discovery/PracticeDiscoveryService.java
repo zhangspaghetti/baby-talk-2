@@ -163,31 +163,38 @@ public class PracticeDiscoveryService {
         this.customSceneSafetyPolicy = null;
     }
 
+    /** Compatibility constructor for catalog-only callers after custom generation moved to SceneGenerationService. */
+    public PracticeDiscoveryService(
+            PracticeCatalogService catalogService,
+            AuthConsentSyncService authConsentSyncService,
+            BabyProfileMapper babyProfileMapper
+    ) {
+        this(catalogService, authConsentSyncService, babyProfileMapper, null);
+    }
+
     public PracticeDiscoveryResponse discover(PracticeDiscoveryRequest request, String sessionId) {
         if (request == null) {
             throw invalidDiscoverySurface();
         }
+        if (MODE_CUSTOM_SCENE.equals(request.mode())) {
+            if (customSceneSafetyPolicy == null) {
+                // Catalog-only constructors intentionally expose the retired mode as invalid.
+                validateMode(request.mode());
+            }
+            return discoverLegacyCustomScene(request, sessionId);
+        }
         var surface = validateSurface(request.surface());
         var mode = validateMode(request.mode());
         validateModeSpecificFields(request, surface, mode);
+        if (mode != PracticeDiscoveryMode.CATALOG) {
+            throw unsupportedSurfaceMode();
+        }
         validateLocale(request.locale());
         var limit = normalizeLimit(request.limit());
         validateClientTraceId(request.clientTraceId());
         validateClientRequestId(request);
 
-        if (mode == PracticeDiscoveryMode.CUSTOM_SCENE && customSceneSafetyPolicy == null) {
-            generatedContentService.requireCustomSceneGenerationAvailable();
-        }
         var context = resolveContext(request, sessionId);
-        if (mode == PracticeDiscoveryMode.CUSTOM_SCENE) {
-            var route = prepareCustomScene(request, sessionId, context, surface, mode);
-            requireGeneratedScene(route.safetyDecision());
-            generatedContentService.requireCustomSceneGenerationAvailable();
-            var generated = generatedContentService.generateCustomScene(
-                    route.generatedRequest(),
-                    route.safetyDecision() == null ? null : route.safetyDecision().admission());
-            return toGeneratedResponse(route.context(), generated, surface, mode);
-        }
 
         validateInstallationId(request.installationId(), context.profileId() == null);
 
@@ -206,6 +213,29 @@ public class PracticeDiscoveryService {
         return toResponse(context, ranked, candidates.size(), surface, mode);
     }
 
+    private PracticeDiscoveryResponse discoverLegacyCustomScene(
+            PracticeDiscoveryRequest request,
+            String sessionId
+    ) {
+        var surface = validateSurface(request.surface());
+        var mode = MODE_CUSTOM_SCENE;
+        validateCustomSceneModeSpecificFields(request, surface);
+        validateLocale(request.locale());
+        normalizeLimit(request.limit());
+        validateClientTraceId(request.clientTraceId());
+        validateClientRequestId(request);
+        var context = resolveContext(request, sessionId);
+        var route = prepareCustomScene(request, sessionId, context, surface, mode);
+        var decision = requireSafetyDecision(route.safetyDecision());
+        if (decision.resultType() != CustomSceneSafetyDecision.ResultType.GENERATED_SCENE) {
+            throw safetyContract(decision);
+        }
+        generatedContentService.requireCustomSceneGenerationAvailable();
+        var generated = generatedContentService.generateCustomScene(
+                route.generatedRequest(), decision.admission());
+        return toGeneratedResponse(route.context(), generated, surface, mode);
+    }
+
     public CustomSceneDiscoveryV2Response discoverCustomSceneV2(
             PracticeDiscoveryRequest request,
             String sessionId
@@ -214,11 +244,11 @@ public class PracticeDiscoveryService {
             throw invalidDiscoverySurface();
         }
         var surface = validateSurface(request.surface());
-        var mode = validateMode(request.mode());
-        if (mode != PracticeDiscoveryMode.CUSTOM_SCENE) {
+        var mode = request.mode();
+        if (!MODE_CUSTOM_SCENE.equals(mode)) {
             throw unsupportedSurfaceMode();
         }
-        validateModeSpecificFields(request, surface, mode);
+        validateCustomSceneModeSpecificFields(request, surface);
         validateLocale(request.locale());
         normalizeLimit(request.limit());
         validateClientTraceId(request.clientTraceId());
@@ -249,7 +279,7 @@ public class PracticeDiscoveryService {
             String sessionId,
             DiscoveryContext context,
             PracticeDiscoverySurface surface,
-            PracticeDiscoveryMode mode
+            String mode
     ) {
         var generatedContext = resolveGeneratedContentContext(context, sessionId);
         validateInstallationId(
@@ -265,13 +295,13 @@ public class PracticeDiscoveryService {
         var safetyDecision = customSceneSafetyPolicy == null
                 ? null
                 : customSceneSafetyPolicy.assess(
-                        forms, surface.wireValue(), mode.wireValue(), generatedContext.ageRange());
+                        forms, surface.wireValue(), mode, generatedContext.ageRange());
         return new CustomSceneRoute(
                 generatedContext,
                 safetyDecision,
                 new PracticeGeneratedContentService.CustomSceneDiscoveryRequest(
                         surface.wireValue(),
-                        mode.wireValue(),
+                        mode,
                         StrUtil.trimToNull(request.installationId()),
                         generatedContext.accountId(),
                         generatedContext.profileId(),
@@ -469,7 +499,7 @@ public class PracticeDiscoveryService {
             PracticeDiscoverySurface surface,
             PracticeDiscoveryMode mode
     ) {
-        if (surface == PracticeDiscoverySurface.CARE_PATH && mode != PracticeDiscoveryMode.CUSTOM_SCENE) {
+        if (surface != PracticeDiscoverySurface.ONBOARDING || mode != PracticeDiscoveryMode.CATALOG) {
             throw unsupportedSurfaceMode();
         }
         if (mode == PracticeDiscoveryMode.CATALOG && StrUtil.trimToNull(request.customSceneText()) != null) {
@@ -478,6 +508,23 @@ public class PracticeDiscoveryService {
                     "invalid_request_body",
                     "customSceneText 仅支持 custom_scene mode。"
             );
+        }
+    }
+
+    private void validateCustomSceneModeSpecificFields(
+            PracticeDiscoveryRequest request,
+            PracticeDiscoverySurface surface
+    ) {
+        if (surface != PracticeDiscoverySurface.ONBOARDING
+                && surface != PracticeDiscoverySurface.CARE_PATH) {
+            throw unsupportedSurfaceMode();
+        }
+        if (StrUtil.trimToNull(request.customSceneText()) == null) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_custom_scene_text",
+                    "customSceneText 不合法。",
+                    Map.of("field", "customSceneText"));
         }
     }
 
@@ -550,7 +597,7 @@ public class PracticeDiscoveryService {
         var normalized = StrUtil.trimToNull(request.clientRequestId());
         if (normalized == null) {
             if (PracticeDiscoverySurface.fromWireValue(request.surface()) == PracticeDiscoverySurface.CARE_PATH
-                    && PracticeDiscoveryMode.fromWireValue(request.mode()) == PracticeDiscoveryMode.CUSTOM_SCENE) {
+                    && MODE_CUSTOM_SCENE.equals(request.mode())) {
                 throw new ContractException(
                         HttpStatus.BAD_REQUEST,
                         "invalid_client_request_id",
@@ -914,7 +961,7 @@ public class PracticeDiscoveryService {
             DiscoveryContext context,
             PracticeGeneratedContentEntity row,
             PracticeDiscoverySurface surface,
-            PracticeDiscoveryMode mode
+            String mode
     ) {
         var approvedUtterances = generatedContentService.findApprovedUtterances(row.generatedContentId());
         requireCompleteGeneratedBundle(approvedUtterances);
@@ -958,7 +1005,7 @@ public class PracticeDiscoveryService {
         return new PracticeDiscoveryResponse(
                 "disc_" + UUID.randomUUID().toString().replace("-", ""),
                 surface.wireValue(),
-                mode.wireValue(),
+                mode,
                 context.profileMode(),
                 SOURCE_GENERATED,
                 row.generatedContentId(),

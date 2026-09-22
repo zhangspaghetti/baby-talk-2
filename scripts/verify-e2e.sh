@@ -33,10 +33,15 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="${PROJECT_DIR}/docker-compose.yml"
 SKIP_DOCKER="${SKIP_DOCKER:-0}"
 INSTALLATION_ID="test-e2e-$(date +%s)"
-APP_VERSION="${APP_VERSION:-1.2.0}"
+APP_VERSION="${APP_VERSION:-1.3.0}"
 ADMIN_ACCESS_TOKEN="${ADMIN_ACCESS_TOKEN:-}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-super_admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-SuperAdmin123!}"
+
+if [[ "${1:-}" == "--print-app-version" ]]; then
+    printf '%s\n' "$APP_VERSION"
+    exit 0
+fi
 
 # ── 颜色 ──
 RED='\033[0;31m'

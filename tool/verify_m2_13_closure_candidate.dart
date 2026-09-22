@@ -402,7 +402,7 @@ const m213ClosureGates = <M213ClosureGate>[
       'mvnw',
       '-pl',
       'app-api',
-      '-Dtest=CustomSceneGenerationOrchestratorTest,PracticeGeneratedContentServiceOrchestrationTest,PracticeGeneratedContentStateMachineTest,CustomSceneGeneratedContentValidatorTest,JudgeVerdictCalculatorTest',
+      '-Dtest=SceneGenerationOrchestratorTest,PracticeGeneratedContentServiceOrchestrationTest,PracticeGeneratedContentStateMachineTest,SceneGeneratedContentValidatorTest,JudgeVerdictCalculatorTest',
       'test',
     ], 'backend'),
   ]),

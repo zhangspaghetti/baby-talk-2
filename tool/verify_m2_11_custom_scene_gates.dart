@@ -226,7 +226,7 @@ void _scanFakeProviderRouting(
   List<M211CustomSceneGateViolation> out,
 ) {
   final expected = <String, List<String>>{
-    'backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/discovery/FakeCustomSceneGenerationService.java':
+    'backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/discovery/FakeSceneContentGenerator.java':
         ['@Profile({"dev", "test"})'],
     'backend/app-api/src/main/java/com/zhangspaghetti/babytalk/practice/generated/audio/GeneratedSpeechSynthesisConfiguration.java':
         [
