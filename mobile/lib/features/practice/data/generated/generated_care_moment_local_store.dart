@@ -19,14 +19,33 @@ class StoredGeneratedCareMoment {
   StoredGeneratedCareMoment({
     required String accountContext,
     required this.moment,
+    String? safetyPolicyVersion,
+    int? contentRefreshEpoch,
     String? householdScopeFingerprint,
   }) : accountContext = _requiredString(accountContext, 'accountContext'),
+       safetyPolicyVersion = safetyPolicyVersion ?? moment.safetyPolicyVersion,
+       contentRefreshEpoch = contentRefreshEpoch ?? moment.contentRefreshEpoch,
        householdScopeFingerprint = _optionalHouseholdScopeFingerprint(
          householdScopeFingerprint,
-       );
+       ) {
+    if (this.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+        this.contentRefreshEpoch != generatedCareMomentContentRefreshEpoch ||
+        moment.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+        moment.contentRefreshEpoch != generatedCareMomentContentRefreshEpoch ||
+        this.safetyPolicyVersion != moment.safetyPolicyVersion ||
+        this.contentRefreshEpoch != moment.contentRefreshEpoch) {
+      throw ArgumentError.value(
+        safetyPolicyVersion,
+        'safetyPolicyVersion',
+        'generated care moment provenance 不受支持。',
+      );
+    }
+  }
 
   final String accountContext;
   final GeneratedCareMoment moment;
+  final String safetyPolicyVersion;
+  final int contentRefreshEpoch;
   final String? householdScopeFingerprint;
 }
 
@@ -823,6 +842,8 @@ Map<String, Object?> _encodeRecord(StoredGeneratedCareMoment record) {
   return <String, Object?>{
     'accountContext': record.accountContext,
     'schemaVersion': moment.schemaVersion,
+    'safetyPolicyVersion': record.safetyPolicyVersion,
+    'contentRefreshEpoch': record.contentRefreshEpoch,
     'generatedContentId': moment.generatedContentId,
     'sceneId': moment.sceneId,
     'spaceId': moment.spaceId,
@@ -852,6 +873,8 @@ StoredGeneratedCareMoment _decodeRecord(
   final expectedKeys = <String>{
     'accountContext',
     'schemaVersion',
+    'safetyPolicyVersion',
+    'contentRefreshEpoch',
     'generatedContentId',
     'sceneId',
     'spaceId',
@@ -883,6 +906,18 @@ StoredGeneratedCareMoment _decodeRecord(
   if (source != 'generated') {
     throw const FormatException('invalid generated care moment source');
   }
+  final safetyPolicyVersion = _requiredString(
+    json['safetyPolicyVersion'],
+    'safetyPolicyVersion',
+  );
+  final contentRefreshEpoch = _requiredNonNegativeInt(
+    json['contentRefreshEpoch'],
+    'contentRefreshEpoch',
+  );
+  if (safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+      contentRefreshEpoch != generatedCareMomentContentRefreshEpoch) {
+    throw const FormatException('unsupported generated care moment provenance');
+  }
   final inputSource = allowLegacyMissingInputSource
       ? SceneGenerationSourceType.custom
       : SceneGenerationSourceType.parse(
@@ -896,11 +931,15 @@ StoredGeneratedCareMoment _decodeRecord(
       : _optionalInt(json['presetSceneVersion'], 'presetSceneVersion');
   return StoredGeneratedCareMoment(
     accountContext: _requiredString(json['accountContext'], 'accountContext'),
+    safetyPolicyVersion: safetyPolicyVersion,
+    contentRefreshEpoch: contentRefreshEpoch,
     householdScopeFingerprint: allowLegacyMissingHouseholdScope
         ? null
         : _optionalHouseholdScopeFingerprint(json['householdScopeFingerprint']),
     moment: GeneratedCareMoment(
       schemaVersion: _requiredString(json['schemaVersion'], 'schemaVersion'),
+      safetyPolicyVersion: safetyPolicyVersion,
+      contentRefreshEpoch: contentRefreshEpoch,
       generatedContentId: _requiredString(
         json['generatedContentId'],
         'generatedContentId',

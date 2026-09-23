@@ -129,19 +129,23 @@
     </resultMap>
 
     <select id="findApprovedUtterances" resultMap="generatedContentUtteranceEntityMap">
-        select utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
-               pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
-               approval_status, approved_content_version, bundle_schema_version, provider_origin,
-               provider_name, provider_model_name, provider_attempt_number, created_at
-        from practice_generated_content_utterances
-        where generated_content_id = #{generatedContentId}
-          and approval_status = 'approved'
-          and bundle_schema_version = 'custom-scene-generated-output-v1'
-          and provider_origin in ('provider_generated', 'provider_repaired')
-          and nullif(btrim(provider_name), '') is not null
-          and nullif(btrim(provider_model_name), '') is not null
-          and provider_attempt_number between 1 and 5
-        order by display_order asc, utterance_id asc
+        select u.utterance_id, u.generated_content_id, u.role, u.reaction_type, u.english_text, u.chinese_text,
+               u.pronunciation_hint, u.tpr_action_zh, u.delivery_guidance_zh, u.difficulty, u.display_order,
+               u.approval_status, u.approved_content_version, u.bundle_schema_version, u.provider_origin,
+               u.provider_name, u.provider_model_name, u.provider_attempt_number, u.created_at
+        from practice_generated_content_utterances u
+        join practice_generated_content c on c.generated_content_id = u.generated_content_id
+        where c.generated_content_id = #{generatedContentId}
+          and c.status = 'active'
+          and c.content_refresh_epoch = #{contentRefreshEpoch}
+          and u.approval_status = 'approved'
+          and u.approved_content_version = c.content_version
+          and u.bundle_schema_version = 'custom-scene-generated-output-v1'
+          and u.provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(u.provider_name), '') is not null
+          and nullif(btrim(u.provider_model_name), '') is not null
+          and u.provider_attempt_number between 1 and 5
+        order by u.display_order asc, u.utterance_id asc
     </select>
 
     <select id="findActiveAccessibleByAccountId" resultMap="generatedContentEntityMap" flushCache="true">
@@ -174,22 +178,26 @@
     </select>
 
     <select id="findPlayableApprovedUtterance" resultMap="generatedContentUtteranceEntityMap">
-        select utterance_id, generated_content_id, role, reaction_type, english_text, chinese_text,
-               pronunciation_hint, tpr_action_zh, delivery_guidance_zh, difficulty, display_order,
-               approval_status, approved_content_version, bundle_schema_version, provider_origin,
-               provider_name, provider_model_name, provider_attempt_number, created_at
-        from practice_generated_content_utterances
-        where generated_content_id = #{generatedContentId}
-          and utterance_id = #{utteranceId}
-          and approval_status = 'approved'
-          and role in ('starter', 'reaction_support')
-          and english_text is not null
-          and btrim(english_text) &lt;&gt; ''
-          and bundle_schema_version = 'custom-scene-generated-output-v1'
-          and provider_origin in ('provider_generated', 'provider_repaired')
-          and nullif(btrim(provider_name), '') is not null
-          and nullif(btrim(provider_model_name), '') is not null
-          and provider_attempt_number between 1 and 5
+        select u.utterance_id, u.generated_content_id, u.role, u.reaction_type, u.english_text, u.chinese_text,
+               u.pronunciation_hint, u.tpr_action_zh, u.delivery_guidance_zh, u.difficulty, u.display_order,
+               u.approval_status, u.approved_content_version, u.bundle_schema_version, u.provider_origin,
+               u.provider_name, u.provider_model_name, u.provider_attempt_number, u.created_at
+        from practice_generated_content_utterances u
+        join practice_generated_content c on c.generated_content_id = u.generated_content_id
+        where c.generated_content_id = #{generatedContentId}
+          and c.status = 'active'
+          and c.content_refresh_epoch = #{contentRefreshEpoch}
+          and u.utterance_id = #{utteranceId}
+          and u.approval_status = 'approved'
+          and u.approved_content_version = c.content_version
+          and u.role in ('starter', 'reaction_support')
+          and u.english_text is not null
+          and btrim(u.english_text) &lt;&gt; ''
+          and u.bundle_schema_version = 'custom-scene-generated-output-v1'
+          and u.provider_origin in ('provider_generated', 'provider_repaired')
+          and nullif(btrim(u.provider_name), '') is not null
+          and nullif(btrim(u.provider_model_name), '') is not null
+          and u.provider_attempt_number between 1 and 5
     </select>
 
     <select id="findPlayableAccessibleActiveBundleUtterance" resultMap="generatedContentUtteranceEntityMap" flushCache="true">
@@ -202,6 +210,7 @@
         where c.generated_content_id = #{generatedContentId}
         <include refid="accountCanAccessProfileContent"/>
           and c.status = 'active'
+          and c.content_refresh_epoch = #{contentRefreshEpoch}
           and c.surface = 'care_path'
           and u.utterance_id = #{utteranceId}
           and u.approval_status = 'approved'
@@ -260,6 +269,17 @@
           and owner_key = #{ownerKey}
           and owner_key_version = #{ownerKeyVersion}
           and client_request_id = #{clientRequestId}
+          and content_refresh_epoch = #{contentRefreshEpoch}
+        limit 1
+    </select>
+
+    <select id="findByClientRequestIdAnyEpoch" resultMap="generatedContentEntityMap">
+        select <include refid="columns"/>
+        from practice_generated_content
+        where owner_scope = #{ownerScope}
+          and owner_key = #{ownerKey}
+          and owner_key_version = #{ownerKeyVersion}
+          and client_request_id = #{clientRequestId}
         limit 1
     </select>
 
@@ -284,6 +304,7 @@
         from practice_generated_content
         where generated_content_id = #{generatedContentId}
           and owner_key_version = #{ownerKeyVersion}
+          and content_refresh_epoch = #{contentRefreshEpoch}
           and status = 'active'
           and (owner_scope &lt;&gt; 'installation'
                or retention_expires_at &gt; #{reusableAt,typeHandler=org.apache.ibatis.type.OffsetDateTimeTypeHandler})

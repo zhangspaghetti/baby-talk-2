@@ -10,10 +10,14 @@ import com.zhangspaghetti.babytalk.practice.discovery.PracticeDiscoveryPolicyPro
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityConfiguration;
 import com.zhangspaghetti.babytalk.practice.discovery.SceneTextSecurityPolicy;
+import com.zhangspaghetti.babytalk.practice.discovery.CustomSceneTextValidator;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneTextForms;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
 import com.zhangspaghetti.babytalk.practice.agentic.PracticeAiProviderManager;
 import com.zhangspaghetti.babytalk.practice.agentic.config.VersionedResourceRegistry;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.scene.GenerationSubject;
+import com.zhangspaghetti.babytalk.practice.scene.ScenePersonalizationContext;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -38,6 +42,7 @@ public class PracticeGeneratedContentService {
     private static final String STATUS_DRAFT = "draft";
     private static final String STATUS_ACTIVE = "active";
     private static final String OWNER_INSTALLATION = "installation";
+    private static final String OWNER_ACCOUNT = "account";
     private static final String OWNER_PROFILE = "profile";
     private static final String SOURCE_CUSTOM = "custom";
     private static final String SOURCE_PRESET = "preset";
@@ -50,7 +55,6 @@ public class PracticeGeneratedContentService {
     private static final String ERROR_GENERATION_INVALID_OUTPUT = "generation_invalid_output";
     private static final String ERROR_LEGACY_ACTIVE_BUNDLE_UNSUPPORTED = "legacy_active_bundle_unsupported";
     private static final String ERROR_INVALID_CUSTOM_SCENE_TEXT = "invalid_custom_scene_text";
-    private static final String ERROR_UNSAFE_CUSTOM_SCENE_TEXT = "unsafe_custom_scene_text";
     private static final String ERROR_UNSUPPORTED_CUSTOM_SCENE_TEXT = "unsupported_custom_scene_text";
     private static final String ERROR_CUSTOM_SCENE_RATE_LIMITED = "custom_scene_rate_limited";
     private static final String ERROR_INVALID_CLIENT_REQUEST_ID = "invalid_client_request_id";
@@ -62,7 +66,8 @@ public class PracticeGeneratedContentService {
     private static final int MAX_PRESET_SCENE_TEXT_CODE_POINTS = 1200;
     private static final int MAX_CLIENT_REQUEST_ID_CHARS = 96;
     private static final int MAX_DRAFT_RESERVATION_ATTEMPTS = 5;
-    private static final int CONTENT_REFRESH_EPOCH = 1;
+    private static final int CONTENT_REFRESH_EPOCH = PracticeGeneratedContentEpoch.CURRENT;
+    private static final String HEALTH_SAFETY_POLICY_VERSION = "health-safety-v1";
     private static final Duration INSTALLATION_ACTIVE_RETENTION = Duration.ofDays(30);
     private static final Duration INSTALLATION_TERMINAL_RETENTION = Duration.ofDays(7);
     private static final int MIN_CLEANUP_LIMIT = 1;
@@ -80,6 +85,7 @@ public class PracticeGeneratedContentService {
     private final PracticeGeneratedContentKeyFactory keyFactory;
     private final SceneTextCanonicalizer sceneTextCanonicalizer;
     private final SceneTextSecurityPolicy sceneTextSecurityPolicy;
+    private final CustomSceneTextValidator customSceneTextValidator;
     private final PolicyTextMatcher policyTextMatcher;
     private final Clock clock;
     private final PracticeGeneratedContentCommands commands;
@@ -165,6 +171,8 @@ public class PracticeGeneratedContentService {
                 sceneTextSecurityPolicy, "scene text security policy is required");
         this.policyTextMatcher = java.util.Objects.requireNonNull(
                 policyTextMatcher, "policy text matcher is required");
+        this.customSceneTextValidator = new CustomSceneTextValidator(
+                this.sceneTextCanonicalizer, this.policyTextMatcher, this.policyProperties);
         this.clock = clock;
         var normalizedSecret = ownerProperties.keySecret();
         if (customSceneProperties.enabled()
@@ -202,7 +210,7 @@ public class PracticeGeneratedContentService {
 
     public Optional<PracticeGeneratedContentEntity> findActiveOrPromotedByGeneratedContentId(String generatedContentId) {
         return Optional.ofNullable(requireSupportedActive(queryMapper.findActiveByGeneratedContentId(
-                generatedContentId, ownerKeyVersion(), nowUtc())));
+                generatedContentId, ownerKeyVersion(), CONTENT_REFRESH_EPOCH, nowUtc())));
     }
 
     @Transactional(readOnly = true)
@@ -221,7 +229,7 @@ public class PracticeGeneratedContentService {
 
     public List<com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentUtteranceEntity>
     findApprovedUtterances(String generatedContentId) {
-        var utterances = queryMapper.findApprovedUtterances(generatedContentId);
+        var utterances = queryMapper.findApprovedUtterances(generatedContentId, CONTENT_REFRESH_EPOCH);
         return utterances == null ? List.of() : List.copyOf(utterances);
     }
 
@@ -229,7 +237,12 @@ public class PracticeGeneratedContentService {
         if (clientRequestId == null) {
             return null;
         }
-        return queryMapper.findByClientRequestId(
+        var current = queryMapper.findByClientRequestId(
+                owner.ownerScope(), owner.ownerKey(), ownerKeyVersion(), clientRequestId, CONTENT_REFRESH_EPOCH);
+        if (current != null) {
+            return current;
+        }
+        return queryMapper.findByClientRequestIdAnyEpoch(
                 owner.ownerScope(), owner.ownerKey(), ownerKeyVersion(), clientRequestId);
     }
 
@@ -310,6 +323,123 @@ public class PracticeGeneratedContentService {
         if (!customSceneProperties.enabled() || customSceneProperties.providerDisabled()) {
             throw generationUnavailable("provider_disabled");
         }
+    }
+
+    /** Compatibility seam for the health-gated v2 discovery endpoint. */
+    public PracticeGeneratedContentEntity generateCustomScene(
+            CustomSceneDiscoveryRequest request,
+            com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.Admission admission
+    ) {
+        requireCustomSceneGenerationAvailable();
+        if (request == null) {
+            throw invalidSceneInput("missing_request");
+        }
+        var owner = resolveLegacyOwner(request);
+        var forms = sceneTextCanonicalizer.derive(request.customSceneText());
+        sceneTextSecurityPolicy.requireSafe(forms);
+        customSceneTextValidator.requireValid(forms);
+        validateLegacyAdmission(admission, request, owner, forms);
+        var input = new SceneGenerationInput(
+                SOURCE_CUSTOM,
+                request.customSceneText(),
+                null,
+                new ScenePersonalizationContext(
+                        null,
+                        request.ageRange(),
+                        request.parentGoal(),
+                        request.locale(),
+                        OWNER_INSTALLATION.equals(owner.ownerScope()) ? "primary_caregiver" : "caregiver",
+                        0,
+                        null,
+                        "",
+                        "legacy"),
+                null,
+                null,
+                null,
+                null,
+                request.locale(),
+                request.installationId(),
+                request.clientRequestId());
+        return generateScene(input, owner, request.surface(), request.mode());
+    }
+
+    private OwnerContext resolveLegacyOwner(CustomSceneDiscoveryRequest request) {
+        var profileId = trimToNull(request.profileId());
+        if (profileId != null) {
+            var accountId = trimToNull(request.accountId());
+            if (accountId == null) {
+                throw new ContractException(
+                        HttpStatus.BAD_REQUEST,
+                        "invalid_generated_content_owner",
+                        "profile owner 缺少 accountId。");
+            }
+            return new OwnerContext(
+                    OWNER_PROFILE,
+                    keyFactory.ownerKey(OWNER_PROFILE, accountId + ":" + profileId),
+                    accountId,
+                    null,
+                    profileId);
+        }
+        var accountId = trimToNull(request.accountId());
+        if (accountId != null) {
+            return new OwnerContext(
+                    OWNER_ACCOUNT,
+                    keyFactory.ownerKey(OWNER_ACCOUNT, accountId),
+                    accountId,
+                    null,
+                    null);
+        }
+        var installationId = trimToNull(request.installationId());
+        if (installationId == null) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_installation_id",
+                    "installationId 不合法。",
+                    Map.of("field", "installationId"));
+        }
+        return new OwnerContext(
+                OWNER_INSTALLATION,
+                keyFactory.ownerKey(OWNER_INSTALLATION, installationId),
+                null,
+                keyFactory.installationRefHash(installationId),
+                null);
+    }
+
+    private void validateLegacyAdmission(
+            com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision.Admission admission,
+            CustomSceneDiscoveryRequest request,
+            OwnerContext owner,
+            com.zhangspaghetti.babytalk.practice.discovery.SceneTextForms forms
+    ) {
+        if (admission == null) {
+            throw new ContractException(
+                    HttpStatus.BAD_REQUEST,
+                    "invalid_generated_content_admission",
+                    "生成内容 admission 不合法。");
+        }
+        try {
+            var bound = admission.contextBound()
+                    ? admission
+                    : admission.bindContext(owner.ownerScope(), owner.ownerKey(), owner.profileId());
+            if (bound.matches(
+                    forms.securityText(),
+                    request.surface(),
+                    request.mode(),
+                    request.ageRange(),
+                    request.locale(),
+                    owner.ownerScope(),
+                    owner.ownerKey(),
+                    owner.profileId(),
+                    HEALTH_SAFETY_POLICY_VERSION)) {
+                return;
+            }
+        } catch (RuntimeException ignored) {
+            // Fall through to one privacy-safe contract error.
+        }
+        throw new ContractException(
+                HttpStatus.BAD_REQUEST,
+                "invalid_generated_content_admission",
+                "生成内容 admission 不合法。");
     }
 
     /**
@@ -403,6 +533,9 @@ public class PracticeGeneratedContentService {
         var clientRequestFingerprint = prepared.clientRequestFingerprint();
         var requestReservation = findByClientRequestId(owner, clientRequestId);
         if (requestReservation != null) {
+            if (requestReservation.contentRefreshEpoch() != CONTENT_REFRESH_EPOCH) {
+                throw terminalClientRequest(requestReservation);
+            }
             return reconcileClientRequest(requestReservation, clientRequestFingerprint);
         }
         var existing = queryMapper.findLiveByFingerprint(
@@ -1247,13 +1380,23 @@ public class PracticeGeneratedContentService {
         if (row == null || !STATUS_ACTIVE.equals(row.status())) {
             return row;
         }
-        if (hasCompleteSupportedBundle(queryMapper.findApprovedUtterances(row.generatedContentId()))) {
+        if (row.contentRefreshEpoch() != CONTENT_REFRESH_EPOCH) {
+            quarantineUnsupportedActive(row);
+            throw generationUnavailable(ERROR_LEGACY_ACTIVE_BUNDLE_UNSUPPORTED, true, null);
+        }
+        if (hasCompleteSupportedBundle(queryMapper.findApprovedUtterances(
+                row.generatedContentId(), CONTENT_REFRESH_EPOCH))) {
             return row;
         }
         var now = nowUtc();
         commands.quarantineUnsupportedActive(
                 row.generatedContentId(), now, now.plus(INSTALLATION_TERMINAL_RETENTION));
         throw generationUnavailable(ERROR_LEGACY_ACTIVE_BUNDLE_UNSUPPORTED, true, null);
+    }
+
+    private void quarantineUnsupportedActive(PracticeGeneratedContentEntity row) {
+        commands.quarantineUnsupportedActive(
+                row.generatedContentId(), nowUtc(), nowUtc().plus(INSTALLATION_TERMINAL_RETENTION));
     }
 
     private boolean hasCompleteSupportedBundle(
@@ -1311,6 +1454,34 @@ public class PracticeGeneratedContentService {
 
     private OffsetDateTime nowUtc() {
         return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+    }
+
+    public record CustomSceneDiscoveryRequest(
+            String surface,
+            String mode,
+            String installationId,
+            String accountId,
+            String profileId,
+            String ageRange,
+            String parentGoal,
+            String locale,
+            String customSceneText,
+            String clientRequestId
+    ) {
+        public CustomSceneDiscoveryRequest(
+                String surface,
+                String mode,
+                String installationId,
+                String accountId,
+                String profileId,
+                String ageRange,
+                String parentGoal,
+                String locale,
+                String customSceneText
+        ) {
+            this(surface, mode, installationId, accountId, profileId, ageRange, parentGoal, locale,
+                    customSceneText, null);
+        }
     }
 
     private record PreparedScene(

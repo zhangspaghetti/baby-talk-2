@@ -25,6 +25,7 @@ practiceAi:
     custom-scene-generator: []
     custom-scene-quality-judge: []
     custom-scene-repair: []
+    custom-scene-safety-classifier: []
   secret:
     # Set this to an externally managed Secret name in production.
     existingSecret: ""

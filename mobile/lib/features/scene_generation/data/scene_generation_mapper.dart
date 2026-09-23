@@ -64,6 +64,8 @@ class SceneGenerationMapper {
 
       return GeneratedCareMoment(
         schemaVersion: response.bundleSchemaVersion,
+        safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+        contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
         generatedContentId: response.generatedContentId,
         sceneId: response.route.sceneId,
         spaceId: response.route.spaceId,

@@ -9,6 +9,7 @@ import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_submission_controller.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_route_args.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
@@ -92,6 +93,12 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     final isAvailable = controller != null;
     final canOpenPreparedContent = state?.canOpenPreparedContent ?? false;
     final canCancelRetainedDraft = state?.canCancelRetainedDraft ?? false;
+    final isHealthSafety =
+        state?.phase == CustomSceneSubmissionPhase.healthSafety ||
+        state?.phase == CustomSceneSubmissionPhase.assessmentUnavailable;
+    final healthNotice = isHealthSafety
+        ? state?.safetyNotice ?? healthAssessmentUnavailableNotice
+        : null;
     final recoveryAction = state?.recoveryAction;
 
     return PopScope<Object?>(
@@ -127,150 +134,160 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        l.customSceneHeading,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: AppLayoutConstants.spacingSm),
-                      Text(
-                        l.customSceneDescription,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: context.appColors.textSecondary,
-                          height: 1.5,
+                      if (healthNotice != null)
+                        CustomSceneHealthSafetyPanel(
+                          notice: healthNotice,
+                          onClose: _returnToPresetScenes,
+                          onEdit: _modifyDescription,
+                        )
+                      else ...[
+                        Text(
+                          l.customSceneHeading,
+                          style: Theme.of(context).textTheme.headlineSmall,
                         ),
-                      ),
-                      const SizedBox(height: AppLayoutConstants.spacingLg),
-                      TextField(
-                        key: const Key('custom-scene-text-field'),
-                        controller: _textController,
-                        focusNode: _fieldFocusNode,
-                        minLines: 4,
-                        maxLines: 7,
-                        maxLength: 240,
-                        textInputAction: TextInputAction.newline,
-                        decoration: InputDecoration(
-                          labelText: l.customSceneFieldLabel,
-                          hintText: l.customSceneFieldHint,
-                          alignLabelWithHint: true,
-                        ),
-                        onChanged: (_) {
-                          if (_inputError != null) {
-                            setState(() => _inputError = null);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: AppLayoutConstants.spacingSm),
-                      Semantics(
-                        container: true,
-                        label: l.customScenePrivacySemantics,
-                        child: Text(
-                          l.customScenePrivacyNote,
-                          key: const Key('custom-scene-privacy-note'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: context.appColors.textMuted,
-                                height: 1.45,
-                              ),
-                        ),
-                      ),
-                      if (message != null) ...[
-                        const SizedBox(height: AppLayoutConstants.spacingMd),
-                        Semantics(
-                          liveRegion: true,
-                          child: Text(
-                            message,
-                            key: const Key('custom-scene-input-message'),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: context.appColors.error),
-                          ),
-                        ),
-                      ],
-                      if (recoveryAction != null) ...[
-                        const SizedBox(height: AppLayoutConstants.spacingMd),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            key: const Key('custom-scene-recovery-action'),
-                            onPressed: busy
-                                ? null
-                                : () => _openRecoveryAction(recoveryAction),
-                            child: Text(
-                              _recoveryActionLabel(l, recoveryAction),
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: AppLayoutConstants.spacingXl),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          key: const Key('custom-scene-submit-button'),
-                          onPressed: !isAvailable || busy
-                              ? null
-                              : canOpenPreparedContent
-                              ? (widget.onOpenPreparedContent == null
-                                    ? null
-                                    : () => unawaited(
-                                        widget.onOpenPreparedContent!(),
-                                      ))
-                              : _submitOrContinueAuthentication,
-                          child: Text(
-                            canOpenPreparedContent
-                                ? l.customSceneOpenPrepared
-                                : busy
-                                ? l.customScenePreparing
-                                : state?.phase ==
-                                      CustomSceneSubmissionPhase
-                                          .needsAuthentication
-                                ? l.customSceneContinueAfterLogin
-                                : state?.phase ==
-                                      CustomSceneSubmissionPhase.unknownOutcome
-                                ? l.customSceneConfirmResult
-                                : l.customSceneSubmit,
-                          ),
-                        ),
-                      ),
-                      if (canCancelRetainedDraft) ...[
-                        const SizedBox(height: AppLayoutConstants.spacingSm),
-                        Center(
-                          child: TextButton(
-                            key: const Key(
-                              'custom-scene-cancel-retained-draft',
-                            ),
-                            onPressed: busy
-                                ? null
-                                : _confirmCancelRetainedDraft,
-                            child: Text(l.customSceneCancelRetainedDraft),
-                          ),
-                        ),
-                      ],
-                      if (canOpenPreparedContent) ...[
-                        const SizedBox(height: AppLayoutConstants.spacingSm),
-                        Center(
-                          child: TextButton(
-                            key: const Key('custom-scene-abandon-prepared'),
-                            onPressed: busy ? null : _confirmAbandonPrepared,
-                            child: Text(l.customSceneAbandonPrepared),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: AppLayoutConstants.spacingSm),
-                      Center(
-                        child: TextButton(
-                          key: const Key('custom-scene-preset-fallback'),
-                          onPressed: busy ? null : _returnToPresetScenes,
-                          child: Text(l.customSceneViewExisting),
-                        ),
-                      ),
-                      if (!isAvailable) ...[
                         const SizedBox(height: AppLayoutConstants.spacingSm),
                         Text(
-                          l.customSceneUnavailable,
-                          key: const Key('custom-scene-unavailable-note'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: context.appColors.textMuted),
-                          textAlign: TextAlign.center,
+                          l.customSceneDescription,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: context.appColors.textSecondary,
+                                height: 1.5,
+                              ),
                         ),
+                        const SizedBox(height: AppLayoutConstants.spacingLg),
+                        TextField(
+                          key: const Key('custom-scene-text-field'),
+                          controller: _textController,
+                          focusNode: _fieldFocusNode,
+                          minLines: 4,
+                          maxLines: 7,
+                          maxLength: 240,
+                          textInputAction: TextInputAction.newline,
+                          decoration: InputDecoration(
+                            labelText: l.customSceneFieldLabel,
+                            hintText: l.customSceneFieldHint,
+                            alignLabelWithHint: true,
+                          ),
+                          onChanged: (_) {
+                            if (_inputError != null) {
+                              setState(() => _inputError = null);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: AppLayoutConstants.spacingSm),
+                        Semantics(
+                          container: true,
+                          label: l.customScenePrivacySemantics,
+                          child: Text(
+                            l.customScenePrivacyNote,
+                            key: const Key('custom-scene-privacy-note'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: context.appColors.textMuted,
+                                  height: 1.45,
+                                ),
+                          ),
+                        ),
+                        if (message != null) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingMd),
+                          Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              message,
+                              key: const Key('custom-scene-input-message'),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: context.appColors.error),
+                            ),
+                          ),
+                        ],
+                        if (recoveryAction != null) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingMd),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              key: const Key('custom-scene-recovery-action'),
+                              onPressed: busy
+                                  ? null
+                                  : () => _openRecoveryAction(recoveryAction),
+                              child: Text(
+                                _recoveryActionLabel(l, recoveryAction),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppLayoutConstants.spacingXl),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            key: const Key('custom-scene-submit-button'),
+                            onPressed: !isAvailable || busy
+                                ? null
+                                : canOpenPreparedContent
+                                ? (widget.onOpenPreparedContent == null
+                                      ? null
+                                      : () => unawaited(
+                                          widget.onOpenPreparedContent!(),
+                                        ))
+                                : _submitOrContinueAuthentication,
+                            child: Text(
+                              canOpenPreparedContent
+                                  ? l.customSceneOpenPrepared
+                                  : busy
+                                  ? l.customScenePreparing
+                                  : state?.phase ==
+                                        CustomSceneSubmissionPhase
+                                            .needsAuthentication
+                                  ? l.customSceneContinueAfterLogin
+                                  : state?.phase ==
+                                        CustomSceneSubmissionPhase
+                                            .unknownOutcome
+                                  ? l.customSceneConfirmResult
+                                  : l.customSceneSubmit,
+                            ),
+                          ),
+                        ),
+                        if (canCancelRetainedDraft) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingSm),
+                          Center(
+                            child: TextButton(
+                              key: const Key(
+                                'custom-scene-cancel-retained-draft',
+                              ),
+                              onPressed: busy
+                                  ? null
+                                  : _confirmCancelRetainedDraft,
+                              child: Text(l.customSceneCancelRetainedDraft),
+                            ),
+                          ),
+                        ],
+                        if (canOpenPreparedContent) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingSm),
+                          Center(
+                            child: TextButton(
+                              key: const Key('custom-scene-abandon-prepared'),
+                              onPressed: busy ? null : _confirmAbandonPrepared,
+                              child: Text(l.customSceneAbandonPrepared),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: AppLayoutConstants.spacingSm),
+                        Center(
+                          child: TextButton(
+                            key: const Key('custom-scene-preset-fallback'),
+                            onPressed: busy ? null : _returnToPresetScenes,
+                            child: Text(l.customSceneViewExisting),
+                          ),
+                        ),
+                        if (!isAvailable) ...[
+                          const SizedBox(height: AppLayoutConstants.spacingSm),
+                          Text(
+                            l.customSceneUnavailable,
+                            key: const Key('custom-scene-unavailable-note'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: context.appColors.textMuted),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -322,6 +339,19 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
               ),
       ),
     );
+  }
+
+  Future<void> _modifyDescription() async {
+    final controller = _controller;
+    if (controller == null) {
+      return;
+    }
+    await controller.modifyDescription();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _inputError = null);
+    _fieldFocusNode.requestFocus();
   }
 
   void _handleSubmissionChange() {
@@ -408,11 +438,8 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
     };
   }
 
-  String? _submissionMessage(
-    AppLocalizations l,
-    CustomSceneSubmissionMessage? message,
-  ) {
-    final key = message?.key;
+  String? _submissionMessage(AppLocalizations l, Object? message) {
+    final key = message is CustomSceneSubmissionMessage ? message.key : null;
     if (key == null) {
       return null;
     }
@@ -534,5 +561,86 @@ class _CustomSceneInputScreenState extends State<CustomSceneInputScreen> {
       _textController.clear();
       _inputError = null;
     });
+  }
+}
+
+class CustomSceneHealthSafetyPanel extends StatelessWidget {
+  const CustomSceneHealthSafetyPanel({
+    super.key,
+    required this.notice,
+    required this.onClose,
+    required this.onEdit,
+  });
+
+  final HealthSafetyNotice notice;
+  final VoidCallback onClose;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final title = notice.titleZh.trim();
+    final message = notice.messageZh.trim();
+
+    return Semantics(
+      key: const Key('custom-scene-health-panel'),
+      container: true,
+      liveRegion: true,
+      label: '$title。$message',
+      child: Container(
+        width: double.infinity,
+        padding: AppLayoutConstants.bannerPadding,
+        decoration: BoxDecoration(
+          color: colors.warningSoft,
+          borderRadius: BorderRadius.circular(AppLayoutConstants.cardRadius),
+          border: Border.all(color: colors.warning.withValues(alpha: 0.35)),
+          boxShadow: colors.warmShadowSm,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ExcludeSemantics(
+              child: Text(
+                title,
+                key: const Key('custom-scene-health-title'),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingSm),
+            ExcludeSemantics(
+              child: Text(
+                message,
+                key: const Key('custom-scene-health-message'),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: colors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingLg),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                key: const Key('custom-scene-health-edit'),
+                onPressed: onEdit,
+                child: const Text('修改描述'),
+              ),
+            ),
+            const SizedBox(height: AppLayoutConstants.spacingXs),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                key: const Key('custom-scene-health-close'),
+                onPressed: onClose,
+                child: const Text('关闭'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

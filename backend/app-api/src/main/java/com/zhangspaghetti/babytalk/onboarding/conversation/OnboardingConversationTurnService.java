@@ -1,6 +1,8 @@
 package com.zhangspaghetti.babytalk.onboarding.conversation;
 
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentKeyFactory;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentEpoch;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.time.Clock;
 import java.time.Duration;
@@ -31,6 +33,7 @@ public final class OnboardingConversationTurnService {
     private final OnboardingConversationGenerator generator;
     private final PracticeGeneratedContentKeyFactory keys;
     private final OnboardingAudioCapabilityService audioCapabilities;
+    private final PracticeGeneratedContentService generatedContent;
     private final Clock clock;
 
     @Autowired
@@ -39,9 +42,10 @@ public final class OnboardingConversationTurnService {
             OnboardingConversationTurnStore turns,
             OnboardingConversationGenerator generator,
             PracticeGeneratedContentKeyFactory keys,
-            OnboardingAudioCapabilityService audioCapabilities
+            OnboardingAudioCapabilityService audioCapabilities,
+            PracticeGeneratedContentService generatedContent
     ) {
-        this(conversations, turns, generator, keys, audioCapabilities, Clock.systemUTC());
+        this(conversations, turns, generator, keys, audioCapabilities, generatedContent, Clock.systemUTC());
     }
 
     OnboardingConversationTurnService(
@@ -50,6 +54,7 @@ public final class OnboardingConversationTurnService {
             OnboardingConversationGenerator generator,
             PracticeGeneratedContentKeyFactory keys,
             OnboardingAudioCapabilityService audioCapabilities,
+            PracticeGeneratedContentService generatedContent,
             Clock clock
     ) {
         this.conversations = conversations;
@@ -57,6 +62,7 @@ public final class OnboardingConversationTurnService {
         this.generator = generator;
         this.keys = keys;
         this.audioCapabilities = audioCapabilities;
+        this.generatedContent = generatedContent;
         this.clock = clock;
     }
 
@@ -65,6 +71,7 @@ public final class OnboardingConversationTurnService {
         var conversation = conversations.findByConversationId(conversationId);
         var now = utcNow();
         validateConversation(conversation, request, now);
+        requireCurrentGeneratedContent(conversation.generatedContentId());
         var fingerprint = keys.onboardingTurnFingerprint(conversationId, canonicalRequest(request));
         var existing = turns.find(conversationId, request.localEventId());
         if (existing != null) {
@@ -88,6 +95,7 @@ public final class OnboardingConversationTurnService {
                     request.previousUtteranceId(), conversation.englishText(), request.parentAction(),
                     request.reactionProvided().booleanValue(), request.reaction(), normalizedReactionText(request)));
             var completedAt = utcNow();
+            requireCurrentGeneratedContent(generated.generatedContentId());
             if (turns.activate(
                     turnId, generated.generatedContentId(), generated.utteranceId(), generated.englishText(),
                     generated.chineseText(), generated.pronunciationHint(), generated.audioRef(),
@@ -117,6 +125,7 @@ public final class OnboardingConversationTurnService {
                 throw conflict();
             }
             if ("active".equals(turn.status())) {
+                requireCurrentGeneratedContent(turn.generatedContentId());
                 return response(turn, expiresAt);
             }
             var now = utcNow();
@@ -143,12 +152,29 @@ public final class OnboardingConversationTurnService {
     }
 
     private Turn response(OnboardingConversationTurnStore.StoredTurn turn, OffsetDateTime expiresAt) {
+        requireCurrentGeneratedContent(turn == null ? null : turn.generatedContentId());
         var capability = audioCapabilities.issue(turn.conversationId(), turn.utteranceId(), expiresAt);
         return new Turn(
                 turn.conversationId(), expiresAt,
                 new OnboardingConversationService.Utterance(
-                        turn.utteranceId(), turn.englishText(), turn.chineseText(),
+                turn.utteranceId(), turn.englishText(), turn.chineseText(),
                         turn.pronunciationHint(), capability, "remote_generated"));
+    }
+
+    private void requireCurrentGeneratedContent(String generatedContentId) {
+        try {
+            var content = generatedContent == null ? null
+                    : generatedContent.findActiveOrPromotedByGeneratedContentId(generatedContentId).orElse(null);
+            if (content == null
+                    || content.contentRefreshEpoch() != PracticeGeneratedContentEpoch.CURRENT
+                    || !("active".equals(content.status()) || "promoted".equals(content.status()))) {
+                throw notFound();
+            }
+        } catch (ContractException exception) {
+            throw notFound();
+        } catch (RuntimeException exception) {
+            throw notFound();
+        }
     }
 
     private void validateShape(String conversationId, NextRequest request) {

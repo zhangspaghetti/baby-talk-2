@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/care_path/data/repositories/care_path_repository.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/application/care_audio_session_coordinator.dart';
 import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/care_path/presentation/widgets/care_turn_surface.dart';
@@ -511,6 +512,639 @@ void main() {
     expect(audio.playedSources, isEmpty);
   });
 
+  testWidgets('surface ownership unregister keeps newer surface active', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _ControllableCareAudioPlaybackController();
+    final second = _ControllableCareAudioPlaybackController();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      KeyedSubtree(
+        key: const Key('replacement-surface'),
+        child: _surfaceTestApp(
+          notifier: notifier,
+          careAudio: second,
+          careAudioSessionCoordinator: coordinator,
+        ),
+      ),
+    );
+
+    await coordinator.stopActive();
+
+    expect(first.stopCalls, 1);
+    expect(second.stopCalls, 1);
+  });
+
+  testWidgets('coordinator invalidation suppresses late surface completion', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final audio = _ControllableCareAudioPlaybackController();
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    await coordinator.stopActive();
+    audio.completeLastPlayback();
+    await tester.pump();
+
+    expect(find.text('已听过一次'), findsNothing);
+  });
+
+  testWidgets('ownership loss clears pause and blocks resume', (tester) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final audio = _ControllableCareAudioPlaybackController();
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-pause-audio')));
+    await tester.pump();
+    expect(find.byKey(const Key('care-turn-resume-audio')), findsOneWidget);
+
+    await coordinator.stopActive();
+    await tester.pump();
+
+    expect(find.byKey(const Key('care-turn-resume-audio')), findsNothing);
+    expect(find.byKey(const Key('care-turn-pause-audio')), findsNothing);
+    expect(audio.resumeCalls, 0);
+    expect(audio.requests, hasLength(1));
+  });
+
+  testWidgets('late pause success after ownership loss cannot restore resume', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final audio = _DeferredPauseCareAudioPlaybackController();
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-pause-audio')));
+    await audio.pauseStarted.future;
+
+    await coordinator.stopActive();
+    audio.finishPause.complete();
+    await tester.pump();
+
+    expect(find.byKey(const Key('care-turn-resume-audio')), findsNothing);
+    expect(find.text('正在播放音频…'), findsNothing);
+  });
+
+  testWidgets('late resume error after ownership loss stays silent', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final audio = _DeferredResumeCareAudioPlaybackController(fail: true);
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-pause-audio')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-resume-audio')));
+    await audio.resumeStarted.future;
+
+    await coordinator.stopActive();
+    audio.finishResume.complete();
+    await tester.pump();
+
+    expect(find.text('音频暂时不可用'), findsNothing);
+    expect(find.byKey(const Key('care-turn-resume-audio')), findsNothing);
+  });
+
+  testWidgets('care controller factory replacement disposes old owner', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _ControllableCareAudioPlaybackController();
+    final second = _ControllableCareAudioPlaybackController();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: second,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await coordinator.stopActive();
+    for (var index = 0; index < 5 && first.disposeCalls == 0; index += 1) {
+      await tester.pump();
+    }
+
+    expect(first.stopCalls, 1);
+    expect(first.disposeCalls, 1);
+    expect(second.stopCalls, 1);
+    expect(second.disposeCalls, 0);
+  });
+
+  testWidgets('legacy audio factory replacement disposes old owner', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _SilentPracticeAudioController();
+    final second = _SilentPracticeAudioController();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        audioControllerFactory: () => first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        audioControllerFactory: () => second,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await coordinator.stopActive();
+    for (var index = 0; index < 5 && first.disposeCalls == 0; index += 1) {
+      await tester.pump();
+    }
+    expect(first.stopCalls, 1);
+    expect(first.disposeCalls, 1);
+    expect(second.stopCalls, 1);
+    expect(second.disposeCalls, 0);
+  });
+
+  testWidgets('replacement waits for old stop before new owner can play', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _DeferredReplacementCareAudioPlaybackController();
+    final second = _ControllableCareAudioPlaybackController();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: second,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await first.stopStarted.future;
+
+    expect(first.disposeBeforeStop, isFalse);
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    expect(second.requests, isEmpty);
+
+    first.finishStop.complete();
+    await first.disposeFinished.future;
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('care-turn-listen-once')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    expect(first.disposeBeforeStop, isFalse);
+    expect(second.requests, hasLength(1));
+  });
+
+  testWidgets('reused pending replacement controller remains current', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _DeferredReplacementCareAudioPlaybackController();
+    final reused = _ControllableCareAudioPlaybackController();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: reused,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await first.stopStarted.future;
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: reused,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+
+    first.finishStop.complete();
+    await first.disposeFinished.future;
+    await tester.pump();
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    expect(reused.disposeCalls, 0);
+    expect(reused.requests, hasLength(1));
+  });
+
+  testWidgets('replacement waits for existing source stop barrier', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final replacementNotifier = CarePathNotifier(
+      repository: CarePathRepository(
+        practiceRepository: _MemoryPracticeRepository(),
+      ),
+    );
+    addTearDown(replacementNotifier.dispose);
+    final first = _OrderedStopCareAudioPlaybackController();
+    final second = _ControllableCareAudioPlaybackController();
+
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await replacementNotifier.startMoment(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: replacementNotifier,
+        careAudio: first,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await first.firstStopStarted.future;
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: replacementNotifier,
+        careAudio: second,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pump();
+
+    expect(first.secondStopStarted.isCompleted, isFalse);
+    expect(first.disposeCalls, 0);
+    first.finishFirstStop.complete();
+    await first.secondStopStarted.future;
+    expect(first.disposeCalls, 0);
+    first.finishSecondStop.complete();
+    for (var index = 0; index < 5 && first.disposeCalls == 0; index += 1) {
+      await tester.pump();
+    }
+
+    expect(first.disposeCalls, 1);
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    expect(second.requests, hasLength(1));
+  });
+
+  testWidgets(
+    'surface dispose waits for deferred source stop before controller dispose',
+    (tester) async {
+      final replacementNotifier = CarePathNotifier(
+        repository: CarePathRepository(
+          practiceRepository: _MemoryPracticeRepository(),
+        ),
+      );
+      addTearDown(replacementNotifier.dispose);
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await replacementNotifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+
+      final audio = _DeferredReplacementCareAudioPlaybackController();
+      await tester.pumpWidget(
+        _surfaceTestApp(notifier: notifier, careAudio: audio),
+      );
+      await tester.pumpWidget(
+        _surfaceTestApp(notifier: replacementNotifier, careAudio: audio),
+      );
+      await audio.stopStarted.future;
+
+      await tester.pumpWidget(const SizedBox());
+      expect(audio.disposeCalls, 0);
+
+      audio.finishStop.complete();
+      for (var index = 0; index < 5 && audio.disposeCalls == 0; index += 1) {
+        await tester.pump();
+      }
+
+      expect(audio.disposeCalls, 1);
+      expect(audio.disposeBeforeStop, isFalse);
+    },
+  );
+
+  testWidgets(
+    'deferred source stop blocks all replacement factories until it settles',
+    (tester) async {
+      final coordinator = CareAudioSessionCoordinator();
+      final replacementNotifier = CarePathNotifier(
+        repository: CarePathRepository(
+          practiceRepository: _MemoryPracticeRepository(),
+        ),
+      );
+      addTearDown(replacementNotifier.dispose);
+      await notifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+      await replacementNotifier.startMoment(
+        spaceId: 'daily_care',
+        activityId: 'bath_time',
+      );
+
+      final first = _OrderedStopCareAudioPlaybackController();
+      var secondFactoryCalls = 0;
+      var thirdFactoryCalls = 0;
+      _ControllableCareAudioPlaybackController? third;
+      CareAudioPlaybackController firstFactory() => first;
+      CareAudioPlaybackController secondFactory() {
+        secondFactoryCalls += 1;
+        return _ControllableCareAudioPlaybackController();
+      }
+
+      CareAudioPlaybackController thirdFactory() {
+        thirdFactoryCalls += 1;
+        return third = _ControllableCareAudioPlaybackController();
+      }
+
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: notifier,
+          careAudioControllerFactory: firstFactory,
+          careAudioSessionCoordinator: coordinator,
+        ),
+      );
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: replacementNotifier,
+          careAudioControllerFactory: secondFactory,
+          careAudioSessionCoordinator: coordinator,
+        ),
+      );
+      await first.firstStopStarted.future;
+
+      await tester.pumpWidget(
+        _surfaceTestApp(
+          notifier: replacementNotifier,
+          careAudioControllerFactory: thirdFactory,
+          careAudioSessionCoordinator: coordinator,
+        ),
+      );
+      expect(first.disposeCalls, 0);
+      expect(secondFactoryCalls, 0);
+      expect(thirdFactoryCalls, 0);
+
+      first.finishFirstStop.complete();
+      for (
+        var index = 0;
+        index < 5 && !first.secondStopStarted.isCompleted;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+      expect(first.secondStopStarted.isCompleted, isTrue);
+      expect(first.disposeCalls, 0);
+      first.finishSecondStop.complete();
+      for (var index = 0; index < 5 && thirdFactoryCalls == 0; index += 1) {
+        await tester.pump();
+      }
+
+      expect(secondFactoryCalls, 0);
+      expect(thirdFactoryCalls, 1);
+      expect(third, isNotNull);
+      await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+      await tester.pump();
+      expect(third!.requests, hasLength(1));
+    },
+  );
+
+  testWidgets('A-B-C-B creates and attaches only latest B', (tester) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final first = _DeferredReplacementCareAudioPlaybackController();
+    final bControllers = <_ControllableCareAudioPlaybackController>[];
+    final cControllers = <_ControllableCareAudioPlaybackController>[];
+    CareAudioPlaybackController firstFactory() => first;
+    CareAudioPlaybackController bFactory() {
+      final controller = _ControllableCareAudioPlaybackController();
+      bControllers.add(controller);
+      return controller;
+    }
+
+    CareAudioPlaybackController cFactory() {
+      final controller = _ControllableCareAudioPlaybackController();
+      cControllers.add(controller);
+      return controller;
+    }
+
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudioControllerFactory: firstFactory,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudioControllerFactory: bFactory,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await first.stopStarted.future;
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudioControllerFactory: cFactory,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudioControllerFactory: bFactory,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+
+    expect(bControllers, isEmpty);
+    expect(cControllers, isEmpty);
+    first.finishStop.complete();
+    await first.disposeFinished.future;
+    for (var index = 0; index < 5 && bControllers.isEmpty; index += 1) {
+      await tester.pump();
+    }
+
+    expect(bControllers, hasLength(1));
+    expect(cControllers, isEmpty);
+    expect(first.disposeCalls, 1);
+    expect(bControllers.single.disposeCalls, 0);
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+    expect(bControllers.single.requests, hasLength(1));
+
+    await tester.pumpWidget(const SizedBox());
+    for (
+      var index = 0;
+      index < 5 && bControllers.single.disposeCalls == 0;
+      index += 1
+    ) {
+      await tester.pump();
+    }
+    expect(bControllers.single.disposeCalls, 1);
+    expect(
+      cControllers.every((controller) => controller.disposeCalls <= 1),
+      isTrue,
+    );
+  });
+
+  testWidgets('late source-stop failure after ownership loss stays silent', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final replacementNotifier = CarePathNotifier(
+      repository: CarePathRepository(
+        practiceRepository: _MemoryPracticeRepository(),
+      ),
+    );
+    addTearDown(replacementNotifier.dispose);
+    final audio = _DeferredStopFailureCareAudioPlaybackController();
+
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await replacementNotifier.startMoment(
+      spaceId: 'daily_care',
+      activityId: 'bath_time',
+    );
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await tester.pump();
+
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: replacementNotifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await audio.stopStarted.future;
+    final globalStop = coordinator.stopActive().catchError((_) {});
+    audio.finishStop.complete();
+    await globalStop;
+    await tester.pump();
+
+    expect(find.text('音频暂时不可用'), findsNothing);
+    expect(find.byKey(const Key('care-turn-audio-error')), findsNothing);
+  });
+
+  testWidgets('late play failure after ownership loss stays silent', (
+    tester,
+  ) async {
+    final coordinator = CareAudioSessionCoordinator();
+    final audio = _LateFailureCareAudioPlaybackController();
+    await tester.pumpWidget(
+      _surfaceTestApp(
+        notifier: notifier,
+        careAudio: audio,
+        careAudioSessionCoordinator: coordinator,
+      ),
+    );
+    await notifier.startMoment(spaceId: 'daily_care', activityId: 'bath_time');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('care-turn-listen-once')));
+    await audio.playStarted.future;
+
+    await coordinator.stopActive();
+    audio.finishPlay.complete();
+    await tester.pump();
+
+    expect(find.text('音频暂时不可用'), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
   testWidgets('failed stop blocks a new generated support playback', (
     tester,
   ) async {
@@ -713,6 +1347,8 @@ Widget _surfaceTestApp({
   CareTurnTraceReady? onTraceReady,
   CareTurnRetryReaction? onRetryReaction,
   CareAudioPlaybackController? careAudio,
+  CareAudioPlaybackController Function()? careAudioControllerFactory,
+  CareAudioSessionCoordinator? careAudioSessionCoordinator,
   PracticeAudioController Function()? audioControllerFactory,
   CareTurnAudioPlaybackPolicy playbackPolicy =
       CareTurnAudioPlaybackPolicy.disabled,
@@ -725,7 +1361,11 @@ Widget _surfaceTestApp({
         notifier: notifier,
         audioControllerFactory:
             audioControllerFactory ?? _SilentPracticeAudioController.new,
-        careAudioControllerFactory: careAudio == null ? null : () => careAudio,
+        careAudioController: careAudioControllerFactory == null
+            ? careAudio
+            : null,
+        careAudioControllerFactory: careAudioControllerFactory,
+        careAudioSessionCoordinator: careAudioSessionCoordinator,
         playbackPolicy: playbackPolicy,
         onTraceReady: onTraceReady,
         onRetryReaction: onRetryReaction,
@@ -738,6 +1378,7 @@ Widget _surfaceTestApp({
 Widget _generatedSurfaceTestApp({
   required CarePathNotifier notifier,
   required CareAudioPlaybackController audio,
+  CareAudioSessionCoordinator? careAudioSessionCoordinator,
 }) {
   return MaterialApp(
     localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -745,7 +1386,8 @@ Widget _generatedSurfaceTestApp({
     home: Scaffold(
       body: CareTurnSurface(
         notifier: notifier,
-        careAudioControllerFactory: () => audio,
+        careAudioController: audio,
+        careAudioSessionCoordinator: careAudioSessionCoordinator,
       ),
     ),
   );
@@ -754,6 +1396,8 @@ Widget _generatedSurfaceTestApp({
 class _SilentPracticeAudioController implements PracticeAudioController {
   final StreamController<void> _completion = StreamController<void>.broadcast();
   int playCalls = 0;
+  int stopCalls = 0;
+  int disposeCalls = 0;
 
   @override
   Stream<void> get completionStream => _completion.stream;
@@ -764,10 +1408,15 @@ class _SilentPracticeAudioController implements PracticeAudioController {
   }
 
   @override
-  Future<void> stop() async {}
+  Future<void> stop() async {
+    stopCalls += 1;
+  }
 
   @override
-  Future<void> dispose() => _completion.close();
+  Future<void> dispose() async {
+    disposeCalls += 1;
+    await _completion.close();
+  }
 }
 
 class _FailingCareAudioPlaybackController
@@ -925,6 +1574,8 @@ class _ControllableCareAudioPlaybackController
   final List<CareAudioPlaybackRequest> requests = <CareAudioPlaybackRequest>[];
   int pauseCalls = 0;
   int resumeCalls = 0;
+  int stopCalls = 0;
+  int disposeCalls = 0;
 
   @override
   CareAudioPlaybackCapabilities get capabilities =>
@@ -941,7 +1592,10 @@ class _ControllableCareAudioPlaybackController
   }
 
   @override
-  Future<void> dispose() => _completion.close();
+  Future<void> dispose() async {
+    disposeCalls += 1;
+    await _completion.close();
+  }
 
   @override
   Future<void> pause() async {
@@ -962,7 +1616,115 @@ class _ControllableCareAudioPlaybackController
   Future<void> setPlaybackRate(double rate) async {}
 
   @override
-  Future<void> stop() async {}
+  Future<void> stop() async {
+    stopCalls += 1;
+  }
+}
+
+class _LateFailureCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  final playStarted = Completer<void>();
+  final finishPlay = Completer<void>();
+
+  @override
+  Future<void> play(CareAudioPlaybackRequest request) async {
+    requests.add(request);
+    playStarted.complete();
+    await finishPlay.future;
+    throw StateError('late generated audio failure');
+  }
+}
+
+class _DeferredPauseCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  final pauseStarted = Completer<void>();
+  final finishPause = Completer<void>();
+
+  @override
+  Future<void> pause() async {
+    pauseCalls += 1;
+    pauseStarted.complete();
+    await finishPause.future;
+  }
+}
+
+class _DeferredResumeCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  _DeferredResumeCareAudioPlaybackController({required this.fail});
+
+  final bool fail;
+  final resumeStarted = Completer<void>();
+  final finishResume = Completer<void>();
+
+  @override
+  Future<void> resume() async {
+    resumeCalls += 1;
+    resumeStarted.complete();
+    await finishResume.future;
+    if (fail) {
+      throw StateError('late resume failure');
+    }
+  }
+}
+
+class _DeferredReplacementCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  final stopStarted = Completer<void>();
+  final finishStop = Completer<void>();
+  final disposeFinished = Completer<void>();
+  bool stopCompleted = false;
+  bool disposeBeforeStop = false;
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    stopStarted.complete();
+    await finishStop.future;
+    stopCompleted = true;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposeBeforeStop = !stopCompleted;
+    await super.dispose();
+    disposeFinished.complete();
+  }
+}
+
+class _DeferredStopFailureCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  final stopStarted = Completer<void>();
+  final finishStop = Completer<void>();
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    if (!stopStarted.isCompleted) {
+      stopStarted.complete();
+    }
+    await finishStop.future;
+    throw StateError('late stop failure');
+  }
+}
+
+class _OrderedStopCareAudioPlaybackController
+    extends _ControllableCareAudioPlaybackController {
+  final firstStopStarted = Completer<void>();
+  final finishFirstStop = Completer<void>();
+  final secondStopStarted = Completer<void>();
+  final finishSecondStop = Completer<void>();
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    if (stopCalls == 1) {
+      firstStopStarted.complete();
+      await finishFirstStop.future;
+      return;
+    }
+    secondStopStarted.complete();
+    await finishSecondStop.future;
+  }
 }
 
 class _GeneratedBranchPracticeRepository implements PracticeRepository {
@@ -970,10 +1732,14 @@ class _GeneratedBranchPracticeRepository implements PracticeRepository {
   static const starterSource = GeneratedCareAudioSource(
     generatedContentId: generatedContentId,
     utteranceId: 'starter_1',
+    safetyPolicyVersion: 'health-safety-v1',
+    contentRefreshEpoch: 2,
   );
   static const supportSource = GeneratedCareAudioSource(
     generatedContentId: generatedContentId,
     utteranceId: 'support_cooperating_1',
+    safetyPolicyVersion: 'health-safety-v1',
+    contentRefreshEpoch: 2,
   );
   static const _activity = PracticeActivitySnapshot(
     spaceId: 'generated_space',
@@ -984,6 +1750,8 @@ class _GeneratedBranchPracticeRepository implements PracticeRepository {
     coachTip: '现在可以说。',
     contentSource: PracticeContentSource.generated,
     generatedContentId: generatedContentId,
+    safetyPolicyVersion: 'health-safety-v1',
+    contentRefreshEpoch: 2,
     phrases: <PracticePhrase>[
       PracticePhrase(
         spaceId: 'generated_space',

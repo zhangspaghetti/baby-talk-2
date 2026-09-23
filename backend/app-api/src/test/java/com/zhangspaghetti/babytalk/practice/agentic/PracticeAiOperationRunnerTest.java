@@ -72,6 +72,19 @@ class PracticeAiOperationRunnerTest {
     }
 
     @Test
+    void mapsSafetyClassifierCapabilityToSafetyClassifierOperationType() {
+        var audit = new CapturingAuditPort();
+        var runner = runner(List.of(provider("primary")), audit);
+
+        var result = runner.execute(request(PracticeAiCapability.CUSTOM_SCENE_SAFETY_CLASSIFIER,
+                resolved -> new OperationRequest.ProviderInvocationResult<>("classified", null)));
+
+        assertThat(result.value()).isEqualTo("classified");
+        assertThat(audit.startedOperations).hasSize(1);
+        assertThat(audit.startedOperations.get(0).operationType()).isEqualTo("safety_classifier");
+    }
+
+    @Test
     void invalidDynamicProviderIdentityFailsBeforeInvocationAndAnyAuditWrite() {
         var invalid = mock(ResolvedProvider.class);
         when(invalid.providerName()).thenReturn("p".repeat(65));

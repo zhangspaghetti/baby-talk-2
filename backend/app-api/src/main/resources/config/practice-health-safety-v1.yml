@@ -1,0 +1,89 @@
+babytalk:
+  practice:
+    health-safety:
+      policy-version: health-safety-v1
+      classifier-timeout: 3s
+      classifier-prompt:
+        version: custom-scene-safety-classifier-v1
+        resource-path: config/practice-ai/prompts/custom-scene-safety-classifier-v1.txt
+      locked-content-hash: 7efe85daa60cfdb29bc4400a4666519c342f585a3486e2bfd23d1cbad1fbac27
+      templates:
+        health-emergency-v1:
+          action: emergency
+          locale: zh-CN
+          title-zh: 请立即寻求医疗帮助
+          message-zh: 你描述的情况可能需要紧急处理。请立即联系当地急救服务，或前往急诊。不要等待本应用进一步回复。
+        health-concern-v1:
+          action: seek_medical_help
+          locale: zh-CN
+          title-zh: 先关注宝宝的身体状况
+          message-zh: 你描述的是宝宝的健康问题。仅凭这段描述，无法判断原因或严重程度，请联系儿科医生进行评估。如果宝宝出现呼吸困难、叫不醒或抽搐，请立即联系当地急救服务。
+        health-prompt-assessment-v1:
+          action: seek_medical_help
+          locale: zh-CN
+          title-zh: 请尽快寻求医疗评估
+          message-zh: 你描述的情况需要及时由医护人员评估，请现在联系儿科医生或就近医疗机构。如果宝宝出现呼吸困难、叫不醒或抽搐，请立即联系当地急救服务。
+        health-uncertain-v1:
+          action: uncertain
+          locale: zh-CN
+          title-zh: 目前无法判断宝宝的状况
+          message-zh: 现有信息不足以判断宝宝的情况。请联系儿科医生说明你的担忧。如果你认为宝宝情况严重，或出现呼吸困难、叫不醒、抽搐，请立即寻求紧急医疗帮助。
+        health-assessment-unavailable-v1:
+          action: uncertain
+          locale: zh-CN
+          title-zh: 暂时无法判断这段描述
+          message-zh: 暂时无法完成判断，已暂停生成。如果你正在担心宝宝身体不适，请联系儿科医生；如果情况紧急，请立即联系当地急救服务。
+      emergency-signals:
+        breathing-difficulty:
+          - 呼吸困难
+          - 喘不过气
+          - 喘不上气
+          - 喘不上来
+          - 呼吸不畅
+          - 呼吸费力
+          - 呼吸急促
+          - 不能呼吸
+          - 无法呼吸
+          - 呼吸不上来
+        blue-lips:
+          - 嘴唇发青
+          - 嘴唇青紫
+          - 口唇发青
+          - 口唇青紫
+          - 脸色发青
+          - 脸色青紫
+          - 发绀
+        cannot-wake:
+          - 叫不醒
+          - 喊不醒
+          - 唤不醒
+          - 无法唤醒
+          - 昏迷
+          - 没有反应
+        seizure:
+          - 抽搐
+          - 痉挛
+          - 抽风
+          - 癫痫发作
+        suspected-poisoning:
+          - 疑似吞服
+          - 疑似误食
+          - 误食
+          - 误服
+          - 误吞
+          - 吞服
+          - 吞了药
+          - 吃了药
+          - 吞了清洁剂
+          - 喝了清洁剂
+          - 吃了清洁剂
+          - 疑似中毒
+          - 中毒
+          - 毒物
+        child-green-vomit:
+          - 绿色呕吐
+          - 吐绿色
+          - 呕吐绿色
+          - 吐出绿色
+          - 绿色的呕吐物
+          - 胆汁性呕吐

@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - backend/app-api/src/main/resources/config/practice-ai/**
+      - backend/app-api/src/main/resources/config/practice-health-safety-v1.yml
       - tool/verify_practice_ai_version_lock.py
       - .github/workflows/practice-ai-version-lock.yml
   push:
     paths:
       - backend/app-api/src/main/resources/config/practice-ai/**
+      - backend/app-api/src/main/resources/config/practice-health-safety-v1.yml
       - tool/verify_practice_ai_version_lock.py
 
 jobs:

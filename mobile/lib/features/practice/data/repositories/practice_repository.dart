@@ -30,6 +30,8 @@ class PracticeActivitySnapshot {
     required this.phrases,
     this.contentSource = PracticeContentSource.seed,
     this.generatedContentId,
+    this.safetyPolicyVersion,
+    this.contentRefreshEpoch,
     this.inputSource,
     this.presetSceneId,
     this.presetSceneVersion,
@@ -46,6 +48,8 @@ class PracticeActivitySnapshot {
   final List<PracticePhrase> phrases;
   final PracticeContentSource contentSource;
   final String? generatedContentId;
+  final String? safetyPolicyVersion;
+  final int? contentRefreshEpoch;
   final SceneGenerationSourceType? inputSource;
   final String? presetSceneId;
   final int? presetSceneVersion;

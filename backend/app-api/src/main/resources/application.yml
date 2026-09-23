@@ -2,7 +2,9 @@ spring:
   application:
     name: babytalk-app-api
   config:
-    import: classpath:config/practice-discovery-policy.yml
+    import:
+      - classpath:config/practice-discovery-policy.yml
+      - classpath:config/practice-health-safety-v1.yml
   autoconfigure:
     exclude:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration

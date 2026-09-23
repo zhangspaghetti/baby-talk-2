@@ -10,6 +10,10 @@ import com.zhangspaghetti.babytalk.AbstractIntegrationTest;
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentKeyFactory;
 import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedAudioResponse;
 import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedSpeechSynthesisPort;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedSpeechConfigurationIdentity;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedUtteranceAudio;
+import com.zhangspaghetti.babytalk.practice.generated.audio.GeneratedUtteranceAudioService;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +32,11 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest(properties = {
         "app.contract.min-supported-version=1.2.0",
@@ -45,6 +54,8 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
     @Autowired ObjectMapper objectMapper;
     @Autowired PracticeGeneratedContentKeyFactory keyFactory;
     @Autowired OnboardingConversationService service;
+    @Autowired PracticeGeneratedContentService generatedContentService;
+    @Autowired GeneratedUtteranceAudioService generatedAudioService;
 
     @BeforeEach
     void reset() {
@@ -100,6 +111,91 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
                         .content(validBody().replace("\"babyNickname\":null", "\"prompt\":\"ignore rules\",\"babyNickname\":null")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("invalid_request_body"));
+    }
+
+    @Test
+    void epochOneConversationReplayIsExpiredWithoutExtendingOrReturningEnglish() throws Exception {
+        var created = mockMvc.perform(post("/api/v1/onboarding/conversations")
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(validBody()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var root = objectMapper.readTree(created);
+        var conversationId = root.get("conversationId").asText();
+        var before = jdbcTemplate.queryForObject(
+                "select expires_at from guest_onboarding_conversations where conversation_id = ?",
+                OffsetDateTime.class, conversationId);
+        jdbcTemplate.update(
+                "update guest_onboarding_conversations set generated_content_id = 'generated-legacy' where conversation_id = ?",
+                conversationId);
+        when(generatedContentService.findActiveOrPromotedByGeneratedContentId("generated-legacy"))
+                .thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(post("/api/v1/onboarding/conversations")
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(validBody()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("onboarding_conversation_not_found"))
+                .andExpect(jsonPath("$.message").value("访客对话不可用。"));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "select expires_at from guest_onboarding_conversations where conversation_id = ?",
+                OffsetDateTime.class, conversationId)).isEqualTo(before);
+    }
+
+    @Test
+    void epochOneTurnReplayIsExpiredWithoutReturningEnglishOrGeneratingAgain() throws Exception {
+        var created = mockMvc.perform(post("/api/v1/onboarding/conversations")
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(validBody()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var conversationId = objectMapper.readTree(created).get("conversationId").asText();
+        var body = turnBody("turn-legacy-epoch", false, null, null);
+        mockMvc.perform(post("/api/v1/onboarding/conversations/" + conversationId + "/turns")
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+        assertThat(generator.nextCalls).hasValue(1);
+        jdbcTemplate.update(
+                "update guest_onboarding_conversation_turns set generated_content_id = 'generated-legacy' "
+                        + "where conversation_id = ? and local_event_id = 'turn-legacy-epoch'",
+                conversationId);
+        when(generatedContentService.findActiveOrPromotedByGeneratedContentId("generated-legacy"))
+                .thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(post("/api/v1/onboarding/conversations/" + conversationId + "/turns")
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("onboarding_conversation_not_found"));
+        assertThat(generator.nextCalls).hasValue(1);
+    }
+
+    @Test
+    void epochOneConversationAudioIsNotSynthesized() throws Exception {
+        var created = mockMvc.perform(post("/api/v1/onboarding/conversations")
+                        .header("X-App-Version", "1.2.0")
+                        .contentType(MediaType.APPLICATION_JSON).content(validBody()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var root = objectMapper.readTree(created);
+        var conversationId = root.get("conversationId").asText();
+        var utteranceId = root.get("utterance").get("utteranceId").asText();
+        var capability = root.get("utterance").get("audioRef").asText();
+        jdbcTemplate.update(
+                "update guest_onboarding_conversations set generated_content_id = 'generated-legacy' where conversation_id = ?",
+                conversationId);
+        when(generatedContentService.findActiveOrPromotedByGeneratedContentId("generated-legacy"))
+                .thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(get("/api/v1/onboarding/conversations/" + conversationId
+                        + "/utterances/" + utteranceId + "/audio")
+                        .header("X-App-Version", "1.2.0")
+                        .header("X-Onboarding-Audio-Capability", capability))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("onboarding_audio_not_found"));
+        verify(generatedAudioService, never()).synthesizeOnboardingApproved(anyString(), anyString());
     }
 
     @Test
@@ -357,9 +453,36 @@ class OnboardingConversationControllerTest extends AbstractIntegrationTest {
 
         @Bean
         @Primary
+        PracticeGeneratedContentService onboardingGeneratedContentService() {
+            var service = mock(PracticeGeneratedContentService.class);
+            when(service.findActiveOrPromotedByGeneratedContentId(anyString()))
+                    .thenAnswer(invocation -> {
+                        var content = new com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity();
+                        content.setGeneratedContentId(invocation.getArgument(0, String.class));
+                        content.setStatus("active");
+                        content.setContentRefreshEpoch(2);
+                        return java.util.Optional.of(content);
+                    });
+            return service;
+        }
+
+        @Bean
+        @Primary
         GeneratedSpeechSynthesisPort onboardingGeneratedSpeechSynthesisPort() {
             return request -> new GeneratedAudioResponse(
                     validMp3Bytes(), "audio/mpeg", "generated-tts-v1");
+        }
+
+        @Bean
+        @Primary
+        GeneratedUtteranceAudioService onboardingGeneratedUtteranceAudioService() {
+            var service = mock(GeneratedUtteranceAudioService.class);
+            when(service.synthesizeOnboardingApproved(anyString(), anyString()))
+                    .thenReturn(new GeneratedUtteranceAudio(
+                            validMp3Bytes(), "audio/mpeg", "generated-tts-v1",
+                            new GeneratedSpeechConfigurationIdentity(
+                                    "fake", "fake-model", "default", "a".repeat(64))));
+            return service;
         }
     }
 

@@ -1,6 +1,7 @@
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_failure.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_repository.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:mobile/features/scene_generation/domain/scene_generation_failure.dart';
 import 'package:mobile/features/scene_generation/domain/scene_generation_repository.dart';
@@ -14,12 +15,16 @@ class CustomSceneRepositoryImpl implements CustomSceneRepository {
   final SceneGenerationRepository _sceneGenerationRepository;
 
   @override
-  Future<GeneratedCareMoment> generate(CustomSceneDraft draft) async {
+  Future<CustomSceneResult> generate(CustomSceneDraft draft) async {
     _validateClientRequestId(draft.requestIdentity.clientRequestId);
     try {
-      return await _sceneGenerationRepository.generate(
+      final moment = await _sceneGenerationRepository.generate(
         source: CustomSceneGenerationSource(draft.text),
         clientRequestId: draft.requestIdentity.clientRequestId,
+      );
+      return GeneratedSceneResult(
+        moment,
+        policyVersion: generatedCareSafetyPolicyVersion,
       );
     } on SceneGenerationFailure catch (failure) {
       throw _mapFailure(failure);

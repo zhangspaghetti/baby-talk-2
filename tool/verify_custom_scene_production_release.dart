@@ -221,6 +221,14 @@ void _scanProductionValues(
   );
   _requireSectionLine(
     practiceAi,
+    'custom-scene-safety-classifier',
+    '[dashscope-qwen]',
+    'production safety classifier route must use dashscope-qwen',
+    violations,
+  );
+  _scanSafetyClassifierProvider(practiceAi, violations);
+  _requireSectionLine(
+    practiceAi,
     'existingSecret',
     'babytalk-practice-ai',
     'production Practice AI credentials must use dedicated external Secret',
@@ -251,6 +259,240 @@ void _scanProductionValues(
       'production custom-scene runtime must not activate the dev Spring profile',
     );
   }
+}
+
+void _scanSafetyClassifierProvider(
+  String section,
+  List<CustomSceneProductionGateViolation> violations,
+) {
+  final routeValue = _sectionValue(section, 'custom-scene-safety-classifier');
+  if (routeValue == null) {
+    return;
+  }
+  final providerNames = _inlineProviderNames(routeValue);
+  if (providerNames.isEmpty) {
+    return;
+  }
+
+  final providerMap = _parseProviderMap(section);
+  if (!providerMap.present) {
+    _add(
+      violations,
+      'production_safety_provider',
+      _productionValuesPath,
+      section,
+      'production safety classifier provider map must define providers',
+    );
+    return;
+  }
+
+  for (final providerName in providerNames) {
+    final definition = providerMap.definitions[providerName];
+    if (definition == null) {
+      _add(
+        violations,
+        'production_safety_provider',
+        _productionValuesPath,
+        section,
+        'production safety classifier route must reference a defined provider',
+      );
+      continue;
+    }
+    _validateSafetyProviderDefinition(definition, section, violations);
+  }
+}
+
+void _validateSafetyProviderDefinition(
+  Map<String, String> definition,
+  String section,
+  List<CustomSceneProductionGateViolation> violations,
+) {
+  const allowedFields = <String>{
+    'type',
+    'baseUrl',
+    'apiKeyEnvironmentVariable',
+    'model',
+    'timeout',
+    'maxTokens',
+    'maxCompletionTokens',
+    'temperature',
+  };
+  for (final field in definition.keys) {
+    if (!allowedFields.contains(field)) {
+      _add(
+        violations,
+        'production_safety_provider',
+        _productionValuesPath,
+        section,
+        'production safety classifier provider has unsupported field',
+      );
+    }
+  }
+  if (definition['type'] != 'openai-compatible') {
+    _add(
+      violations,
+      'production_safety_provider',
+      _productionValuesPath,
+      section,
+      'production safety classifier provider must use openai-compatible type',
+    );
+  }
+  if (!RegExp(r'^https?://[^\s]+$').hasMatch(definition['baseUrl'] ?? '')) {
+    _add(
+      violations,
+      'production_safety_provider',
+      _productionValuesPath,
+      section,
+      'production safety classifier provider must define an HTTP baseUrl',
+    );
+  }
+  if (!RegExp(
+    r'^BABY_TALK_AI_PROVIDER_[A-Z0-9_]+_API_KEY$',
+  ).hasMatch(definition['apiKeyEnvironmentVariable'] ?? '')) {
+    _add(
+      violations,
+      'production_safety_provider',
+      _productionValuesPath,
+      section,
+      'production safety classifier provider must define a dedicated API key environment variable',
+    );
+  }
+  if ((definition['model'] ?? '').trim().isEmpty) {
+    _add(
+      violations,
+      'production_safety_provider',
+      _productionValuesPath,
+      section,
+      'production safety classifier provider must define a model',
+    );
+  }
+  if (!RegExp(
+    r'^[1-9][0-9]*(ms|s|m|h)$',
+  ).hasMatch(definition['timeout'] ?? '')) {
+    _add(
+      violations,
+      'production_safety_provider',
+      _productionValuesPath,
+      section,
+      'production safety classifier provider timeout must be positive',
+    );
+  }
+
+  final hasMaxTokens = definition.containsKey('maxTokens');
+  final hasMaxCompletionTokens = definition.containsKey('maxCompletionTokens');
+  if (hasMaxTokens == hasMaxCompletionTokens) {
+    _add(
+      violations,
+      'production_safety_provider',
+      _productionValuesPath,
+      section,
+      'production safety classifier provider must set exactly one token limit',
+    );
+  } else {
+    final tokenLimit = hasMaxTokens
+        ? definition['maxTokens']
+        : definition['maxCompletionTokens'];
+    if (!RegExp(r'^[1-9][0-9]*$').hasMatch(tokenLimit ?? '')) {
+      _add(
+        violations,
+        'production_safety_provider',
+        _productionValuesPath,
+        section,
+        'production safety classifier provider token limit must be positive',
+      );
+    }
+  }
+}
+
+String? _sectionValue(String section, String key) {
+  final pattern = RegExp(
+    '^\\s*${RegExp.escape(key)}:\\s*(.*?)\\s*\$',
+    multiLine: true,
+  );
+  return pattern.firstMatch(section)?.group(1);
+}
+
+List<String> _inlineProviderNames(String value) {
+  final trimmed = value.trim();
+  if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) {
+    return const <String>[];
+  }
+  return trimmed
+      .substring(1, trimmed.length - 1)
+      .split(',')
+      .map((name) => _unquoteYamlValue(name.trim()))
+      .where((name) => name.isNotEmpty)
+      .toList(growable: false);
+}
+
+_ParsedProviderMap _parseProviderMap(String section) {
+  final lines = section.split(RegExp(r'\r?\n'));
+  var providersIndent = -1;
+  var providersIndex = -1;
+  var present = false;
+  for (var index = 0; index < lines.length; index += 1) {
+    final rawLine = lines[index];
+    final line = rawLine.trim();
+    if (line.startsWith('providers:')) {
+      providersIndent = rawLine.length - rawLine.trimLeft().length;
+      providersIndex = index;
+      present = true;
+      break;
+    }
+  }
+  if (!present) {
+    return const _ParsedProviderMap(
+      present: false,
+      definitions: <String, Map<String, String>>{},
+    );
+  }
+
+  final definitions = <String, Map<String, String>>{};
+  String? providerName;
+  for (var index = providersIndex + 1; index < lines.length; index += 1) {
+    final rawLine = lines[index];
+    final line = rawLine.trim();
+    if (line.isEmpty || line.startsWith('#')) {
+      continue;
+    }
+    final indent = rawLine.length - rawLine.trimLeft().length;
+    if (indent <= providersIndent) {
+      break;
+    }
+    if (indent == providersIndent + 2 && line.endsWith(':')) {
+      providerName = line.substring(0, line.length - 1).trim();
+      definitions.putIfAbsent(providerName, () => <String, String>{});
+      continue;
+    }
+    if (providerName != null && indent == providersIndent + 4) {
+      final match = RegExp(
+        r'^([A-Za-z][A-Za-z0-9-]*):\s*(.*)$',
+      ).firstMatch(line);
+      if (match != null) {
+        definitions[providerName]![match.group(1)!] = _unquoteYamlValue(
+          match.group(2)!,
+        );
+      }
+    }
+  }
+  return _ParsedProviderMap(present: true, definitions: definitions);
+}
+
+String _unquoteYamlValue(String value) {
+  final withoutComment = value.split('#').first.trim();
+  if (withoutComment.length >= 2 &&
+      ((withoutComment.startsWith('"') && withoutComment.endsWith('"')) ||
+          (withoutComment.startsWith("'") && withoutComment.endsWith("'")))) {
+    return withoutComment.substring(1, withoutComment.length - 1);
+  }
+  return withoutComment;
+}
+
+class _ParsedProviderMap {
+  const _ParsedProviderMap({required this.present, required this.definitions});
+
+  final bool present;
+  final Map<String, Map<String, String>> definitions;
 }
 
 void _scanPracticeAiTemplate(

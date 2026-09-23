@@ -1,12 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/account/data/local/auth_continuation_store.dart';
+import 'package:mobile/features/account/domain/models/auth_continuation.dart';
 import 'package:mobile/features/account/presentation/auth_continuation_coordinator.dart';
 import 'package:mobile/features/custom_scene/application/custom_scene_draft_continuation_coordinator.dart';
 import 'package:mobile/features/custom_scene/data/custom_scene_draft_store.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 
 void main() {
   group('CustomSceneDraftContinuationCoordinator', () {
@@ -203,6 +206,86 @@ void main() {
         AuthContinuationReadStatus.notFound,
       );
     });
+
+    test(
+      'generated draft without current provenance is removed on restart',
+      () async {
+        final draftStore = CustomSceneDraftStore(
+          directoryResolver: () async => tempDir,
+        );
+        final draft = CustomSceneStoredDraft(
+          draftId: 'generated_draft_1',
+          text: _draft().text,
+          entrySource: CustomSceneEntrySource.today,
+          requestIdentity: CustomSceneRequestIdentity(
+            clientRequestId: 'generated_request_1',
+          ),
+          state: CustomSceneStoredDraftState.readyForHandoff,
+          expectedAccountContext: 'account_a',
+          registeredContentId: 'generated_1',
+          safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+          contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
+          createdAt: now,
+          expiresAt: now.add(const Duration(minutes: 15)),
+        );
+        await draftStore.write(draft);
+        final file = File('${tempDir.path}/custom_scene_draft.json');
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        root.remove('safetyPolicyVersion');
+        await file.writeAsString(jsonEncode(root));
+
+        final result = await draftStore.readResult(now: now);
+
+        expect(result.status, CustomSceneDraftReadStatus.corrupt);
+        expect(await draftStore.read(now: now), isNull);
+      },
+    );
+
+    test(
+      'conditional auth cleanup preserves a newer account continuation',
+      () async {
+        final draftStore = CustomSceneDraftStore(
+          directoryResolver: () async => tempDir,
+        );
+        final authStore = AuthContinuationStore(
+          directoryResolver: () async => tempDir,
+        );
+        final authContinuation = AuthContinuationCoordinator(
+          store: authStore,
+          clock: () => now,
+          correlationIdGenerator: () => 'auth_newer',
+        );
+        final coordinator = CustomSceneDraftContinuationCoordinator(
+          draftStore: draftStore,
+          authContinuationCoordinator: authContinuation,
+          clock: () => now,
+          draftIdGenerator: () => 'draft_old',
+        );
+        final oldDraft = _draft(text: '旧账号描述。', clientRequestId: 'old_request');
+        await authContinuation.beginGenerateCustomScene(
+          payload: AuthContinuationCustomScenePayload(
+            draftId: 'new_draft',
+            entrySource: CustomSceneEntrySource.today,
+            clientRequestId: 'new_request',
+            expectedAccountContext: 'account_b',
+          ),
+        );
+
+        await coordinator.clearAuthenticationContinuationIfMatches(
+          draftId: 'old_draft',
+          clientRequestId: oldDraft.requestIdentity.clientRequestId,
+          expectedAccountContext: 'account_a',
+        );
+
+        final result = await authStore.readResult(now: now);
+        expect(result.status, AuthContinuationReadStatus.available);
+        expect(
+          result.continuation?.customScene?.clientRequestId,
+          'new_request',
+        );
+      },
+    );
   });
 }
 

@@ -15,7 +15,9 @@ import com.zhangspaghetti.babytalk.practice.generated.model.PracticeEvidenceBund
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGenerationAttemptEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeGeneratedContentEntity;
 import com.zhangspaghetti.babytalk.practice.generated.model.PracticeJudgeResultEntity;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -277,6 +279,38 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void legacyEpochRowsCannotSatisfyReplayFingerprintIdOrPlayableAudioLookups() {
+        var legacy = row("pgc_repo_legacy_epoch")
+                .account("acct_pgc_repo_legacy_epoch")
+                .clientRequestId("legacy_epoch_request")
+                .contentRefreshEpoch(1)
+                .active()
+                .build();
+        insertCompleteCarePathBundle(legacy);
+
+        assertThat(queries.findByClientRequestId(
+                legacy.ownerScope(), legacy.ownerKey(), legacy.ownerKeyVersion(),
+                legacy.clientRequestId(), 2)).isNull();
+        assertThat(queries.findLiveByFingerprint(
+                legacy.ownerKey(), legacy.ownerKeyVersion(), legacy.surface(), legacy.mode(),
+                legacy.requestFingerprint(), legacy.generationProfileVersion(), 2)).isNull();
+        assertThat(queries.findActiveByGeneratedContentId(
+                legacy.generatedContentId(), legacy.ownerKeyVersion(), 2, WALL_CLOCK_NOW_DB)).isNull();
+        assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
+                legacy.generatedContentId(), legacy.phraseSlug(), legacy.accountId(), 2)).isNull();
+        assertThat(queries.findApprovedUtterances(legacy.generatedContentId(), 2)).isEmpty();
+    }
+
+    @Test
+    void promotedRowsNeverResolveThroughActiveReadAudioOrApprovedUtteranceQueries() {
+        var mapper = queryMapperXml();
+
+        assertActiveOnlyQuery(mapper, "findApprovedUtterances", "c.status");
+        assertActiveOnlyQuery(mapper, "findPlayableApprovedUtterance", "c.status");
+        assertActiveOnlyQuery(mapper, "findActiveByGeneratedContentId", "status");
+    }
+
+    @Test
     void profileOwnerShapeRequiresExistingMatchingProfile() {
         var row = row("pgc_repo_missing_profile")
                 .profile("acct_pgc_repo_missing_profile", "profile_pgc_repo_missing_profile")
@@ -334,7 +368,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                     complete.generatedContentId());
         });
 
-        assertThat(queries.findApprovedUtterances(complete.generatedContentId()))
+        assertThat(queries.findApprovedUtterances(complete.generatedContentId(), 2))
                 .extracting(value -> value.utteranceId())
                 .containsExactly(
                         complete.phraseSlug(),
@@ -352,11 +386,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
                 complete.generatedContentId(), "acct_pgc_repo_other")).isEmpty();
         assertThat(queries.findPlayableApprovedUtterance(
-                complete.generatedContentId(), complete.phraseSlug()))
+                complete.generatedContentId(), complete.phraseSlug(), 2))
                 .extracting(value -> value.englishText())
                 .isEqualTo("Warm water.");
         assertThat(queries.findPlayableApprovedUtterance(
-                complete.generatedContentId(), "utt_missing")).isNull();
+                complete.generatedContentId(), "utt_missing", 2)).isNull();
 
         assertThatThrownBy(() -> transaction().executeWithoutResult(status ->
                 insertCarePathSupport(complete.generatedContentId(), "other", 6)))
@@ -410,12 +444,12 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findActiveAccessibleByAccountId(
                 profileContent.generatedContentId(), crossHouseholdAccountId)).isNull();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId))
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId, 2))
                 .isNotNull();
         assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
                 profileContent.generatedContentId(), caregiverAAccountId)).hasSize(6);
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId))
+                profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId, 2))
                 .isNotNull();
 
         jdbcTemplate.update(
@@ -424,7 +458,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findActiveAccessibleByAccountId(
                 profileContent.generatedContentId(), caregiverAAccountId)).isNull();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId))
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverAAccountId, 2))
                 .isNull();
         assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
                 profileContent.generatedContentId(), caregiverAAccountId)).isEmpty();
@@ -437,12 +471,12 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findActiveAccessibleByAccountId(
                 profileContent.generatedContentId(), primaryRequesterAccountId)).isNull();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId))
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId, 2))
                 .isNull();
         assertThat(queries.findApprovedAccessibleActiveBundleUtterances(
                 profileContent.generatedContentId(), caregiverBAccountId)).isEmpty();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId))
+                profileContent.generatedContentId(), profileContent.phraseSlug(), primaryRequesterAccountId, 2))
                 .isNull();
         assertThat(queries.findActiveAccessibleByAccountId(
                 profileContent.generatedContentId(), ownerAccountId)).isNotNull();
@@ -461,7 +495,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findActiveAccessibleByAccountId(
                 profileContent.generatedContentId(), primaryRequesterAccountId)).isNull();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId))
+                profileContent.generatedContentId(), profileContent.phraseSlug(), caregiverBAccountId, 2))
                 .isNull();
         assertThat(queries.findActiveAccessibleByAccountId(
                 profileContent.generatedContentId(), ownerAccountId)).isNotNull();
@@ -475,17 +509,17 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(queries.findActiveAccessibleByAccountId(
                 inactiveProfileContent.generatedContentId(), ownerAccountId)).isNull();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                inactiveProfileContent.generatedContentId(), "utt_missing", ownerAccountId)).isNull();
+                inactiveProfileContent.generatedContentId(), "utt_missing", ownerAccountId, 2)).isNull();
 
         assertThat(queries.findActiveAccessibleByAccountId(
                 accountContent.generatedContentId(), caregiverBAccountId)).isNull();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                accountContent.generatedContentId(), accountContent.phraseSlug(), caregiverBAccountId))
+                accountContent.generatedContentId(), accountContent.phraseSlug(), caregiverBAccountId, 2))
                 .isNull();
         assertThat(queries.findActiveAccessibleByAccountId(
                 installationContent.generatedContentId(), caregiverBAccountId)).isNull();
         assertThat(queries.findPlayableAccessibleActiveBundleUtterance(
-                installationContent.generatedContentId(), installationContent.phraseSlug(), caregiverBAccountId))
+                installationContent.generatedContentId(), installationContent.phraseSlug(), caregiverBAccountId, 2))
                 .isNull();
     }
 
@@ -565,7 +599,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
                 .build();
         insert(terminal);
 
-        assertThat(queries.findByClientRequestId("installation", ownerKey, "v1", clientRequestId))
+        assertThat(queries.findByClientRequestId("installation", ownerKey, "v1", clientRequestId, 2))
                 .extracting(PracticeGeneratedContentEntity::generatedContentId)
                 .isEqualTo(terminal.generatedContentId());
         assertRejected(row("pgc_repo_request_duplicate")
@@ -1044,7 +1078,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from practice_generated_content where generated_content_id = 'pgc_repo_lazy_active_old'",
                 Integer.class)).isZero();
-        assertThat(reservation.row().contentRefreshEpoch()).isEqualTo(1);
+        assertThat(reservation.row().contentRefreshEpoch()).isEqualTo(2);
         assertThat(reservation.row().requestFingerprint()).isEqualTo(fingerprint);
     }
 
@@ -1425,6 +1459,33 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         });
     }
 
+    private void assertActiveOnlyQuery(String mapper, String selectId, String statusColumn) {
+        var query = queryMapperSelect(mapper, selectId);
+        assertThat(query)
+                .as(selectId)
+                .contains("and " + statusColumn + " = 'active'")
+                .doesNotContain("promoted");
+    }
+
+    private String queryMapperXml() {
+        try (var stream = getClass().getResourceAsStream(
+                "/mapper/practice/generated/PracticeGeneratedContentQueryMapper.xml")) {
+            assertThat(stream).as("PracticeGeneratedContentQueryMapper.xml resource").isNotNull();
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new AssertionError("could not read PracticeGeneratedContentQueryMapper.xml", exception);
+        }
+    }
+
+    private String queryMapperSelect(String mapper, String selectId) {
+        var startMarker = "<select id=\"" + selectId + "\"";
+        var start = mapper.indexOf(startMarker);
+        var end = start < 0 ? -1 : mapper.indexOf("</select>", start);
+        assertThat(start).as(selectId + " start").isGreaterThanOrEqualTo(0);
+        assertThat(end).as(selectId + " end").isGreaterThan(start);
+        return mapper.substring(start, end + "</select>".length());
+    }
+
     private void insertActiveCarePathBundle(PracticeGeneratedContentEntity row) {
         row.setStatus("generating");
         row.setNormalizedSceneText("洗澡前宝宝有点紧张");
@@ -1687,6 +1748,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
         private String generationSource;
         private String status = "draft";
         private String generationProfileVersion = "practice-gen-v1";
+        private int contentRefreshEpoch = 2;
         private int contentVersion = 1;
         private String generationErrorCode;
         private OffsetDateTime generationStartedAt;
@@ -1869,6 +1931,11 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             return this;
         }
 
+        RowBuilder contentRefreshEpoch(int contentRefreshEpoch) {
+            this.contentRefreshEpoch = contentRefreshEpoch;
+            return this;
+        }
+
         RowBuilder withoutResponseFields() {
             this.fillResponseFields = false;
             return this;
@@ -1953,7 +2020,7 @@ class PracticeGeneratedContentMapperTest extends AbstractIntegrationTest {
             row.setProviderRoutingPolicyVersion("routing-v1");
             row.setProviderRoutingPolicyHash("d".repeat(64));
             row.setGenerationAttemptLimit(3);
-            row.setContentRefreshEpoch(1);
+            row.setContentRefreshEpoch(contentRefreshEpoch);
             row.setContentVersion(contentVersion);
             row.setGenerationErrorCode(generationErrorCode);
             row.setGenerationErrorRetryable(

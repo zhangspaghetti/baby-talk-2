@@ -27,7 +27,8 @@ class PracticeAiPropertiesTest {
                 .withProperty("app.ai.providers.primary.max-tokens", "600")
                 .withProperty("app.ai.capabilities.custom-scene-generator.provider-names[0]", "primary")
                 .withProperty("app.ai.capabilities.custom-scene-quality-judge.provider-names[0]", "primary")
-                .withProperty("app.ai.capabilities.custom-scene-repair.provider-names[0]", "primary");
+                .withProperty("app.ai.capabilities.custom-scene-repair.provider-names[0]", "primary")
+                .withProperty("app.ai.capabilities.custom-scene-safety-classifier.provider-names[0]", "primary");
 
         var properties = Binder.get(environment)
                 .bind("app.ai", Bindable.of(PracticeAiProperties.class))
@@ -37,6 +38,8 @@ class PracticeAiPropertiesTest {
         assertThat(properties.providers()).containsOnlyKeys("primary");
         assertThat(properties.providers().get("primary").temperature()).isNull();
         assertThat(properties.capabilities().get("custom-scene-generator").providerNames())
+                .containsExactly("primary");
+        assertThat(properties.capabilities().get("custom-scene-safety-classifier").providerNames())
                 .containsExactly("primary");
         assertThat(properties.routingPolicyHash()).matches("[0-9a-f]{64}");
     }
@@ -129,6 +132,7 @@ class PracticeAiPropertiesTest {
         routes.put("custom-scene-generator", new PracticeAiProperties.CapabilityRoute(List.of("primary")));
         routes.put("custom-scene-quality-judge", new PracticeAiProperties.CapabilityRoute(List.of("primary")));
         routes.put("custom-scene-repair", new PracticeAiProperties.CapabilityRoute(List.of("primary")));
+        routes.put("custom-scene-safety-classifier", new PracticeAiProperties.CapabilityRoute(List.of("primary")));
         routes.putAll(overrides);
         return new PracticeAiProperties(
                 new PracticeAiProperties.RoutingPolicy("custom-scene-routing-v1"),
@@ -163,6 +167,8 @@ class PracticeAiPropertiesTest {
                 .withProperty("app.ai.providers." + providerName + ".max-tokens", "600")
                 .withProperty("app.ai.capabilities.custom-scene-generator.provider-names[0]", providerName)
                 .withProperty("app.ai.capabilities.custom-scene-quality-judge.provider-names[0]", providerName)
-                .withProperty("app.ai.capabilities.custom-scene-repair.provider-names[0]", providerName);
+                .withProperty("app.ai.capabilities.custom-scene-repair.provider-names[0]", providerName)
+                .withProperty(
+                        "app.ai.capabilities.custom-scene-safety-classifier.provider-names[0]", providerName);
     }
 }

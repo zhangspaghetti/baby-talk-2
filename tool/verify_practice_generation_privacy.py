@@ -39,6 +39,10 @@ SECURITY_TEXT_APPROVED = {
     "PolicyTextMatcher.java",
     "EvidenceSanitizer.java",
     "SceneGeneratedContentValidator.java",
+    # Reads canonical securityText only for emergency-rule classification.
+    "CustomSceneEmergencyRuleClassifier.java",
+    # Hashes canonical securityText into an opaque admission digest/context token.
+    "CustomSceneSafetyDecision.java",
 }
 CURRENT_GENERATED_CONTENT_MIGRATION = "V27__upgrade_practice_generated_content_agentic_contract.sql"
 LEGACY_GENERATED_CONTENT_MIGRATION = "V25__create_practice_generated_content.sql"

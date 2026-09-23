@@ -4,6 +4,7 @@ import 'package:mobile/features/account/domain/models/account_consent_state.dart
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_api.dart';
 import 'package:mobile/features/care_path/data/audio/generated_audio_memory_cache.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 
 class GeneratedAudioRepositoryException implements Exception {
   const GeneratedAudioRepositoryException();
@@ -29,6 +30,7 @@ class GeneratedAudioRepository {
   final PersistRefreshedSession _persistRefreshedSession;
 
   Future<GeneratedAudioPayload> load(GeneratedCareAudioSource source) async {
+    _validateSource(source);
     final account = await _loadAuthenticatedAccount();
     final session = account.session!;
     final key = GeneratedAudioCacheKey(
@@ -37,6 +39,8 @@ class GeneratedAudioRepository {
       utteranceId: source.utteranceId,
       voiceVersion: source.voiceVersion,
       format: source.format,
+      safetyPolicyVersion: source.safetyPolicyVersion,
+      contentRefreshEpoch: source.contentRefreshEpoch,
     );
     return _cache.getOrLoad(
       key,
@@ -52,6 +56,13 @@ class GeneratedAudioRepository {
   }
 
   void clearForLifecycle() => _cache.clear();
+
+  void _validateSource(GeneratedCareAudioSource source) {
+    if (source.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+        source.contentRefreshEpoch != generatedCareMomentContentRefreshEpoch) {
+      throw const GeneratedAudioRepositoryException();
+    }
+  }
 
   Future<AccountLocalSnapshot> _loadAuthenticatedAccount() async {
     try {

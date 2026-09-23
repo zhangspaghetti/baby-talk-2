@@ -1,6 +1,7 @@
 package com.zhangspaghetti.babytalk.practice.generated.audio;
 
 import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentQueryMapper;
+import com.zhangspaghetti.babytalk.practice.generated.PracticeGeneratedContentEpoch;
 import com.zhangspaghetti.babytalk.service.AuthConsentSyncService;
 import com.zhangspaghetti.babytalk.web.ContractException;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class GeneratedUtteranceAudioService {
 
     private static final Pattern SAFE_ID = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$");
+    private static final int CONTENT_REFRESH_EPOCH = PracticeGeneratedContentEpoch.CURRENT;
 
     private final AuthConsentSyncService authConsentSyncService;
     private final PracticeGeneratedContentQueryMapper queryMapper;
@@ -41,19 +43,34 @@ public class GeneratedUtteranceAudioService {
         var contentId = requireSafeId(generatedContentId);
         var approvedUtteranceId = requireSafeId(utteranceId);
         var utterance = queryMapper.findPlayableAccessibleActiveBundleUtterance(
-                contentId, approvedUtteranceId, accountId);
+                contentId, approvedUtteranceId, accountId, CONTENT_REFRESH_EPOCH);
         if (utterance == null) {
             throw audioNotFound();
         }
         var response = synthesizeApprovedResponse(contentId, approvedUtteranceId, utterance.englishText());
         if (queryMapper.findPlayableAccessibleActiveBundleUtterance(
-                contentId, approvedUtteranceId, accountId) == null) {
+                contentId, approvedUtteranceId, accountId, CONTENT_REFRESH_EPOCH) == null) {
             throw audioNotFound();
         }
         return toAudio(contentId, approvedUtteranceId, response);
     }
 
-    public GeneratedUtteranceAudio synthesizeApproved(
+    /** Synthesizes an onboarding utterance only after the current active content query succeeds. */
+    public GeneratedUtteranceAudio synthesizeOnboardingApproved(
+            String generatedContentId,
+            String utteranceId
+    ) {
+        var contentId = requireSafeId(generatedContentId);
+        var approvedUtteranceId = requireSafeId(utteranceId);
+        var utterance = queryMapper.findPlayableApprovedUtterance(
+                contentId, approvedUtteranceId, CONTENT_REFRESH_EPOCH);
+        if (utterance == null) {
+            throw audioNotFound();
+        }
+        return synthesizeApproved(contentId, approvedUtteranceId, utterance.englishText());
+    }
+
+    private GeneratedUtteranceAudio synthesizeApproved(
             String generatedContentId,
             String utteranceId,
             String approvedEnglishText

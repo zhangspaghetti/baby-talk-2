@@ -264,7 +264,7 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
                         '指向水。', '慢一点说。', 'Warm water.', '水暖暖的。', 'warm water', 'starter', 'fake', 'generating',
                         'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
                         'evidence-policy-v1', repeat('c', 64), 'routing-policy-v1', repeat('d', 64),
-                        3, 1, 1, null, null, now(), now() + interval '5 minutes', null, now(), now()
+                        3, 2, 1, null, null, now(), now() + interval '5 minutes', null, now(), now()
                     )
                     """, CONTENT_ID, accountId);
             insertUtterance(STARTER_UTTERANCE_ID, "starter", null, 1);
@@ -329,7 +329,7 @@ class GeneratedUtteranceAudioHttpIntegrationTest extends AbstractIntegrationTest
                         'bath time', '指向水。', '慢一点说。', 'Warm water.', '水暖暖的。', 'warm water', 'starter', 'fake', 'generating',
                         'generation-profile-v1', repeat('a', 64), 'rubric-v1', repeat('b', 64),
                         'evidence-policy-v1', repeat('c', 64), 'routing-policy-v1', repeat('d', 64),
-                        3, 1, 1, null, null, now(), now() + interval '5 minutes', null, now(), now()
+                        3, 2, 1, null, null, now(), now() + interval '5 minutes', null, now(), now()
                     )
                     """, PROFILE_CONTENT_ID, ownerAccountId, PROFILE_ID);
             insertUtterance(PROFILE_CONTENT_ID, PROFILE_STARTER_UTTERANCE_ID, "starter", null, 1);

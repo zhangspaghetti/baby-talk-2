@@ -110,16 +110,27 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
   String? _completedMomentKey;
   String? _confirmedGeneratedContentId;
   int _startGeneration = 0;
+  CareAudioPlaybackController? _careAudioController;
 
   @override
   void initState() {
     super.initState();
+    if (widget.audioControllerFactory == null) {
+      _careAudioController = _createCareAudioController();
+    }
     _scheduleStartMoment();
   }
 
   @override
   void didUpdateWidget(covariant _PracticeSessionBody oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.audioControllerFactory == null &&
+        widget.audioControllerFactory != null) {
+      _careAudioController = null;
+    } else if (oldWidget.audioControllerFactory != null &&
+        widget.audioControllerFactory == null) {
+      _careAudioController = _createCareAudioController();
+    }
     if (_routeScopeKey(
           oldWidget.routeEntry,
           fallbackArgs: oldWidget.genericFallbackArgs,
@@ -280,18 +291,21 @@ class _PracticeSessionBodyState extends ConsumerState<_PracticeSessionBody> {
     return CareTurnSurface(
       notifier: notifier,
       audioControllerFactory: widget.audioControllerFactory,
+      careAudioController: _careAudioController,
       playbackPolicy: playbackPolicy,
-      careAudioControllerFactory: widget.audioControllerFactory == null
-          ? () => SourceNeutralCareAudioPlaybackController(
-              generatedAudioRepository: ref.read(
-                generatedAudioRepositoryProvider,
-              ),
-            )
-          : null,
+      careAudioSessionCoordinator: ref.watch(
+        careAudioSessionCoordinatorProvider,
+      ),
       onQuietExit: onboardingArgs == null
           ? () => Navigator.of(context).maybePop()
           : () => context.go(AppRouteNames.shell),
       title: widget.genericFallbackArgs == null ? null : '通用内容',
+    );
+  }
+
+  CareAudioPlaybackController _createCareAudioController() {
+    return SourceNeutralCareAudioPlaybackController(
+      generatedAudioRepository: ref.read(generatedAudioRepositoryProvider),
     );
   }
 

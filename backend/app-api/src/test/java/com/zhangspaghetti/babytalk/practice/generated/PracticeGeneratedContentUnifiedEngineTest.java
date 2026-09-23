@@ -74,7 +74,7 @@ class PracticeGeneratedContentUnifiedEngineTest {
         var cached = new AtomicReference<PracticeGeneratedContentEntity>();
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenAnswer(invocation -> cached.get());
-        when(queries.findApprovedUtterances(any()))
+        when(queries.findApprovedUtterances(any(), anyInt()))
                 .thenAnswer(invocation -> completeApprovedUtterances(invocation.getArgument(0, String.class)));
         when(commands.reserveDraft(any(), any())).thenAnswer(invocation ->
                 new DraftReservation(invocation.getArgument(0, PracticeGeneratedContentEntity.class), true));

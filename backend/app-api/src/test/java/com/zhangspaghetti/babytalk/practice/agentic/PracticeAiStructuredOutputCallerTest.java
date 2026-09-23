@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -122,6 +123,33 @@ class PracticeAiStructuredOutputCallerTest {
         assertThat(capturedSchemas).hasSize(2);
         capturedSchemas.forEach(schema -> assertThat(schema)
                 .contains("\"title\":\"declared-refiner-applied\""));
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void callRawAppliesPerCallTransportDeadline() {
+        var timeout = new AtomicReference<Duration>();
+        var chatClient = mock(ChatClient.class);
+        var request = mock(ChatClient.ChatClientRequestSpec.class);
+        var callResponse = mock(ChatClient.CallResponseSpec.class);
+        var response = mock(ChatResponse.class, RETURNS_DEEP_STUBS);
+        when(chatClient.prompt()).thenReturn(request);
+        doAnswer(invocation -> {
+            ChatOptions.Builder<?> optionsBuilder = invocation.getArgument(0);
+            timeout.set(((OpenAiChatOptions) optionsBuilder.build()).getTimeout());
+            return request;
+        }).when(request).options(any(ChatOptions.Builder.class));
+        when(request.system(any(String.class))).thenReturn(request);
+        when(request.user(any(String.class))).thenReturn(request);
+        when(request.call()).thenReturn(callResponse);
+        when(callResponse.chatResponse()).thenReturn(response);
+        when(response.getResult().getOutput().getText()).thenReturn("{\"answer\":\"ok\"}");
+
+        new PracticeAiStructuredOutputCaller().callRaw(
+                new ResolvedProvider("provider", "openai", "model", chatClient),
+                "system", "user", Answer.class, Duration.ofSeconds(3));
+
+        assertThat(timeout).hasValue(Duration.ofSeconds(3));
     }
 
     @Test

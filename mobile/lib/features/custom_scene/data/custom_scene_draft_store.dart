@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_stored_draft.dart';
+import 'package:mobile/features/scene_generation/domain/generated_care_moment.dart';
 import 'package:path_provider/path_provider.dart';
 
 typedef CustomSceneDraftDirectoryResolver = Future<Directory> Function();
@@ -77,8 +78,9 @@ class CustomSceneDraftStore {
       final draft = _decodeStoredDraft(decoded);
       if (!draft.expiresAt.isAfter(now.toUtc())) {
         await _deleteFilesBestEffort(file);
-        return const CustomSceneDraftReadResult(
+        return CustomSceneDraftReadResult(
           status: CustomSceneDraftReadStatus.expired,
+          draft: draft,
         );
       }
       return CustomSceneDraftReadResult(
@@ -131,6 +133,29 @@ class CustomSceneDraftStore {
     });
   }
 
+  /// Deletes only the exact request snapshot that the caller owns. This keeps
+  /// a late terminal callback from deleting a newer account's draft.
+  Future<void> deleteIfMatches({
+    required String draftId,
+    required String clientRequestId,
+    required String? expectedAccountContext,
+    required DateTime now,
+  }) {
+    return _enqueueMutation(() async {
+      final result = await _readResult(now: now.toUtc());
+      final stored = result.draft;
+      if (result.status != CustomSceneDraftReadStatus.available ||
+          stored == null ||
+          stored.draftId != draftId ||
+          stored.requestIdentity.clientRequestId != clientRequestId ||
+          stored.expectedAccountContext != expectedAccountContext) {
+        return;
+      }
+      final file = await _resolveFile();
+      await _deleteFiles(file);
+    });
+  }
+
   Future<T> _enqueueMutation<T>(Future<T> Function() mutation) {
     final running = _mutationTail.then((_) => mutation());
     _mutationTail = running.then<void>((_) {}, onError: (_, _) {});
@@ -170,7 +195,7 @@ class CustomSceneDraftStoreException implements Exception {
 }
 
 Map<String, Object?> _encodeStoredDraft(CustomSceneStoredDraft draft) {
-  return <String, Object?>{
+  final encoded = <String, Object?>{
     'schemaVersion': 1,
     'draftId': draft.draftId,
     'text': draft.text,
@@ -182,10 +207,16 @@ Map<String, Object?> _encodeStoredDraft(CustomSceneStoredDraft draft) {
     'createdAt': draft.createdAt.toUtc().toIso8601String(),
     'expiresAt': draft.expiresAt.toUtc().toIso8601String(),
   };
+  if (draft.state == CustomSceneStoredDraftState.approvedPendingRegistration ||
+      draft.state == CustomSceneStoredDraftState.readyForHandoff) {
+    encoded['safetyPolicyVersion'] = draft.safetyPolicyVersion;
+    encoded['contentRefreshEpoch'] = draft.contentRefreshEpoch;
+  }
+  return encoded;
 }
 
 CustomSceneStoredDraft _decodeStoredDraft(Map<String, dynamic> json) {
-  _requireExactKeys(json, const <String>{
+  _requireDraftKeys(json, const <String>{
     'schemaVersion',
     'draftId',
     'text',
@@ -200,6 +231,21 @@ CustomSceneStoredDraft _decodeStoredDraft(Map<String, dynamic> json) {
   if (_requiredInt(json, 'schemaVersion') != 1) {
     throw const FormatException('unsupported custom scene draft schema');
   }
+  final state = _stateFromWire(_requiredString(json, 'state'));
+  final safetyPolicyVersion = _optionalString(json, 'safetyPolicyVersion');
+  final contentRefreshEpoch = _optionalInt(json, 'contentRefreshEpoch');
+  final generatedState =
+      state == CustomSceneStoredDraftState.approvedPendingRegistration ||
+      state == CustomSceneStoredDraftState.readyForHandoff;
+  if (generatedState &&
+      (safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+          contentRefreshEpoch != generatedCareMomentContentRefreshEpoch)) {
+    throw const FormatException('unsupported generated draft provenance');
+  }
+  if (!generatedState &&
+      (safetyPolicyVersion != null || contentRefreshEpoch != null)) {
+    throw const FormatException('unexpected generated draft provenance');
+  }
   return CustomSceneStoredDraft(
     draftId: _requiredString(json, 'draftId'),
     text: _requiredString(json, 'text'),
@@ -209,12 +255,26 @@ CustomSceneStoredDraft _decodeStoredDraft(Map<String, dynamic> json) {
     requestIdentity: CustomSceneRequestIdentity(
       clientRequestId: _requiredString(json, 'clientRequestId'),
     ),
-    state: _stateFromWire(_requiredString(json, 'state')),
+    state: state,
     expectedAccountContext: _optionalString(json, 'expectedAccountContext'),
     registeredContentId: _optionalString(json, 'registeredContentId'),
+    safetyPolicyVersion: safetyPolicyVersion,
+    contentRefreshEpoch: contentRefreshEpoch,
     createdAt: _requiredDateTime(json, 'createdAt'),
     expiresAt: _requiredDateTime(json, 'expiresAt'),
   );
+}
+
+void _requireDraftKeys(Map<String, dynamic> json, Set<String> required) {
+  final actual = json.keys.toSet();
+  final allowed = <String>{
+    ...required,
+    'safetyPolicyVersion',
+    'contentRefreshEpoch',
+  };
+  if (!actual.containsAll(required) || !allowed.containsAll(actual)) {
+    throw const FormatException('invalid custom scene draft fields');
+  }
 }
 
 String _stateToWire(CustomSceneStoredDraftState state) => switch (state) {
@@ -244,13 +304,6 @@ CustomSceneStoredDraftState _stateFromWire(String value) => switch (value) {
   _ => throw const FormatException('unknown custom scene draft state'),
 };
 
-void _requireExactKeys(Map<String, dynamic> json, Set<String> expected) {
-  final actual = json.keys.toSet();
-  if (actual.length != expected.length || !actual.containsAll(expected)) {
-    throw const FormatException('invalid custom scene draft fields');
-  }
-}
-
 String _requiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.trim().isEmpty) {
@@ -267,6 +320,16 @@ String? _optionalString(Map<String, dynamic> json, String key) {
   }
   final normalized = value.trim();
   return normalized.isEmpty ? null : normalized;
+}
+
+int? _optionalInt(Map<String, dynamic> json, String key) {
+  if (!json.containsKey(key)) return null;
+  final value = json[key];
+  if (value == null) return null;
+  if (value is! int) {
+    throw const FormatException('invalid custom scene draft optional integer');
+  }
+  return value;
 }
 
 int _requiredInt(Map<String, dynamic> json, String key) {

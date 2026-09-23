@@ -87,6 +87,93 @@ void main() {
     );
   });
 
+  test('rejects a missing safety classifier route', () async {
+    final root = await _createFixture(
+      productionValues: _productionValues.replaceFirst(
+        '  custom-scene-safety-classifier: [dashscope-qwen]\n',
+        '  custom-scene-safety-classifier: []\n',
+      ),
+    );
+    addTearDown(() => root.delete(recursive: true));
+
+    final report = verifier.scanCustomSceneProductionReleaseGate(
+      projectRoot: root.path,
+    );
+
+    expect(report.passes, isFalse);
+    expect(
+      report.violations.map((value) => value.rule),
+      contains('production_helm_profile'),
+    );
+  });
+
+  test('rejects a safety classifier route without a providers map', () async {
+    final root = await _createFixture(
+      productionValues: _productionValues.replaceFirst(
+        RegExp(r'  providers:\n    dashscope-qwen:\n(?:      .*\n)+'),
+        '  providers: {}\n',
+      ),
+    );
+    addTearDown(() => root.delete(recursive: true));
+
+    final report = verifier.scanCustomSceneProductionReleaseGate(
+      projectRoot: root.path,
+    );
+
+    expect(report.passes, isFalse);
+    expect(
+      report.violations.map((value) => value.rule),
+      contains('production_safety_provider'),
+    );
+  });
+
+  test(
+    'rejects a safety classifier route that names an unknown provider',
+    () async {
+      final root = await _createFixture(
+        productionValues: _productionValues.replaceFirst(
+          '[dashscope-qwen]\n  secret:',
+          '[missing-provider]\n  secret:',
+        ),
+      );
+      addTearDown(() => root.delete(recursive: true));
+
+      final report = verifier.scanCustomSceneProductionReleaseGate(
+        projectRoot: root.path,
+      );
+
+      expect(report.passes, isFalse);
+      expect(
+        report.violations.map((value) => value.detail),
+        contains(
+          'production safety classifier route must reference a defined provider',
+        ),
+      );
+    },
+  );
+
+  test('rejects an invalid safety classifier provider definition', () async {
+    final root = await _createFixture(
+      productionValues: _productionValues.replaceFirst(
+        '      type: openai-compatible',
+        '      type: unsupported-provider',
+      ),
+    );
+    addTearDown(() => root.delete(recursive: true));
+
+    final report = verifier.scanCustomSceneProductionReleaseGate(
+      projectRoot: root.path,
+    );
+
+    expect(report.passes, isFalse);
+    expect(
+      report.violations.map((value) => value.detail),
+      contains(
+        'production safety classifier provider must use openai-compatible type',
+      ),
+    );
+  });
+
   test('rejects runtime template that disables agentic custom scene', () async {
     final root = await _createFixture(
       practiceAiTemplate: _practiceAiTemplate.replaceFirst(
@@ -182,11 +269,16 @@ practiceAi:
   providers:
     dashscope-qwen:
       type: openai-compatible
+      baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+      apiKeyEnvironmentVariable: BABY_TALK_AI_PROVIDER_DASHSCOPE_QWEN_API_KEY
       model: qwen3.6-flash
+      timeout: 120s
+      maxTokens: 8192
   capabilities:
     custom-scene-generator: [dashscope-qwen]
     custom-scene-quality-judge: [dashscope-qwen]
     custom-scene-repair: [dashscope-qwen]
+    custom-scene-safety-classifier: [dashscope-qwen]
   secret:
     existingSecret: babytalk-practice-ai
     rolloutVersion: "1"

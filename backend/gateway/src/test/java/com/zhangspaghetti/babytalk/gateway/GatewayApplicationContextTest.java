@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
+import org.springframework.cloud.gateway.config.GatewayProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -33,6 +34,9 @@ class GatewayApplicationContextTest {
     private RouteDefinitionLocator routeDefinitionLocator;
 
     @Autowired
+    private GatewayProperties gatewayProperties;
+
+    @Autowired
     private ReactiveRedisConnectionFactory redisConnectionFactory;
 
     @Autowired
@@ -42,6 +46,8 @@ class GatewayApplicationContextTest {
     void fullGatewayContextStartsWithSecurityRedisAndAdminRoute() {
         assertThat(applicationContext).isNotNull();
         assertThat(securityWebFilterChain).isNotNull();
+        assertThat(gatewayProperties.getDefaultFilters())
+                .anySatisfy(filter -> assertThat(filter.getName()).isEqualTo("RequestRateLimiter"));
         assertThat(redisConnectionFactory).isInstanceOf(LettuceConnectionFactory.class);
         var lettuceConnectionFactory = (LettuceConnectionFactory) redisConnectionFactory;
         assertThat(lettuceConnectionFactory.getStandaloneConfiguration().getHostName())
@@ -51,13 +57,24 @@ class GatewayApplicationContextTest {
         var routes = routeDefinitionLocator.getRouteDefinitions()
                 .collectList()
                 .block(Duration.ofSeconds(5));
-        assertThat(routes).isNotNull().anySatisfy(route -> {
-            assertThat(route.getId()).isEqualTo("admin-api");
-            assertThat(route.getUri()).isEqualTo(URI.create("http://localhost:8081"));
-            assertThat(route.getPredicates()).singleElement().satisfies(predicate -> {
-                assertThat(predicate.getName()).isEqualTo("Path");
-                assertThat(predicate.getArgs()).containsValue("/api/admin/**");
-            });
-        });
+        assertThat(routes).isNotNull()
+                .filteredOn(route -> "admin-api".equals(route.getId()))
+                .singleElement()
+                .satisfies(route -> {
+                    assertThat(route.getUri()).isEqualTo(URI.create("http://localhost:8081"));
+                    assertThat(route.getPredicates()).singleElement().satisfies(predicate -> {
+                        assertThat(predicate.getName()).isEqualTo("Path");
+                        assertThat(predicate.getArgs()).containsValue("/api/admin/**");
+                    });
+                });
+        assertThat(routes).filteredOn(route -> "app-api-consumer".equals(route.getId()))
+                .singleElement()
+                .satisfies(route -> {
+                    assertThat(route.getUri()).isEqualTo(URI.create("http://localhost:8080"));
+                    assertThat(route.getPredicates()).singleElement().satisfies(predicate -> {
+                        assertThat(predicate.getName()).isEqualTo("Path");
+                        assertThat(predicate.getArgs()).containsValues("/api/v1/**", "/api/v2/**");
+                    });
+                });
     }
 }

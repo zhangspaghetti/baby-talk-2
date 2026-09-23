@@ -110,6 +110,57 @@ public class MentorService {
                     ? summarizeResponse(responseText)
                     : trimSummary(providerResponse.responseSummary());
 
+            if (providerResponse.safetyShortCircuit()) {
+                var safetyRequestSummary = healthSafetyRequestSummary(phase1Result);
+                var safetyResponseSummary = "health_safety_template";
+                transactionTemplate.execute(status -> {
+                    repository.insertTurn(turnRow(
+                            phase1Result.effectiveCorrelationId(),
+                            phase1Result.installationId(),
+                            phase1Result.association(),
+                            phase1Result.surface(),
+                            phase1Result.mode(),
+                            "fallback",
+                            "health_safety",
+                            safetyRequestSummary,
+                            safetyResponseSummary,
+                            responseText,
+                            false,
+                            true,
+                            phase1Result.now()
+                    ));
+                    repository.insertAudit(auditRow(
+                            phase1Result.effectiveCorrelationId(),
+                            phase1Result.installationId(),
+                            phase1Result.association(),
+                            "health_safety_fallback",
+                            "health_safety",
+                            "fallback",
+                            safetyRequestSummary,
+                            safetyResponseSummary,
+                            "health_safety_policy_triggered",
+                            "health_safety",
+                            false,
+                            false,
+                            phase1Result.now()
+                    ));
+                    return null;
+                });
+
+                return new ChatResponse(
+                        phase1Result.effectiveCorrelationId(),
+                        phase1Result.conversationId(),
+                        responseText,
+                        "health_safety",
+                        "health_safety",
+                        false,
+                        true,
+                        phase1Result.association().authenticated(),
+                        new RateLimitStatus(false, properties.rateLimitMaxRequests(), phase1Result.remaining(), properties.rateLimitWindow().toSeconds()),
+                        phase1Result.now()
+                );
+            }
+
             // === 阶段 3：新事务 — 写 turn + response audit ===
             transactionTemplate.execute(status -> {
                 repository.insertTurn(turnRow(
@@ -1085,6 +1136,11 @@ public class MentorService {
                 "surface=%s;mode=%s;prompt.len=%d;prompt.preview=%s;context.present=%s;context.len=%d"
                         .formatted(surface, mode, prompt.length(), preview, contextLength > 0, contextLength)
         );
+    }
+
+    private String healthSafetyRequestSummary(Phase1Result phase1Result) {
+        return trimSummary("surface=%s;mode=%s;prompt=redacted"
+                .formatted(phase1Result.surface(), phase1Result.mode()));
     }
 
     private String buildPracticeUserPrompt(int babyAgeMonths, String sceneTag) {

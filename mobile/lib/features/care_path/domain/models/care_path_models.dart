@@ -45,12 +45,16 @@ class GeneratedCareAudioSource extends CareAudioSource {
   const GeneratedCareAudioSource({
     required this.generatedContentId,
     required this.utteranceId,
+    required this.safetyPolicyVersion,
+    required this.contentRefreshEpoch,
     this.voiceVersion = 'generated-tts-v1',
     this.format = 'mp3',
   });
 
   final String generatedContentId;
   final String utteranceId;
+  final String safetyPolicyVersion;
+  final int contentRefreshEpoch;
   final String voiceVersion;
   final String format;
 
@@ -59,13 +63,21 @@ class GeneratedCareAudioSource extends CareAudioSource {
     return other is GeneratedCareAudioSource &&
         other.generatedContentId == generatedContentId &&
         other.utteranceId == utteranceId &&
+        other.safetyPolicyVersion == safetyPolicyVersion &&
+        other.contentRefreshEpoch == contentRefreshEpoch &&
         other.voiceVersion == voiceVersion &&
         other.format == format;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(generatedContentId, utteranceId, voiceVersion, format);
+  int get hashCode => Object.hash(
+    generatedContentId,
+    utteranceId,
+    safetyPolicyVersion,
+    contentRefreshEpoch,
+    voiceVersion,
+    format,
+  );
 }
 
 class CareMoment {

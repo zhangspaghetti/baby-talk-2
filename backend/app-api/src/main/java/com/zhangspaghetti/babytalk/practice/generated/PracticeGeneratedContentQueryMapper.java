@@ -15,7 +15,8 @@ public interface PracticeGeneratedContentQueryMapper {
             @Param("generatedContentId") String generatedContentId);
 
     List<PracticeGeneratedContentUtteranceEntity> findApprovedUtterances(
-            @Param("generatedContentId") String generatedContentId);
+            @Param("generatedContentId") String generatedContentId,
+            @Param("contentRefreshEpoch") int contentRefreshEpoch);
 
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     PracticeGeneratedContentEntity findActiveAccessibleByAccountId(
@@ -29,15 +30,24 @@ public interface PracticeGeneratedContentQueryMapper {
 
     PracticeGeneratedContentUtteranceEntity findPlayableApprovedUtterance(
             @Param("generatedContentId") String generatedContentId,
-            @Param("utteranceId") String utteranceId);
+            @Param("utteranceId") String utteranceId,
+            @Param("contentRefreshEpoch") int contentRefreshEpoch);
 
     @Options(flushCache = Options.FlushCachePolicy.TRUE)
     PracticeGeneratedContentUtteranceEntity findPlayableAccessibleActiveBundleUtterance(
             @Param("generatedContentId") String generatedContentId,
             @Param("utteranceId") String utteranceId,
-            @Param("accountId") String accountId);
+            @Param("accountId") String accountId,
+            @Param("contentRefreshEpoch") int contentRefreshEpoch);
 
     PracticeGeneratedContentEntity findByClientRequestId(
+            @Param("ownerScope") String ownerScope,
+            @Param("ownerKey") String ownerKey,
+            @Param("ownerKeyVersion") String ownerKeyVersion,
+            @Param("clientRequestId") String clientRequestId,
+            @Param("contentRefreshEpoch") int contentRefreshEpoch);
+
+    PracticeGeneratedContentEntity findByClientRequestIdAnyEpoch(
             @Param("ownerScope") String ownerScope,
             @Param("ownerKey") String ownerKey,
             @Param("ownerKeyVersion") String ownerKeyVersion,
@@ -55,6 +65,7 @@ public interface PracticeGeneratedContentQueryMapper {
     PracticeGeneratedContentEntity findActiveByGeneratedContentId(
             @Param("generatedContentId") String generatedContentId,
             @Param("ownerKeyVersion") String ownerKeyVersion,
+            @Param("contentRefreshEpoch") int contentRefreshEpoch,
             @Param("reusableAt") OffsetDateTime reusableAt);
 
     PracticeGeneratedContentEntity findActiveByFingerprint(

@@ -58,7 +58,6 @@ public final class SceneTextSecurityPolicy {
         return Stream.of(
                         policyProperties.piiMarkers(),
                         policyProperties.promptInjectionMarkers(),
-                        policyProperties.validatorMedicalLegal(),
                         policyProperties.validatorAdultViolentSexual())
                 .flatMap(java.util.Collection::stream)
                 .distinct()

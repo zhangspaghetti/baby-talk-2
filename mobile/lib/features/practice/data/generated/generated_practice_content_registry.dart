@@ -116,6 +116,8 @@ class GeneratedPracticeContentRegistry
         accountContext: normalizedAccountContext,
         householdScopeFingerprint: storedHouseholdScopeFingerprint,
         moment: moment,
+        safetyPolicyVersion: moment.safetyPolicyVersion,
+        contentRefreshEpoch: moment.contentRefreshEpoch,
       ),
     );
     // Low-priority metadata maintenance must not turn a successful registration
@@ -487,6 +489,8 @@ class GeneratedPracticeContentRegistry
       coachTip: moment.coachTip,
       contentSource: PracticeContentSource.generated,
       generatedContentId: moment.generatedContentId,
+      safetyPolicyVersion: moment.safetyPolicyVersion,
+      contentRefreshEpoch: moment.contentRefreshEpoch,
       inputSource: moment.inputSource,
       presetSceneId: moment.presetSceneId,
       presetSceneVersion: moment.presetSceneVersion,
@@ -531,6 +535,8 @@ class GeneratedPracticeContentRegistry
 
   void _validateMoment(GeneratedCareMoment moment) {
     if (moment.schemaVersion != generatedCareMomentSchemaVersion ||
+        moment.safetyPolicyVersion != generatedCareSafetyPolicyVersion ||
+        moment.contentRefreshEpoch != generatedCareMomentContentRefreshEpoch ||
         moment.source != 'generated' ||
         moment.generatedContentId.trim().isEmpty ||
         moment.spaceId.trim().isEmpty ||

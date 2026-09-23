@@ -56,7 +56,7 @@ class GeneratedUtteranceAudioServiceTest {
 
     @Test
     void synthesizesOnlyTheStoredApprovedEnglishForTheCurrentOwner() {
-        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner"))
+        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner", 2))
                 .thenReturn(utterance("Look at the bubbles."));
         when(speechSynthesisPort.synthesize(any()))
                 .thenReturn(new GeneratedAudioResponse(new byte[] {1, 2, 3}, "audio/mpeg", "generated-tts-v1"));
@@ -69,7 +69,7 @@ class GeneratedUtteranceAudioServiceTest {
         assertThat(request.getValue().generatedContentId()).isEqualTo("pgc_1");
         assertThat(request.getValue().utteranceId()).isEqualTo("utt_1");
         assertThat(request.getValue().approvedEnglishText()).isEqualTo("Look at the bubbles.");
-        verify(queryMapper, times(2)).findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner");
+        verify(queryMapper, times(2)).findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner", 2);
         verifyNoMoreInteractions(queryMapper);
     }
 
@@ -95,7 +95,7 @@ class GeneratedUtteranceAudioServiceTest {
 
     @Test
     void crossAccountOrInactiveContentIsIndistinguishableAndNeverCallsTheProvider() {
-        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_other", "utt_1", "acct_owner"))
+        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_other", "utt_1", "acct_owner", 2))
                 .thenReturn(null);
 
         assertThatThrownBy(() -> service.synthesize("pgc_other", "utt_1", "session_owner"))
@@ -111,7 +111,7 @@ class GeneratedUtteranceAudioServiceTest {
 
     @Test
     void utteranceMustBelongToTheActiveContentAndBeApprovedPlayable() {
-        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_other", "acct_owner"))
+        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_other", "acct_owner", 2))
                 .thenReturn(null);
 
         assertThatThrownBy(() -> service.synthesize("pgc_1", "utt_other", "session_owner"))
@@ -124,7 +124,7 @@ class GeneratedUtteranceAudioServiceTest {
     @ParameterizedTest
     @MethodSource("invalidProviderResponses")
     void rejectsEmptyOversizedOrWrongMimeProviderOutput(GeneratedAudioResponse invalidResponse) {
-        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner"))
+        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner", 2))
                 .thenReturn(utterance("Time for a cuddle."));
         when(speechSynthesisPort.synthesize(any()))
                 .thenReturn(invalidResponse);
@@ -145,7 +145,7 @@ class GeneratedUtteranceAudioServiceTest {
 
     @Test
     void providerTimeoutLeavesGeneratedContentUntouched() {
-        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner"))
+        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner", 2))
                 .thenReturn(utterance("Gentle hands."));
         when(speechSynthesisPort.synthesize(any()))
                 .thenThrow(GeneratedSpeechSynthesisException.timeout(new RuntimeException("timeout")));
@@ -159,13 +159,13 @@ class GeneratedUtteranceAudioServiceTest {
                     assertThat(contract.details()).containsEntry("retryable", true);
                 });
 
-        verify(queryMapper).findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner");
+        verify(queryMapper).findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner", 2);
         verifyNoMoreInteractions(queryMapper);
     }
 
     @Test
     void providerUnavailableLeavesGeneratedContentUntouched() {
-        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner"))
+        when(queryMapper.findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner", 2))
                 .thenReturn(utterance("Gentle hands."));
         when(speechSynthesisPort.synthesize(any()))
                 .thenThrow(GeneratedSpeechSynthesisException.unavailable(new RuntimeException("provider unavailable")));
@@ -179,7 +179,7 @@ class GeneratedUtteranceAudioServiceTest {
                     assertThat(contract.details()).containsEntry("retryable", true);
                 });
 
-        verify(queryMapper).findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner");
+        verify(queryMapper).findPlayableAccessibleActiveBundleUtterance("pgc_1", "utt_1", "acct_owner", 2);
         verifyNoMoreInteractions(queryMapper);
     }
 

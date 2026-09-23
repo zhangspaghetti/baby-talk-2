@@ -448,9 +448,9 @@ class LegacyPracticeCareAudioPlaybackController
   }
 
   @override
-  Future<void> stop() async {
+  Future<void> stop() {
     _activeSessionId = null;
-    await _delegate.stop();
+    return _delegate.stop();
   }
 
   @override
@@ -465,8 +465,10 @@ class LegacyPracticeCareAudioPlaybackController
   @override
   Future<void> dispose() async {
     _activeSessionId = null;
-    await _delegateCompletionSubscription.cancel();
+    final delegateSubscriptionCancellation = _delegateCompletionSubscription
+        .cancel();
     await _delegate.dispose();
+    unawaited(delegateSubscriptionCancellation);
     await _completions.close();
   }
 }

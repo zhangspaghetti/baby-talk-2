@@ -6,6 +6,7 @@ import 'package:mobile/app/theme/app_layout_constants.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/app/widgets/app_haptics.dart';
 import 'package:mobile/features/care_path/domain/models/care_path_models.dart';
+import 'package:mobile/features/care_path/application/care_audio_session_coordinator.dart';
 import 'package:mobile/features/care_path/presentation/care_audio_playback_controller.dart';
 import 'package:mobile/features/care_path/presentation/care_path_notifier.dart';
 import 'package:mobile/features/practice/presentation/practice_audio_controller.dart';
@@ -26,6 +27,8 @@ class CareTurnSurface extends StatefulWidget {
     required this.notifier,
     this.audioControllerFactory,
     this.careAudioControllerFactory,
+    this.careAudioController,
+    this.careAudioSessionCoordinator,
     this.playbackPolicy = CareTurnAudioPlaybackPolicy.disabled,
     this.onTraceReady,
     this.onTraceContinue,
@@ -45,6 +48,8 @@ class CareTurnSurface extends StatefulWidget {
   final CarePathNotifier notifier;
   final PracticeAudioController Function()? audioControllerFactory;
   final CareAudioPlaybackController Function()? careAudioControllerFactory;
+  final CareAudioPlaybackController? careAudioController;
+  final CareAudioSessionCoordinator? careAudioSessionCoordinator;
   final CareTurnAudioPlaybackPolicy playbackPolicy;
   final CareTurnTraceReady? onTraceReady;
   final VoidCallback? onTraceContinue;
@@ -66,6 +71,8 @@ class CareTurnSurface extends StatefulWidget {
 
 class _CareTurnSurfaceState extends State<CareTurnSurface> {
   CareAudioPlaybackController? _audioController;
+  Object? _audioOwnershipToken;
+  bool _audioOwnershipLost = false;
   StreamSubscription<CareAudioPlaybackCompletion>? _audioCompletionSubscription;
   bool _isPlayingAudio = false;
   bool _isAudioPaused = false;
@@ -76,10 +83,21 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   String? _pendingAudioKey;
   int? _playbackIntent;
   int _audioIntent = 0;
+  int _audioControllerGeneration = 0;
+  CareAudioPlaybackController Function()? _pendingAudioControllerFactory;
+  Object? _pendingAudioControllerIdentity;
+  CareAudioPlaybackController? _replacementSourceController;
+  StreamSubscription<CareAudioPlaybackCompletion>?
+  _replacementSourceCompletionSubscription;
+  bool _replacementTransitionRunning = false;
+  CareAudioSessionCoordinator? _replacementCoordinator;
+  int? _replacementCoordinatorGeneration;
   Future<bool>? _audioStopBarrier;
   bool _isAudioStopping = false;
   bool _audioStopFailed = false;
   String? _lastAutoPlayedAudioKey;
+  final Set<CareAudioPlaybackController> _invalidAudioControllers =
+      Set<CareAudioPlaybackController>.identity();
 
   @override
   void initState() {
@@ -94,6 +112,22 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   @override
   void didUpdateWidget(covariant CareTurnSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final coordinatorChanged = !identical(
+      oldWidget.careAudioSessionCoordinator,
+      widget.careAudioSessionCoordinator,
+    );
+    if (coordinatorChanged) {
+      _unregisterAudioOwnership(oldWidget.careAudioSessionCoordinator);
+    }
+    if (_audioControllerInputChanged(oldWidget)) {
+      _requestAudioControllerReplacement();
+    } else if (coordinatorChanged) {
+      if (_replacementSourceController != null ||
+          _pendingAudioControllerFactory != null) {
+        _trackReplacementCoordinator();
+      }
+      _registerAudioOwnership();
+    }
     final notifierChanged = !identical(oldWidget.notifier, widget.notifier);
     if (notifierChanged) {
       oldWidget.notifier.removeListener(_onNotifierChanged);
@@ -114,48 +148,398 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
   @override
   void dispose() {
     _audioIntent += 1;
+    _advanceAudioControllerGeneration();
+    _pendingAudioControllerFactory = null;
+    _pendingAudioControllerIdentity = null;
     _pendingAudioKey = null;
     _playbackIntent = null;
+    _isPlayingAudio = false;
+    _isAudioPaused = false;
+    _isAudioStopping = true;
+    _audioOwnershipLost = true;
+    _audioStopFailed = false;
     widget.notifier.removeListener(_onNotifierChanged);
-    _audioCompletionSubscription?.cancel();
-    unawaited(_audioController?.dispose());
+    final completionSubscription = _audioCompletionSubscription;
+    _audioCompletionSubscription = null;
+    final controller = _audioController;
+    _audioController = null;
+    final stopBarrier = _audioStopBarrier;
+    _unregisterAudioOwnership(widget.careAudioSessionCoordinator);
+    _removeReplacementCoordinatorListener();
+    if (_replacementSourceController == null) {
+      unawaited(
+        _disposeAudioControllerAfterStopBarrier(
+          controller,
+          completionSubscription,
+          stopBarrier,
+        ),
+      );
+    } else {
+      unawaited(completionSubscription?.cancel());
+    }
     super.dispose();
   }
 
   void _initializeAudioController() {
+    _attachAudioController(_buildAudioControllerFactory().call());
+  }
+
+  CareAudioPlaybackController Function() _buildAudioControllerFactory() {
+    final directController = widget.careAudioController;
+    if (directController != null) {
+      return () => directController;
+    }
     final careFactory = widget.careAudioControllerFactory;
     if (careFactory != null) {
-      _audioController = careFactory();
-    } else {
-      final factory =
-          widget.audioControllerFactory ??
-          AudioplayersPracticeAudioController.new;
-      _audioController = LegacyPracticeCareAudioPlaybackController(factory());
+      return careFactory;
     }
-    _audioCompletionSubscription = _audioController!.completionStream.listen((
-      completion,
-    ) {
-      final playbackIntent = _playbackIntent;
-      if (!mounted ||
-          _isAudioStopping ||
-          playbackIntent == null ||
-          completion.sessionId != playbackIntent ||
-          playbackIntent != _audioIntent ||
-          _pendingAudioKey == null ||
-          _pendingAudioKey != _activeAudioKey) {
-        return;
-      }
-      final l = AppLocalizations.of(context)!;
-      setState(() {
-        _isPlayingAudio = false;
-        _isAudioPaused = false;
-        _hasPlayedAudio = true;
-        _audioMessage = l.practiceAudioPlayedOnce;
-        _pendingAudioKey = null;
-        _playbackIntent = null;
-      });
+    final factory =
+        widget.audioControllerFactory ??
+        AudioplayersPracticeAudioController.new;
+    return () => LegacyPracticeCareAudioPlaybackController(factory());
+  }
+
+  void _attachAudioController(CareAudioPlaybackController controller) {
+    _audioController = controller;
+    _audioOwnershipLost = false;
+    _registerAudioOwnership();
+    _audioCompletionSubscription = controller.completionStream.listen(
+      _onAudioCompletion,
+    );
+  }
+
+  void _onAudioCompletion(CareAudioPlaybackCompletion completion) {
+    final playbackIntent = _playbackIntent;
+    if (!mounted ||
+        !_canUseAudio ||
+        _isAudioStopping ||
+        playbackIntent == null ||
+        completion.sessionId != playbackIntent ||
+        playbackIntent != _audioIntent ||
+        _pendingAudioKey == null ||
+        _pendingAudioKey != _activeAudioKey) {
+      return;
+    }
+    final l = AppLocalizations.of(context)!;
+    setState(() {
+      _isPlayingAudio = false;
+      _isAudioPaused = false;
+      _hasPlayedAudio = true;
+      _audioMessage = l.practiceAudioPlayedOnce;
+      _pendingAudioKey = null;
+      _playbackIntent = null;
     });
   }
+
+  bool _audioControllerInputChanged(CareTurnSurface oldWidget) {
+    if (!identical(oldWidget.careAudioController, widget.careAudioController)) {
+      return true;
+    }
+    final oldCareFactory = oldWidget.careAudioControllerFactory;
+    final careFactory = widget.careAudioControllerFactory;
+    if ((oldCareFactory == null) != (careFactory == null)) {
+      return true;
+    }
+    if (careFactory != null && !identical(oldCareFactory, careFactory)) {
+      return true;
+    }
+    final oldLegacyFactory = oldWidget.audioControllerFactory;
+    final legacyFactory = widget.audioControllerFactory;
+    if ((oldLegacyFactory == null) != (legacyFactory == null)) {
+      return true;
+    }
+    return careFactory == null &&
+        legacyFactory != null &&
+        !identical(oldLegacyFactory, legacyFactory);
+  }
+
+  void _requestAudioControllerReplacement() {
+    _pendingAudioControllerFactory = _buildAudioControllerFactory();
+    _pendingAudioControllerIdentity = _audioControllerInputIdentity();
+    _audioIntent += 1;
+    _advanceAudioControllerGeneration();
+    _pendingAudioKey = null;
+    _playbackIntent = null;
+    _isPlayingAudio = false;
+    _isAudioPaused = false;
+    _audioMessage = null;
+    _audioStopFailed = false;
+    _isAudioStopping = true;
+    _audioOwnershipLost = true;
+
+    if (_replacementSourceController == null) {
+      _replacementSourceController = _audioController;
+      _replacementSourceCompletionSubscription = _audioCompletionSubscription;
+      _audioController = null;
+      _audioCompletionSubscription = null;
+    }
+    _unregisterAudioOwnership(widget.careAudioSessionCoordinator);
+    _trackReplacementCoordinator();
+    _scheduleAudioControllerReplacement();
+  }
+
+  Object _audioControllerInputIdentity() {
+    final directController = widget.careAudioController;
+    if (directController != null) {
+      return directController;
+    }
+    final careFactory = widget.careAudioControllerFactory;
+    if (careFactory != null) {
+      return careFactory;
+    }
+    return widget.audioControllerFactory ??
+        AudioplayersPracticeAudioController.new;
+  }
+
+  void _scheduleAudioControllerReplacement() {
+    if (_replacementTransitionRunning) {
+      return;
+    }
+    _replacementTransitionRunning = true;
+    unawaited(_runAudioControllerReplacement());
+  }
+
+  Future<void> _runAudioControllerReplacement() async {
+    try {
+      // Let didUpdateWidget finish source-change cancellation before reading
+      // the barrier. This also coalesces synchronous A-B-C-B updates.
+      await Future<void>.value();
+      final source = _replacementSourceController;
+      if (source != null) {
+        await _awaitCurrentAudioStopBarrier();
+        await _stopAndDispose(source, _replacementSourceCompletionSubscription);
+        // A source change can enqueue its stop after transition started. Do
+        // not attach replacement until that newer stop has settled too.
+        await _awaitCurrentAudioStopBarrier();
+        _replacementSourceController = null;
+        _replacementSourceCompletionSubscription = null;
+      }
+
+      final replacementFactory = _pendingAudioControllerFactory;
+      final replacementIdentity = _pendingAudioControllerIdentity;
+      final generation = _audioControllerGeneration;
+      if (replacementFactory == null ||
+          !mounted ||
+          !_canAttachReplacement() ||
+          generation != _audioControllerGeneration ||
+          !identical(_pendingAudioControllerFactory, replacementFactory) ||
+          !identical(_pendingAudioControllerIdentity, replacementIdentity)) {
+        return;
+      }
+
+      final replacement = replacementFactory();
+      if (!mounted ||
+          !_canAttachReplacement() ||
+          generation != _audioControllerGeneration ||
+          !identical(_pendingAudioControllerFactory, replacementFactory) ||
+          !identical(_pendingAudioControllerIdentity, replacementIdentity) ||
+          _invalidAudioControllers.contains(replacement)) {
+        if (_invalidAudioControllers.contains(replacement)) {
+          _pendingAudioControllerFactory = null;
+          _pendingAudioControllerIdentity = null;
+        }
+        await _disposeReplacementController(replacement);
+        return;
+      }
+
+      _pendingAudioControllerFactory = null;
+      _pendingAudioControllerIdentity = null;
+      _removeReplacementCoordinatorListener();
+      _isAudioStopping = false;
+      _audioStopFailed = false;
+      _audioOwnershipLost = false;
+      _attachAudioController(replacement);
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (_) {
+      // Replacement cleanup and stale factories are best effort.
+    } finally {
+      _replacementTransitionRunning = false;
+      if (mounted &&
+          _replacementSourceController != null &&
+          _pendingAudioControllerFactory != null) {
+        _scheduleAudioControllerReplacement();
+      }
+    }
+  }
+
+  Future<void> _awaitCurrentAudioStopBarrier() async {
+    while (true) {
+      final barrier = _audioStopBarrier;
+      if (barrier == null) {
+        return;
+      }
+      await barrier;
+      if (identical(_audioStopBarrier, barrier)) {
+        _audioStopBarrier = null;
+        return;
+      }
+    }
+  }
+
+  Future<void> _stopAndDispose(
+    CareAudioPlaybackController? controller,
+    StreamSubscription<CareAudioPlaybackCompletion>? completionSubscription,
+  ) async {
+    unawaited(completionSubscription?.cancel());
+    if (controller == null) {
+      return;
+    }
+    try {
+      await controller.stop();
+    } catch (_) {
+      // Replacement continues to disposal after a failed stop.
+    }
+    try {
+      _invalidAudioControllers.add(controller);
+      await controller.dispose();
+    } catch (_) {
+      // Replacement must not block a newer owner.
+    }
+  }
+
+  Future<void> _disposeReplacementController(
+    CareAudioPlaybackController controller,
+  ) async {
+    if (!_invalidAudioControllers.add(controller)) {
+      return;
+    }
+    try {
+      await controller.dispose();
+    } catch (_) {
+      // Stale replacement is best-effort cleanup.
+    }
+  }
+
+  int _advanceAudioControllerGeneration() {
+    return ++_audioControllerGeneration;
+  }
+
+  Future<void> _disposeAudioController(
+    CareAudioPlaybackController? controller,
+    StreamSubscription<CareAudioPlaybackCompletion>? completionSubscription,
+  ) async {
+    unawaited(completionSubscription?.cancel());
+    if (controller != null && _invalidAudioControllers.add(controller)) {
+      await controller.dispose();
+    }
+  }
+
+  Future<void> _disposeAudioControllerAfterStopBarrier(
+    CareAudioPlaybackController? controller,
+    StreamSubscription<CareAudioPlaybackCompletion>? completionSubscription,
+    Future<bool>? stopBarrier,
+  ) async {
+    if (stopBarrier != null) {
+      try {
+        await stopBarrier;
+      } catch (_) {
+        // Disposal must continue after a failed source stop.
+      }
+      if (identical(_audioStopBarrier, stopBarrier)) {
+        _audioStopBarrier = null;
+      }
+    }
+    await _disposeAudioController(controller, completionSubscription);
+  }
+
+  void _registerAudioOwnership() {
+    final coordinator = widget.careAudioSessionCoordinator;
+    final controller = _audioController;
+    if (coordinator == null ||
+        controller == null ||
+        _audioOwnershipToken != null) {
+      if (coordinator == null) {
+        _audioOwnershipLost = false;
+      }
+      return;
+    }
+    _audioOwnershipLost = false;
+    _audioOwnershipToken = coordinator.register(controller);
+    coordinator.addListener(_onCoordinatorChanged);
+  }
+
+  void _unregisterAudioOwnership(CareAudioSessionCoordinator? coordinator) {
+    final token = _audioOwnershipToken;
+    if (coordinator == null || token == null) {
+      return;
+    }
+    _audioOwnershipToken = null;
+    coordinator.removeListener(_onCoordinatorChanged);
+    coordinator.unregister(token);
+  }
+
+  void _trackReplacementCoordinator() {
+    _removeReplacementCoordinatorListener();
+    final coordinator = widget.careAudioSessionCoordinator;
+    _replacementCoordinator = coordinator;
+    _replacementCoordinatorGeneration = coordinator?.generation;
+    coordinator?.addListener(_onCoordinatorChanged);
+  }
+
+  void _removeReplacementCoordinatorListener() {
+    _replacementCoordinator?.removeListener(_onCoordinatorChanged);
+    _replacementCoordinator = null;
+    _replacementCoordinatorGeneration = null;
+  }
+
+  bool _canAttachReplacement() {
+    final coordinator = widget.careAudioSessionCoordinator;
+    if (coordinator == null) {
+      return _replacementCoordinator == null;
+    }
+    return identical(_replacementCoordinator, coordinator) &&
+        _replacementCoordinatorGeneration == coordinator.generation;
+  }
+
+  void _onCoordinatorChanged() {
+    if (!mounted) {
+      return;
+    }
+    final replacementCoordinator = _replacementCoordinator;
+    if (replacementCoordinator != null &&
+        identical(replacementCoordinator, widget.careAudioSessionCoordinator) &&
+        _audioOwnershipToken == null) {
+      _audioIntent += 1;
+      _advanceAudioControllerGeneration();
+      _pendingAudioControllerFactory = null;
+      _pendingAudioControllerIdentity = null;
+      _pendingAudioKey = null;
+      _playbackIntent = null;
+      _isPlayingAudio = false;
+      _isAudioPaused = false;
+      _audioMessage = null;
+      _audioStopFailed = false;
+      _audioOwnershipLost = true;
+      setState(() {});
+      return;
+    }
+    if (_isCurrentAudioOwner) {
+      return;
+    }
+    _audioIntent += 1;
+    _advanceAudioControllerGeneration();
+    _pendingAudioControllerFactory = null;
+    _pendingAudioControllerIdentity = null;
+    _pendingAudioKey = null;
+    _playbackIntent = null;
+    _isPlayingAudio = false;
+    _isAudioPaused = false;
+    _audioMessage = null;
+    _audioStopFailed = false;
+    _audioOwnershipLost = true;
+    setState(() {});
+  }
+
+  bool get _isCurrentAudioOwner {
+    final coordinator = widget.careAudioSessionCoordinator;
+    final token = _audioOwnershipToken;
+    return coordinator == null ||
+        (token != null && coordinator.isCurrent(token));
+  }
+
+  bool get _canUseAudio => !_audioOwnershipLost && _isCurrentAudioOwner;
 
   void _onNotifierChanged() {
     if (!mounted) {
@@ -182,6 +566,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _isAudioStopping = true;
     _audioStopFailed = false;
     final previousBarrier = _audioStopBarrier;
+    final controller = _audioController ?? _replacementSourceController;
+    final stopIntent = _audioIntent;
     late final Future<bool> barrier;
     barrier = () async {
       if (previousBarrier != null) {
@@ -191,7 +577,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         }
       }
       try {
-        await _audioController?.stop();
+        await controller?.stop();
         return true;
       } on Object {
         return false;
@@ -200,7 +586,10 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _audioStopBarrier = barrier;
     unawaited(
       barrier.then((stopped) {
-        if (!mounted || !identical(_audioStopBarrier, barrier)) {
+        if (!mounted ||
+            !identical(_audioStopBarrier, barrier) ||
+            stopIntent != _audioIntent ||
+            !_canUseAudio) {
           return;
         }
         _audioStopBarrier = null;
@@ -253,6 +642,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     _lastAutoPlayedAudioKey = audioKey;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
+          !_canUseAudio ||
           _activeAudioKey != audioKey ||
           widget.notifier.snapshot?.phase != CareTurnPhase.utteranceReady ||
           !widget.playbackPolicy.autoPlayEnabled) {
@@ -273,7 +663,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     unawaited(
       controller.setPlaybackRate(widget.playbackPolicy.playbackRate).catchError(
         (_) {
-          if (mounted && intent == _audioIntent) {
+          if (mounted && intent == _audioIntent && _canUseAudio) {
             setState(() {
               _isPlayingAudio = false;
               _audioMessage = AppLocalizations.of(
@@ -290,6 +680,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     final controller = _audioController;
     if (controller == null ||
         !_isPlayingAudio ||
+        !_canUseAudio ||
         !controller.capabilities.canPauseAndResume) {
       return;
     }
@@ -305,14 +696,14 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     });
     try {
       await controller.pause();
-      if (!mounted || intent != _audioIntent) return;
+      if (!mounted || intent != _audioIntent || !_canUseAudio) return;
       setState(() {
         _isPlayingAudio = false;
         _isAudioPaused = true;
         _audioMessage = l.practiceAudioPausedInline;
       });
     } on Object {
-      if (mounted && intent == _audioIntent) {
+      if (mounted && intent == _audioIntent && _canUseAudio) {
         setState(() {
           _isPlayingAudio = false;
           _isAudioPaused = false;
@@ -328,6 +719,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     final controller = _audioController;
     if (controller == null ||
         !_isAudioPaused ||
+        !_canUseAudio ||
         !controller.capabilities.canPauseAndResume) {
       return;
     }
@@ -342,14 +734,14 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     });
     try {
       await controller.resume();
-      if (!mounted || intent != _audioIntent) return;
+      if (!mounted || intent != _audioIntent || !_canUseAudio) return;
       setState(() {
         _isPlayingAudio = true;
         _isAudioPaused = false;
         _audioMessage = l.practiceAudioPlayingInline;
       });
     } on Object {
-      if (mounted && intent == _audioIntent) {
+      if (mounted && intent == _audioIntent && _canUseAudio) {
         setState(() {
           _isAudioPaused = false;
           _audioMessage = AppLocalizations.of(
@@ -365,6 +757,9 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
     final l = AppLocalizations.of(context)!;
     final controller = _audioController;
     final source = _audioSource(utterance);
+    if (!_canUseAudio) {
+      return;
+    }
     if (controller == null || source == null) {
       setState(() {
         _audioMessage = l.practiceAudioMissingInline;
@@ -389,7 +784,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
       if (stopBarrier != null) {
         final stopped = await stopBarrier;
         if (!stopped) {
-          if (!mounted || intent != _audioIntent) {
+          if (!mounted || intent != _audioIntent || !_canUseAudio) {
             return;
           }
           setState(() {
@@ -401,6 +796,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         }
       }
       if (!mounted ||
+          !_canUseAudio ||
           intent != _audioIntent ||
           _pendingAudioKey != audioKey ||
           _activeAudioKey != audioKey) {
@@ -414,6 +810,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         ),
       );
       if (!mounted ||
+          !_canUseAudio ||
           intent != _audioIntent ||
           !_isPlayingAudio ||
           _pendingAudioKey != audioKey ||
@@ -425,7 +822,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
         _playbackIntent = intent;
       });
     } catch (_) {
-      if (!mounted || intent != _audioIntent) {
+      if (!mounted || intent != _audioIntent || !_canUseAudio) {
         return;
       }
       setState(() {
@@ -685,6 +1082,7 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                                   ),
                                   button: true,
                                   enabled:
+                                      _canUseAudio &&
                                       !_isPlayingAudio &&
                                       !_isAudioPaused &&
                                       !_isAudioStopping &&
@@ -695,7 +1093,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                                   child: OutlinedButton.icon(
                                     key: const Key('care-turn-listen-once'),
                                     onPressed:
-                                        _isPlayingAudio ||
+                                        !_canUseAudio ||
+                                            _isPlayingAudio ||
                                             _isAudioPaused ||
                                             _isAudioStopping ||
                                             _audioStopFailed
@@ -715,7 +1114,8 @@ class _CareTurnSurfaceState extends State<CareTurnSurface> {
                                   ),
                                 ),
                               ),
-                              if ((_isPlayingAudio || _isAudioPaused) &&
+                              if (_canUseAudio &&
+                                  (_isPlayingAudio || _isAudioPaused) &&
                                   (_audioController
                                           ?.capabilities
                                           .canPauseAndResume ??

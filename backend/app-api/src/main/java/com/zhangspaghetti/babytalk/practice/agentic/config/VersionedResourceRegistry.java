@@ -1,5 +1,6 @@
 package com.zhangspaghetti.babytalk.practice.agentic.config;
 
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -26,6 +28,10 @@ public class VersionedResourceRegistry {
 
     private static final String RESOURCE_PREFIX = "config/practice-ai/";
     private static final String DEFAULT_PROFILE = "classpath:config/practice-ai/profiles/custom-scene-generation-v7.yml";
+    private static final String DEFAULT_VERSION_LOCK = "classpath:config/practice-ai/version-lock.yml";
+    private static final String HEALTH_SAFETY_POLICY_VERSION = "health-safety-v1";
+    private static final String HEALTH_SAFETY_POLICY_PATH = "config/practice-health-safety-v1.yml";
+    private static final String VERSION_LOCK_SCHEMA = "practice-ai-version-lock-schema-v1";
     private static final String RUBRIC_SCHEMA = "judge-rubric-schema-v1";
     private static final String EVIDENCE_POLICY_SCHEMA = "evidence-policy-schema-v1";
     private static final String BASELINE_EVIDENCE_SCHEMA = "baseline-evidence-schema-v1";
@@ -49,17 +55,49 @@ public class VersionedResourceRegistry {
     private final MinimumEvidencePolicy minimumEvidencePolicy;
     private final List<BaselineEvidenceDefinition> baselineEvidence;
     private final Map<PromptKind, String> prompts;
+    private final Map<PromptKind, VersionedRef> promptRefs;
+    private final String healthSafetyPolicyHash;
 
     public VersionedResourceRegistry(ResourceLoader resourceLoader) {
-        this(resourceLoader, DEFAULT_PROFILE);
+        this(resourceLoader, DEFAULT_PROFILE, CustomSceneSafetyProperties.defaults(), DEFAULT_VERSION_LOCK);
+    }
+
+    public VersionedResourceRegistry(ResourceLoader resourceLoader, String profilePath) {
+        this(resourceLoader, profilePath, CustomSceneSafetyProperties.defaults(), DEFAULT_VERSION_LOCK);
     }
 
     @Autowired
     public VersionedResourceRegistry(
             ResourceLoader resourceLoader,
-            @Value("${babytalk.practice.agentic.versioned-resources.profile:" + DEFAULT_PROFILE + "}") String profilePath
+            @Value("${babytalk.practice.agentic.versioned-resources.profile:" + DEFAULT_PROFILE + "}") String profilePath,
+            ObjectProvider<CustomSceneSafetyProperties> safetyPropertiesProvider,
+            @Value("${babytalk.practice.agentic.versioned-resources.lock:" + DEFAULT_VERSION_LOCK + "}")
+            String versionLockPath
+    ) {
+        this(
+                resourceLoader,
+                profilePath,
+                safetyPropertiesProvider.getIfAvailable(CustomSceneSafetyProperties::defaults),
+                versionLockPath);
+    }
+
+    public VersionedResourceRegistry(
+            ResourceLoader resourceLoader,
+            String profilePath,
+            CustomSceneSafetyProperties safetyProperties
+    ) {
+        this(resourceLoader, profilePath, safetyProperties, DEFAULT_VERSION_LOCK);
+    }
+
+    public VersionedResourceRegistry(
+            ResourceLoader resourceLoader,
+            String profilePath,
+            CustomSceneSafetyProperties safetyProperties,
+            String versionLockPath
     ) {
         this.resourceLoader = Objects.requireNonNull(resourceLoader, "resourceLoader");
+        Objects.requireNonNull(safetyProperties, "safetyProperties");
+        Objects.requireNonNull(versionLockPath, "versionLockPath");
         var profileResource = requiredResource(profilePath);
         var profileDocument = yamlDocument(profileResource);
         var profileSchema = ProfileSchema.fromWireValue(
@@ -69,6 +107,9 @@ public class VersionedResourceRegistry {
         var generatorPrompt = promptRef(profileDocument, "generator-prompt");
         var judgePrompt = promptRef(profileDocument, "judge-prompt");
         var repairPrompt = promptRef(profileDocument, "repair-prompt");
+        var classifierPrompt = classifierPromptRef(safetyProperties);
+        verifyVersionLock(classifierPrompt, versionLockPath);
+        var lockedHealthSafetyPolicyHash = verifyHealthSafetyPolicy(safetyProperties, versionLockPath);
         var rubricRef = yamlRef(profileDocument, "rubric");
         var evidencePolicyRef = yamlRef(profileDocument, "evidence-policy");
         var baselineEvidenceRef = yamlRef(profileDocument, "baseline-evidence");
@@ -76,7 +117,14 @@ public class VersionedResourceRegistry {
         this.prompts = Map.of(
                 PromptKind.GENERATOR, promptText(generatorPrompt),
                 PromptKind.JUDGE, promptText(judgePrompt),
-                PromptKind.REPAIR, promptText(repairPrompt));
+                PromptKind.REPAIR, promptText(repairPrompt),
+                PromptKind.SAFETY_CLASSIFIER, promptText(classifierPrompt));
+        this.promptRefs = Map.of(
+                PromptKind.GENERATOR, generatorPrompt,
+                PromptKind.JUDGE, judgePrompt,
+                PromptKind.REPAIR, repairPrompt,
+                PromptKind.SAFETY_CLASSIFIER, classifierPrompt);
+        this.healthSafetyPolicyHash = lockedHealthSafetyPolicyHash;
         this.qualityRubric = readRubric(rubricRef);
         this.minimumEvidencePolicy = readEvidencePolicy(evidencePolicyRef);
         this.baselineEvidence = readBaselineEvidence(baselineEvidenceRef);
@@ -137,11 +185,121 @@ public class VersionedResourceRegistry {
         return prompt;
     }
 
+    public VersionedRef promptRef(PromptKind kind) {
+        var prompt = promptRefs.get(kind);
+        if (prompt == null) {
+            throw new IllegalArgumentException("unknown prompt kind");
+        }
+        return prompt;
+    }
+
+    public String healthSafetyPolicyHash() {
+        return healthSafetyPolicyHash;
+    }
+
     private VersionedRef promptRef(Map<String, Object> profile, String key) {
         var ref = profileRef(profile, key);
         var fileVersion = filenameVersion(ref.resourcePath(), ".txt");
         requireEquals(ref.version(), fileVersion, "version mismatch for " + key);
         return ref;
+    }
+
+    private VersionedRef classifierPromptRef(CustomSceneSafetyProperties safetyProperties) {
+        var declared = safetyProperties.classifierPrompt();
+        if (declared == null
+                || !declared.resourcePath().startsWith(RESOURCE_PREFIX)
+                || !declared.resourcePath().endsWith(".txt")) {
+            throw new IllegalStateException("version mismatch for classifier prompt");
+        }
+        var fileVersion = filenameVersion(declared.resourcePath(), ".txt");
+        requireEquals(declared.version(), fileVersion, "version mismatch for classifier prompt");
+        var content = normalizePrompt(resourceText(
+                requiredResource("classpath:" + declared.resourcePath())));
+        return new VersionedRef(
+                declared.version(),
+                hash(content.getBytes(StandardCharsets.UTF_8)),
+                declared.resourcePath());
+    }
+
+    private void verifyVersionLock(VersionedRef ref, String versionLockPath) {
+        var lock = yamlDocument(requiredResource(versionLockPath));
+        requireEquals(
+                VERSION_LOCK_SCHEMA,
+                string(lock, "schema-version", "version lock schema"),
+                "version lock schema");
+        var matches = new ArrayList<Map<String, Object>>();
+        for (var value : list(lock.get("resources"), "version lock resources")) {
+            var entry = map(value, "version lock resource");
+            if (ref.version().equals(entry.get("version"))
+                    || ref.resourcePath().equals(entry.get("resource-path"))) {
+                matches.add(entry);
+            }
+        }
+        if (matches.size() != 1) {
+            throw new IllegalStateException("missing or duplicate version lock for classifier prompt");
+        }
+        var entry = matches.get(0);
+        requireLockEquals(ref.version(), string(entry, "version", "classifier prompt lock"), "version");
+        requireLockEquals(
+                ref.resourcePath(), string(entry, "resource-path", "classifier prompt lock"), "path");
+        requireLockEquals(
+                ref.contentHash(), string(entry, "content-hash", "classifier prompt lock"), "hash");
+    }
+
+    private String verifyHealthSafetyPolicy(
+            CustomSceneSafetyProperties safetyProperties,
+            String versionLockPath
+    ) {
+        if (!HEALTH_SAFETY_POLICY_VERSION.equals(safetyProperties.policyVersion())) {
+            throw new IllegalStateException("health safety policy version mismatch");
+        }
+        var policyDocument = yamlDocument(requiredResource("classpath:" + HEALTH_SAFETY_POLICY_PATH));
+        var babytalk = map(policyDocument.get("babytalk"), "health safety policy");
+        var practice = map(babytalk.get("practice"), "health safety policy");
+        var declared = map(practice.get("health-safety"), "health safety policy");
+        requireEquals(
+                HEALTH_SAFETY_POLICY_VERSION,
+                string(declared, "policy-version", "health safety policy"),
+                "health safety policy version mismatch");
+
+        var lock = yamlDocument(requiredResource(versionLockPath));
+        requireEquals(
+                VERSION_LOCK_SCHEMA,
+                string(lock, "schema-version", "version lock schema"),
+                "version lock schema");
+        var matches = new ArrayList<Map<String, Object>>();
+        for (var value : list(lock.get("resources"), "version lock resources")) {
+            var entry = map(value, "version lock resource");
+            if (HEALTH_SAFETY_POLICY_VERSION.equals(entry.get("version"))
+                    || HEALTH_SAFETY_POLICY_PATH.equals(entry.get("resource-path"))) {
+                matches.add(entry);
+            }
+        }
+        if (matches.size() != 1) {
+            throw new IllegalStateException("missing or duplicate version lock for health safety policy");
+        }
+        var entry = matches.get(0);
+        requireHealthSafetyLockEquals(
+                HEALTH_SAFETY_POLICY_VERSION,
+                string(entry, "version", "health safety policy lock"),
+                "health safety policy version");
+        requireHealthSafetyLockEquals(
+                HEALTH_SAFETY_POLICY_PATH,
+                string(entry, "resource-path", "health safety policy lock"),
+                "health safety policy path");
+        var expectedHash = string(entry, "content-hash", "health safety policy lock");
+        if (!expectedHash.matches("[0-9a-f]{64}")) {
+            throw new IllegalStateException("health safety policy lock hash is invalid");
+        }
+        requireHealthSafetyLockEquals(
+                safetyProperties.lockedContentHash(),
+                expectedHash,
+                "hash");
+        requireHealthSafetyLockEquals(
+                safetyProperties.contentHash(),
+                expectedHash,
+                "hash");
+        return expectedHash;
     }
 
     private VersionedRef yamlRef(Map<String, Object> profile, String key) {
@@ -331,6 +489,18 @@ public class VersionedResourceRegistry {
         }
     }
 
+    private static void requireLockEquals(String expected, String actual, String field) {
+        if (!expected.equals(actual)) {
+            throw new IllegalStateException("classifier prompt lock " + field + " mismatch");
+        }
+    }
+
+    private static void requireHealthSafetyLockEquals(String expected, String actual, String field) {
+        if (!expected.equals(actual)) {
+            throw new IllegalStateException("health safety policy lock " + field + " mismatch");
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> map(Object value, String context) {
         if (!(value instanceof Map<?, ?> map)) {
@@ -423,7 +593,8 @@ public class VersionedResourceRegistry {
     public enum PromptKind {
         GENERATOR,
         JUDGE,
-        REPAIR
+        REPAIR,
+        SAFETY_CLASSIFIER
     }
 
     private enum ProfileSchema {

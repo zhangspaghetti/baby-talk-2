@@ -10,13 +10,27 @@ void main() {
     mimeType: 'audio/mpeg',
     voiceVersion: 'generated-tts-v1',
   );
-  GeneratedAudioCacheKey key(String value) => GeneratedAudioCacheKey(
+  GeneratedAudioCacheKey key(
+    String value, {
+    String policy = 'health-safety-v1',
+    int epoch = 2,
+  }) => GeneratedAudioCacheKey(
     accountId: 'acct_1',
     generatedContentId: 'content_$value',
     utteranceId: 'utterance_$value',
     voiceVersion: 'generated-tts-v1',
     format: 'mp3',
+    safetyPolicyVersion: policy,
+    contentRefreshEpoch: epoch,
   );
+
+  test('cache key separates generated content epochs', () {
+    expect(key('same', epoch: 1), isNot(key('same', epoch: 2)));
+    expect(
+      key('same', policy: 'health-safety-v0'),
+      isNot(key('same', policy: 'health-safety-v1')),
+    );
+  });
 
   test('same key shares one in-flight request', () async {
     final cache = GeneratedAudioMemoryCache();

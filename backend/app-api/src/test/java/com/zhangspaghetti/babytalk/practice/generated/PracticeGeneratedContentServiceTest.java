@@ -54,7 +54,7 @@ class PracticeGeneratedContentServiceTest {
                 .when(commands.startGeneration(any(), any(), anyInt(), any()))
                 .thenReturn(GenerationStartDecision.STARTED);
         org.mockito.Mockito.lenient()
-                .when(queries.findApprovedUtterances(any()))
+                .when(queries.findApprovedUtterances(any(), anyInt()))
                 .thenAnswer(invocation -> completeApprovedUtterances(invocation.getArgument(0, String.class)));
     }
 
@@ -183,7 +183,7 @@ class PracticeGeneratedContentServiceTest {
                 .map(method -> method.getName()))
                 .doesNotContain("findLatestLiveByFingerprint");
         verify(queries).findLiveByFingerprint(
-                any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.eq(1));
+                any(), any(), any(), any(), any(), any(), org.mockito.ArgumentMatchers.eq(2));
         verify(commands).reserveDraft(draftCaptor.capture(), any());
         var draft = draftCaptor.getValue();
         var ownerProperties = ownerProperties("test-owner-key-secret-test-owner-key");

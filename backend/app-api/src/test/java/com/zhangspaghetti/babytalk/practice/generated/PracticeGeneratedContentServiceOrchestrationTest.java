@@ -116,7 +116,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         active.setOwnerScope("account");
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(active);
-        when(queries.findApprovedUtterances("pgc_supported_active"))
+        when(queries.findApprovedUtterances("pgc_supported_active", 2))
                 .thenReturn(completeApprovedUtterances("pgc_supported_active"));
 
         var service = orchestratedService(queries, commands, orchestrator);
@@ -132,11 +132,11 @@ class PracticeGeneratedContentServiceOrchestrationTest {
                         "2026-W36", registry.currentGenerationProfile().version(),
                         registry.currentGenerationProfile().generatorPrompt().version(),
                         registry.currentGenerationProfile().strategyVersion(),
-                        registry.qualityRubric().version(), registry.minimumEvidencePolicy().version(), 1));
+                        registry.qualityRubric().version(), registry.minimumEvidencePolicy().version(), 2));
         verify(queries).findLiveByFingerprint(
                 eq(keyFactory.ownerKey("profile", "acct_test:profile_test")), eq("owner-v1"),
                 eq("care_path"), eq("scene_generation"), eq(expectedFingerprint),
-                eq("custom-scene-generation-v7"), eq(1));
+                eq("custom-scene-generation-v7"), eq(2));
         verify(orchestrator, never()).execute(any());
         verify(commands, never()).reserveDraft(any(), any());
     }
@@ -149,7 +149,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var legacy = active("pgc_legacy_reuse");
         when(queries.findLiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt()))
                 .thenReturn(legacy);
-        when(queries.findApprovedUtterances("pgc_legacy_reuse")).thenReturn(List.of());
+        when(queries.findApprovedUtterances("pgc_legacy_reuse", 2)).thenReturn(List.of());
         var service = orchestratedService(queries, commands, orchestrator);
 
         assertThatThrownBy(() -> service.generateScene(request()))
@@ -171,8 +171,8 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         var queries = mock(PracticeGeneratedContentQueryMapper.class);
         var commands = mock(PracticeGeneratedContentCommands.class);
         var legacy = active("pgc_legacy_read");
-        when(queries.findActiveByGeneratedContentId(eq("pgc_legacy_read"), any(), any())).thenReturn(legacy);
-        when(queries.findApprovedUtterances("pgc_legacy_read")).thenReturn(List.of());
+        when(queries.findActiveByGeneratedContentId(eq("pgc_legacy_read"), any(), anyInt(), any())).thenReturn(legacy);
+        when(queries.findApprovedUtterances("pgc_legacy_read", 2)).thenReturn(List.of());
         var service = orchestratedService(queries, commands, mock(SceneGenerationOrchestrator.class));
 
         assertThatThrownBy(() -> service.findActiveOrPromotedByGeneratedContentId("pgc_legacy_read"))
@@ -235,7 +235,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         winner.setGenerationProfileVersion(registry.currentGenerationProfile().version());
         when(queries.findActiveByFingerprint(any(), any(), any(), any(), any(), any(), anyInt(), any()))
                 .thenReturn(winner);
-        when(queries.findApprovedUtterances("pgc_activation_winner"))
+        when(queries.findApprovedUtterances("pgc_activation_winner", 2))
                 .thenReturn(completeApprovedUtterances("pgc_activation_winner"));
 
         var policy = PracticeDiscoveryPolicyTestFixture.properties();
@@ -266,7 +266,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         assertThat(registry.currentGenerationProfile().version()).isNotEqualTo("legacy-prompt");
         verify(queries).findActiveByFingerprint(
                 any(), eq("owner-v1"), eq("care_path"), eq("scene_generation"), any(),
-                eq(registry.currentGenerationProfile().version()), eq(1), any());
+                eq(registry.currentGenerationProfile().version()), eq(2), any());
     }
 
     @Test
@@ -393,6 +393,7 @@ class PracticeGeneratedContentServiceOrchestrationTest {
         active.setGeneratedContentId(generatedContentId);
         active.setStatus("active");
         active.setOwnerScope("account");
+        active.setContentRefreshEpoch(2);
         return active;
     }
 

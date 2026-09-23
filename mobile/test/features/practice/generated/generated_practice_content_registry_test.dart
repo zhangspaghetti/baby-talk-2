@@ -157,6 +157,73 @@ void main() {
     );
 
     test(
+      'generated storage records policy and refresh epoch provenance',
+      () async {
+        final moment = _moment('generated_provenance');
+
+        await registry.register(accountContext: accountContext, moment: moment);
+
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+        );
+        final root =
+            jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        final record =
+            (root['records'] as List<dynamic>).single as Map<String, dynamic>;
+        expect(record['safetyPolicyVersion'], generatedCareSafetyPolicyVersion);
+        expect(
+          record['contentRefreshEpoch'],
+          generatedCareMomentContentRefreshEpoch,
+        );
+        expect(
+          (await store.readAll()).single.safetyPolicyVersion,
+          generatedCareSafetyPolicyVersion,
+        );
+        expect(
+          (await store.readAll()).single.contentRefreshEpoch,
+          generatedCareMomentContentRefreshEpoch,
+        );
+      },
+    );
+
+    test(
+      'missing or stale generated provenance is quarantined before lookup',
+      () async {
+        final mutations = <void Function(Map<String, dynamic>)>[
+          (record) => record.remove('safetyPolicyVersion'),
+          (record) => record['safetyPolicyVersion'] = 'health-safety-v0',
+          (record) => record.remove('contentRefreshEpoch'),
+          (record) => record['contentRefreshEpoch'] = 1,
+        ];
+        for (var index = 0; index < mutations.length; index++) {
+          final contentId = 'generated_bad_provenance_$index';
+          await store.clearForLifecycle();
+          await registry.register(
+            accountContext: accountContext,
+            moment: _moment(contentId),
+          );
+          final file = File(
+            '${tempDir.path}${Platform.pathSeparator}${store.fileName}',
+          );
+          final root =
+              jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+          mutations[index](
+            (root['records'] as List<dynamic>).single as Map<String, dynamic>,
+          );
+          await file.writeAsString(jsonEncode(root));
+
+          expect(
+            await registry.resolveGeneratedContent(
+              generatedContentId: contentId,
+            ),
+            isNull,
+          );
+          expect(await store.readAll(), isEmpty);
+        }
+      },
+    );
+
+    test(
       'persists preset source metadata while keeping both sources resolvable',
       () async {
         final custom = _moment('custom_round_trip');
@@ -1854,6 +1921,8 @@ void main() {
           GeneratedCareAudioSource(
             generatedContentId: moment.generatedContentId,
             utteranceId: moment.starter.utteranceId,
+            safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+            contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
           ),
         );
         expect(
@@ -1962,6 +2031,8 @@ void main() {
             GeneratedCareAudioSource(
               generatedContentId: moment.generatedContentId,
               utteranceId: expectedSupport.utteranceId,
+              safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+              contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
             ),
           );
           expect(
@@ -1969,6 +2040,8 @@ void main() {
             GeneratedCareAudioSource(
               generatedContentId: moment.generatedContentId,
               utteranceId: expectedSupport.utteranceId,
+              safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+              contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
             ),
           );
           expect(recorded.nextSupportUtterance, isNull);
@@ -2028,6 +2101,8 @@ void main() {
           GeneratedCareAudioSource(
             generatedContentId: lostMoment.generatedContentId,
             utteranceId: hesitantSupport.utteranceId,
+            safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+            contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
           ),
         );
         expect(reconciledAfterLostResponse.nextSupportUtterance, isNull);
@@ -2159,6 +2234,8 @@ void main() {
           GeneratedCareAudioSource(
             generatedContentId: first.generatedContentId,
             utteranceId: hesitantSupport.utteranceId,
+            safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+            contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
           ),
         );
         expect(restored.nextSupportUtterance, isNull);

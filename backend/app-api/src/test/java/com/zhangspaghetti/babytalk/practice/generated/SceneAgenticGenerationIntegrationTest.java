@@ -450,7 +450,7 @@ class SceneAgenticGenerationIntegrationTest extends AbstractIntegrationTest {
                     "update household_members set status = 'revoked' where household_id = ? and account_id = ?",
                     invite.householdId(), caregiver.accountId())).isEqualTo(1);
             assertThat(generatedContentQueryMapper.findPlayableAccessibleActiveBundleUtterance(
-                    generatedContentId, starterUtteranceId, caregiver.accountId())).isNull();
+                    generatedContentId, starterUtteranceId, caregiver.accountId(), 2)).isNull();
             releaseSpeech();
 
             var revoked = audioRequest.get(20, TimeUnit.SECONDS).getResponse();

@@ -8,6 +8,11 @@ import com.zhangspaghetti.babytalk.palace.PalaceToolProvider;
 import com.zhangspaghetti.babytalk.palace.QueryTrace;
 import com.zhangspaghetti.babytalk.palace.RetrievalRequest;
 import com.zhangspaghetti.babytalk.palace.RetrievalResult;
+import com.zhangspaghetti.babytalk.practice.discovery.SceneTextCanonicalizer;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyDecision;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyProperties;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.CustomSceneSafetyPolicy;
+import com.zhangspaghetti.babytalk.practice.discovery.safety.HealthSafetyTemplateRegistry;
 import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +45,9 @@ public class SpringAiMentorProvider implements MentorProvider {
     private final MentorProperties properties;
     private final PalaceToolProvider palaceToolProvider;
     private final PalaceHybridRetrievalService palaceHybridRetrievalService;
+    private final CustomSceneSafetyPolicy customSceneSafetyPolicy;
+    private final SceneTextCanonicalizer sceneTextCanonicalizer;
+    private final HealthSafetyTemplateRegistry safetyTemplateRegistry;
 
     /**
      * 完整构造函数：支持 agentic/rag/none 三模式。
@@ -52,10 +60,23 @@ public class SpringAiMentorProvider implements MentorProvider {
     public SpringAiMentorProvider(ChatClient chatClient, MentorProperties properties,
                                    PalaceToolProvider palaceToolProvider,
                                    PalaceHybridRetrievalService palaceHybridRetrievalService) {
+        this(chatClient, properties, palaceToolProvider, palaceHybridRetrievalService, null);
+    }
+
+    /**
+     * Full constructor with the shared health safety gate used by agentic search.
+     */
+    public SpringAiMentorProvider(ChatClient chatClient, MentorProperties properties,
+                                   PalaceToolProvider palaceToolProvider,
+                                   PalaceHybridRetrievalService palaceHybridRetrievalService,
+                                   CustomSceneSafetyPolicy customSceneSafetyPolicy) {
         this.chatClient = chatClient;
         this.properties = properties;
         this.palaceToolProvider = palaceToolProvider;
         this.palaceHybridRetrievalService = palaceHybridRetrievalService;
+        this.customSceneSafetyPolicy = customSceneSafetyPolicy;
+        this.sceneTextCanonicalizer = new SceneTextCanonicalizer();
+        this.safetyTemplateRegistry = new HealthSafetyTemplateRegistry();
     }
 
     /**
@@ -68,6 +89,10 @@ public class SpringAiMentorProvider implements MentorProvider {
     @Override
     public ProviderResponse respond(ProviderRequest request) {
         String searchMode = properties.effectiveSearchMode();
+        var safetyResponse = assessHealthSafety(searchMode, request);
+        if (safetyResponse != null) {
+            return safetyResponse;
+        }
         List<String> preRetrievedEvidence = preRetrieveEvidence(searchMode, request);
         String systemPrompt = MemPalacePromptBuilder.buildSystemPrompt(searchMode, preRetrievedEvidence);
 
@@ -86,6 +111,68 @@ public class SpringAiMentorProvider implements MentorProvider {
 
         var trimmed = trimToMax(content, properties.responseMaxLength());
         return new ProviderResponse(trimmed, summarize(trimmed));
+    }
+
+    private ProviderResponse assessHealthSafety(String searchMode, ProviderRequest request) {
+        if (!"agentic".equals(searchMode) || customSceneSafetyPolicy == null) {
+            return null;
+        }
+
+        final CustomSceneSafetyDecision decision;
+        try {
+            decision = customSceneSafetyPolicy.assess(
+                    sceneTextCanonicalizer.derive(request.prompt()),
+                    mentorAgeRange(request.childAgeMonths()));
+        } catch (RuntimeException failure) {
+            return fixedSafetyResponse(safetyTemplateRegistry.template("health-assessment-unavailable-v1"));
+        }
+        if (decision != null
+                && decision.resultType() == CustomSceneSafetyDecision.ResultType.GENERATED_SCENE) {
+            return null;
+        }
+        var template = decision == null ? null : decision.template();
+        if (template == null && decision != null && decision.assessment() != null) {
+            try {
+                template = safetyTemplateRegistry.template(decision.assessment().templateId());
+            } catch (RuntimeException ignored) {
+                // Fall through to the reviewed unavailable template.
+            }
+        }
+        if (template == null) {
+            template = safetyTemplateRegistry.template("health-assessment-unavailable-v1");
+        }
+        return fixedSafetyResponse(template);
+    }
+
+    private ProviderResponse fixedSafetyResponse(
+            CustomSceneSafetyProperties.Template template
+    ) {
+        return new ProviderResponse(template.messageZh(), summarize(template.messageZh()), true);
+    }
+
+    private String mentorAgeRange(Integer childAgeMonths) {
+        if (childAgeMonths == null || childAgeMonths < 0) {
+            return "unknown";
+        }
+        if (childAgeMonths <= 3) {
+            return "m0_3";
+        }
+        if (childAgeMonths <= 6) {
+            return "m4_6";
+        }
+        if (childAgeMonths <= 11) {
+            return "m7_11";
+        }
+        if (childAgeMonths <= 17) {
+            return "m12_17";
+        }
+        if (childAgeMonths <= 23) {
+            return "m18_23";
+        }
+        if (childAgeMonths <= 30) {
+            return "m24_30";
+        }
+        return "m31_36";
     }
 
     /**

@@ -596,6 +596,8 @@ class _LifecycleHarness {
         utteranceId: 'lifecycle_utterance_starter',
         voiceVersion: 'generated-tts-v1',
         format: 'mp3',
+        safetyPolicyVersion: 'health-safety-v1',
+        contentRefreshEpoch: 2,
       ),
       () async => GeneratedAudioPayload(
         bytes: Uint8List.fromList(<int>[1]),
@@ -698,6 +700,8 @@ GeneratedCareMoment _generatedLifecycleMoment() {
 
   return GeneratedCareMoment(
     schemaVersion: generatedCareMomentSchemaVersion,
+    safetyPolicyVersion: generatedCareSafetyPolicyVersion,
+    contentRefreshEpoch: generatedCareMomentContentRefreshEpoch,
     generatedContentId: 'lifecycle_generated_content',
     sceneId: 'lifecycle_scene',
     spaceId: 'lifecycle_space',

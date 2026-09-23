@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app/theme/app_theme.dart';
 import 'package:mobile/features/custom_scene/domain/custom_scene_draft.dart';
-import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
+import 'package:mobile/features/custom_scene/domain/custom_scene_result.dart';
 import 'package:mobile/features/custom_scene/presentation/custom_scene_entry.dart';
+import 'package:mobile/features/custom_scene/presentation/custom_scene_input_screen.dart';
+import 'package:mobile/features/custom_scene/application/custom_scene_feature_flag.dart';
 import 'package:mobile/features/practice/domain/models/practice_activity_catalog.dart';
 import 'package:mobile/features/shell/presentation/screens/discover_screen.dart';
 import 'package:mobile/l10n/app_localizations.dart';
@@ -287,6 +289,44 @@ void main() {
       expect(find.byKey(const Key('custom-scene-entry-scene')), findsOneWidget);
     },
   );
+
+  testWidgets('health safety panel exposes only Chinese exit actions', (
+    tester,
+  ) async {
+    var closeCount = 0;
+    var editCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.build(),
+        home: Scaffold(
+          body: CustomSceneHealthSafetyPanel(
+            notice: const HealthSafetyNotice(
+              action: 'seek_medical_help',
+              templateId: 'health-concern-v1',
+              policyVersion: 'health-safety-v1',
+              locale: 'zh-CN',
+              titleZh: '先关注宝宝的身体状况',
+              messageZh: '请联系儿科医生进行评估。',
+            ),
+            onClose: () => closeCount += 1,
+            onEdit: () => editCount += 1,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('先关注宝宝的身体状况'), findsOneWidget);
+    expect(find.textContaining('请联系儿科医生进行评估'), findsOneWidget);
+    expect(find.text('关闭'), findsOneWidget);
+    expect(find.text('修改描述'), findsOneWidget);
+    expect(find.text('帮我准备一句'), findsNothing);
+    expect(find.textContaining('Warm water'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('custom-scene-health-close')));
+    await tester.tap(find.byKey(const Key('custom-scene-health-edit')));
+    expect(closeCount, 1);
+    expect(editCount, 1);
+  });
 }
 
 PracticeActivityCatalog _catalog() {

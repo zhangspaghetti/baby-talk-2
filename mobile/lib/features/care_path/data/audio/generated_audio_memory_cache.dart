@@ -30,17 +30,25 @@ class GeneratedAudioCacheKey {
     required String utteranceId,
     required String voiceVersion,
     required String format,
+    required String safetyPolicyVersion,
+    required this.contentRefreshEpoch,
   }) : accountId = _required(accountId, 'accountId'),
        generatedContentId = _required(generatedContentId, 'generatedContentId'),
        utteranceId = _required(utteranceId, 'utteranceId'),
        voiceVersion = _required(voiceVersion, 'voiceVersion'),
-       format = _required(format, 'format');
+       format = _required(format, 'format'),
+       safetyPolicyVersion = _required(
+         safetyPolicyVersion,
+         'safetyPolicyVersion',
+       );
 
   final String accountId;
   final String generatedContentId;
   final String utteranceId;
   final String voiceVersion;
   final String format;
+  final String safetyPolicyVersion;
+  final int contentRefreshEpoch;
 
   @override
   bool operator ==(Object other) {
@@ -49,7 +57,9 @@ class GeneratedAudioCacheKey {
         other.generatedContentId == generatedContentId &&
         other.utteranceId == utteranceId &&
         other.voiceVersion == voiceVersion &&
-        other.format == format;
+        other.format == format &&
+        other.safetyPolicyVersion == safetyPolicyVersion &&
+        other.contentRefreshEpoch == contentRefreshEpoch;
   }
 
   @override
@@ -59,6 +69,8 @@ class GeneratedAudioCacheKey {
     utteranceId,
     voiceVersion,
     format,
+    safetyPolicyVersion,
+    contentRefreshEpoch,
   );
 }
 

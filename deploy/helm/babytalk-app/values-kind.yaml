@@ -53,6 +53,11 @@ dbMigration:
 practiceAi:
   providerMode: fake
   springProfilesActive: dev
+  capabilities:
+    custom-scene-generator: []
+    custom-scene-quality-judge: []
+    custom-scene-repair: []
+    custom-scene-safety-classifier: []
 
 config:
   BABY_TALK_REDIS_HOST: babytalk-infra-redis-master
